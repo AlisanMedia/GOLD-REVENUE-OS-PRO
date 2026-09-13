@@ -99,7 +99,7 @@ jobs:
           } >"$RUNNER_TEMP/staging-supabase-validation.txt"
       - name: Upload Supabase staging evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: staging-supabase-validation-evidence
           path: ${{ runner.temp }}/staging-supabase-validation.txt
@@ -188,7 +188,7 @@ jobs:
           } >"$RUNNER_TEMP/staging-vercel-validation.txt"
       - name: Upload Vercel staging evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: staging-vercel-validation-evidence
           path: ${{ runner.temp }}/staging-vercel-validation.txt
