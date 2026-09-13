@@ -7,6 +7,11 @@ on:
         description: Full commit SHA whose Application and Database checks passed
         required: true
         type: string
+      run_vercel:
+        description: Run Vercel staging only after Supabase validation succeeds
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -17,8 +22,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  staging:
-    name: Supabase and Vercel staging
+  staging_supabase:
+    name: Supabase staging validation
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: staging
@@ -29,9 +34,6 @@ jobs:
       SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
       SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
       SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
-      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - name: Enforce successful CI gate
         env:
@@ -69,8 +71,7 @@ jobs:
           set -euo pipefail
           for key in \
             SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD STAGING_SUPABASE_PROJECT_ID \
-            SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY \
-            VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY; do
             test -n "${!key:-}" || { echo "Missing staging secret: $key"; exit 1; }
           done
       - name: Link isolated staging database
@@ -83,6 +84,73 @@ jobs:
         run: supabase db lint --linked --level error --fail-on error
       - name: Run staging authentication smoke test
         run: pnpm --filter @gold-revenue-os/web auth:smoke
+      - name: Write validation evidence
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "commit=${{ inputs.validated_commit_sha }}"
+            echo "ci_gate=Application:success,Database:success"
+            echo "supabase_project=${STAGING_SUPABASE_PROJECT_ID}"
+            echo "migration_push=completed-or-step-failed"
+            echo "migration_list=completed-or-step-failed"
+            echo "database_lint=completed-or-step-failed"
+            echo "auth_smoke=completed-or-step-failed"
+          } >"$RUNNER_TEMP/staging-supabase-validation.txt"
+      - name: Upload Supabase staging evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-supabase-validation-evidence
+          path: ${{ runner.temp }}/staging-supabase-validation.txt
+          retention-days: 14
+
+  staging_vercel:
+    name: Vercel staging validation
+    if: ${{ inputs.run_vercel == true && needs.staging_supabase.result == 'success' }}
+    needs: staging_supabase
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Enforce successful CI gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VALIDATED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')
+          test "$VALIDATED_SHA" = "$main_sha"
+          application=$(gh api "repos/$GITHUB_REPOSITORY/commits/$VALIDATED_SHA/check-runs" \
+            --jq '.check_runs[] | select(.name == "Application") | .conclusion' | head -n 1)
+          database=$(gh api "repos/$GITHUB_REPOSITORY/commits/$VALIDATED_SHA/check-runs" \
+            --jq '.check_runs[] | select(.name == "Database") | .conclusion' | head -n 1)
+          test "$application" = "success"
+          test "$database" = "success"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.validated_commit_sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Validate required Vercel secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            test -n "${!key:-}" || { echo "Missing staging secret: $key"; exit 1; }
+          done
       - name: Pull isolated Vercel staging configuration
         run: pnpm dlx vercel@59.16.0 pull --yes --environment=preview --token="$VERCEL_TOKEN"
       - name: Build staging deployment
@@ -107,7 +175,7 @@ jobs:
           curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health/ready" | grep -q '"status":"ready"'
           admin_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$DEPLOYMENT_URL/admin")
           test "$admin_status" = "307" -o "$admin_status" = "302" -o "$admin_status" = "303"
-      - name: Write validation evidence
+      - name: Write Vercel validation evidence
         if: always()
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
@@ -115,13 +183,14 @@ jobs:
         run: |
           {
             echo "commit=${{ inputs.validated_commit_sha }}"
-            echo "ci_gate=Application:success,Database:success"
+            echo "supabase_gate=success"
             echo "deployment_url=${DEPLOYMENT_URL:-not-created}"
-          } >"$RUNNER_TEMP/staging-validation.txt"
-      - name: Upload staging evidence
+          } >"$RUNNER_TEMP/staging-vercel-validation.txt"
+      - name: Upload Vercel staging evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: staging-validation-evidence
-          path: ${{ runner.temp }}/staging-validation.txt
+          name: staging-vercel-validation-evidence
+          path: ${{ runner.temp }}/staging-vercel-validation.txt
           retention-days: 14
+
