@@ -1,0 +1,31 @@
+{
+  "name": "Gold Revenue OS Codex Build Pack",
+  "version": "1.0.0",
+  "recommended_start": "CODEX_MASTER_PROMPT.md",
+  "first_phase": "Phase 0 — Repo Audit & ADR",
+  "pilot_sequence": [
+    10,
+    25,
+    50,
+    100
+  ],
+  "files": [
+    ".env.example",
+    "ADMIN_PANEL.md",
+    "ADR_001_CORE_PRINCIPLES.md",
+    "AGENTS.md",
+    "API_CONTRACTS.md",
+    "ARCHITECTURE.md",
+    "CODEX_MASTER_PROMPT.md",
+    "CONVERSATION_ENGINE.md",
+    "DATABASE_SCHEMA.sql",
+    "ESCALATION_ENGINE.md",
+    "EVENT_CATALOG.yaml",
+    "IMPLEMENTATION_ROADMAP.md",
+    "README.md",
+    "SECURITY_COMPLIANCE.md",
+    "STATE_MACHINE.md",
+    "SYSTEM_SPEC.md",
+    "TEST_PLAN.md"
+  ]
+}

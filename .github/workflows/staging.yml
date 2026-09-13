@@ -1,0 +1,127 @@
+name: Staging Validation
+
+on:
+  workflow_dispatch:
+    inputs:
+      validated_commit_sha:
+        description: Full commit SHA whose Application and Database checks passed
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: staging-validation
+  cancel-in-progress: false
+
+jobs:
+  staging:
+    name: Supabase and Vercel staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: staging
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+      STAGING_SUPABASE_PROJECT_ID: ${{ secrets.STAGING_SUPABASE_PROJECT_ID }}
+      SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Enforce successful CI gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VALIDATED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')
+          test "$VALIDATED_SHA" = "$main_sha"
+          application=$(gh api "repos/$GITHUB_REPOSITORY/commits/$VALIDATED_SHA/check-runs" \
+            --jq '.check_runs[] | select(.name == "Application") | .conclusion' | head -n 1)
+          database=$(gh api "repos/$GITHUB_REPOSITORY/commits/$VALIDATED_SHA/check-runs" \
+            --jq '.check_runs[] | select(.name == "Database") | .conclusion' | head -n 1)
+          test "$application" = "success"
+          test "$database" = "success"
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.validated_commit_sha }}
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Validate required staging secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in \
+            SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD STAGING_SUPABASE_PROJECT_ID \
+            SUPABASE_URL SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY \
+            VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+            test -n "${!key:-}" || { echo "Missing staging secret: $key"; exit 1; }
+          done
+      - name: Link isolated staging database
+        run: supabase link --project-ref "$STAGING_SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+      - name: Apply migrations to staging
+        run: supabase db push
+      - name: Verify staging migration history
+        run: supabase migration list
+      - name: Lint staging database
+        run: supabase db lint --linked --level error --fail-on error
+      - name: Run staging authentication smoke test
+        run: pnpm --filter @gold-revenue-os/web auth:smoke
+      - name: Pull isolated Vercel staging configuration
+        run: pnpm dlx vercel@59.16.0 pull --yes --environment=preview --token="$VERCEL_TOKEN"
+      - name: Build staging deployment
+        run: pnpm dlx vercel@59.16.0 build --token="$VERCEL_TOKEN"
+      - name: Deploy staging artifact
+        id: deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          deployment_url=$(pnpm dlx vercel@59.16.0 deploy --prebuilt --token="$VERCEL_TOKEN")
+          echo "url=$deployment_url" >>"$GITHUB_OUTPUT"
+          echo "Staging URL: $deployment_url" >>"$GITHUB_STEP_SUMMARY"
+      - name: Validate staging deployment
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --retry 8 --retry-all-errors --retry-delay 3 --silent --show-error "$DEPLOYMENT_URL/" >/dev/null
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/login" >/dev/null
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health/live" | grep -q '"status":"ok"'
+          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health/ready" | grep -q '"status":"ready"'
+          admin_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$DEPLOYMENT_URL/admin")
+          test "$admin_status" = "307" -o "$admin_status" = "302" -o "$admin_status" = "303"
+      - name: Write validation evidence
+        if: always()
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          {
+            echo "commit=${{ inputs.validated_commit_sha }}"
+            echo "ci_gate=Application:success,Database:success"
+            echo "deployment_url=${DEPLOYMENT_URL:-not-created}"
+          } >"$RUNNER_TEMP/staging-validation.txt"
+      - name: Upload staging evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-validation-evidence
+          path: ${{ runner.temp }}/staging-validation.txt
+          retention-days: 14

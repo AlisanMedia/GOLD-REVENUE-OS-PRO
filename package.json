@@ -1,0 +1,32 @@
+{
+  "name": "gold-revenue-os",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=24 <25",
+    "pnpm": ">=11 <12"
+  },
+  "scripts": {
+    "dev": "pnpm --filter @gold-revenue-os/web dev",
+    "build": "pnpm --filter @gold-revenue-os/web build",
+    "start": "pnpm --filter @gold-revenue-os/web start",
+    "lint": "pnpm -r lint",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm test:unit && pnpm test:integration",
+    "test:unit": "vitest run packages",
+    "test:integration": "vitest run tests/integration",
+    "test:db": "supabase test db",
+    "db:start": "supabase start",
+    "db:reset": "supabase db reset",
+    "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.39.5",
+    "@types/node": "24.13.4",
+    "eslint": "9.39.5",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.48.1",
+    "vitest": "5.0.0"
+  }
+}

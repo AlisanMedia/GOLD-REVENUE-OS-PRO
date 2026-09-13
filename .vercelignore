@@ -1,0 +1,8 @@
+.git
+.github
+docs
+infra
+supabase
+tests
+**/*.test.ts
+**/*.test.sql

@@ -1,0 +1,2 @@
+-- Phase 1 has no production seed data.
+-- Test identities are created inside the database test transaction.

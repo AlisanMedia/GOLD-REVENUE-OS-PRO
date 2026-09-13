@@ -1,0 +1,129 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    name: Application
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3000
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local-publishable-key-for-ci-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - run: pnpm audit --audit-level high
+      - name: Production bundle smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm start >"$RUNNER_TEMP/next-start.log" 2>&1 &
+          app_pid=$!
+          trap 'kill "$app_pid" 2>/dev/null || true' EXIT
+          for attempt in {1..20}; do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/api/health/live >"$RUNNER_TEMP/live.json"; then
+              break
+            fi
+            sleep 1
+          done
+          curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+          curl --fail --silent --show-error http://127.0.0.1:3000/login >/dev/null
+          grep -q '"status":"ok"' "$RUNNER_TEMP/live.json"
+
+  database:
+    name: Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.117.0
+      - name: Start Supabase stack
+        run: supabase start
+      - name: Rebuild database and execute migrations
+        run: supabase db reset
+      - name: Verify migration history
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/supabase-status.env"
+          db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/supabase-status.env")
+          test -n "$db_url"
+          echo "::add-mask::$db_url"
+          supabase migration list --db-url "$db_url"
+      - name: Lint database
+        run: supabase db lint --level error --fail-on error
+      - name: Run foundation pgTAP tests
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/foundation_rls.test.sql | tee "$RUNNER_TEMP/foundation-pgtap.log"
+      - name: Run tenant isolation tests
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/tenant_isolation.test.sql | tee "$RUNNER_TEMP/tenant-isolation.log"
+      - name: Export local Auth credentials safely
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/supabase-status.env"
+          api_url=$(sed -n 's/^API_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/supabase-status.env")
+          publishable_key=$(sed -n 's/^ANON_KEY="\(.*\)"$/\1/p' "$RUNNER_TEMP/supabase-status.env")
+          secret_key=$(sed -n 's/^SERVICE_ROLE_KEY="\(.*\)"$/\1/p' "$RUNNER_TEMP/supabase-status.env")
+          test -n "$api_url"
+          test -n "$publishable_key"
+          test -n "$secret_key"
+          echo "::add-mask::$publishable_key"
+          echo "::add-mask::$secret_key"
+          echo "SUPABASE_URL=$api_url" >>"$GITHUB_ENV"
+          echo "SUPABASE_PUBLISHABLE_KEY=$publishable_key" >>"$GITHUB_ENV"
+          echo "SUPABASE_SECRET_KEY=$secret_key" >>"$GITHUB_ENV"
+      - name: Run authentication smoke test
+        run: pnpm --filter @gold-revenue-os/web auth:smoke
+      - name: Upload database evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: database-test-evidence
+          path: |
+            ${{ runner.temp }}/foundation-pgtap.log
+            ${{ runner.temp }}/tenant-isolation.log
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Stop Supabase stack
+        if: always()
+        run: supabase stop --no-backup
