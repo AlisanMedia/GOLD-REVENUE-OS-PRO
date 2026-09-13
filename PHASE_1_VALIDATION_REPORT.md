@@ -1,6 +1,6 @@
 # Gold Revenue OS — Phase 1 Cloud Validation Report
 
-**Status:** OPEN — cloud validation has not run.  
+**Status:** GitHub cloud validation COMPLETE; staging validation remains pending manual Supabase/Vercel setup.
 **Last updated:** 2026-09-13  
 **Rule:** no result is marked PASS without an executed run and retained evidence.
 
@@ -16,22 +16,22 @@
 
 | Validation item | Actual status | Evidence | Notes |
 |---|---|---|---|
-| Private GitHub repository created | BLOCKED | `AlisanMedia/gold-revenue-os` inspected on 2026-09-13 | Repository exists and the integration has admin/push access, but visibility is currently **public**. No source code was uploaded. |
-| GitHub CI workflow parsed/started | NOT RUN | None | Requires repo creation and push. |
-| Application job | NOT RUN | None | Cloud result pending. Historical workspace checks are not accepted as cloud evidence. |
-| Application lint | NOT RUN IN GITHUB | None | Workflow prepared. |
-| Application typecheck | NOT RUN IN GITHUB | None | Workflow prepared. |
-| Application unit/integration tests | NOT RUN IN GITHUB | None | Workflow prepared. |
-| Next.js production build | NOT RUN IN GITHUB | None | Workflow prepared. |
-| Production bundle HTTP smoke | NOT RUN IN GITHUB | None | Workflow checks `/`, `/login`, and liveness. |
-| Database job | NOT RUN | None | GitHub-hosted Ubuntu runner will provide Docker. |
-| `supabase start` | NOT RUN | None | Workflow pins Supabase CLI 2.117.0. |
-| Migration execution via `supabase db reset` | NOT RUN | None | Must apply `202609120001_foundation.sql` successfully. |
-| Migration history verification | NOT RUN | None | Workflow runs `supabase migration list` against the runner's explicit local DB URL. |
-| Database lint | NOT RUN | None | Workflow fails on database lint errors. |
-| Foundation pgTAP suite | NOT RUN | None | 11 planned checks; executed separately for unambiguous evidence. |
-| Tenant isolation pgTAP suite | NOT RUN | None | 6 planned checks; executed separately for unambiguous evidence. |
-| Local-stack Auth smoke in GitHub | NOT RUN | None | Will create/sign in/delete an ephemeral user and verify tenant RLS + manager audit read. |
+| GitHub repository | PASS | [`GOLD-REVENUE-OS-PRO`](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO) | Checkpoint uploaded to `main`; currently public and can be made private after completion. |
+| GitHub CI workflow | PASS | [Run #34752012933](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/34752012933) | Commit `f52df567240d489efa84edae3d97cace428729d7`; both required jobs successful. |
+| Application job | PASS | Run #34752012933 | GitHub-hosted Ubuntu execution completed successfully. |
+| Application lint | PASS | Run #34752012933 | Executed in GitHub Actions. |
+| Application typecheck | PASS | Run #34752012933 | Executed in GitHub Actions. |
+| Application unit/integration tests | PASS | Run #34752012933 | 10 Vitest tests passed. |
+| Next.js production build | PASS | Run #34752012933 | Executed in GitHub Actions. |
+| Production bundle HTTP smoke | PASS | Run #34752012933 | `/`, `/login`, and liveness checked. |
+| Database job | PASS | Run #34752012933 | GitHub-hosted Ubuntu with Docker completed successfully. |
+| `supabase start` | PASS | Run #34752012933 | Supabase CLI 2.117.0; local stack started. |
+| Migration execution via `supabase db reset` | PASS | Run #34752012933 | `202609120001_foundation.sql` applied. |
+| Migration history verification | PASS | Run #34752012933 | Local and remote both `202609120001`. |
+| Database lint | PASS | Run #34752012933 | No schema errors found. |
+| Foundation pgTAP suite | PASS | Run #34752012933 | Files=1, Tests=11, Result: PASS. |
+| Tenant isolation pgTAP suite | PASS | Run #34752012933 | Files=1, Tests=6, Result: PASS. |
+| Local-stack Auth smoke in GitHub | PASS | Run #34752012933 | User creation, password sign-in, session, tenant RLS, audit read and sign-out. |
 | Supabase staging project created | NOT RUN | None | External account action required. |
 | Staging link and migration push | NOT RUN | None | Starts only after successful CI on `main`. |
 | Staging migration history/lint | NOT RUN | None | Pending staging credentials. |
@@ -51,16 +51,16 @@
 
 ## Current blocker
 
-Cloud execution cannot begin until the user creates/authorizes the private GitHub repository, staging Supabase project and staging Vercel project, then supplies them through scoped integrations/secrets. Phase 1 remains open and Phase 2 remains blocked.
+GitHub cloud execution is complete. Staging validation is intentionally pending until the user creates the isolated `gold-revenue-os-staging` Supabase project and supplies scoped staging credentials. Vercel staging is also pending. Production infrastructure was not used. Phase 2 remains blocked.
 
 ## Evidence to record after execution
 
 - Repository URL and validated commit SHA
-- GitHub Actions CI run URL and both job conclusions
+- GitHub Actions CI run URL and both job conclusions — recorded above
 - Exact migration version shown by the runner
-- Foundation pgTAP output (`Files`, `Tests`, `Result`)
-- Tenant isolation pgTAP output (`Files`, `Tests`, `Result`)
-- Local and staging authentication smoke JSON output
+- Foundation pgTAP output (`Files=1, Tests=11, Result: PASS`) — recorded above
+- Tenant isolation pgTAP output (`Files=1, Tests=6, Result: PASS`) — recorded above
+- Local authentication smoke JSON output — PASS recorded above
 - Supabase staging project ref (non-secret) and migration list
 - Vercel staging deployment URL/ID, build status and endpoint smoke results
 - Every failed/retried step and the exact remediation commit
