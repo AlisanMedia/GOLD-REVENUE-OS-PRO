@@ -116,6 +116,9 @@ jobs:
       VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
       VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
       VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      NEXT_PUBLIC_APP_URL: https://gold-revenue-os-staging.vercel.app
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Enforce successful CI gate
         env:
@@ -148,7 +151,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for key in VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID; do
+          for key in \
+            VERCEL_TOKEN VERCEL_ORG_ID VERCEL_PROJECT_ID \
+            NEXT_PUBLIC_APP_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
             test -n "${!key:-}" || { echo "Missing staging secret: $key"; exit 1; }
           done
       - name: Pull isolated Vercel staging configuration
@@ -193,4 +198,3 @@ jobs:
           name: staging-vercel-validation-evidence
           path: ${{ runner.temp }}/staging-vercel-validation.txt
           retention-days: 14
-
