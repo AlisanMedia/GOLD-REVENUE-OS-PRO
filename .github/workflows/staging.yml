@@ -200,11 +200,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --retry 8 --retry-all-errors --retry-delay 3 --silent --show-error "$DEPLOYMENT_URL/" >/dev/null
-          curl --fail --silent --show-error "$DEPLOYMENT_URL/login" >/dev/null
-          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health/live" | grep -q '"status":"ok"'
-          curl --fail --silent --show-error "$DEPLOYMENT_URL/api/health/ready" | grep -q '"status":"ready"'
-          admin_status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$DEPLOYMENT_URL/admin")
+
+          # Preview deployments may have Vercel Deployment Protection enabled.
+          # Use the Vercel CLI's authenticated curl so validation tests the deployed
+          # runtime without exposing or disabling protection.
+          vercel_curl() {
+            pnpm dlx vercel@59.16.0 curl "$1" --token="$VERCEL_TOKEN"
+          }
+
+          vercel_curl "$DEPLOYMENT_URL/" >/dev/null
+          vercel_curl "$DEPLOYMENT_URL/login" >/dev/null
+          vercel_curl "$DEPLOYMENT_URL/api/health/live" | grep -q '"status":"ok"'
+          vercel_curl "$DEPLOYMENT_URL/api/health/ready" | grep -q '"status":"ready"'
+
+          admin_status=$(pnpm dlx vercel@59.16.0 curl "$DEPLOYMENT_URL/admin" --token="$VERCEL_TOKEN" --output /dev/null --write-out '%{http_code}')
           test "$admin_status" = "307" -o "$admin_status" = "302" -o "$admin_status" = "303"
       - name: Write Vercel validation evidence
         if: always()
