@@ -441,6 +441,7 @@ language plpgsql
 security definer
 set search_path = pg_catalog
 as $$
+#variable_conflict use_variable
 declare
   batch_value record;
   row_value record;
