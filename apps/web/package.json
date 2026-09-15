@@ -14,7 +14,7 @@
   "dependencies": {
     "next": "16.3.5",
     "react": "19.2.8",
-    "react-dom": "19.2.8",
+    "react-dom": "19.3.0",
     "@gold-revenue-os/config": "workspace:*",
     "@gold-revenue-os/contracts": "workspace:*",
     "@gold-revenue-os/domain": "workspace:*",
