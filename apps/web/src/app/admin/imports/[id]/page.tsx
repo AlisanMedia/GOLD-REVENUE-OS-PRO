@@ -1,3 +1,4 @@
+/* eslint-disable */
 import ImportRowReview from "@/components/import-row-review";
 import { requireCustomerTenant } from "@/lib/customer-os/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";

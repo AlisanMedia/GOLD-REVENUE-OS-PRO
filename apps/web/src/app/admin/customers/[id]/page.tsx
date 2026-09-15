@@ -1,4 +1,5 @@
 import { getCustomer360, requireCustomerTenant } from "@/lib/customer-os/server";
+import Link from "next/link";
 
 function formatValue(value: unknown): string {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
@@ -10,7 +11,7 @@ export default async function Customer360Page({ params }: { params: Promise<{ id
   const data = await getCustomer360((await params).id);
   return (
     <main className="admin-main">
-      <a className="back-link" href="/admin/customers">← Customers</a>
+      <Link className="back-link" href="/admin/customers">← Customers</Link>
       <p className="eyebrow">CUSTOMER 360</p>
       <h1>{data.customer.display_name || "Unnamed customer"}</h1>
       <p className="lede">{data.customer.state} · {data.customer.risk_level} · {data.customer.segment ?? "Unsegmented"}</p>

@@ -140,7 +140,8 @@ create table public.import_batches (
   created_at timestamptz not null default now(),
   reviewed_at timestamptz,
   completed_at timestamptz,
-  metadata jsonb not null default '{}'::jsonb
+  metadata jsonb not null default '{}'::jsonb,
+  unique (tenant_id, id)
 );
 
 create index import_batches_tenant_created_idx on public.import_batches (tenant_id, created_at desc);
