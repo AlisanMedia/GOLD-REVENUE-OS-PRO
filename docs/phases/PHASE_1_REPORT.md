@@ -1,6 +1,6 @@
 # Gold Revenue OS — Phase 1 Report
 
-**Status:** Conditionally accepted implementation; Phase 1 remains open pending cloud validation. Phase 2 is blocked.
+**Status:** IMPLEMENTATION AND CLOUD VALIDATION COMPLETE. Phase 1 awaits explicit user closure approval; Phase 2 is blocked.
 
 ## Scope delivered
 
@@ -11,16 +11,18 @@ Phase 1 establishes the greenfield modular-monolith foundation:
 - RBAC roles (`super_admin`, `manager`, `support`, `analyst`, `readonly`) and deterministic server-side permission helpers
 - Append-only foundation audit log with actor/request metadata
 - Environment validation with secret-safe errors
-- Base pnpm workspace, application/package boundaries, CI workflow, and runbooks
+- Base pnpm workspace, application/package boundaries, cloud CI workflow and runbooks
 - Minimum admin shell, login, access-pending, `/api/v1/me`, liveness and readiness endpoints
+- Isolated Supabase staging migration/Auth verification
+- Protected Vercel Preview build, deployment and endpoint verification
 
-Explicitly not implemented: customer messaging, agents, payment/provider integration, Telegram, Telegram Stars, subscriptions, or outbound message execution. Human takeover and outbound kill-switch remain documented P0 requirements for the messaging/runtime phases.
+Explicitly not implemented: customer messaging, agents, payments/provider integration, Telegram, Telegram Stars, subscriptions or outbound message execution. Human takeover and the outbound kill-switch remain documented P0 requirements for later messaging/runtime phases.
 
 ## Exact toolchain versions
 
 | Component | Version |
 |---|---:|
-| Node.js | 24.19.0 (`.nvmrc`) |
+| Node.js | 24.19.0 |
 | pnpm | 11.19.0 |
 | Next.js | 16.3.5 |
 | React / React DOM | 19.2.8 |
@@ -32,53 +34,66 @@ Explicitly not implemented: customer messaging, agents, payment/provider integra
 | Vitest | 5.0.0 |
 | Pino | 10.3.1 |
 | Supabase CLI (CI pin) | 2.117.0 |
+| Vercel CLI (CI pin) | 59.16.0 |
+| Hosted staging Postgres | 17.6.1.166 |
 
 ## Database migration
 
 Migration: `supabase/migrations/202609120001_foundation.sql`
 
-It creates `app_users`, `tenants`, `tenant_members`, and `audit_logs`; foundation enums; updated-at and auth-user triggers; security-definer tenant/role helpers; append-only audit enforcement; RLS policies; and least-privilege grants. No payment, messaging, agent, Telegram, or subscription tables are present.
+It creates `app_users`, `tenants`, `tenant_members` and `audit_logs`; foundation enums; updated-at and auth-user triggers; controlled tenant/role helpers; append-only audit enforcement; RLS policies; and least-privilege grants. No payment, messaging, agent, Telegram or subscription tables are present.
 
 Static PostgreSQL parsing completed successfully: **47 statements parsed by pglast 7.10**.
 
-Database integration tests are defined in:
+## Actual verification results
 
-- `supabase/tests/foundation_rls.test.sql` (11 pgTAP checks)
-- `supabase/tests/tenant_isolation.test.sql` (6 pgTAP checks)
+| Check | Result | Evidence |
+|---|---|---|
+| Workspace lint | PASS | [CI #35000683966](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/35000683966) |
+| Typecheck | PASS | CI #35000683966 |
+| Vitest suite | PASS — 10 tests | CI #35000683966 |
+| Next.js production build | PASS | CI #35000683966 |
+| High-severity dependency audit | PASS | CI #35000683966 |
+| Production bundle smoke | PASS | CI #35000683966 |
+| Supabase local stack start | PASS | CI #35000683966, Database job |
+| Foundation migration execution | PASS | CI #35000683966, Database job |
+| Database lint | PASS | CI #35000683966, Database job |
+| Foundation pgTAP | PASS — 11 checks | CI #35000683966, Database job |
+| Tenant-isolation pgTAP | PASS — 6 checks | CI #35000683966, Database job |
+| Local Auth smoke | PASS — 6 checks | CI #35000683966, Database job |
+| Hosted staging migration/lint | PASS | [Staging #35001113563](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/35001113563) |
+| Hosted staging Auth smoke | PASS — 6 checks | Staging #35001113563 |
+| Vercel Preview build/deploy | PASS | Staging #35001113563 |
+| Staging `/`, `/login`, live, ready and admin redirect | PASS | Staging #35001113563 |
 
-They are configured in CI with Supabase CLI 2.117.0. This historical implementation report does not claim that unexecuted database tests passed. Actual cloud results belong in the root `PHASE_1_VALIDATION_REPORT.md`.
+Validated deployable commit: `49f0c8190e7d1ec794ab01e02b90a98741e6838d`.
 
-## Verification results
+## Staging deployment
 
-| Check | Result |
-|---|---|
-| Workspace lint | PASS — all 5 projects |
-| Typecheck | PASS — all 5 projects |
-| Unit/integration Vitest suite | PASS — 10 tests |
-| Next production build | PASS — Next 16.3.5 Turbopack |
-| `pnpm audit --audit-level high` | PASS — no known vulnerabilities |
-| Migration static parse | PASS — 47 statements |
-| HTTP smoke (`/`, `/login`) | PASS — HTTP 200 |
-| HTTP smoke (`/api/health/live`) | PASS — HTTP 200, `{"status":"ok","phase":1}` |
-| HTTP smoke (`/api/health/ready`) | EXPECTED 503 without a reachable Supabase Auth service; safe failure with `not_ready` response |
-| Browser automation | BLOCKED — `agent-browser` executable is not installed in this environment |
+- URL: https://gold-revenue-os-staging-qsnrlssuk-gold-revenue-os-staging.vercel.app
+- Vercel target: Preview only
+- Supabase project ref: `xqvwkghpmezcpgugetqc`
+- Region: `eu-central-1`
+- Production infrastructure: not used
 
 ## Remaining risks
 
-1. CI/staging must execute the pgTAP suite against a real Supabase instance before production use.
-2. Supabase Auth provider, redirect allowlist, MFA policy, and production secrets still require environment-specific configuration.
-3. The first admin context selects the first active tenant membership; tenant administration UI is intentionally deferred.
-4. Audit request-header parsing and operational alerting should receive a staging security review.
-5. No production deployment was performed in Phase 1.
-6. Crypto payment provider selection remains deferred to the payment phase; Telegram Stars is not the default architecture.
+1. The login/admin user interface has not received a full interactive browser journey test; API Auth smoke, RLS and endpoint access-boundary checks passed.
+2. MFA/provider policy, custom-domain redirects and production allowlists remain environment-specific work for later approved phases.
+3. The first admin context selects the first active tenant membership; tenant administration UI remains intentionally deferred.
+4. Audit alerting, production monitoring, backups and disaster-recovery rehearsal remain future operational dependencies.
+5. Vercel CLI `curl` is beta; version 59.16.0 is pinned to prevent silent workflow drift.
+6. Production deployment and production Supabase validation have not run and are not claimed.
+7. Crypto payment provider selection remains deferred to the payment phase; Telegram Stars is not the default architecture.
 
 ## Rollback notes
 
-- Application rollback: redeploy the previous saved web version using the procedure in `infra/runbooks/rollback.md`.
-- Database changes are additive and isolated to the foundation migration. Do not delete audit or tenant rows as a rollback mechanism.
-- If a migration defect is found, pause rollout, restore the prior application version, and ship a forward corrective migration after review. Preserve audit history.
-- Any production incident involving outbound actions must use the documented kill-switch/takeover controls once those runtime phases are implemented.
+- Application rollback: redeploy the previous saved Vercel artifact using `infra/runbooks/rollback.md`.
+- Database changes are additive. Do not delete audit or tenant rows as a rollback mechanism.
+- For migration defects, pause rollout, restore the prior application version and issue a reviewed forward corrective migration while preserving audit history.
+- Rotate any suspected secret exposure before rerunning GitHub or Vercel workflows.
+- Production rollback is not applicable because Phase 1 used staging/Preview only.
 
 ## Phase gate
 
-Phase 1 implementation stops here, but closure is conditional on the cloud evidence in `PHASE_1_VALIDATION_REPORT.md`. No Phase 2 work begins before that report is complete and the user explicitly approves it.
+Phase 1 implementation and cloud validation stop here. No Phase 2 work begins until the user explicitly closes Phase 1 and approves Phase 2.
