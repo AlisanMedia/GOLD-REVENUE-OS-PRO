@@ -201,19 +201,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Preview deployments may have Vercel Deployment Protection enabled.
-          # Use the Vercel CLI's authenticated curl so validation tests the deployed
-          # runtime without exposing or disabling protection.
+          # Vercel CLI authenticates from VERCEL_TOKEN and handles Preview
+          # Deployment Protection. Arguments after -- are forwarded to curl.
           vercel_curl() {
-            pnpm dlx vercel@59.16.0 curl "$1" --token="$VERCEL_TOKEN"
+            local path="$1"
+            pnpm dlx vercel@59.16.0 curl "$path" --deployment "$DEPLOYMENT_URL"
           }
 
-          vercel_curl "$DEPLOYMENT_URL/" >/dev/null
-          vercel_curl "$DEPLOYMENT_URL/login" >/dev/null
-          vercel_curl "$DEPLOYMENT_URL/api/health/live" | grep -q '"status":"ok"'
-          vercel_curl "$DEPLOYMENT_URL/api/health/ready" | grep -q '"status":"ready"'
+          vercel_curl "/" >/dev/null
+          vercel_curl "/login" >/dev/null
+          vercel_curl "/api/health/live" | grep -q '"status":"ok"'
+          vercel_curl "/api/health/ready" | grep -q '"status":"ready"'
 
-          admin_status=$(pnpm dlx vercel@59.16.0 curl "$DEPLOYMENT_URL/admin" --token="$VERCEL_TOKEN" --output /dev/null --write-out '%{http_code}')
+          admin_status=$(pnpm dlx vercel@59.16.0 curl "/admin" --deployment "$DEPLOYMENT_URL" -- --output /dev/null --write-out '%{http_code}')
           test "$admin_status" = "307" -o "$admin_status" = "302" -o "$admin_status" = "303"
       - name: Write Vercel validation evidence
         if: always()
