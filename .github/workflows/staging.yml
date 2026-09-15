@@ -51,7 +51,7 @@ jobs:
             --jq '.check_runs[] | select(.name == "Database") | .conclusion' | head -n 1)
           test "$application" = "success"
           test "$database" = "success"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.validated_commit_sha }}
       - uses: pnpm/action-setup@v4
@@ -136,7 +136,7 @@ jobs:
             --jq '.check_runs[] | select(.name == "Database") | .conclusion' | head -n 1)
           test "$application" = "success"
           test "$database" = "success"
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.validated_commit_sha }}
       - uses: pnpm/action-setup@v4
