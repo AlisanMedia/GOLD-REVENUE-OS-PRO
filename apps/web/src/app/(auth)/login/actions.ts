@@ -4,8 +4,10 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function signIn(formData: FormData) {
-  const email = String(formData.get("email") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
+  const rawEmail = formData.get("email");
+  const rawPassword = formData.get("password");
+  const email = (typeof rawEmail === "string" ? rawEmail : "").trim();
+  const password = typeof rawPassword === "string" ? rawPassword : "";
   if (!email || !password) redirect("/login?error=missing");
 
   const supabase = await createSupabaseServerClient();

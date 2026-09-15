@@ -96,6 +96,11 @@ jobs:
         run: |
           set -o pipefail
           supabase test db supabase/tests/tenant_isolation.test.sql | tee "$RUNNER_TEMP/tenant-isolation.log"
+      - name: Run Customer OS pgTAP tests
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/customer_os.test.sql | tee "$RUNNER_TEMP/customer-os-pgtap.log"
       - name: Export local Auth credentials safely
         shell: bash
         run: |
@@ -122,6 +127,7 @@ jobs:
           path: |
             ${{ runner.temp }}/foundation-pgtap.log
             ${{ runner.temp }}/tenant-isolation.log
+            ${{ runner.temp }}/customer-os-pgtap.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack

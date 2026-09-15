@@ -19,3 +19,5 @@ export function canAccessTenant(
 ): boolean {
   return memberships.some(({ tenantId, active }) => active && tenantId === requestedTenantId);
 }
+
+export * from "./customer-os";

@@ -17,6 +17,7 @@
     "react-dom": "19.2.8",
     "@gold-revenue-os/config": "workspace:*",
     "@gold-revenue-os/contracts": "workspace:*",
+    "@gold-revenue-os/domain": "workspace:*",
     "@supabase/ssr": "0.12.7",
     "@supabase/supabase-js": "2.116.0",
     "zod": "4.6.2"
