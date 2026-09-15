@@ -441,10 +441,11 @@ language plpgsql
 security definer
 set search_path = pg_catalog
 as $$
+#variable_conflict use_variable
 declare
   batch_value record;
   row_value record;
-  identity_value jsonb;
+  identity_record jsonb;
   memory_value jsonb;
   target_customer_id uuid;
   imported_count integer := 0;
@@ -484,19 +485,19 @@ begin
       created_count := created_count + 1;
     end if;
 
-    for identity_value in select value from jsonb_array_elements(coalesce(row_value.normalized_payload -> 'identities', '[]'::jsonb)) loop
+    for identity_record in select value from jsonb_array_elements(coalesce(row_value.normalized_payload -> 'identities', '[]'::jsonb)) loop
       if exists (
         select 1 from public.customer_identities as ci
         where ci.tenant_id = batch_value.tenant_id
-          and ci.identity_type = identity_value ->> 'identity_type'
-          and ci.identity_scope = coalesce(identity_value ->> 'identity_scope', 'global')
-          and ci.normalized_value = identity_value ->> 'normalized_value'
+          and ci.identity_type = identity_record ->> 'identity_type'
+          and ci.identity_scope = coalesce(identity_record ->> 'identity_scope', 'global')
+          and ci.normalized_value = identity_record ->> 'normalized_value'
           and ci.customer_id <> target_customer_id
       ) then
         raise exception 'identity conflict detected during import' using errcode = '23505';
       end if;
       insert into public.customer_identities (tenant_id, customer_id, identity_type, identity_value, normalized_value, identity_scope, is_primary, source_type, source_name, source_record_ref)
-      values (batch_value.tenant_id, target_customer_id, identity_value ->> 'identity_type', identity_value ->> 'identity_value', identity_value ->> 'normalized_value', coalesce(identity_value ->> 'identity_scope', 'global'), coalesce((identity_value ->> 'is_primary')::boolean, false), batch_value.source_type, batch_value.source_name, row_value.source_record_ref)
+      values (batch_value.tenant_id, target_customer_id, identity_record ->> 'identity_type', identity_record ->> 'identity_value', identity_record ->> 'normalized_value', coalesce(identity_record ->> 'identity_scope', 'global'), coalesce((identity_record ->> 'is_primary')::boolean, false), batch_value.source_type, batch_value.source_name, row_value.source_record_ref)
       on conflict (tenant_id, identity_type, identity_scope, normalized_value) do nothing;
     end loop;
 

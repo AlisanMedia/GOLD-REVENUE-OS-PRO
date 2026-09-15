@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(30);
+select plan(21);
 
 select has_table('public', 'customers', 'customers table exists');
 select has_table('public', 'customer_identities', 'customer identities table exists');
@@ -25,6 +25,13 @@ select ok(not has_table_privilege('authenticated', 'public.customer_memory', 'UP
 select ok(not has_table_privilege('authenticated', 'public.import_rows', 'INSERT'), 'authenticated cannot insert import rows directly');
 select function_returns('public', 'create_import_dry_run', array['uuid','text','text','text','text','jsonb'], 'jsonb', 'dry-run RPC has contract');
 select function_returns('public', 'review_import_row', array['uuid','uuid','text','uuid'], 'void', 'review RPC has contract');
+
+select * from finish();
+rollback;
+
+begin;
+create extension if not exists pgtap with schema extensions;
+select plan(9);
 
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at)
 values
