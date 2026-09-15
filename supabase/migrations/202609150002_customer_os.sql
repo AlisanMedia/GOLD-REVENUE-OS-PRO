@@ -486,12 +486,12 @@ begin
 
     for identity_value in select value from jsonb_array_elements(coalesce(row_value.normalized_payload -> 'identities', '[]'::jsonb)) loop
       if exists (
-        select 1 from public.customer_identities
-        where tenant_id = batch_value.tenant_id
-          and identity_type = identity_value ->> 'identity_type'
-          and identity_scope = coalesce(identity_value ->> 'identity_scope', 'global')
-          and normalized_value = identity_value ->> 'normalized_value'
-          and customer_id <> target_customer_id
+        select 1 from public.customer_identities as ci
+        where ci.tenant_id = batch_value.tenant_id
+          and ci.identity_type = identity_value ->> 'identity_type'
+          and ci.identity_scope = coalesce(identity_value ->> 'identity_scope', 'global')
+          and ci.normalized_value = identity_value ->> 'normalized_value'
+          and ci.customer_id <> target_customer_id
       ) then
         raise exception 'identity conflict detected during import' using errcode = '23505';
       end if;
