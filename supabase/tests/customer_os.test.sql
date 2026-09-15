@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(21);
+select plan(30);
 
 select has_table('public', 'customers', 'customers table exists');
 select has_table('public', 'customer_identities', 'customer identities table exists');
@@ -26,13 +26,6 @@ select ok(not has_table_privilege('authenticated', 'public.import_rows', 'INSERT
 select function_returns('public', 'create_import_dry_run', array['uuid','text','text','text','text','jsonb'], 'jsonb', 'dry-run RPC has contract');
 select function_returns('public', 'review_import_row', array['uuid','uuid','text','uuid'], 'void', 'review RPC has contract');
 
-select * from finish();
-rollback;
-
-begin;
-create extension if not exists pgtap with schema extensions;
-select plan(9);
-
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at)
 values
   ('30000000-0000-0000-0000-000000000001', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'customer-a@example.test', 'not-used', now()),
@@ -57,7 +50,9 @@ select results_eq($$select identity_value from public.customer_identities$$, arr
 select results_eq($$select count(*) from public.customer_state_history where tenant_id = '40000000-0000-0000-0000-000000000002'$$, array[0::bigint], 'tenant A cannot see tenant B state history');
 select results_eq($$select count(*) from public.audit_logs where tenant_id = '40000000-0000-0000-0000-000000000002'$$, array[0::bigint], 'tenant A cannot see tenant B audits');
 select is((select count(*) from public.customer_state_history where customer_id = '50000000-0000-0000-0000-000000000001'), 1::bigint, 'customer insert creates initial state history');
+set local role postgres;
 select throws_ok($$update public.customer_state_history set reason_code = 'tamper' where customer_id = '50000000-0000-0000-0000-000000000001'$$, '42501', 'customer_state_history is append-only', 'state history rejects updates');
+set local role authenticated;
 select is((select count(*) from public.audit_logs where tenant_id = '40000000-0000-0000-0000-000000000001' and entity_type = 'customers'), 1::bigint, 'customer mutation has audit record');
 select ok(has_table_privilege('authenticated', 'public.customers', 'SELECT'), 'authenticated retains customer read grant');
 select ok(has_table_privilege('authenticated', 'public.import_rows', 'SELECT'), 'authenticated retains import read grant');
