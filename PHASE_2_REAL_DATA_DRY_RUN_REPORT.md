@@ -146,7 +146,20 @@ Local application verification after the fix:
 - Production build: PASS
 - Domain regression tests: PASS — 10 tests
 
-Database migration/pgTAP, GitHub CI, Supabase staging and Vercel staging results will be recorded after the cloud validation run. No real-data row is required or permitted in CI.
+Cloud verification for commit `c6bdc255571810d299b3e8e95dee6058aad36b00`:
+
+- GitHub Actions CI: PASS — [run 35100441748](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/35100441748)
+- Application job: PASS — install, lint, typecheck, unit/integration tests, production build, high-severity dependency audit and bundle smoke test
+- Database job: PASS — Supabase start, full migration rebuild, migration-history verification and database lint
+- Foundation pgTAP: PASS
+- Tenant-isolation tests: PASS
+- Customer OS pgTAP: PASS
+- Authentication smoke test: PASS
+- Supabase staging: PASS — migration apply/history, database lint and authentication smoke test
+- Vercel staging: PASS — prebuilt deployment and live/ready health checks at `https://gold-revenue-os-staging.vercel.app`
+- Staging validation: PASS — [run 35101105812, attempt 2](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/35101105812)
+
+The first Vercel attempt was blocked by the account billing state; after the Pro account was reactivated, attempt 2 completed successfully. No real-data row was required or permitted in CI, and no customer data was persisted during cloud validation.
 
 ## Import gate
 
