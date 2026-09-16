@@ -53,7 +53,8 @@ export type NormalizedCustomerRow = {
   errors: ValidationError[];
   classification: DedupClassification;
   candidate_customer_id: string | null;
-  planned_mutation: { action: "link_existing" | "create_customer" | "manual_review"; customer_id?: string };
+  planned_mutation: { action: "link_existing" | "link_batch" | "create_customer" | "manual_review"; customer_id?: string };
+  batch_customer_ref: string | null;
   identity_fingerprint: string;
 };
 
@@ -133,7 +134,7 @@ function parseJsonField(value: string, field: string): unknown {
   return trimmed;
 }
 
-export function normalizeImportRow(rowNumber: number, raw: Record<string, string>, sourceName: string): Omit<NormalizedCustomerRow, "classification" | "candidate_customer_id" | "planned_mutation"> {
+export function normalizeImportRow(rowNumber: number, raw: Record<string, string>, sourceName: string): Omit<NormalizedCustomerRow, "classification" | "candidate_customer_id" | "planned_mutation" | "batch_customer_ref"> {
   const canonical: Record<string, string> = {};
   for (const [header, value] of Object.entries(raw)) {
     const alias = FIELD_ALIASES[keyOf(header)];
@@ -206,6 +207,63 @@ export function classifyDedup(row: Pick<NormalizedCustomerRow, "display_name" | 
   return { classification: "new_customer", candidate_customer_id: null, planned_mutation: { action: "create_customer" } };
 }
 
-export function classifyRows(rows: Array<Omit<NormalizedCustomerRow, "classification" | "candidate_customer_id" | "planned_mutation">>, existing: readonly ExistingCustomer[]): NormalizedCustomerRow[] {
-  return rows.map((row) => ({ ...row, ...classifyDedup(row, existing) }));
+export function classifyRows(
+  rows: Array<Omit<NormalizedCustomerRow, "classification" | "candidate_customer_id" | "planned_mutation" | "batch_customer_ref">>,
+  existing: readonly ExistingCustomer[],
+): NormalizedCustomerRow[] {
+  const candidates: ExistingCustomer[] = existing.map((customer) => ({
+    ...customer,
+    identities: customer.identities.map((identity) => ({ ...identity })),
+  }));
+  const batchRefs = new Map<string, string>();
+  const output: NormalizedCustomerRow[] = [];
+
+  for (const row of rows) {
+    const result = classifyDedup(row, candidates);
+    const candidateRef = result.candidate_customer_id ? batchRefs.get(result.candidate_customer_id) : undefined;
+    if (result.classification === "exact_match" && candidateRef) {
+      const candidate = candidates.find((item) => item.id === result.candidate_customer_id)!;
+      for (const identity of row.identities) {
+        if (!candidate.identities.some((item) =>
+          item.identity_type === identity.identity_type
+          && (item.identity_scope ?? "global") === identity.identity_scope
+          && item.normalized_value === identity.normalized_value
+        )) candidate.identities.push({ identity_type: identity.identity_type, identity_scope: identity.identity_scope, normalized_value: identity.normalized_value });
+      }
+      output.push({
+        ...row,
+        classification: "exact_match",
+        candidate_customer_id: null,
+        planned_mutation: { action: "link_batch" },
+        batch_customer_ref: candidateRef,
+      });
+      continue;
+    }
+
+    if (row.errors.length === 0 && row.identities.length > 0 && (result.classification === "new_customer" || result.classification === "probable_match")) {
+      const batchCustomerRef = createHash("sha256").update(`${row.identity_fingerprint}:${row.row_number}`).digest("hex");
+      const batchId = `batch:${batchCustomerRef}`;
+      candidates.push({
+        id: batchId,
+        display_name: row.display_name,
+        identities: row.identities.map((identity) => ({
+          identity_type: identity.identity_type,
+          identity_scope: identity.identity_scope,
+          normalized_value: identity.normalized_value,
+        })),
+      });
+      batchRefs.set(batchId, batchCustomerRef);
+      output.push({
+        ...row,
+        ...result,
+        candidate_customer_id: candidateRef ? null : result.candidate_customer_id,
+        planned_mutation: candidateRef ? { action: "manual_review" } : result.planned_mutation,
+        batch_customer_ref: batchCustomerRef,
+      });
+      continue;
+    }
+
+    output.push({ ...row, ...result, batch_customer_ref: null });
+  }
+  return output;
 }

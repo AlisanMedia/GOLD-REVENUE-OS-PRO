@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyDedup, normalizeIdentity, normalizeImportRow } from "./customer-os";
+import { classifyDedup, classifyRows, normalizeIdentity, normalizeImportRow } from "./customer-os";
 
 describe("customer identity normalization", () => {
   it("normalizes supported identities deterministically", () => {
@@ -38,5 +38,34 @@ describe("deduplication", () => {
   it("classifies unseen identities as new_customer", () => {
     const row = normalizeImportRow(1, { email: "new@example.com" }, "crm");
     expect(classifyDedup(row, existing)).toMatchObject({ classification: "new_customer", planned_mutation: { action: "create_customer" } });
+  });
+
+  it("groups exact identities inside one upload without creating duplicate customers", () => {
+    const rows = [
+      normalizeImportRow(2, { email: "same@example.com", telegram_username: "@same_user" }, "legacy"),
+      normalizeImportRow(3, { email: "SAME@example.com" }, "legacy"),
+    ];
+    const classified = classifyRows(rows, []);
+    expect(classified[0]).toMatchObject({
+      classification: "new_customer",
+      planned_mutation: { action: "create_customer" },
+    });
+    expect(classified[1]).toMatchObject({
+      classification: "exact_match",
+      candidate_customer_id: null,
+      planned_mutation: { action: "link_batch" },
+    });
+    expect(classified[0]!.batch_customer_ref).toBe(classified[1]!.batch_customer_ref);
+  });
+
+  it("uses one batch reference when exact identities form a transitive group", () => {
+    const rows = [
+      normalizeImportRow(2, { email: "first@example.com", telegram_user_id: "123" }, "legacy"),
+      normalizeImportRow(3, { telegram_user_id: "123", email: "second@example.com" }, "legacy"),
+      normalizeImportRow(4, { email: "second@example.com" }, "legacy"),
+    ];
+    const classified = classifyRows(rows, []);
+    expect(classified.map((row) => row.classification)).toEqual(["new_customer", "exact_match", "exact_match"]);
+    expect(new Set(classified.map((row) => row.batch_customer_ref)).size).toBe(1);
   });
 });

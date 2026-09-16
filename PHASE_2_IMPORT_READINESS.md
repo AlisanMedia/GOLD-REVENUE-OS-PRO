@@ -18,6 +18,12 @@ This document is the safe runbook for the approximately 1,161-customer historica
 5. Open the reconciliation report. It must show exact-match, probable-match, ambiguous, new-customer, rejected, validation-error and planned-mutation counts.
 6. Inspect every probable and ambiguous row. Use the review endpoint to approve only an exact existing customer or a new customer. Uncertain rows stay unresolved.
 
+### Legacy multi-sheet workbooks
+
+The historical workbook validated in September 2026 is not a canonical import file: it contains multiple sheets, localized headers, a headerless sheet, formula cells and one mixed Telegram username/user-ID/free-text column. Keep the original workbook in encrypted temporary storage and produce a tenant-approved canonical CSV locally before using the admin import screen. The canonical file must have one header row, one source row number, and only explicit supported identity columns. Do not infer phone or external ID values from payment serials or free-text cells. Preserve the original sheet name and row number in the source reference, compare the canonical file hash with the dry-run report, and delete the temporary derivative after reconciliation.
+
+The import engine now links exact duplicates inside the same batch by an opaque batch reference. Probable and ambiguous matches remain review-gated. A dry-run with validation errors must report those rows as rejected; no rejected row may contribute to planned mutation counts.
+
 ## Approval gate
 
 Do not call the commit endpoint until the owner has reviewed the report and explicitly approved it outside the import file. The commit endpoint requires the exact confirmation phrase `IMPORT_APPROVED`, a super_admin session, and all probable/ambiguous rows resolved. This phrase is not a substitute for review; it is the final technical guard.

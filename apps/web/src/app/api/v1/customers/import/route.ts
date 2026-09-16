@@ -35,6 +35,7 @@ export async function POST(request: Request) {
       row_number: row.row_number,
       classification: row.classification,
       candidate_customer_id: row.candidate_customer_id,
+      batch_customer_ref: row.batch_customer_ref,
       source_record_ref: row.source_record_ref,
       identity_fingerprint: row.identity_fingerprint,
       raw_payload: row.raw_payload,
