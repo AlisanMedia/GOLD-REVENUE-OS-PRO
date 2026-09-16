@@ -33,7 +33,7 @@ The server-side data access layer loads the tenant-filtered customer, identities
 
 ## Tests executed
 
-GitHub Actions CI run: [35009300541](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/35009300541)
+GitHub Actions main CI run: [35009643492](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/35009643492)
 
 - Application job: PASS — lint, typecheck, 16 workspace tests, Next production build, audit and bundle smoke test.
 - Database job: PASS — Supabase start, migrations, migration history, database lint, foundation pgTAP, tenant isolation tests and Customer OS pgTAP.
@@ -45,7 +45,12 @@ GitHub Actions CI run: [35009300541](https://github.com/AlisanMedia/GOLD-REVENUE
 
 ## Staging validation
 
-Pending the post-merge staging workflow. The staging workflow must run against Supabase project `gold-revenue-os-staging` only, with Vercel disabled until staging database/auth checks are confirmed. This section must be updated with the workflow URL, migration result and authentication smoke result before Phase 2 is closed.
+GitHub Actions staging run: [35041988883](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/35041988883), validated commit `4763f7ce3b12fe498d1dd7d57d7d1cabf377f05c`.
+
+- Supabase staging validation: PASS — CI gate, required-secret validation, isolated staging link, Phase 2 migration application, migration-history verification, database lint and authentication smoke test all executed successfully.
+- Vercel staging validation: PASS — the staging artifact was built, deployed and validated after the Supabase job completed.
+- Target database: `gold-revenue-os-staging` (`xqvwkghpmezcpgugetqc`, `eu-central-1`).
+- Production infrastructure was not used or modified.
 
 ## Security findings and limitations
 
