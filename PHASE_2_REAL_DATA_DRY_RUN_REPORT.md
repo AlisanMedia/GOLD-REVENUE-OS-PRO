@@ -91,6 +91,22 @@ No mutation was executed. If an import were approved after reconciliation:
 
 No PII is reproduced here. References are source sheet and physical row number.
 
+The **225** figure is a union, not a sum of four independent buckets. There are
+**229 review flags** across **225 unique source records**:
+
+| Review reason | Flag count | Overlap inside this category |
+|---|---:|---:|
+| Rejected/validation failed | 46 | 3 are also mixed Telegram/free-text rows |
+| Probable match | 39 | 1 is also a mixed Telegram/free-text row |
+| Ambiguous identity graph | 31 | 0 mixed-field overlaps |
+| Unrecognized mixed Telegram/free-text | 113 | 4 already counted above |
+| **Unique records requiring review** | **225** | **4 duplicated flags removed** |
+
+Rejected, probable and ambiguous buckets do not overlap with each other. The
+only overlaps are the three rejected rows and one probable row that also carry
+an unrecognized mixed-field value. This breakdown explains the complete
+composition without publishing customer data.
+
 ### Rejected
 
 - GELEN ÖDEMELER ŞUBAT: 129, 168, 182, 239
@@ -172,4 +188,21 @@ The first Vercel attempt was blocked by the account billing state; after the Pro
 5. run a second dry-run on that canonical file;
 6. obtain explicit owner approval.
 
-Phase 3 has not started.
+The historical expectation of approximately **1,161** unique customers is not
+yet reconciled to the engine's **1,133–1,152** range. The historical estimate is
+9 above the current conservative upper bound and 28 above the exact-identity
+component count. The current engine deliberately excludes 46 rejected rows,
+does not invent identities for 113 mixed-field rows, collapses the June/`Sayfa1`
+overlap and leaves 70 probable/ambiguous decisions unresolved. Those different
+counting rules can explain the direction of the variance, but they do not prove
+which nine records account for the remaining upper-bound difference.
+
+Before any future real import, a final manual-review resolution report must:
+
+1. resolve each of the 225 unique review records by source reference;
+2. document the canonical identity/component decision without exposing PII;
+3. reconcile the final unique count against 1,161 and explain every exclusion;
+4. attach the canonical-file hash and second dry-run totals; and
+5. receive a new, explicit owner approval before the commit endpoint is used.
+
+Phase 3 may proceed, but it must not weaken or bypass this import gate.
