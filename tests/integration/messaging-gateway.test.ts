@@ -57,7 +57,7 @@ describe("Phase 5 messaging security contracts", () => {
     const route = read("apps/web/src/app/api/v1/conversations/[id]/messages/route.ts");
     expect(route).toContain("IDEMPOTENCY_KEY_REQUIRED");
     expect(route).toContain("queued.duplicate === true");
-    expect(route.indexOf("queued.duplicate === true")).toBeLessThan(route.indexOf("sendTelegramText"));
+    expect(route.indexOf("queued.duplicate === true")).toBeLessThan(route.indexOf("await sendTelegramText"));
   });
 
   it("keeps historical import locked and contains no AI runtime", () => {
