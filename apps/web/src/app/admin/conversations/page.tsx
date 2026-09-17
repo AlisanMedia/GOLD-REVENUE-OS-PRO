@@ -16,7 +16,7 @@ export default async function ConversationsPage({
   const customerId = first(raw.customer);
   const page = Math.max(Number.parseInt(first(raw.page) ?? "1", 10) || 1, 1);
   const [result, outboundEnabled, admin] = await Promise.all([
-    getConversationList({ status, customerId, page, pageSize: 25 }),
+    getConversationList({ ...(status ? { status } : {}), ...(customerId ? { customerId } : {}), page, pageSize: 25 }),
     getOutboundMessagingEnabled(),
     requireAdminCapability("messaging.read"),
   ]);
