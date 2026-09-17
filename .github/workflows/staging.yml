@@ -12,6 +12,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_telegram_live:
+        description: Register and validate the staging Telegram webhook after Vercel succeeds
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -119,6 +124,10 @@ jobs:
       NEXT_PUBLIC_APP_URL: https://gold-revenue-os-staging.vercel.app
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
+      TELEGRAM_STAGING_TENANT_ID: ${{ secrets.TELEGRAM_STAGING_TENANT_ID }}
     steps:
       - name: Enforce successful CI gate
         env:
@@ -156,6 +165,16 @@ jobs:
             NEXT_PUBLIC_APP_URL NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY; do
             test -n "${!key:-}" || { echo "Missing staging secret: $key"; exit 1; }
           done
+      - name: Validate required Telegram staging secrets
+        if: ${{ inputs.run_telegram_live == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in TELEGRAM_BOT_TOKEN TELEGRAM_WEBHOOK_SECRET TELEGRAM_STAGING_TENANT_ID SUPABASE_SECRET_KEY; do
+            test -n "${!key:-}" || { echo "Missing staging secret: $key"; exit 1; }
+          done
+          [[ "$TELEGRAM_STAGING_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+          [[ "$TELEGRAM_WEBHOOK_SECRET" =~ ^[A-Za-z0-9_-]{16,256}$ ]]
       - name: Verify Vercel project identity
         shell: bash
         run: |
@@ -215,6 +234,52 @@ jobs:
 
           admin_status=$(pnpm dlx vercel@59.16.0 curl "/admin" --deployment "$DEPLOYMENT_URL" -- --output /dev/null --write-out '%{http_code}')
           test "$admin_status" = "307" -o "$admin_status" = "302" -o "$admin_status" = "303"
+      - name: Register and validate Telegram staging webhook
+        if: ${{ inputs.run_telegram_live == true }}
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          canonical_url="${NEXT_PUBLIC_APP_URL%/}"
+          webhook_url="$canonical_url/api/webhooks/telegram"
+
+          curl --fail --silent --show-error "$canonical_url/api/webhooks/telegram" \
+            | jq -e '.status == "telegram-webhook-ready"' >/dev/null
+
+          invalid_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --request POST --header 'content-type: application/json' \
+            --header 'x-telegram-bot-api-secret-token: invalid-secret' \
+            --data '{"update_id":1}' "$webhook_url")
+          test "$invalid_status" = "401"
+
+          malformed_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --request POST --header 'content-type: application/json' \
+            --header "x-telegram-bot-api-secret-token: $TELEGRAM_WEBHOOK_SECRET" \
+            --data '{"update_id":1}' "$webhook_url")
+          test "$malformed_status" = "400"
+
+          curl --fail --silent --show-error \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" \
+            | jq -e '.ok == true and .result.is_bot == true' >/dev/null
+
+          curl --fail --silent --show-error \
+            --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
+            --data-urlencode "url=$webhook_url" \
+            --data-urlencode "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
+            --data-urlencode 'allowed_updates=["message"]' \
+            --data-urlencode 'drop_pending_updates=true' \
+            | jq -e '.ok == true' >/dev/null
+
+          webhook_info="$RUNNER_TEMP/telegram-webhook-info.json"
+          curl --fail --silent --show-error \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" >"$webhook_info"
+          test "$(jq -r '.ok' "$webhook_info")" = "true"
+          test "$(jq -r '.result.url' "$webhook_info")" = "$webhook_url"
+          test "$(jq -r '.result.has_custom_certificate' "$webhook_info")" = "false"
+          test "$(jq -r '.result.last_error_message // empty' "$webhook_info")" = ""
+
+          echo "Telegram staging webhook registered at the canonical HTTPS endpoint." >>"$GITHUB_STEP_SUMMARY"
       - name: Write Vercel validation evidence
         if: always()
         env:
@@ -225,6 +290,7 @@ jobs:
             echo "commit=${{ inputs.validated_commit_sha }}"
             echo "supabase_gate=success"
             echo "deployment_url=${DEPLOYMENT_URL:-not-created}"
+            echo "telegram_live_requested=${{ inputs.run_telegram_live }}"
           } >"$RUNNER_TEMP/staging-vercel-validation.txt"
       - name: Upload Vercel staging evidence
         if: always()
