@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { getConversationList } from "@/lib/messaging/server";
+import { getConversationList, getOutboundMessagingEnabled } from "@/lib/messaging/server";
+import { requireAdminCapability } from "@/lib/admin/server";
+import { hasAdminCapability } from "@/lib/admin/permissions";
+import { OutboundKillSwitch } from "@/components/outbound-kill-switch";
 
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 
@@ -12,7 +15,11 @@ export default async function ConversationsPage({
   const status = first(raw.status);
   const customerId = first(raw.customer);
   const page = Math.max(Number.parseInt(first(raw.page) ?? "1", 10) || 1, 1);
-  const result = await getConversationList({ status, customerId, page, pageSize: 25 });
+  const [result, outboundEnabled, admin] = await Promise.all([
+    getConversationList({ status, customerId, page, pageSize: 25 }),
+    getOutboundMessagingEnabled(),
+    requireAdminCapability("messaging.read"),
+  ]);
   const pageCount = Math.max(Math.ceil(result.total / result.page_size), 1);
   const hrefFor = (target: number) => {
     const params = new URLSearchParams();
@@ -28,6 +35,7 @@ export default async function ConversationsPage({
       <h1>Conversations</h1>
       <p className="lede">Tenant-scoped Telegram conversations. Historical usernames alone never grant outbound contactability.</p>
     </div></div>
+    {hasAdminCapability(admin.role, "messaging.kill_switch") ? <OutboundKillSwitch initialEnabled={outboundEnabled} /> : <div className="warning-box"><strong>Outbound: {outboundEnabled ? "enabled" : "disabled"}</strong><p>Only manager or super admin can change the tenant kill switch.</p></div>}
     <form className="filter-panel" method="get">
       <label>Status<select name="status" defaultValue={status ?? ""}><option value="">All</option><option>open</option><option>closed</option><option>blocked</option></select></label>
       <label>Customer ID<input name="customer" defaultValue={customerId} /></label>
