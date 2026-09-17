@@ -1,6 +1,8 @@
 # Phase 3 Report — State + Event Engine
 
-Status: **IMPLEMENTED LOCALLY — CLOUD VALIDATION PENDING**
+Status: **COMPLETE — CLOUD VALIDATED**
+
+Validated Phase 3 commit: `64e8d6cfaabc56c2b94bdb05b7a16898841a9f46`
 
 Real historical customer import: **LOCKED / NOT EXECUTED**
 
@@ -178,15 +180,51 @@ Database tests added:
 - scheduled-job idempotency/lease/completion;
 - actual two-session concurrent transition serialization.
 
-Database execution: **PENDING GitHub Actions**. No database test is marked PASS
-until the cloud Database job actually runs it.
+Cloud execution on GitHub Actions completed successfully:
+
+| Evidence | Actual result |
+|---|---|
+| Phase 3 PR CI run `35134410146` | PASS — Application and Database |
+| Final `main` CI run `35182551253` | PASS — Application and Database |
+| Supabase local stack startup | PASS |
+| Migration rebuild and history verification | PASS |
+| Database lint | PASS |
+| Foundation pgTAP | PASS |
+| Phase 1 tenant-isolation tests | PASS |
+| Customer OS pgTAP | PASS |
+| State/Event Engine pgTAP | PASS |
+| Two-session concurrent transition proof | PASS |
+| Authentication smoke test | PASS |
+
+The Database job actually started Supabase, rebuilt the database from the full
+migration chain, ran every pgTAP suite and tenant test, executed two concurrent
+PostgreSQL sessions, and completed the authentication smoke test. No unexecuted
+database check is represented as passing.
 
 ## Staging validation
 
-- GitHub Application job: PENDING
-- GitHub Database job: PENDING
-- Supabase staging migration/lint/auth validation: PENDING
-- Vercel staging build/deploy/health validation: PENDING
+Staging workflow run `35183759365` validated the exact Phase 3 commit
+`64e8d6cfaabc56c2b94bdb05b7a16898841a9f46` on 2026-09-17.
+
+| Check | Actual result |
+|---|---|
+| Required final CI gate | PASS |
+| Supabase staging secret validation | PASS |
+| Isolated staging project link | PASS |
+| Phase 3 migration application | PASS |
+| Staging migration history | PASS |
+| Staging database lint | PASS |
+| Staging authentication smoke test | PASS |
+| Supabase evidence artifact | PASS |
+| Vercel project identity | PASS |
+| Isolated Preview configuration pull | PASS |
+| Vercel staging build | PASS |
+| Vercel staging deployment | PASS |
+| Live staging deployment validation | PASS |
+| Vercel evidence artifact | PASS |
+
+The Vercel job depended on the successful Supabase job; therefore deployment
+was not permitted to run before the database validation completed.
 
 ## Security findings
 
@@ -233,7 +271,8 @@ until the cloud Database job actually runs it.
 
 ## Phase 4 prerequisites
 
-- Cloud Application and Database jobs green on the exact merged commit.
-- Supabase and Vercel staging validation green on that same commit.
-- Dead-letter/transition diagnostics manually readable by the staging admin.
-- Explicit owner approval. Phase 4 has not started.
+- Cloud Application and Database jobs are green on the exact merged commit.
+- Supabase and Vercel staging validation are green on that same commit.
+- Dead-letter/transition diagnostics are available to the staging admin.
+- The historical customer import remains locked behind the Phase 2 review gate.
+- Explicit owner approval is still required. Phase 4 has not started.
