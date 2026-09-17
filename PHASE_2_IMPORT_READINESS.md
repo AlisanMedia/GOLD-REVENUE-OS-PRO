@@ -28,6 +28,23 @@ The import engine now links exact duplicates inside the same batch by an opaque 
 
 Do not call the commit endpoint until the owner has reviewed the report and explicitly approved it outside the import file. The commit endpoint requires the exact confirmation phrase `IMPORT_APPROVED`, a super_admin session, and all probable/ambiguous rows resolved. This phrase is not a substitute for review; it is the final technical guard.
 
+The September 2026 real-data review gate remains open. Its 225 unique records
+comprise 46 rejected rows, 39 probable matches, 31 ambiguous matches and 113
+mixed Telegram/free-text rows. These are 229 category flags but 225 records
+because three rejected rows and one probable row are also in the mixed-field
+category. Rejected/probable/ambiguous categories otherwise do not overlap.
+
+The engine currently estimates 1,133 exact identity components and a
+no-silent-merge upper bound of 1,152 customers, versus the historical estimate
+of approximately 1,161. This difference remains unresolved; the historical
+number must not be treated as a database target or used to force merges.
+
+Before a future commit is even eligible for approval, produce
+`PHASE_2_FINAL_IMPORT_REVIEW_REPORT.md` from a canonical PII-protected file. It
+must resolve every one of the 225 records, reconcile the final unique count,
+include the canonical file hash and second dry-run results, and record a new
+explicit owner approval. Phase 3 work does not unlock the import.
+
 ## Commit and reconciliation
 
 After approval, execute one batch commit. The operation is atomic and records source/provenance references, identities, profiles, memory confidence and state history. Verify imported/created/linked counts against the report and preserve the batch ID. Investigate any identity conflict or rejected row before proceeding.

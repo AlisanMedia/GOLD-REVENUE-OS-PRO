@@ -11,9 +11,9 @@ export default async function AdminPage() {
 
   return (
     <main className="admin-main">
-      <p className="eyebrow">PHASE 2 · CUSTOMER OS</p>
-      <h1>Customer control plane ready.</h1>
-      <p className="lede">The central customer record is tenant-scoped, auditable and prepared for safe import review.</p>
+      <p className="eyebrow">PHASE 3 · STATE + EVENT ENGINE</p>
+      <h1>Deterministic lifecycle control.</h1>
+      <p className="lede">Customer state, durable events and delivery evidence stay tenant-scoped, guarded and replay-safe.</p>
       <section className="status-grid" aria-label="Foundation status">
         <article className="status-card"><span>Tenant boundary</span><strong>{tenant.slug}</strong></article>
         <article className="status-card"><span>Access role</span><strong>{tenant.role.replace("_", " ")}</strong></article>

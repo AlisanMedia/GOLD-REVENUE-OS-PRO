@@ -101,6 +101,20 @@ jobs:
         run: |
           set -o pipefail
           supabase test db supabase/tests/customer_os.test.sql | tee "$RUNNER_TEMP/customer-os-pgtap.log"
+      - name: Run State and Event Engine pgTAP tests
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/state_event_engine.test.sql | tee "$RUNNER_TEMP/state-event-pgtap.log"
+      - name: Prove concurrent transition serialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/supabase-status.env"
+          db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/supabase-status.env")
+          test -n "$db_url"
+          echo "::add-mask::$db_url"
+          bash supabase/tests/state_event_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/state-event-concurrency.log"
       - name: Export local Auth credentials safely
         shell: bash
         run: |
@@ -128,6 +142,8 @@ jobs:
             ${{ runner.temp }}/foundation-pgtap.log
             ${{ runner.temp }}/tenant-isolation.log
             ${{ runner.temp }}/customer-os-pgtap.log
+            ${{ runner.temp }}/state-event-pgtap.log
+            ${{ runner.temp }}/state-event-concurrency.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack

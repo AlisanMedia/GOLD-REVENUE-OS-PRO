@@ -13,6 +13,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           <Link className="nav-item" href="/admin">Foundation status</Link>
           <Link className="nav-item" href="/admin/customers">Customers</Link>
           <Link className="nav-item" href="/admin/imports">Imports</Link>
+          {tenant.role === "super_admin" || tenant.role === "manager" ? <Link className="nav-item" href="/admin/events">Event diagnostics</Link> : null}
         </nav>
         <p className="sidebar-footer">{tenant.name}<br />{tenant.role.replace("_", " ")}</p>
       </aside>
