@@ -1,8 +1,8 @@
 # Phase 4 Report — Admin Control Plane
 
-Status: **IMPLEMENTED — CLOUD VALIDATION PENDING**
+Status: **COMPLETE — CLOUD VALIDATED**
 
-Validated Phase 4 commit: **pending merge and cloud validation**
+Validated Phase 4 commit: `d9ab97b693d99eb0635b9f5346b1a9c9c465fdd4`
 
 Real historical customer import: **LOCKED / NOT EXECUTED**
 
@@ -137,7 +137,20 @@ the raw workbook or grant import authority.
   path; financial/access/subscription edges require trusted deterministic
   events.
 
-Supabase Security Advisor result: **pending staging migration**.
+Supabase Security Advisor was executed after the staging migration. It returned
+two warning classes:
+
+- nine authenticated `SECURITY DEFINER` RPC findings. These are intentional API
+  entry points with fixed `search_path`, internal authenticated tenant-role
+  checks, bounded output and pgTAP denial-path coverage. They are accepted, not
+  silently ignored;
+- leaked-password protection is disabled. Supabase documents this feature as
+  available on Pro and above. Phase 4 did not introduce or require a paid plan.
+
+Performance Advisor returned 15 informational unindexed-foreign-key findings
+from the Phase 1–3 schema and 30 unused-index findings. The staging database is
+nearly empty, so unused-index statistics are not evidence that these indexes
+should be removed. No index was deleted from advisor output alone.
 
 ## Tests and actual results
 
@@ -169,19 +182,36 @@ New `admin_control_plane.test.sql` pgTAP coverage includes:
 - forbidden financial-state bypass;
 - database-enforced import lock.
 
-Database CI result: **pending GitHub Actions execution**. No database test is
-reported as passing until the cloud Database job actually starts Supabase,
-applies all migrations and executes pgTAP.
+Cloud execution completed successfully:
+
+| Evidence | Actual result |
+|---|---|
+| Phase 4 PR CI run `35218145366` | PASS — Application and Database |
+| Phase 4 `main` CI run `35218382175` | PASS — Application and Database |
+| Supabase local stack startup in CI | PASS |
+| Full migration rebuild/history verification | PASS |
+| Database lint | PASS |
+| Foundation, tenant, Customer OS, State/Event and Admin pgTAP | PASS |
+| Concurrent transition proof | PASS |
+| Authentication smoke test | PASS |
+
+The Database job actually started Supabase, rebuilt the full migration chain
+and executed every listed suite. No unexecuted database check is marked PASS.
 
 ## Cloud and staging validation
 
 | Check | Result |
 |---|---|
-| GitHub Application job | PENDING |
-| GitHub Database job | PENDING |
-| Supabase staging migration/history/lint/auth | PENDING |
-| Supabase Security Advisor | PENDING |
-| Vercel staging build/deploy/live validation | PENDING |
+| GitHub Application job | PASS — PR run `35218145366` and main run `35218382175` |
+| GitHub Database job | PASS — PR run `35218145366` and main run `35218382175` |
+| Supabase staging migration/history/lint/auth | PASS — staging run `35223010527` |
+| Supabase Security Advisor | EXECUTED — documented warnings above |
+| Vercel project identity/config/build/deploy | PASS — staging run `35223010527` |
+| Vercel live `/`, `/login`, health and admin redirect smoke | PASS |
+
+Staging workflow `35223010527` validated the exact implementation commit. The
+Vercel job depended on successful Supabase validation. Deployment URL:
+`https://gold-revenue-os-staging-hhqt13g6f-gold-revenue-os-staging.vercel.app`.
 
 ## Performance findings
 
@@ -197,7 +227,7 @@ applies all migrations and executes pgTAP.
 ## Remaining risks and limitations
 
 - Local pgTAP could not run because this execution environment has no Docker
-  engine. The GitHub Database job is the required execution evidence.
+  engine; both GitHub Database jobs supplied the actual execution evidence.
 - Customer 360 displays only the most recent bounded timeline windows; cursor
   pagination can be added if operating evidence exceeds those limits.
 - System health is a current database snapshot, not an alerting/monitoring
@@ -208,9 +238,13 @@ applies all migrations and executes pgTAP.
 
 ## Manual actions
 
-No new account, paid service or secret is required. After both GitHub CI jobs
-pass on the merged Phase 4 commit, the existing staging workflow must be
-manually dispatched with that exact SHA and `run_vercel=true`.
+No new account, paid service or secret was required. The existing staging
+workflow was manually dispatched with the validated SHA and `run_vercel=true`.
+
+Optional hardening remains: if the Supabase organization is already on Pro or
+later upgrades, enable **Authentication → Providers → Email → Leaked password
+protection**. This is not a Phase 4 closure blocker and no plan upgrade was
+performed.
 
 ## Rollback notes
 
@@ -226,8 +260,8 @@ manually dispatched with that exact SHA and `run_vercel=true`.
 
 - GitHub Application and Database jobs pass on the exact merged commit.
 - Supabase staging migration, history, lint, auth smoke and Security Advisor are
-  reviewed.
-- Vercel staging build, deploy and live authenticated smoke test pass on the
-  same commit.
+  complete and reviewed.
+- Vercel staging build, deployment, health and authorization-redirect smoke
+  pass on the same commit.
 - The historical import remains locked.
 - Explicit owner approval is required. Phase 5 has not started.
