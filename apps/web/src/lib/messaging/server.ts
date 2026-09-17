@@ -79,3 +79,34 @@ export async function getConversationMessages(conversationId: string): Promise<M
   if (error) throw new Error("CONVERSATION_MESSAGES_FAILED");
   return Array.isArray(data) ? data as MessageItem[] : [];
 }
+
+
+export type ConversationDetail = {
+  id: string;
+  customer_id: string | null;
+  status: string;
+  unread_count: number;
+  attention_required: boolean;
+  last_message_at: string | null;
+  messaging_contacts: {
+    username: string | null;
+    provider_user_id: string;
+    provider_chat_id: string;
+    contactability: string;
+    identity_resolution: string;
+    review_required: boolean;
+  } | null;
+};
+
+export async function getConversationDetail(conversationId: string): Promise<ConversationDetail | null> {
+  const { tenantId } = await requireAdminCapability("messaging.read");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id,customer_id,status,unread_count,attention_required,last_message_at,messaging_contacts(username,provider_user_id,provider_chat_id,contactability,identity_resolution,review_required)")
+    .eq("tenant_id", tenantId)
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error) throw new Error("CONVERSATION_DETAIL_FAILED");
+  return data as ConversationDetail | null;
+}
