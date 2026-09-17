@@ -2,6 +2,7 @@ import ManualStateTransition from "@/components/manual-state-transition";
 import { hasAdminCapability } from "@/lib/admin/permissions";
 import { getCustomer360 } from "@/lib/customer-os/server";
 import Link from "next/link";
+import { getConversationList } from "@/lib/messaging/server";
 
 function formatValue(value: unknown): string {
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return String(value);
@@ -9,7 +10,11 @@ function formatValue(value: unknown): string {
 }
 
 export default async function Customer360Page({ params }: { params: Promise<{ id: string }> }) {
-  const data = await getCustomer360((await params).id);
+  const customerId = (await params).id;
+  const data = await getCustomer360(customerId);
+  const conversations = hasAdminCapability(data.role, "messaging.read")
+    ? await getConversationList({ customerId, page: 1, pageSize: 20 })
+    : null;
   const safeTransitions: Record<string, Array<{ state: string; triggeringEvent: string }>> = {
     NEW: [{ state: "CONTACT_READY", triggeringEvent: "admin.manual_transition" }], CONTACT_READY: [{ state: "CONTACTED", triggeringEvent: "admin.manual_transition" }], CONTACTED: [{ state: "REPLIED", triggeringEvent: "admin.manual_transition" }],
     OFFER_SENT: [{ state: "NOT_INTERESTED", triggeringEvent: "admin.manual_transition" }], NOT_INTERESTED: [{ state: "SURVEY_OFFERED", triggeringEvent: "admin.manual_transition" }], SURVEY_COMPLETED: [{ state: "TRIAL_ACTIVE", triggeringEvent: "admin.manual_transition" }],
@@ -28,6 +33,7 @@ export default async function Customer360Page({ params }: { params: Promise<{ id
         <article className="detail-card"><h2>Memory</h2>{data.memory.length ? <ul>{data.memory.map((item) => <li key={item.id}><strong>{item.memory_key.replaceAll("_", " ")}</strong><span>{formatValue(item.memory_value)} · confidence {item.confidence}</span><small>{item.source_type} · observed {new Date(item.observed_at).toLocaleString("en-GB")} · {item.superseded_at ? `superseded ${new Date(item.superseded_at).toLocaleString("en-GB")}` : "active"}</small></li>)}</ul> : <p className="muted">No learned memory yet.</p>}</article>
         <article className="detail-card"><h2>State history</h2>{data.state_history.length ? <ul>{data.state_history.map((item) => <li key={item.id}><strong>{item.from_state ?? "—"} → {item.to_state}</strong><span>{item.reason_code ?? "state change"} · {item.actor_type}{item.actor_id ? `:${item.actor_id}` : ""}</span><small>{new Date(item.occurred_at).toLocaleString("en-GB")} · {item.triggering_event} · correlation {item.correlation_id}</small></li>)}</ul> : <p className="muted">No state history yet.</p>}</article>
         <article className="detail-card"><h2>Event timeline</h2>{data.events.length ? <ul>{data.events.map((item) => <li key={item.id}><strong>{item.event_type} · v{item.event_version}</strong><span>{item.authority.toLowerCase()} · {item.producer} · {item.processing_status ?? "not queued"}{item.attempts !== null && item.attempts !== undefined ? ` · ${item.attempts} attempts` : ""}</span><small>correlation {item.correlation_id} · cause {item.causation_id ?? "root"}{item.last_error_code ? ` · ${item.last_error_code}` : ""}</small></li>)}</ul> : <p className="muted">No visible events recorded.</p>}</article>
+        {conversations ? <article className="detail-card"><h2>Conversations</h2>{conversations.items.length ? <ul>{conversations.items.map((item) => <li key={item.id}><strong><Link className="table-link" href={`/admin/conversations/${item.id}`}>Telegram · {item.status}</Link></strong><span>{item.contactability} · {item.identity_resolution}{item.review_required ? " · review required" : ""}</span><small>{item.last_message_at ? new Date(item.last_message_at).toLocaleString("en-GB") : "No messages"}</small></li>)}</ul> : <p className="muted">No messaging conversation linked to this customer.</p>}</article> : null}
         <article className="detail-card"><h2>Transition results</h2>{data.transition_attempts.length ? <ul>{data.transition_attempts.map((item) => <li key={item.id}><strong>{item.observed_from_state} → {item.to_state}</strong><span>{item.result}{item.rejection_code ? ` · ${item.rejection_code}` : ""} · {item.reason_code}</span><small>{item.triggering_event} · correlation {item.correlation_id}</small></li>)}</ul> : <p className="muted">No transition attempts recorded.</p>}</article>
         <article className="detail-card"><h2>Audit</h2>{data.audit.length ? <ul>{data.audit.map((item) => <li key={item.id}><strong>{item.action}</strong><span>{item.actor_type} · {item.actor_id ?? "system"}</span><small>{new Date(item.created_at).toLocaleString("en-GB")} · correlation {item.correlation_id ?? "none"}</small></li>)}</ul> : <p className="muted">No visible privileged audit records for this customer.</p>}</article>
         {hasAdminCapability(data.role, "customers.transition") ? <article className="detail-card"><h2>Manual state transition</h2><ManualStateTransition customerId={data.customer.id} currentState={data.customer.state} options={safeTransitions[data.customer.state] ?? []} /></article> : null}
