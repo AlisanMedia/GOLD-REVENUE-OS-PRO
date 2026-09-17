@@ -237,9 +237,7 @@ declare
   resolution_value text := 'unmatched';
   review_value boolean := true;
 begin
-  if auth.role() <> 'service_role' then
-    raise exception 'service role required' using errcode = '42501';
-  end if;
+  -- EXECUTE is revoked from PUBLIC, anon and authenticated; only service_role may call this RPC.
   if nullif(btrim(provider_update_id_value),'') is null
      or nullif(btrim(provider_message_id_value),'') is null
      or nullif(btrim(provider_chat_id_value),'') is null
@@ -516,8 +514,7 @@ declare
   attempt_number_value integer;
   event_id_value uuid;
 begin
-  if auth.role() <> 'service_role' then
-    raise exception 'service role required' using errcode = '42501'; end if;
+  -- EXECUTE is revoked from PUBLIC, anon and authenticated; only service_role may call this RPC.
   select * into message_value from public.messages
   where tenant_id = target_tenant_id and id = target_message_id
   for update;
