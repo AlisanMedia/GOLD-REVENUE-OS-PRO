@@ -13,6 +13,39 @@ select function_returns('public','queue_outbound_message',array['uuid','uuid','t
 select function_returns('public','record_outbound_message_result',array['uuid','uuid','text','text','integer','text','integer'],'jsonb','provider acknowledgement RPC exists');
 select function_returns('public','set_outbound_messaging_enabled',array['uuid','boolean','uuid'],'boolean','kill switch RPC exists');
 
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.ingest_telegram_message(uuid,text,text,text,text,text,text,text,text,text,timestamptz)',
+    'EXECUTE'
+  ),
+  'authenticated cannot execute Telegram ingest RPC'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.ingest_telegram_message(uuid,text,text,text,text,text,text,text,text,text,timestamptz)',
+    'EXECUTE'
+  ),
+  'service role can execute Telegram ingest RPC'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.record_outbound_message_result(uuid,uuid,text,text,integer,text,integer)',
+    'EXECUTE'
+  ),
+  'authenticated cannot forge provider acknowledgement'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.record_outbound_message_result(uuid,uuid,text,text,integer,text,integer)',
+    'EXECUTE'
+  ),
+  'service role can record provider acknowledgement'
+);
+
 insert into auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at) values
 ('81000000-0000-0000-0000-000000000001','00000000-0000-0000-0000-000000000000','authenticated','authenticated','phase5-manager@example.test','not-used',now()),
 ('81000000-0000-0000-0000-000000000002','00000000-0000-0000-0000-000000000000','authenticated','authenticated','phase5-support@example.test','not-used',now()),
