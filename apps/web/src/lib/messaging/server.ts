@@ -110,3 +110,12 @@ export async function getConversationDetail(conversationId: string): Promise<Con
   if (error) throw new Error("CONVERSATION_DETAIL_FAILED");
   return data as ConversationDetail | null;
 }
+
+
+export async function getOutboundMessagingEnabled(): Promise<boolean> {
+  const { tenantId } = await requireAdminCapability("messaging.read");
+  const supabase = await createSupabaseServerClient();
+  const { data, error } = await supabase.from("tenants").select("outbound_messaging_enabled").eq("id", tenantId).single();
+  if (error) throw new Error("MESSAGING_SETTINGS_READ_FAILED");
+  return data.outbound_messaging_enabled === true;
+}
