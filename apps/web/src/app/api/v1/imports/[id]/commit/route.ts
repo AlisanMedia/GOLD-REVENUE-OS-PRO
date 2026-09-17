@@ -1,15 +1,9 @@
 import { apiError, requireCustomerTenant } from "@/lib/customer-os/server";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { tenantId } = await requireCustomerTenant(["super_admin"]);
     const { id } = await params;
-    const body = await request.json() as { confirmation?: string };
-    if (body.confirmation !== "IMPORT_APPROVED") throw new Error("EXPLICIT_IMPORT_APPROVAL_REQUIRED");
-    const supabase = await createSupabaseServerClient();
-    const result = await supabase.rpc("commit_import_batch", { target_batch_id: id, approval_phrase: body.confirmation }) as unknown as { data: unknown; error: unknown };
-    if (result.error) throw new Error("IMPORT_COMMIT_FAILED");
-    return Response.json({ tenant_id: tenantId, result: result.data });
+    return Response.json({ error: { code: "IMPORT_EXECUTION_LOCKED", message: "Historical import remains locked pending final reconciliation and explicit approval", tenant_id: tenantId, batch_id: id } }, { status: 423 });
   } catch (error) { return apiError(error); }
 }

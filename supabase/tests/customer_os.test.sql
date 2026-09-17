@@ -92,6 +92,10 @@ select is(
   'dry-run report counts validation failures as rejected'
 );
 
+-- Phase 4 revokes browser execution of the real import commit RPC. Exercise
+-- this synthetic regression fixture as the migration owner while preserving
+-- the authenticated JWT subject used by the function's membership checks.
+set local role postgres;
 select lives_ok(
   $test$
   do $body$
