@@ -213,6 +213,16 @@ jobs:
           deployment_url=$(pnpm dlx vercel@59.16.0 deploy --prebuilt --token="$VERCEL_TOKEN")
           echo "url=$deployment_url" >>"$GITHUB_OUTPUT"
           echo "Staging URL: $deployment_url" >>"$GITHUB_STEP_SUMMARY"
+      - name: Point canonical staging alias at validated artifact
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          pnpm dlx vercel@59.16.0 alias set \
+            "$DEPLOYMENT_URL" gold-revenue-os-staging.vercel.app \
+            --token="$VERCEL_TOKEN"
+          echo "Canonical staging alias: https://gold-revenue-os-staging.vercel.app" >>"$GITHUB_STEP_SUMMARY"
       - name: Validate staging deployment
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
