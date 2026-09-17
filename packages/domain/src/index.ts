@@ -22,3 +22,5 @@ export function canAccessTenant(
 
 export * from "./customer-os";
 export * from "./state-event-engine";
+
+export * from "./messaging";
