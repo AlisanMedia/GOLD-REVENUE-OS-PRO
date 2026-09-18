@@ -145,7 +145,7 @@ jobs:
         run: pnpm --filter @gold-revenue-os/web auth:smoke
       - name: Upload database evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: database-test-evidence
           path: |
