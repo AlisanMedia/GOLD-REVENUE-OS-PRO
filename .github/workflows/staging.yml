@@ -197,20 +197,34 @@ jobs:
 
           test "$(jq -r '.id' "$response")" = "$resolved_project_id"
           test "$(jq -r '.name' "$response")" = "gold-revenue-os-staging"
+          [[ "$resolved_org_id" =~ ^team_[A-Za-z0-9]+$ ]]
+
+          team_response="$RUNNER_TEMP/vercel-team.json"
+          curl \
+            --fail-with-body \
+            --retry 3 \
+            --retry-all-errors \
+            --silent \
+            --show-error \
+            --header "Authorization: Bearer $VERCEL_TOKEN" \
+            "https://api.vercel.com/v2/teams/$resolved_org_id" >"$team_response"
+          resolved_team_slug=$(jq -r '.slug // empty' "$team_response")
+          [[ "$resolved_team_slug" =~ ^[a-z0-9][a-z0-9-]{0,47}$ ]]
 
           echo "VERCEL_PROJECT_ID=$resolved_project_id" >>"$GITHUB_ENV"
           echo "VERCEL_ORG_ID=$resolved_org_id" >>"$GITHUB_ENV"
-          echo "Verified the exact Vercel project and account IDs without exposing credentials." >>"$GITHUB_STEP_SUMMARY"
+          echo "VERCEL_TEAM_SLUG=$resolved_team_slug" >>"$GITHUB_ENV"
+          echo "Verified the exact Vercel project, team ID, and team scope without exposing credentials." >>"$GITHUB_STEP_SUMMARY"
       - name: Pull isolated Vercel staging configuration
-        run: pnpm dlx vercel@59.16.0 pull --yes --environment=preview --token="$VERCEL_TOKEN"
+        run: pnpm dlx vercel@59.16.0 pull --yes --environment=preview --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
       - name: Build staging deployment
-        run: pnpm dlx vercel@59.16.0 build --token="$VERCEL_TOKEN"
+        run: pnpm dlx vercel@59.16.0 build --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
       - name: Deploy staging artifact
         id: deploy
         shell: bash
         run: |
           set -euo pipefail
-          deployment_url=$(pnpm dlx vercel@59.16.0 deploy --prebuilt --token="$VERCEL_TOKEN")
+          deployment_url=$(pnpm dlx vercel@59.16.0 deploy --prebuilt --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG")
           echo "url=$deployment_url" >>"$GITHUB_OUTPUT"
           echo "Staging URL: $deployment_url" >>"$GITHUB_STEP_SUMMARY"
       - name: Point canonical staging alias at validated artifact
@@ -221,7 +235,7 @@ jobs:
           set -euo pipefail
           pnpm dlx vercel@59.16.0 alias set \
             "$DEPLOYMENT_URL" gold-revenue-os-staging.vercel.app \
-            --token="$VERCEL_TOKEN"
+            --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
           echo "Canonical staging alias: https://gold-revenue-os-staging.vercel.app" >>"$GITHUB_STEP_SUMMARY"
       - name: Validate staging deployment
         env:
@@ -234,7 +248,7 @@ jobs:
           # Deployment Protection. Arguments after -- are forwarded to curl.
           vercel_curl() {
             local path="$1"
-            pnpm dlx vercel@59.16.0 curl "$path" --deployment "$DEPLOYMENT_URL"
+            pnpm dlx vercel@59.16.0 curl "$path" --deployment "$DEPLOYMENT_URL" --scope="$VERCEL_TEAM_SLUG"
           }
 
           vercel_curl "/" >/dev/null
@@ -242,7 +256,7 @@ jobs:
           vercel_curl "/api/health/live" | grep -q '"status":"ok"'
           vercel_curl "/api/health/ready" | grep -q '"status":"ready"'
 
-          admin_status=$(pnpm dlx vercel@59.16.0 curl "/admin" --deployment "$DEPLOYMENT_URL" -- --output /dev/null --write-out '%{http_code}')
+          admin_status=$(pnpm dlx vercel@59.16.0 curl "/admin" --deployment "$DEPLOYMENT_URL" --scope="$VERCEL_TEAM_SLUG" -- --output /dev/null --write-out '%{http_code}')
           test "$admin_status" = "307" -o "$admin_status" = "302" -o "$admin_status" = "303"
       - name: Register and validate Telegram staging webhook
         if: ${{ inputs.run_telegram_live == true }}
