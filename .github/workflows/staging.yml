@@ -268,40 +268,66 @@ jobs:
           canonical_url="${NEXT_PUBLIC_APP_URL%/}"
           webhook_url="$canonical_url/api/webhooks/telegram"
 
-          curl --fail --silent --show-error "$canonical_url/api/webhooks/telegram" \
-            | jq -e '.status == "telegram-webhook-ready"' >/dev/null
+          ready_body="$RUNNER_TEMP/telegram-ready.json"
+          ready_status=$(curl --silent --show-error --output "$ready_body" --write-out '%{http_code}' \
+            "$canonical_url/api/webhooks/telegram")
+          echo "Telegram webhook readiness HTTP status: $ready_status"
+          test "$ready_status" = "200"
+          jq -e '.status == "telegram-webhook-ready"' "$ready_body" >/dev/null
 
           invalid_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --request POST --header 'content-type: application/json' \
             --header 'x-telegram-bot-api-secret-token: invalid-secret' \
             --data '{"update_id":1}' "$webhook_url")
+          echo "Telegram invalid-secret probe HTTP status: $invalid_status"
           test "$invalid_status" = "401"
 
           malformed_status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --request POST --header 'content-type: application/json' \
             --header "x-telegram-bot-api-secret-token: $TELEGRAM_WEBHOOK_SECRET" \
             --data '{"update_id":1}' "$webhook_url")
+          echo "Telegram configured-secret malformed-payload probe HTTP status: $malformed_status"
           test "$malformed_status" = "400"
 
-          curl --fail --silent --show-error \
-            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" \
-            | jq -e '.ok == true and .result.is_bot == true' >/dev/null
+          bot_info="$RUNNER_TEMP/telegram-bot-info.json"
+          bot_status=$(curl --silent --show-error --output "$bot_info" --write-out '%{http_code}' \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe")
+          echo "Telegram getMe HTTP status: $bot_status"
+          test "$bot_status" = "200"
+          if ! jq -e '.ok == true and .result.is_bot == true and .result.username == "gold_revenue_os_staging_bot"' "$bot_info" >/dev/null; then
+            echo "::error::Telegram getMe did not resolve the expected staging bot identity."
+            jq -r '.description // "Unexpected Telegram getMe response"' "$bot_info"
+            exit 1
+          fi
 
-          curl --fail --silent --show-error \
+          set_webhook_response="$RUNNER_TEMP/telegram-set-webhook.json"
+          set_webhook_status=$(curl --silent --show-error --output "$set_webhook_response" --write-out '%{http_code}' \
             --request POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/setWebhook" \
             --data-urlencode "url=$webhook_url" \
             --data-urlencode "secret_token=$TELEGRAM_WEBHOOK_SECRET" \
             --data-urlencode 'allowed_updates=["message"]' \
-            --data-urlencode 'drop_pending_updates=true' \
-            | jq -e '.ok == true' >/dev/null
+            --data-urlencode 'drop_pending_updates=true')
+          echo "Telegram setWebhook HTTP status: $set_webhook_status"
+          test "$set_webhook_status" = "200"
+          if ! jq -e '.ok == true' "$set_webhook_response" >/dev/null; then
+            echo "::error::Telegram rejected setWebhook."
+            jq -r '.description // "Unexpected Telegram setWebhook response"' "$set_webhook_response"
+            exit 1
+          fi
 
           webhook_info="$RUNNER_TEMP/telegram-webhook-info.json"
-          curl --fail --silent --show-error \
-            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo" >"$webhook_info"
+          webhook_info_status=$(curl --silent --show-error --output "$webhook_info" --write-out '%{http_code}' \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getWebhookInfo")
+          echo "Telegram getWebhookInfo HTTP status: $webhook_info_status"
+          test "$webhook_info_status" = "200"
           test "$(jq -r '.ok' "$webhook_info")" = "true"
           test "$(jq -r '.result.url' "$webhook_info")" = "$webhook_url"
           test "$(jq -r '.result.has_custom_certificate' "$webhook_info")" = "false"
-          test "$(jq -r '.result.last_error_message // empty' "$webhook_info")" = ""
+          if test "$(jq -r '.result.last_error_message // empty' "$webhook_info")" != ""; then
+            echo "::error::Telegram reports a webhook delivery error."
+            jq -r '.result.last_error_message' "$webhook_info"
+            exit 1
+          fi
 
           echo "Telegram staging webhook registered at the canonical HTTPS endpoint." >>"$GITHUB_STEP_SUMMARY"
       - name: Write Vercel validation evidence
