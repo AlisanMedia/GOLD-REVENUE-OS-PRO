@@ -2,7 +2,7 @@
 
 Status: **implemented and cloud-validated**  
 Validation date: **2026-09-25 UTC / 2026-09-26 Europe/Istanbul**  
-Validated commit: `5fd324dd335c401c150c039cc8f9106ac4e7b8cc`  
+Validated commit: `31edd760beab6bf4d3134557310b18ac674325f1`  
 Repository: `AlisanMedia/GOLD-REVENUE-OS-PRO`
 
 ## Scope and boundaries
@@ -124,16 +124,19 @@ Live staging evidence from the authorized test account:
 
 | Check | Actual result |
 |---|---:|
-| Telegram updates received | 2 |
-| Completed updates | 2 |
+| Telegram updates received | 3 |
+| Completed updates | 3 |
 | Provider errors | 0 |
-| Distinct update IDs | 2 |
-| Persisted inbound messages | 2 |
+| Distinct update IDs | 3 |
+| Persisted inbound messages | 3 |
 | `/start` commands | 1 |
 | Smoke-test text messages | 1 |
-| Distinct inbound idempotency keys | 2 |
-| `message.received` events | 2 |
+| Additional inbound messages during live verification | 1 |
+| Distinct inbound idempotency keys | 3 |
+| `message.received` events | 3 |
 | Event payloads containing message content | 0 |
+
+The initial live snapshot contained two inbound messages (`/start` and the documented smoke message). A third distinct Telegram update arrived afterward during the same authorized live-validation session. Staging recorded it as one additional inbound message with a unique provider update and idempotency key, which explains the final increase from 2 to 3 for both persisted inbound messages and `message.received` events. No duplicate or provider failure was created.
 
 The staging Customer OS contained no imported customers. Identity resolution therefore correctly returned `unmatched`, set `review_required=true`, created one attention-required conversation, and did not silently bind the Telegram user to a customer.
 
@@ -212,7 +215,24 @@ Contracts used:
 
 Event payloads contain only `channel`, `conversation_id`, and `message_id`; message content is not copied into domain events.
 
-At the end of live validation, three messaging outbox records were durable and pending, with zero dead-lettered records. There are no Phase 5 downstream business consumers yet. Continuous dispatch/consumer runtime remains a Phase 6 prerequisite; pending records must stay observable and replay-safe.
+At the authoritative closeout snapshot, four messaging outbox records were durable and pending (three `message.received`, one `message.sent`), with zero dead-lettered records. There are no Phase 5 downstream business consumers yet. Continuous dispatch/consumer runtime remains a Phase 6 prerequisite; pending records must stay observable and replay-safe.
+
+## Authoritative staging closeout snapshot
+
+A final read-only tenant-scoped reconciliation query was executed against Supabase staging after CI run `36226731666` and staging validation run `36226912550`.
+
+| Metric | Authoritative value |
+|---|---:|
+| Inbound messages | 3 |
+| Outbound messages | 1 |
+| `message.received` events | 3 |
+| `message.sent` events | 1 |
+| Pending messaging outbox records | 4 |
+| Dead-letter messaging events | 0 |
+| Provider failures | 0 |
+| Outbound kill switch | DISABLED |
+
+Provider failure reconciliation covered provider-update errors, failed/blocked message records, and failed delivery attempts. All three sources returned zero failures. The one outbound delivery attempt completed without an error.
 
 ## Admin Control Plane
 
@@ -241,7 +261,7 @@ Customer 360 exposes conversations/messages and Telegram identity/contactability
 
 GitHub CI run:
 
-- Run: https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/36186197674
+- Run: https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/36226731666
 - Application job: **PASS**
 - Database job: **PASS**
 
@@ -294,7 +314,7 @@ Phase 5 coverage includes:
 
 Staging workflow:
 
-- Run: https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/36186555051
+- Run: https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/36226912550
 - Supabase staging validation: **PASS**
 - Vercel staging validation: **PASS**
 - Telegram live validation: **PASS**
@@ -308,10 +328,10 @@ Supabase staging:
 Vercel staging:
 
 - project: `gold-revenue-os-staging`
-- validated deployment: `dpl_5BsqegNFbXZp9p6AgHPsjhYmGZuH`
+- validated deployment: `dpl_6qZ3fZBsc4A5GYwr8oPKue9sMYkn`
 - deployment state: `READY`
 - canonical alias: https://gold-revenue-os-staging.vercel.app
-- deployed commit: `5fd324dd335c401c150c039cc8f9106ac4e7b8cc`
+- deployed commit: `31edd760beab6bf4d3134557310b18ac674325f1`
 
 Runtime secrets were attached server-side for the validated deployment without writing their values to the repository.
 
@@ -352,7 +372,7 @@ Runtime secrets were attached server-side for the validated deployment without w
 - GitHub staging secrets configured;
 - Vercel staging runtime secrets configured;
 - webhook registered;
-- authorized test user sent `/start` and one smoke message;
+- authorized test user sent `/start`, one documented smoke message, and one additional inbound message during live verification;
 - authorized admin sent one manual reply;
 - test account confirmed receipt;
 - outbound kill switch returned to disabled.
