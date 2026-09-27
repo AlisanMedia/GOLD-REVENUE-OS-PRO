@@ -13,7 +13,10 @@ alter table public.conversations
   add column runtime_mode public.conversation_runtime_mode not null default 'HUMAN_TAKEOVER';
 
 update public.conversations
-set runtime_mode = case when human_takeover then 'HUMAN_TAKEOVER' else 'AI_ACTIVE' end;
+set runtime_mode = case
+  when human_takeover then 'HUMAN_TAKEOVER'::public.conversation_runtime_mode
+  else 'AI_ACTIVE'::public.conversation_runtime_mode
+end;
 
 create table public.agent_definitions (
   id uuid primary key default gen_random_uuid(),
