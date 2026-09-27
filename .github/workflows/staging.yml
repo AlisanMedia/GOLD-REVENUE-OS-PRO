@@ -237,6 +237,30 @@ jobs:
       - name: Pull isolated Vercel staging production-target configuration
         if: ${{ inputs.run_agent_worker == true }}
         run: pnpm dlx vercel@59.16.0 pull --yes --environment=production --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
+      - name: Materialize isolated staging production build environment
+        if: ${{ inputs.run_agent_worker == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The isolated staging project's production target exists only so
+          # Vercel Cron is active. Source its build values from the already
+          # protected GitHub staging environment instead of duplicating them
+          # in Vercel or printing them to the log.
+          node <<'NODE'
+          const fs = require("node:fs");
+          const names = [
+            "NEXT_PUBLIC_APP_URL",
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+            "SUPABASE_SECRET_KEY",
+            "TELEGRAM_STAGING_TENANT_ID",
+            "CRON_SECRET",
+          ];
+          const content = names
+            .map((name) => `${name}=${JSON.stringify(process.env[name] ?? "")}`)
+            .join("\\n");
+          fs.writeFileSync(".vercel/.env.production.local", `${content}\\n`, { mode: 0o600 });
+          NODE
       - name: Build staging preview deployment
         if: ${{ inputs.run_agent_worker != true }}
         run: pnpm dlx vercel@59.16.0 build --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
