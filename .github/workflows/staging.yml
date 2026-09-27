@@ -17,6 +17,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_agent_worker:
+        description: Deploy the isolated staging project as its production target and validate the Phase 6 cron worker
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -128,6 +133,7 @@ jobs:
       TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
       TELEGRAM_STAGING_TENANT_ID: ${{ secrets.TELEGRAM_STAGING_TENANT_ID }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
     steps:
       - name: Enforce successful CI gate
         env:
@@ -175,6 +181,16 @@ jobs:
           done
           [[ "$TELEGRAM_STAGING_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
           [[ "$TELEGRAM_WEBHOOK_SECRET" =~ ^[A-Za-z0-9_-]{16,256}$ ]]
+      - name: Validate required Agent Runtime staging secrets
+        if: ${{ inputs.run_agent_worker == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for key in CRON_SECRET TELEGRAM_STAGING_TENANT_ID SUPABASE_SECRET_KEY; do
+            test -n "${!key:-}" || { echo "Missing Phase 6 staging secret: $key"; exit 1; }
+          done
+          test "${#CRON_SECRET}" -ge 32
+          [[ "$TELEGRAM_STAGING_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
       - name: Verify Vercel project identity
         shell: bash
         run: |
@@ -215,15 +231,24 @@ jobs:
           echo "VERCEL_ORG_ID=$resolved_org_id" >>"$GITHUB_ENV"
           echo "VERCEL_TEAM_SLUG=$resolved_team_slug" >>"$GITHUB_ENV"
           echo "Verified the exact Vercel project, team ID, and team scope without exposing credentials." >>"$GITHUB_STEP_SUMMARY"
-      - name: Pull isolated Vercel staging configuration
+      - name: Pull isolated Vercel staging preview configuration
+        if: ${{ inputs.run_agent_worker != true }}
         run: pnpm dlx vercel@59.16.0 pull --yes --environment=preview --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
-      - name: Build staging deployment
+      - name: Pull isolated Vercel staging production-target configuration
+        if: ${{ inputs.run_agent_worker == true }}
+        run: pnpm dlx vercel@59.16.0 pull --yes --environment=production --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
+      - name: Build staging preview deployment
+        if: ${{ inputs.run_agent_worker != true }}
         run: pnpm dlx vercel@59.16.0 build --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
+      - name: Build isolated staging production-target deployment
+        if: ${{ inputs.run_agent_worker == true }}
+        run: pnpm dlx vercel@59.16.0 build --prod --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
       - name: Deploy staging artifact
         id: deploy
         shell: bash
         env:
           RUN_TELEGRAM_LIVE: ${{ inputs.run_telegram_live }}
+          RUN_AGENT_WORKER: ${{ inputs.run_agent_worker }}
         run: |
           set -euo pipefail
 
@@ -238,6 +263,14 @@ jobs:
             deploy_args+=(
               --env "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
               --env "TELEGRAM_WEBHOOK_SECRET=$TELEGRAM_WEBHOOK_SECRET"
+              --env "TELEGRAM_STAGING_TENANT_ID=$TELEGRAM_STAGING_TENANT_ID"
+            )
+          fi
+
+          if test "$RUN_AGENT_WORKER" = "true"; then
+            deploy_args+=(
+              --prod
+              --env "CRON_SECRET=$CRON_SECRET"
               --env "TELEGRAM_STAGING_TENANT_ID=$TELEGRAM_STAGING_TENANT_ID"
             )
           fi
@@ -277,6 +310,41 @@ jobs:
 
           admin_status=$(pnpm dlx vercel@59.16.0 curl "/admin" --deployment "$DEPLOYMENT_URL" --scope="$VERCEL_TEAM_SLUG" -- --output /dev/null --write-out '%{http_code}')
           test "$admin_status" = "307" -o "$admin_status" = "302" -o "$admin_status" = "303"
+      - name: Drain and validate Phase 6 worker backlog without outbound messaging
+        if: ${{ inputs.run_agent_worker == true }}
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            result_file="$RUNNER_TEMP/phase6-worker-$attempt.json"
+            pnpm dlx vercel@59.16.0 curl "/api/internal/agent-worker" \
+              --deployment "$DEPLOYMENT_URL" --scope="$VERCEL_TEAM_SLUG" \
+              -- --header "Authorization: Bearer $CRON_SECRET" >"$result_file"
+            jq -e '.status == "ok"' "$result_file" >/dev/null
+            jq '{status,eventsClaimed,eventsCompleted,eventsFailed,tasksClaimed,tasksWaitingApproval,tasksFailed}' "$result_file" >>"$GITHUB_STEP_SUMMARY"
+          done
+
+          snapshot_file="$RUNNER_TEMP/phase6-runtime-snapshot.json"
+          curl --fail-with-body --silent --show-error \
+            --header "apikey: $SUPABASE_SECRET_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            --header "Content-Type: application/json" \
+            --data "{\"target_tenant_id\":\"$TELEGRAM_STAGING_TENANT_ID\"}" \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/phase6_runtime_validation_snapshot" >"$snapshot_file"
+          jq -e '.pending_outbox == 0 and .processing_outbox == 0 and .dead_letter_outbox == 0 and .agent_dead_letter == 0 and .outbound_kill_switch == false' "$snapshot_file" >/dev/null
+          jq . "$snapshot_file" >>"$GITHUB_STEP_SUMMARY"
+      - name: Upload Phase 6 worker evidence
+        if: ${{ always() && inputs.run_agent_worker == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase6-worker-validation-evidence
+          path: |
+            ${{ runner.temp }}/phase6-worker-*.json
+            ${{ runner.temp }}/phase6-runtime-snapshot.json
+          if-no-files-found: warn
+          retention-days: 14
       - name: Register and validate Telegram staging webhook
         if: ${{ inputs.run_telegram_live == true }}
         env:

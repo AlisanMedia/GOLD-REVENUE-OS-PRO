@@ -116,6 +116,11 @@ jobs:
         run: |
           set -o pipefail
           supabase test db supabase/tests/messaging_gateway.test.sql | tee "$RUNNER_TEMP/messaging-gateway-pgtap.log"
+      - name: Run Agent Runtime pgTAP tests
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/agent_runtime.test.sql | tee "$RUNNER_TEMP/agent-runtime-pgtap.log"
       - name: Prove concurrent transition serialization
         shell: bash
         run: |
@@ -155,6 +160,7 @@ jobs:
             ${{ runner.temp }}/state-event-pgtap.log
             ${{ runner.temp }}/admin-control-plane-pgtap.log
             ${{ runner.temp }}/messaging-gateway-pgtap.log
+            ${{ runner.temp }}/agent-runtime-pgtap.log
             ${{ runner.temp }}/state-event-concurrency.log
           if-no-files-found: warn
           retention-days: 14

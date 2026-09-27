@@ -118,6 +118,58 @@ export type SystemHealth = {
   checked_at: string;
 };
 
+export type AgentTaskListItem = {
+  id: string;
+  customer_id: string | null;
+  conversation_id: string | null;
+  task_type: string;
+  execution_mode: string;
+  status: string;
+  attempts: number;
+  max_attempts: number;
+  failure_category: string | null;
+  failure_code: string | null;
+  correlation_id: string;
+  created_at: string;
+  started_at: string | null;
+  completed_at: string | null;
+  agent_name: string;
+  version: number;
+  model_provider: string;
+  model_name: string;
+  proposal_id: string | null;
+  run_id: string | null;
+  approval_status: string | null;
+};
+
+export type AgentRuntimeHealth = {
+  queued_tasks: number;
+  running_tasks: number;
+  waiting_approval: number;
+  dead_letter_tasks: number;
+  oldest_queued_at: string | null;
+  last_worker_at: string | null;
+  execution_mode: "SHADOW";
+  autonomous_messaging_enabled: false;
+};
+
+export type AgentRunDetail = {
+  run: Record<string, unknown>;
+  context_manifest: Record<string, unknown>;
+  proposal: null | {
+    id: string;
+    proposal_type: string;
+    approval_status: string;
+    confidence: number | null;
+    original_payload: Record<string, unknown>;
+    edited_payload: Record<string, unknown> | null;
+    reviewed_at: string | null;
+    created_at: string;
+  };
+  tool_calls: Array<Record<string, unknown>>;
+  attempts: Array<Record<string, unknown>>;
+};
+
 function record(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("ADMIN_READ_MODEL_INVALID");
   return value as Record<string, unknown>;
@@ -219,4 +271,25 @@ export async function getAuditList(filters: Record<string, string | number | und
 export async function getSystemHealth(): Promise<SystemHealth> {
   const { tenantId } = await requireAdminCapability("health.read");
   return record(await rpc("admin_system_health", { target_tenant_id: tenantId })) as SystemHealth;
+}
+
+export async function getAgentTasks(input: { status?: string; page: number; pageSize: number }): Promise<PagedResult<AgentTaskListItem>> {
+  const { tenantId } = await requireAdminCapability("agents.read");
+  return paged<AgentTaskListItem>(await rpc("admin_agent_tasks", {
+    target_tenant_id: tenantId,
+    status_value: input.status || null,
+    page_value: input.page,
+    page_size_value: input.pageSize,
+  }));
+}
+
+export async function getAgentRuntimeHealth(): Promise<AgentRuntimeHealth> {
+  const { tenantId } = await requireAdminCapability("agents.read");
+  return record(await rpc("admin_agent_runtime_health", { target_tenant_id: tenantId })) as AgentRuntimeHealth;
+}
+
+export async function getAgentRunDetail(runId: string): Promise<AgentRunDetail | null> {
+  const { tenantId } = await requireAdminCapability("agents.read");
+  const value = await rpc("admin_agent_run_detail", { target_tenant_id: tenantId, target_run_id: runId });
+  return value ? record(value) as AgentRunDetail : null;
 }
