@@ -369,6 +369,7 @@ as $$
 declare
   event_value public.domain_events%rowtype;
   version_value public.agent_versions%rowtype;
+  version_id_value uuid;
   task_id_value uuid;
   conversation_id_value uuid;
   idempotency_value text;
@@ -387,9 +388,12 @@ begin
     where c.tenant_id = target_tenant_id and c.id = conversation_id_value
   ) then raise exception 'conversation scope mismatch' using errcode = '42501'; end if;
 
-  select * into version_value from public.agent_versions
-  where tenant_id = target_tenant_id
-    and id = private.ensure_shadow_agent(target_tenant_id);
+  -- Run the upsert in its own statement. A row inserted by a function invoked
+  -- inside a SELECT predicate is not visible to that SELECT's statement
+  -- snapshot, which would leave the composite record null on first use.
+  version_id_value := private.ensure_shadow_agent(target_tenant_id);
+  select * into strict version_value from public.agent_versions
+  where tenant_id = target_tenant_id and id = version_id_value;
 
   idempotency_value := 'event:' || target_event_id::text || ':conversation-shadow:v1';
   insert into public.agent_tasks (
