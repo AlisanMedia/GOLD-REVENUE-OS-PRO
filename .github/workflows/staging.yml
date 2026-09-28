@@ -119,7 +119,7 @@ jobs:
           } >"$RUNNER_TEMP/staging-supabase-validation.txt"
       - name: Upload Supabase staging evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: staging-supabase-validation-evidence
           path: ${{ runner.temp }}/staging-supabase-validation.txt
@@ -411,7 +411,7 @@ jobs:
           jq . "$snapshot_file" >>"$GITHUB_STEP_SUMMARY"
       - name: Upload Phase 6 worker evidence
         if: ${{ always() && inputs.run_agent_worker == true }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phase6-worker-validation-evidence
           path: |
@@ -438,7 +438,7 @@ jobs:
           jq . "$snapshot_file" >>"$GITHUB_STEP_SUMMARY"
       - name: Upload Phase 7 quality evidence
         if: ${{ always() && (inputs.configure_openai_shadow == true || inputs.verify_openai_evidence == true) }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: phase7-quality-validation-evidence
           path: |
@@ -534,7 +534,7 @@ jobs:
           } >"$RUNNER_TEMP/staging-vercel-validation.txt"
       - name: Upload Vercel staging evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: staging-vercel-validation-evidence
           path: ${{ runner.temp }}/staging-vercel-validation.txt
