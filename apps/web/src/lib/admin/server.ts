@@ -165,9 +165,50 @@ export type AgentRunDetail = {
     edited_payload: Record<string, unknown> | null;
     reviewed_at: string | null;
     created_at: string;
+    customer_facing_blocked: boolean;
+    block_reason: string | null;
+    sent_message_id: string | null;
   };
+  quality_evaluation: null | Record<string, unknown>;
+  review_evidence: null | Record<string, unknown>;
+  model_invocations: Array<Record<string, unknown>>;
   tool_calls: Array<Record<string, unknown>>;
   attempts: Array<Record<string, unknown>>;
+};
+
+export type AgentQualitySummary = {
+  total_proposals: number;
+  pending: number;
+  approved: number;
+  edited: number;
+  rejected: number;
+  approval_rate: number;
+  edit_rate: number;
+  rejection_rate: number;
+  blocked: number;
+  average_latency_ms: number | null;
+  input_tokens: number;
+  output_tokens: number;
+  failure_rate: number;
+  average_qa: Record<string, number | null>;
+};
+
+export type AgentVersionSummary = {
+  id: string;
+  agent_name: string;
+  agent_type: string;
+  version: number;
+  enabled: boolean;
+  execution_mode: string;
+  allowed_tools: string[];
+  forbidden_tools: string[];
+  model_provider: string;
+  model_name: string;
+  prompt_version: string;
+  renderer_version: string | null;
+  qa_version: string | null;
+  evaluation_set_version: string | null;
+  superseded_at: string | null;
 };
 
 function record(value: unknown): Record<string, unknown> {
@@ -292,4 +333,21 @@ export async function getAgentRunDetail(runId: string): Promise<AgentRunDetail |
   const { tenantId } = await requireAdminCapability("agents.read");
   const value = await rpc("admin_agent_run_detail", { target_tenant_id: tenantId, target_run_id: runId });
   return value ? record(value) as AgentRunDetail : null;
+}
+
+export async function getAgentQualitySummary(): Promise<AgentQualitySummary> {
+  const { tenantId } = await requireAdminCapability("agents.read");
+  return record(await rpc("admin_agent_quality_summary", { target_tenant_id: tenantId })) as AgentQualitySummary;
+}
+
+export async function getAgentVersions(): Promise<AgentVersionSummary[]> {
+  const { tenantId } = await requireAdminCapability("agents.read");
+  const value = await rpc("admin_agent_versions", { target_tenant_id: tenantId });
+  return Array.isArray(value) ? value as AgentVersionSummary[] : [];
+}
+
+export async function getAgentVersionDetail(versionId: string): Promise<Record<string, unknown> | null> {
+  const { tenantId } = await requireAdminCapability("agents.read");
+  const value = await rpc("admin_agent_version_detail", { target_tenant_id: tenantId, target_version_id: versionId });
+  return value ? record(value) : null;
 }

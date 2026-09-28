@@ -22,6 +22,16 @@ on:
         required: false
         default: false
         type: boolean
+      configure_openai_shadow:
+        description: Attach OpenAI staging secrets and activate the Phase 7 agent in SHADOW mode
+        required: false
+        default: false
+        type: boolean
+      verify_openai_evidence:
+        description: Require at least three persisted live OpenAI shadow invocations
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -134,6 +144,8 @@ jobs:
       TELEGRAM_WEBHOOK_SECRET: ${{ secrets.TELEGRAM_WEBHOOK_SECRET }}
       TELEGRAM_STAGING_TENANT_ID: ${{ secrets.TELEGRAM_STAGING_TENANT_ID }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
     steps:
       - name: Enforce successful CI gate
         env:
@@ -191,6 +203,17 @@ jobs:
           done
           test "${#CRON_SECRET}" -ge 32
           [[ "$TELEGRAM_STAGING_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
+      - name: Validate required OpenAI staging secrets
+        if: ${{ inputs.configure_openai_shadow == true || inputs.verify_openai_evidence == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ inputs.run_agent_worker }}" = "true"
+          for key in OPENAI_API_KEY OPENAI_MODEL CRON_SECRET TELEGRAM_STAGING_TENANT_ID SUPABASE_SECRET_KEY; do
+            test -n "${!key:-}" || { echo "Missing Phase 7 staging secret: $key"; exit 1; }
+          done
+          test "${#OPENAI_API_KEY}" -ge 20
+          [[ "$OPENAI_MODEL" =~ ^[A-Za-z0-9._:-]{2,120}$ ]]
       - name: Verify Vercel project identity
         shell: bash
         run: |
@@ -239,6 +262,8 @@ jobs:
         run: pnpm dlx vercel@59.16.0 pull --yes --environment=production --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
       - name: Materialize isolated staging production build environment
         if: ${{ inputs.run_agent_worker == true }}
+        env:
+          CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
         shell: bash
         run: |
           set -euo pipefail
@@ -256,6 +281,9 @@ jobs:
             "TELEGRAM_STAGING_TENANT_ID",
             "CRON_SECRET",
           ];
+          if (process.env.CONFIGURE_OPENAI_SHADOW === "true") {
+            names.push("OPENAI_API_KEY", "OPENAI_MODEL");
+          }
           const content = names
             .map((name) => `${name}=${JSON.stringify(process.env[name] ?? "")}`)
             .join("\\n");
@@ -273,6 +301,7 @@ jobs:
         env:
           RUN_TELEGRAM_LIVE: ${{ inputs.run_telegram_live }}
           RUN_AGENT_WORKER: ${{ inputs.run_agent_worker }}
+          CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
         run: |
           set -euo pipefail
 
@@ -296,6 +325,13 @@ jobs:
               --prod
               --env "CRON_SECRET=$CRON_SECRET"
               --env "TELEGRAM_STAGING_TENANT_ID=$TELEGRAM_STAGING_TENANT_ID"
+            )
+          fi
+
+          if test "$CONFIGURE_OPENAI_SHADOW" = "true"; then
+            deploy_args+=(
+              --env "OPENAI_API_KEY=$OPENAI_API_KEY"
+              --env "OPENAI_MODEL=$OPENAI_MODEL"
             )
           fi
 
@@ -334,6 +370,20 @@ jobs:
 
           admin_status=$(pnpm dlx vercel@59.16.0 curl "/admin" --deployment "$DEPLOYMENT_URL" --scope="$VERCEL_TEAM_SLUG" -- --output /dev/null --write-out '%{http_code}')
           test "$admin_status" = "307" -o "$admin_status" = "302" -o "$admin_status" = "303"
+      - name: Activate Phase 7 OpenAI provider in shadow mode
+        if: ${{ inputs.configure_openai_shadow == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          activation_file="$RUNNER_TEMP/phase7-openai-activation.json"
+          curl --fail-with-body --silent --show-error \
+            --header "apikey: $SUPABASE_SECRET_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            --header "Content-Type: application/json" \
+            --data "$(jq -n --arg tenant "$TELEGRAM_STAGING_TENANT_ID" --arg model "$OPENAI_MODEL" '{target_tenant_id:$tenant,model_name_value:$model}')" \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/activate_phase7_openai_shadow" >"$activation_file"
+          jq -e 'type == "string" and length == 36' "$activation_file" >/dev/null
+          echo "Phase 7 provider activated in SHADOW mode; no model call was made by this step." >>"$GITHUB_STEP_SUMMARY"
       - name: Drain and validate Phase 6 worker backlog without outbound messaging
         if: ${{ inputs.run_agent_worker == true }}
         env:
@@ -367,6 +417,33 @@ jobs:
           path: |
             ${{ runner.temp }}/phase6-worker-*.json
             ${{ runner.temp }}/phase6-runtime-snapshot.json
+          if-no-files-found: warn
+          retention-days: 14
+      - name: Validate Phase 7 quality runtime evidence
+        if: ${{ inputs.configure_openai_shadow == true || inputs.verify_openai_evidence == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          snapshot_file="$RUNNER_TEMP/phase7-quality-snapshot.json"
+          curl --fail-with-body --silent --show-error \
+            --header "apikey: $SUPABASE_SECRET_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            --header "Content-Type: application/json" \
+            --data "{\"target_tenant_id\":\"$TELEGRAM_STAGING_TENANT_ID\"}" \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/phase7_quality_validation_snapshot" >"$snapshot_file"
+          jq -e '.active_provider == "openai" and .execution_mode == "SHADOW" and .autonomous_messaging_enabled == false and .outbound_kill_switch == false and .historical_import_locked == true' "$snapshot_file" >/dev/null
+          if test "${{ inputs.verify_openai_evidence }}" = "true"; then
+            jq -e '.openai_invocations >= 3 and .quality_evaluations >= 3' "$snapshot_file" >/dev/null
+          fi
+          jq . "$snapshot_file" >>"$GITHUB_STEP_SUMMARY"
+      - name: Upload Phase 7 quality evidence
+        if: ${{ always() && (inputs.configure_openai_shadow == true || inputs.verify_openai_evidence == true) }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase7-quality-validation-evidence
+          path: |
+            ${{ runner.temp }}/phase7-openai-activation.json
+            ${{ runner.temp }}/phase7-quality-snapshot.json
           if-no-files-found: warn
           retention-days: 14
       - name: Register and validate Telegram staging webhook
@@ -452,6 +529,8 @@ jobs:
             echo "supabase_gate=success"
             echo "deployment_url=${DEPLOYMENT_URL:-not-created}"
             echo "telegram_live_requested=${{ inputs.run_telegram_live }}"
+            echo "openai_shadow_configured=${{ inputs.configure_openai_shadow }}"
+            echo "openai_evidence_required=${{ inputs.verify_openai_evidence }}"
           } >"$RUNNER_TEMP/staging-vercel-validation.txt"
       - name: Upload Vercel staging evidence
         if: always()

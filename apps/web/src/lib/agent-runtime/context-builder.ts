@@ -108,7 +108,7 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
   return {
     context,
     manifest: {
-      context_version: 1,
+      context_version: 2,
       customer_included: task.customer_id !== null,
       profile_included: profileResult.data !== null,
       memory_count: memory.length,
@@ -116,8 +116,16 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
       event_count: context.recentEventTypes.length,
       message_character_count: messages.reduce((total, message) => total + message.content.length, 0),
       limits: CONTEXT_LIMITS,
+      knowledge_sources: [
+        "customer.core", "customer.profile", "customer.memory",
+        "conversation.recent_messages", "conversation.contactability", "event.recent_types",
+      ],
+      unavailable_sources: [
+        ...(profileResult.data === null ? ["customer.profile"] : []),
+        ...(memory.length === 0 ? ["customer.memory"] : []),
+        "product.catalog", "pricing.source_of_truth", "payment.status", "subscription.status", "knowledge_base",
+      ],
       secrets_included: false,
     },
   };
 }
-

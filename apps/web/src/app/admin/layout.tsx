@@ -16,6 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     { href: "/admin/imports", label: "Import review", capability: "imports.read" as const },
     { href: "/admin/events", label: "Event operations", capability: "events.read" as const },
     { href: "/admin/agents", label: "Agent runtime", capability: "agents.read" as const },
+    { href: "/admin/agent-quality", label: "Agent quality", capability: "agents.read" as const },
     { href: "/admin/audit", label: "Audit log", capability: "audit.read" as const },
     { href: "/admin/system", label: "System health", capability: "health.read" as const },
   ];
