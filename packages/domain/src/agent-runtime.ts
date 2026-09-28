@@ -1,5 +1,16 @@
 import { createHash } from "node:crypto";
 import { z } from "zod";
+import {
+  CONVERSATION_QUALITY_VERSIONS,
+  conversationModelOutputSchema,
+  directConversation,
+  inferStyleProfile,
+  renderNaturalResponse,
+  type ConversationDirector,
+  type ConversationModelOutput,
+  type QaScores,
+  type StyleProfile,
+} from "./conversation-quality";
 
 export const AGENT_EXECUTION_MODES = ["SHADOW", "HUMAN_APPROVAL", "AUTONOMOUS"] as const;
 export type AgentExecutionMode = (typeof AGENT_EXECUTION_MODES)[number];
@@ -29,7 +40,11 @@ export type ModelRequest = {
   systemPolicy: string;
   context: AgentContext;
   timeoutMs: number;
-  outputSchemaVersion: 1;
+  outputSchemaVersion: 1 | 2;
+  director?: ConversationDirector;
+  styleProfile?: StyleProfile;
+  versions?: typeof CONVERSATION_QUALITY_VERSIONS;
+  rewriteFeedback?: { scores: QaScores; reasons: readonly string[]; attempt: number };
 };
 
 export type ModelUsage = {
@@ -41,7 +56,7 @@ export type ModelUsage = {
 };
 
 export type ModelResponse = {
-  output: ShadowOutput;
+  output: ConversationModelOutput;
   provider: string;
   model: string;
   providerRequestId: string | null;
@@ -56,6 +71,7 @@ export class ModelProviderError extends Error {
     public readonly kind: ModelFailureKind,
     public readonly code: string,
     public readonly retryable: boolean,
+    public readonly retryAfterMs: number | null = null,
   ) {
     super(code);
     this.name = "ModelProviderError";
@@ -147,11 +163,40 @@ export class DeterministicShadowProvider implements ModelProvider {
     if (lastInbound.content === "__SIMULATE_RATE_LIMIT__") {
       return Promise.reject(new ModelProviderError("RATE_LIMIT", "MODEL_RATE_LIMITED", true));
     }
-    const output = shadowOutputSchema.parse({
-      classification: "inbound_message",
-      proposed_response: "Mesajınız alındı. Bir ekip üyesi inceleyip size dönüş yapacak.",
-      confidence: 0.5,
-      escalation_recommended: false,
+    const style = request.styleProfile ?? inferStyleProfile(request.context.recentMessages);
+    const director = request.director ?? directConversation(request.context.recentMessages, style);
+    const text = lastInbound.content;
+    const isAiQuestion = /\b(ai|yapay zek[aâ]|bot|robot)\b/i.test(text);
+    const isPriceQuestion = /\b(fiyat|ücret|price|cost|kaç para|ne kadar)\b/i.test(text);
+    const escalationCategory = director.should_escalate
+      ? director.primary_intent as ConversationModelOutput["escalation_category"]
+      : null;
+    const rawResponse = director.should_escalate
+      ? "Bu konuyu yanlış yönlendirmek istemiyorum. Yetkili bir ekip üyesinin incelemesi gerekiyor."
+      : isAiQuestion
+        ? "Evet, AI destekli bir asistanım. İsterseniz bir ekip üyesiyle görüşmenizi de sağlayabilirim."
+        : isPriceQuestion
+          ? "Doğrulanmış güncel fiyat bilgisi şu an bağlamımda yok. Hangi paketle ilgileniyorsunuz?"
+          : director.conversation_stage === "greeting"
+            ? "Merhaba! Nasıl yardımcı olabilirim?"
+            : "Size net yardımcı olabilmem için hangi konuda bilgi istediğinizi paylaşır mısınız?";
+    const proposedResponse = renderNaturalResponse(rawResponse, style);
+    const output = conversationModelOutputSchema.parse({
+      classification: director.primary_intent,
+      semantic_response: {
+        response_goal: director.response_goal,
+        key_points: [proposedResponse],
+        factual_grounding: {
+          classification: isPriceQuestion ? "unknown" : "inferred",
+          evidence_refs: [lastInbound.id],
+          missing_information: isPriceQuestion ? ["verified_product_pricing"] : [],
+        },
+      },
+      proposed_response: proposedResponse,
+      confidence: isPriceQuestion ? 0.55 : director.should_escalate ? 0.8 : 0.75,
+      escalation_recommended: director.should_escalate,
+      escalation_category: escalationCategory,
+      memory_proposals: [],
       proposed_tool_calls: [],
     });
     return Promise.resolve({

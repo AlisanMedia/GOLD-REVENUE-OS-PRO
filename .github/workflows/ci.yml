@@ -121,6 +121,11 @@ jobs:
         run: |
           set -o pipefail
           supabase test db supabase/tests/agent_runtime.test.sql | tee "$RUNNER_TEMP/agent-runtime-pgtap.log"
+      - name: Run Conversation Quality pgTAP tests
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/conversation_quality.test.sql | tee "$RUNNER_TEMP/conversation-quality-pgtap.log"
       - name: Prove concurrent transition serialization
         shell: bash
         run: |
