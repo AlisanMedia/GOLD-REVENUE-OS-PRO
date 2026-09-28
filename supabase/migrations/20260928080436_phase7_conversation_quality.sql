@@ -444,7 +444,8 @@ as $$
 declare run_value public.agent_runs%rowtype; task_value public.agent_tasks%rowtype;
   version_value public.agent_versions%rowtype; config_id_value uuid;
   proposal_id_value uuid; evaluation_id_value uuid; confidence_value numeric;
-  draft_value text; tool_value jsonb; tool_contract record; memory_value jsonb;
+  draft_value text; tool_item record; tool_value jsonb; tool_contract record;
+  memory_item record; memory_value jsonb;
   factual_confidence_value text; escalation_category_value text;
 begin
   select * into run_value from public.agent_runs
@@ -476,7 +477,11 @@ begin
   where tenant_id=target_tenant_id and id=task_value.agent_version_id;
   config_id_value:=private.ensure_conversation_quality_config(target_tenant_id);
 
-  for tool_value in select value from jsonb_array_elements(coalesce(structured_output_value->'proposed_tool_calls','[]'::jsonb)) loop
+  for tool_item in
+    select item.value as payload
+    from jsonb_array_elements(coalesce(structured_output_value->'proposed_tool_calls','[]'::jsonb)) as item(value)
+  loop
+    tool_value:=tool_item.payload;
     if jsonb_typeof(tool_value)<>'object' or jsonb_typeof(tool_value->'arguments')<>'object' then
       raise exception 'tool proposal schema invalid' using errcode='22023'; end if;
     select * into tool_contract from private.agent_tool_registry
@@ -509,7 +514,11 @@ begin
     left(model_provider_value,80),left(model_name_value,120)
   ) returning id into evaluation_id_value;
 
-  for memory_value in select value from jsonb_array_elements(coalesce(structured_output_value->'memory_proposals','[]'::jsonb)) loop
+  for memory_item in
+    select item.value as payload
+    from jsonb_array_elements(coalesce(structured_output_value->'memory_proposals','[]'::jsonb)) as item(value)
+  loop
+    memory_value:=memory_item.payload;
     insert into public.agent_memory_proposals (
       tenant_id,run_id,customer_id,memory_key,proposed_value,classification,confidence,provenance_message_ids
     ) values (
