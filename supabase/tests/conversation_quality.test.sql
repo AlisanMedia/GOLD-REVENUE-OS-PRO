@@ -113,7 +113,7 @@ select is((select count(*) from public.agent_proposals where customer_facing_blo
 select is((select count(*) from public.messages where tenant_id='a2000000-0000-4000-8000-000000000001' and direction='outbound'),0::bigint,'quality generation never sends automatically');
 select throws_ok(
   $$update public.conversation_quality_evaluations set qa_action='approve' where customer_facing_blocked$$,
-  '55000','append-only record cannot be modified','quality evidence cannot be rewritten'
+  '42501','conversation_quality_evaluations is append-only','quality evidence cannot be rewritten'
 );
 
 reset role;
@@ -147,6 +147,15 @@ select lives_ok(
 select is((select count(*) from public.agent_proposal_review_evidence where tenant_id='a2000000-0000-4000-8000-000000000001'),1::bigint,'human decision evidence is preserved');
 select is((select count(*) from public.messages where tenant_id='a2000000-0000-4000-8000-000000000001' and direction='outbound'),0::bigint,'approval alone still sends nothing');
 
+reset role;
+set local role service_role;
+select set_config('request.jwt.claim.role','service_role',true);
+update public.conversations set runtime_mode='AI_ACTIVE',human_takeover=false
+where tenant_id='a2000000-0000-4000-8000-000000000001';
+reset role;
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000001',true);
+set local role authenticated;
 select throws_ok(
   format('select public.queue_approved_agent_proposal(%L,%L,%L)',
     'a2000000-0000-4000-8000-000000000001',
