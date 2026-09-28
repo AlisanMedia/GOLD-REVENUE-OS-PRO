@@ -492,7 +492,7 @@ begin
       tenant_id,task_id,run_id,tool_name,tool_version,input_payload,status,idempotency_key,required_capability
     ) values (
       target_tenant_id,task_value.id,target_run_id,tool_value->>'name',(tool_value->>'version')::integer,
-      tool_value->'arguments','PROPOSED','run:'||target_run_id::text||':tool:'||tool_value->>'name'||':'||
+      tool_value->'arguments','PROPOSED','run:'||target_run_id::text||':tool:'||(tool_value->>'name')||':'||
       (select count(*)::text from public.agent_tool_calls where tenant_id=target_tenant_id and run_id=target_run_id),
       tool_contract.required_capability
     );
