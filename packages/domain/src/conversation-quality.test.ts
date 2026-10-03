@@ -5,6 +5,7 @@ import {
   conversationModelOutputSchema,
   directConversation,
   evaluateConversationQuality,
+  inferConversationLanguage,
   inferStyleProfile,
   renderNaturalResponse,
   textChangeMetadata,
@@ -39,6 +40,21 @@ describe("Phase 7 conversation quality", () => {
     expect(inferStyleProfile(messages("Bilgi verebilir misiniz rica ederim?")).formality).toBe("formal");
     expect(inferStyleProfile(messages("Selam, fiyat nedir?")).formality).toBe("casual");
     expect(inferStyleProfile(messages("knk bu iş nasıl 😄")).formality).toBe("very_casual");
+  });
+
+  it("uses English as the primary fallback and detects supported customer languages", () => {
+    expect(inferConversationLanguage("Hi, can you help me with pricing?")).toBe("en");
+    expect(inferConversationLanguage("Merhaba, fiyat nedir?")).toBe("tr");
+    expect(inferConversationLanguage("مرحباً، هل يمكنك مساعدتي؟")).toBe("ar");
+    expect(inferConversationLanguage("Привет, можете помочь?")).toBe("ru");
+    expect(inferConversationLanguage("Hola, ¿cuál es el precio?")).toBe("es");
+    expect(inferConversationLanguage("Hallo, wie ist der Preis?")).toBe("de");
+    expect(inferConversationLanguage("Bonjour, quel est le prix ?")).toBe("fr");
+  });
+
+  it("propagates the detected language into the bounded style profile", () => {
+    expect(inferStyleProfile(messages("Hi, I need help")).language).toBe("en");
+    expect(inferStyleProfile(messages("مرحباً، أحتاج إلى مساعدة")).language).toBe("ar");
   });
 
   it("keeps short messages short and bounds the renderer to three sentences", () => {
@@ -125,8 +141,8 @@ describe("Phase 7 conversation quality", () => {
   });
 
   it("ships all required behavior-oriented evaluation cases", () => {
-    expect(PHASE7_EVALUATION_CASES).toHaveLength(15);
-    expect(new Set(PHASE7_EVALUATION_CASES.map((item) => item.key)).size).toBe(15);
+    expect(PHASE7_EVALUATION_CASES).toHaveLength(18);
+    expect(new Set(PHASE7_EVALUATION_CASES.map((item) => item.key)).size).toBe(18);
     expect(PHASE7_EVALUATION_CASES.every((item) => item.expected.length > 0)).toBe(true);
   });
 });
