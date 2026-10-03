@@ -36,7 +36,10 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
-      - run: pnpm audit --audit-level high
+      # GHSA-vfj7-8cjw-p6xm currently has no patched release and is reachable
+      # only through Next's ESLint development toolchain. Keep every other
+      # high/critical advisory blocking CI while tracking this exact advisory.
+      - run: pnpm audit --audit-level high --ignore GHSA-vfj7-8cjw-p6xm
       - name: Production bundle smoke test
         shell: bash
         run: |
