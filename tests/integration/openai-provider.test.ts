@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v1", director: "conversation-director-v1",
-  renderer: "natural-renderer-v1", qa: "conversation-qa-v1", context: 2,
-  outputSchema: 2, evaluationSet: "phase7-core-v1",
+  prompt: "conversation-quality-prompt-v2", director: "conversation-director-v1",
+  renderer: "natural-renderer-v2", qa: "conversation-qa-v1", context: 2,
+  outputSchema: 2, evaluationSet: "phase7-core-v2",
 } as const;
 
 const validOutput = {
@@ -64,6 +64,7 @@ describe("OpenAI Responses provider adapter", () => {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
       expect(body.store).toBe(false);
       expect(body.text).toMatchObject({ format: { type: "json_schema", strict: true } });
+      expect(JSON.stringify(body.input)).toContain("style_profile.language");
       expect(String(init?.headers && (init.headers as Record<string, string>).authorization)).toContain("test-key");
       return new Response(JSON.stringify({
         id: "resp_1", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(validOutput) }] }],

@@ -11,6 +11,8 @@ select ok(not has_table_privilege('authenticated','public.conversation_quality_e
 select ok(not has_table_privilege('authenticated','public.agent_memory_proposals','UPDATE'),'browser cannot accept model memory directly');
 select ok(not has_function_privilege('authenticated','public.activate_phase7_openai_shadow(uuid,text)','EXECUTE'),'browser cannot activate a model provider');
 select ok(has_function_privilege('service_role','public.activate_phase7_openai_shadow(uuid,text)','EXECUTE'),'service role may activate an explicitly configured shadow provider');
+select ok(not has_function_privilege('authenticated','public.retry_resolved_agent_dead_letters(uuid,text,text,integer)','EXECUTE'),'browser cannot recover dead-letter tasks');
+select ok(has_function_privilege('service_role','public.retry_resolved_agent_dead_letters(uuid,text,text,integer)','EXECUTE'),'service role may perform an explicit audited provider recovery');
 select ok(not has_function_privilege('authenticated','public.complete_quality_agent_run(uuid,uuid,text,jsonb,jsonb,jsonb,jsonb,text,text[],integer,boolean,text,text,text,integer,integer,integer,text)','EXECUTE'),'browser cannot complete model runs');
 
 insert into auth.users (id,instance_id,aud,role,email,encrypted_password,email_confirmed_at) values
@@ -60,6 +62,27 @@ begin
 end
 $body$
 $test$,'message events create idempotent quality tasks');
+
+update public.agent_tasks set status='DEAD_LETTER',failure_category='MODEL_RATE_LIMIT',
+  failure_code='OPENAI_credit_balance_exhausted',completed_at=now()
+where id=(select id from public.agent_tasks where tenant_id='a2000000-0000-4000-8000-000000000001'
+  order by id limit 1);
+select is(
+  (public.retry_resolved_agent_dead_letters(
+    'a2000000-0000-4000-8000-000000000001','OPENAI_credit_balance_exhausted',
+    'billing restored by owner',1
+  )->>'requeued')::integer,
+  1,
+  'operator recovery requeues one eligible dead-letter task'
+);
+select is((select count(*) from public.audit_logs where tenant_id='a2000000-0000-4000-8000-000000000001'
+  and action='agent.dead_letters_requeued'),1::bigint,'dead-letter recovery is audited');
+select throws_ok(
+  $$select public.retry_resolved_agent_dead_letters(
+    'a2000000-0000-4000-8000-000000000001','OPENAI_arbitrary_error','invalid',1)$$,
+  '22023','failure code is not eligible for operator recovery',
+  'arbitrary failures cannot be operator-requeued through the quota recovery path'
+);
 
 select is((select count(*) from public.claim_agent_tasks('phase7-worker',10,120)),2::bigint,'quality worker claims both tasks');
 

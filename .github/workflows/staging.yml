@@ -32,6 +32,11 @@ on:
         required: false
         default: false
         type: boolean
+      retry_resolved_openai_quota_tasks:
+        description: Requeue audited OpenAI quota dead letters after the owner confirms billing is restored
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -204,11 +209,14 @@ jobs:
           test "${#CRON_SECRET}" -ge 32
           [[ "$TELEGRAM_STAGING_TENANT_ID" =~ ^[0-9a-fA-F-]{36}$ ]]
       - name: Validate required OpenAI staging secrets
-        if: ${{ inputs.configure_openai_shadow == true || inputs.verify_openai_evidence == true }}
+        if: ${{ inputs.configure_openai_shadow == true || inputs.verify_openai_evidence == true || inputs.retry_resolved_openai_quota_tasks == true }}
         shell: bash
         run: |
           set -euo pipefail
           test "${{ inputs.run_agent_worker }}" = "true"
+          if test "${{ inputs.retry_resolved_openai_quota_tasks }}" = "true"; then
+            test "${{ inputs.configure_openai_shadow }}" = "true"
+          fi
           for key in OPENAI_API_KEY OPENAI_MODEL CRON_SECRET TELEGRAM_STAGING_TENANT_ID SUPABASE_SECRET_KEY; do
             test -n "${!key:-}" || { echo "Missing Phase 7 staging secret: $key"; exit 1; }
           done
@@ -384,6 +392,20 @@ jobs:
             "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/activate_phase7_openai_shadow" >"$activation_file"
           jq -e 'type == "string" and length == 36' "$activation_file" >/dev/null
           echo "Phase 7 provider activated in SHADOW mode; no model call was made by this step." >>"$GITHUB_STEP_SUMMARY"
+      - name: Requeue owner-resolved OpenAI quota dead letters
+        if: ${{ inputs.retry_resolved_openai_quota_tasks == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          recovery_file="$RUNNER_TEMP/phase7-openai-quota-recovery.json"
+          curl --fail-with-body --silent --show-error \
+            --header "apikey: $SUPABASE_SECRET_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            --header "Content-Type: application/json" \
+            --data "$(jq -n --arg tenant "$TELEGRAM_STAGING_TENANT_ID" '{target_tenant_id:$tenant,failure_code_value:"OPENAI_credit_balance_exhausted",reason_value:"owner_confirmed_billing_restored",max_tasks_value:25}')" \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/retry_resolved_agent_dead_letters" >"$recovery_file"
+          jq -e '.requeued >= 0 and .requeued <= 25 and (.task_ids | type == "array")' "$recovery_file" >/dev/null
+          jq '{requeued,correlation_id}' "$recovery_file" >>"$GITHUB_STEP_SUMMARY"
       - name: Drain and validate Phase 6 worker backlog without outbound messaging
         if: ${{ inputs.run_agent_worker == true }}
         env:
@@ -417,6 +439,7 @@ jobs:
           path: |
             ${{ runner.temp }}/phase6-worker-*.json
             ${{ runner.temp }}/phase6-runtime-snapshot.json
+            ${{ runner.temp }}/phase7-openai-quota-recovery.json
           if-no-files-found: warn
           retention-days: 14
       - name: Validate Phase 7 quality runtime evidence
