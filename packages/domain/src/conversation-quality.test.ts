@@ -42,6 +42,11 @@ describe("Phase 7 conversation quality", () => {
     expect(inferStyleProfile(messages("knk bu iş nasıl 😄")).formality).toBe("very_casual");
   });
 
+  it("keeps English negation and no-emoji preferences in English", () => {
+    expect(inferStyleProfile(messages("I prefer short answers and no emojis.")).language).toBe("en");
+    expect(inferStyleProfile(messages("No, please keep it concise.")).language).toBe("en");
+  });
+
   it("uses English as the primary fallback and detects supported customer languages", () => {
     expect(inferConversationLanguage("Hi, can you help me with pricing?")).toBe("en");
     expect(inferConversationLanguage("Merhaba, fiyat nedir?")).toBe("tr");
