@@ -49,6 +49,8 @@ describe("Phase 6 runtime security contracts", () => {
     expect(context).toContain('.eq("id", sourceMessageId)');
     expect(context).toContain('.lte("created_at", sourceMessage.created_at)');
     expect(context).toContain("context_version: 3");
+    expect(context).toContain('messages.at(-1)?.id !== sourceMessageId');
+    expect(context).toContain('CONTEXT_SOURCE_MESSAGE_NOT_LAST');
   });
 
   it("keeps historical import locked and AI outbound non-autonomous", () => {

@@ -98,7 +98,6 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
 
   let remainingCharacters = CONTEXT_LIMITS.totalMessageCharacters;
   const messages = ([...(messagesResult.data ?? [])] as Array<Record<string, unknown>>)
-    .reverse()
     .flatMap((row): ContextMessage[] => {
       const raw = typeof row.content === "string" ? row.content : "";
       const content = raw.slice(0, Math.min(CONTEXT_LIMITS.messageCharacters, remainingCharacters));
@@ -110,7 +109,13 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
         content,
         occurredAt: String(row.occurred_at),
       }];
-    });
+    }).reverse();
+  // Budget newest-first so long history cannot evict the triggering message.
+  // Fail closed on timestamp ties or an omitted anchor rather than answering
+  // a different inbound message.
+  if (messages.at(-1)?.id !== sourceMessageId) {
+    throw new Error("CONTEXT_SOURCE_MESSAGE_NOT_LAST");
+  }
 
   const memory = (memoryResult.data ?? []).map((row: Record<string, unknown>) => ({
     key: String(row.memory_key),
