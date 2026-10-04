@@ -98,7 +98,7 @@ begin
   loop
     risky:=task_value.content like 'Ödedim%';
     run_id_value:=public.begin_agent_run(task_value.tenant_id,task_value.id,'phase7-worker',
-      '{"context_version":2,"message_count":2,"knowledge_sources":["conversation.recent_messages"],"unavailable_sources":["pricing.source_of_truth"],"secrets_included":false}'::jsonb);
+      '{"context_version":3,"message_count":2,"knowledge_sources":["conversation.recent_messages"],"unavailable_sources":["pricing.source_of_truth"],"secrets_included":false}'::jsonb);
     output_value:=jsonb_build_object(
       'classification',case when risky then 'payment_not_reflected' else 'information_request' end,
       'semantic_response',jsonb_build_object(
@@ -132,6 +132,8 @@ $body$
 $test$,'quality runs persist director, style, QA and proposals without sending');
 
 select is((select count(*) from public.conversation_quality_evaluations where tenant_id='a2000000-0000-4000-8000-000000000001'),2::bigint,'both quality evaluations are append-only evidence');
+select is((select context_version from public.conversation_quality_configs where tenant_id='a2000000-0000-4000-8000-000000000001' and superseded_at is null),3,'active quality configuration uses source-message-anchored context v3');
+select is((select count(*) from public.agent_tasks at join public.domain_events de on de.tenant_id=at.tenant_id and de.id=at.source_event_id join public.messages m on m.tenant_id=at.tenant_id and m.id=(de.payload->>'message_id')::uuid where at.tenant_id='a2000000-0000-4000-8000-000000000001' and m.conversation_id=at.conversation_id),2::bigint,'every quality task has an exact tenant-scoped source message anchor');
 select is((select count(*) from public.agent_proposals where customer_facing_blocked),1::bigint,'high-risk proposal is blocked');
 select is((select count(*) from public.messages where tenant_id='a2000000-0000-4000-8000-000000000001' and direction='outbound'),0::bigint,'quality generation never sends automatically');
 select throws_ok(

@@ -142,6 +142,7 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
       tenant_id: task.tenant_id,
       customer_id: task.customer_id,
       conversation_id: task.conversation_id,
+      source_event_id: task.source_event_id ?? "",
     });
     runId = await invokeRpc<string>("begin_agent_run", {
       target_tenant_id: task.tenant_id,

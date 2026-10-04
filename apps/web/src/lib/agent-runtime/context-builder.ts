@@ -12,6 +12,7 @@ type TaskEnvelope = {
   tenant_id: string;
   customer_id: string | null;
   conversation_id: string;
+  source_event_id: string;
 };
 
 type ConversationRow = {
@@ -41,12 +42,36 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
     throw new Error("CONTEXT_TENANT_SCOPE_DENIED");
   }
 
+  const { data: sourceEvent, error: sourceEventError } = await supabase
+    .from("domain_events")
+    .select("id,event_type,payload")
+    .eq("tenant_id", task.tenant_id)
+    .eq("id", task.source_event_id)
+    .maybeSingle();
+  const payload = sourceEvent?.payload as Record<string, unknown> | undefined;
+  const sourceMessageId = typeof payload?.message_id === "string" ? payload.message_id : "";
+  const sourceConversationId = typeof payload?.conversation_id === "string" ? payload.conversation_id : "";
+  if (sourceEventError || !sourceEvent || sourceEvent.event_type !== "message.received"
+    || sourceConversationId !== task.conversation_id
+    || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(sourceMessageId)) {
+    throw new Error("CONTEXT_SOURCE_EVENT_INVALID");
+  }
+  const { data: sourceMessage, error: sourceMessageError } = await supabase
+    .from("messages")
+    .select("id,created_at")
+    .eq("tenant_id", task.tenant_id)
+    .eq("conversation_id", task.conversation_id)
+    .eq("id", sourceMessageId)
+    .maybeSingle();
+  if (sourceMessageError || !sourceMessage) throw new Error("CONTEXT_SOURCE_MESSAGE_NOT_FOUND");
+
   const [messagesResult, profileResult, memoryResult, eventsResult, customerResult] = await Promise.all([
     supabase.from("messages")
       .select("id,direction,content,occurred_at")
       .eq("tenant_id", task.tenant_id)
       .eq("conversation_id", task.conversation_id)
-      .order("occurred_at", { ascending: false })
+      .lte("created_at", sourceMessage.created_at)
+      .order("created_at", { ascending: false })
       .limit(CONTEXT_LIMITS.messages),
     task.customer_id ? supabase.from("customer_profiles")
       .select("experience_level,primary_instrument,trading_style,risk_preference,preferred_signal_frequency,communication_style,price_sensitivity,trust_level,pain_points,objections,next_best_action")
@@ -108,7 +133,10 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
   return {
     context,
     manifest: {
-      context_version: 2,
+      context_version: 3,
+      source_event_id: task.source_event_id,
+      source_message_id: sourceMessageId,
+      source_message_created_at: sourceMessage.created_at,
       customer_included: task.customer_id !== null,
       profile_included: profileResult.data !== null,
       memory_count: memory.length,

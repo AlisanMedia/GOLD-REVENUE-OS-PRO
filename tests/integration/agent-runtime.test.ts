@@ -40,6 +40,17 @@ describe("Phase 6 runtime security contracts", () => {
     expect(context).not.toMatch(/SUPABASE_SECRET_KEY|TELEGRAM_BOT_TOKEN|CRON_SECRET/);
   });
 
+  it("anchors every task context to the message that created its source event", () => {
+    const context = read("apps/web/src/lib/agent-runtime/context-builder.ts");
+    const worker = read("apps/web/src/lib/agent-runtime/worker.ts");
+    expect(worker).toContain("source_event_id: task.source_event_id");
+    expect(context).toContain('.eq("id", task.source_event_id)');
+    expect(context).toContain('sourceEvent.event_type !== "message.received"');
+    expect(context).toContain('.eq("id", sourceMessageId)');
+    expect(context).toContain('.lte("created_at", sourceMessage.created_at)');
+    expect(context).toContain("context_version: 3");
+  });
+
   it("keeps historical import locked and AI outbound non-autonomous", () => {
     expect(read("apps/web/src/app/api/v1/imports/[id]/commit/route.ts")).toContain("IMPORT_EXECUTION_LOCKED");
     const worker = read("apps/web/src/lib/agent-runtime/worker.ts");
@@ -47,4 +58,3 @@ describe("Phase 6 runtime security contracts", () => {
     expect(worker).not.toContain("queue_outbound_message");
   });
 });
-
