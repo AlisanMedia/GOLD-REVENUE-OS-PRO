@@ -169,6 +169,7 @@ jobs:
             ${{ runner.temp }}/admin-control-plane-pgtap.log
             ${{ runner.temp }}/messaging-gateway-pgtap.log
             ${{ runner.temp }}/agent-runtime-pgtap.log
+            ${{ runner.temp }}/conversation-quality-pgtap.log
             ${{ runner.temp }}/state-event-concurrency.log
           if-no-files-found: warn
           retention-days: 14

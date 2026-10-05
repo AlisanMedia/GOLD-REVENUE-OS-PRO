@@ -1,4 +1,5 @@
 import "server-only";
+import { createHash } from "node:crypto";
 
 import {
   CONTEXT_LIMITS,
@@ -67,33 +68,39 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
 
   const [messagesResult, profileResult, memoryResult, eventsResult, customerResult] = await Promise.all([
     supabase.from("messages")
-      .select("id,direction,content,occurred_at")
+      .select("id,direction,content,occurred_at,created_at")
       .eq("tenant_id", task.tenant_id)
       .eq("conversation_id", task.conversation_id)
       .lte("created_at", sourceMessage.created_at)
       .order("created_at", { ascending: false })
       .limit(CONTEXT_LIMITS.messages),
     task.customer_id ? supabase.from("customer_profiles")
-      .select("experience_level,primary_instrument,trading_style,risk_preference,preferred_signal_frequency,communication_style,price_sensitivity,trust_level,pain_points,objections,next_best_action")
-      .eq("tenant_id", task.tenant_id).eq("customer_id", task.customer_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    task.customer_id ? supabase.from("customer_memory")
-      .select("memory_key,memory_value,confidence")
+      .select("updated_at,experience_level,primary_instrument,trading_style,risk_preference,preferred_signal_frequency,communication_style,price_sensitivity,trust_level,pain_points,objections,next_best_action")
       .eq("tenant_id", task.tenant_id).eq("customer_id", task.customer_id)
-      .is("superseded_at", null).order("observed_at", { ascending: false })
+      .lte("updated_at", sourceMessage.created_at).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    task.customer_id ? supabase.from("customer_memory")
+      .select("id,observed_at,memory_key,memory_value,confidence")
+      .eq("tenant_id", task.tenant_id).eq("customer_id", task.customer_id)
+      .is("superseded_at", null).lte("observed_at", sourceMessage.created_at).order("observed_at", { ascending: false })
       .limit(CONTEXT_LIMITS.memoryItems) : Promise.resolve({ data: [], error: null }),
     supabase.from("domain_events")
-      .select("event_type")
+      .select("id,event_type,recorded_at")
       .eq("tenant_id", task.tenant_id)
       .eq("aggregate_id", task.conversation_id)
+      .lte("recorded_at", sourceMessage.created_at)
       .order("recorded_at", { ascending: false })
       .limit(CONTEXT_LIMITS.recentEvents),
     task.customer_id ? supabase.from("customers")
       .select("state")
-      .eq("tenant_id", task.tenant_id).eq("id", task.customer_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+      .eq("tenant_id", task.tenant_id).eq("id", task.customer_id)
+      .lte("updated_at", sourceMessage.created_at).maybeSingle() : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (messagesResult.error || profileResult.error || memoryResult.error || eventsResult.error || customerResult.error) {
     throw new Error("CONTEXT_QUERY_FAILED");
+  }
+  if ((messagesResult.data ?? []).some((row: { id: string; created_at: string }) => row.id !== sourceMessageId && row.created_at === sourceMessage.created_at)) {
+    throw new Error("CONTEXT_TIMESTAMP_AMBIGUOUS");
   }
 
   let remainingCharacters = CONTEXT_LIMITS.totalMessageCharacters;
@@ -132,13 +139,28 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
     profile: profileResult.data as Record<string, unknown> | null,
     memory,
     recentMessages: messages,
-    recentEventTypes: (eventsResult.data ?? []).map((row: { event_type: string }) => row.event_type),
+    recentEventTypes: [sourceEvent.event_type, ...(eventsResult.data ?? []).filter((row: { id: string }) => row.id !== sourceEvent.id).map((row: { event_type: string }) => row.event_type)],
   };
   assertSafeContext(context);
   return {
     context,
     manifest: {
       context_version: 3,
+      manifest_version: 2,
+      retrieval_version: "source-bounded-v2",
+      context_boundary_timestamp: sourceMessage.created_at,
+      included_message_ids: messages.map((message) => message.id),
+      included_event_ids: [sourceEvent.id, ...(eventsResult.data ?? []).filter((row: { id: string }) => row.id !== sourceEvent.id).map((row: { id: string }) => row.id)],
+      included_memory_versions: (memoryResult.data ?? []).map((row: { id: string; observed_at: string }) => ({ id: row.id, observed_at: row.observed_at })),
+      profile_version_timestamp: profileResult.data?.updated_at ?? null,
+      message_fingerprints: messages.map((message) => ({ id: message.id,
+        content_sha256: createHash("sha256").update(message.content).digest("hex"),
+        included_characters: message.content.length,
+        created_at: (messagesResult.data ?? []).find((row: { id: string }) => row.id === message.id)?.created_at,
+      })),
+      context_fingerprint: createHash("sha256").update(JSON.stringify(context)).digest("hex"),
+      mutable_state_retrieval: "exclude_versions_updated_after_source_boundary",
+      backend_action_receipts: [],
       source_event_id: task.source_event_id,
       source_message_id: sourceMessageId,
       source_message_created_at: sourceMessage.created_at,

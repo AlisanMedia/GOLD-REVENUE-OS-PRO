@@ -40,11 +40,11 @@ export type ModelRequest = {
   systemPolicy: string;
   context: AgentContext;
   timeoutMs: number;
-  outputSchemaVersion: 1 | 2;
+  outputSchemaVersion: 1 | 2 | 3;
   director?: ConversationDirector;
   styleProfile?: StyleProfile;
   versions?: typeof CONVERSATION_QUALITY_VERSIONS;
-  rewriteFeedback?: { scores: QaScores; reasons: readonly string[]; attempt: number };
+  rewriteFeedback?: { scores: QaScores; reasons: readonly string[]; attempt: number; originalOutput?: ConversationModelOutput };
 };
 
 export type ModelUsage = {
@@ -136,6 +136,11 @@ export function requestFingerprint(request: ModelRequest): string {
       requestId: request.requestId,
       outputSchemaVersion: request.outputSchemaVersion,
       context: request.context,
+      systemPolicy: request.systemPolicy,
+      director: request.director,
+      styleProfile: request.styleProfile,
+      versions: request.versions,
+      rewriteFeedback: request.rewriteFeedback,
     }))
     .digest("hex");
 }
@@ -169,7 +174,7 @@ export class DeterministicShadowProvider implements ModelProvider {
     const isAiQuestion = /\b(ai|yapay zek[aâ]|bot|robot)\b/i.test(text);
     const isPriceQuestion = /\b(fiyat|ücret|price|cost|kaç para|ne kadar)\b/i.test(text);
     const escalationCategory = director.should_escalate
-      ? director.primary_intent as ConversationModelOutput["escalation_category"]
+      ? ({ payment_status: "payment_not_reflected", access_problem: "access_missing_after_payment", refund: "refund_request", financial_loss: "financial_loss_complaint", human_request: "user_requests_human" } as const)[director.primary_intent as "payment_status"] ?? "agent_low_confidence"
       : null;
     const rawResponse = director.should_escalate
       ? "Bu konuyu yanlış yönlendirmek istemiyorum. Yetkili bir ekip üyesinin incelemesi gerekiyor."
@@ -196,6 +201,7 @@ export class DeterministicShadowProvider implements ModelProvider {
       confidence: isPriceQuestion ? 0.55 : director.should_escalate ? 0.8 : 0.75,
       escalation_recommended: director.should_escalate,
       escalation_category: escalationCategory,
+      claims: [{ text: proposedResponse, kind: proposedResponse.endsWith("?") ? "question" : "uncertainty", grounding: "UNKNOWN", evidence_refs: [], action_category: null }],
       memory_proposals: [],
       proposed_tool_calls: [],
     });

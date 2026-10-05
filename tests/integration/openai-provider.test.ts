@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v2", director: "conversation-director-v1",
-  renderer: "natural-renderer-v2", qa: "conversation-qa-v1", context: 2,
-  outputSchema: 2, evaluationSet: "phase7-core-v2",
+  prompt: "conversation-quality-prompt-v3", director: "conversation-director-v2",
+  renderer: "natural-renderer-v3", qa: "conversation-qa-v2", context: 3,
+  outputSchema: 3, evaluationSet: "phase7-core-v3",
 } as const;
 
 const validOutput = {
@@ -48,10 +48,14 @@ const validOutput = {
   escalation_category: null,
   memory_proposals: [],
   proposed_tool_calls: [],
+  claims: [
+    { text: "Selam!", kind: "social", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
+    { text: "Nasıl yardımcı olabilirim?", kind: "question", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
+  ],
 };
 
 function request() {
-  return { requestId: "run-1", systemPolicy: "safe", context, timeoutMs: 1000, outputSchemaVersion: 2 as const, director, styleProfile, versions };
+  return { requestId: "run-1", systemPolicy: "safe", context, timeoutMs: 1000, outputSchemaVersion: 3 as const, director, styleProfile, versions };
 }
 
 beforeAll(async () => {
