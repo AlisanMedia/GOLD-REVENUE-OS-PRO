@@ -233,5 +233,73 @@ select lives_ok(
 select is((select count(*) from public.messages where tenant_id='a2000000-0000-4000-8000-000000000001' and direction='outbound'),1::bigint,'approved-draft idempotency creates one outbound record');
 select is((select state from public.customers where id='a3000000-0000-4000-8000-000000000001'),'NEW'::public.customer_state,'conversation quality cannot mutate lifecycle state');
 
+-- Corrective fixtures are transaction-local only; never used as live evidence.
+reset role;
+select has_table('public','quality_stage_evidence','original/rewrite evidence is persisted separately');
+select has_table('public','memory_provenance_failures','provenance failures have append-only structured evidence');
+select ok(not has_table_privilege('authenticated','public.quality_stage_evidence','INSERT'),'browser cannot fabricate generation evidence');
+select ok(not has_function_privilege('authenticated','public.record_quality_stage_evidence(uuid,uuid,text,integer,jsonb)','EXECUTE'),'browser cannot append model stage evidence');
+
+update public.agent_runs r set context_manifest=jsonb_build_object(
+  'context_version',3,'manifest_version',2,'source_event_id',t.source_event_id,
+  'source_message_id',de.payload->>'message_id',
+  'included_message_ids',jsonb_build_array(de.payload->>'message_id')
+)
+from public.agent_tasks t join public.domain_events de on de.tenant_id=t.tenant_id and de.id=t.source_event_id
+where r.tenant_id=t.tenant_id and r.task_id=t.id and r.tenant_id='a2000000-0000-4000-8000-000000000001';
+
+insert into public.agent_memory_proposals(tenant_id,run_id,customer_id,memory_key,proposed_value,classification,confidence,provenance_message_ids)
+select r.tenant_id,r.id,t.customer_id,'preferred_language','Turkish','explicit_customer_fact',0.9,
+  array[(de.payload->>'message_id')::uuid]
+from public.agent_runs r join public.agent_tasks t on t.tenant_id=r.tenant_id and t.id=r.task_id
+join public.domain_events de on de.tenant_id=t.tenant_id and de.id=t.source_event_id
+where r.tenant_id='a2000000-0000-4000-8000-000000000001' order by r.id limit 1;
+select is((select classification from public.agent_memory_proposals where memory_key='preferred_language'),'inferred_preference','inferred language is not an explicit customer fact');
+select is((select status from public.agent_memory_proposals where memory_key='preferred_language'),'pending','valid bounded provenance may wait for human review');
+
+insert into public.agent_memory_proposals(tenant_id,run_id,customer_id,memory_key,proposed_value,classification,confidence,provenance_message_ids)
+select r.tenant_id,r.id,t.customer_id,'bad_reference','fixture','temporary_context',0.9,
+  array[(de.payload->>'message_id')::uuid,'a9000000-0000-4000-8000-000000000099'::uuid]
+from public.agent_runs r join public.agent_tasks t on t.tenant_id=r.tenant_id and t.id=r.task_id
+join public.domain_events de on de.tenant_id=t.tenant_id and de.id=t.source_event_id
+where r.tenant_id='a2000000-0000-4000-8000-000000000001' order by r.id limit 1;
+select is((select status from public.agent_memory_proposals where memory_key='bad_reference'),'rejected','one bad UUID rejects the entire proposal, not just the UUID');
+select is((select cardinality(provenance_message_ids) from public.agent_memory_proposals where memory_key='bad_reference'),2,'failure keeps the full rejected proposal provenance');
+select is((select count(*) from public.memory_provenance_failures),1::bigint,'rejection has structured evidence');
+update public.agent_memory_proposals set status='accepted' where memory_key='bad_reference';
+select is((select status from public.agent_memory_proposals where memory_key='bad_reference'),'rejected','invalid pending/rejected memory can never become accepted');
+
+insert into public.agent_memory_proposals(tenant_id,run_id,customer_id,memory_key,proposed_value,classification,confidence,provenance_message_ids)
+select r.tenant_id,r.id,null,'wrong_customer','fixture','temporary_context',0.9,
+  array[(r.context_manifest->>'source_message_id')::uuid]
+from public.agent_runs r where r.tenant_id='a2000000-0000-4000-8000-000000000001' order by r.id limit 1;
+select is((select status from public.agent_memory_proposals where memory_key='wrong_customer'),'rejected','customer scope mismatch is rejected');
+
+update public.agent_runs set status='RUNNING'
+where tenant_id='a2000000-0000-4000-8000-000000000001';
+update public.agent_tasks set status='RUNNING',locked_by='corrective-evidence-worker'
+where tenant_id='a2000000-0000-4000-8000-000000000001';
+set local role service_role;
+select set_config('request.jwt.claim.role','service_role',true);
+select lives_ok(format('select public.record_quality_stage_evidence(%L,%L,%L,1,%L::jsonb)',
+  'a2000000-0000-4000-8000-000000000001',(select id from public.agent_runs order by id limit 1),
+  'corrective-evidence-worker','{"fixture":true,"stage":"generation"}'),'successful invocation stage is stored');
+select throws_ok(format('select public.record_quality_stage_evidence(%L,%L,%L,2,%L::jsonb)',
+  'a2000000-0000-4000-8000-000000000001',(select id from public.agent_runs order by id limit 1),
+  'corrective-evidence-worker','{"fixture":true,"stage":"rewrite"}'),
+  '55000','successful invocation required','rewrite evidence requires a real recorded successful invocation');
+select throws_ok(format('select public.record_quality_stage_evidence(%L,%L,%L,1,%L::jsonb)',
+  'a2000000-0000-4000-8000-000000000002',(select id from public.agent_runs order by id limit 1),
+  'corrective-evidence-worker','{"fixture":true}'),
+  '42501','quality stage lease unavailable','cross-tenant evidence write is denied');
+reset role;
+select throws_ok($$update public.quality_stage_evidence set evidence='{}'::jsonb$$,
+  '42501','quality_stage_evidence is append-only','original output evidence is immutable');
+set local role authenticated;
+select set_config('request.jwt.claim.role','authenticated',true);
+select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000003',true);
+select is((select count(*) from public.quality_stage_evidence),0::bigint,'other tenant cannot see stage evidence');
+select is((select count(*) from public.memory_provenance_failures),0::bigint,'other tenant cannot see provenance failures');
+
 select * from finish();
 rollback;

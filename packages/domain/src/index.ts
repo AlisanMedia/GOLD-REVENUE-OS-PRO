@@ -26,3 +26,5 @@ export * from "./state-event-engine";
 export * from "./messaging";
 export * from "./agent-runtime";
 export * from "./conversation-quality";
+
+export * from "./conversation-evidence";

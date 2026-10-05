@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { splitResponseSentences } from "./conversation-evidence";
 import {
   PHASE7_EVALUATION_CASES,
   QA_THRESHOLDS,
@@ -18,6 +19,7 @@ const messages = (content: string, outbound?: string) => [
 ];
 
 function output(overrides?: Partial<ConversationModelOutput>): ConversationModelOutput {
+  const response = overrides?.proposed_response ?? "Kısaca yardımcı olabilirim. Hangi konuyu netleştirelim?";
   return conversationModelOutputSchema.parse({
     classification: "information_request",
     semantic_response: {
@@ -31,6 +33,11 @@ function output(overrides?: Partial<ConversationModelOutput>): ConversationModel
     escalation_category: null,
     memory_proposals: [],
     proposed_tool_calls: [],
+    claims: splitResponseSentences(response).map((text) => ({ text,
+      kind: text.endsWith("?") ? "question" : overrides?.semantic_response?.factual_grounding.classification === "unknown" ? "uncertainty" : "social",
+      grounding: text.endsWith("?") ? "GENERAL_SAFE_STATEMENT" : overrides?.semantic_response?.factual_grounding.classification === "unknown" ? "UNKNOWN" : "GENERAL_SAFE_STATEMENT",
+      evidence_refs: [], action_category: null,
+    })),
     ...overrides,
   });
 }
@@ -71,9 +78,9 @@ describe("Phase 7 conversation quality", () => {
 
   it("detects high-risk escalation categories deterministically", () => {
     for (const [text, expected] of [
-      ["Ödedim ama sistemde görünmüyor", "payment_not_reflected"],
-      ["Sinyal yüzünden para kaybettim", "financial_loss_complaint"],
-      ["Bir insanla konuşmak istiyorum", "user_requests_human"],
+      ["Ödedim ama sistemde görünmüyor", "payment_status"],
+      ["Sinyal yüzünden para kaybettim", "financial_loss"],
+      ["Bir insanla konuşmak istiyorum", "human_request"],
     ] as const) {
       const style = inferStyleProfile(messages(text));
       const director = directConversation(messages(text), style);
@@ -105,7 +112,7 @@ describe("Phase 7 conversation quality", () => {
     const result = evaluateConversationQuality({ response: draft, output: output({ proposed_response: draft }), director, style, recentMessages: context });
     expect(result.scores.robotic_language).toBeGreaterThan(QA_THRESHOLDS.roboticRewrite);
     expect(result.scores.sales_pressure).toBeGreaterThan(QA_THRESHOLDS.salesPressureRewrite);
-    expect(result.action).toBe("rewrite");
+    expect(result.action).toBe("block"); // Unsupported operational claims must not be laundered by rewriting tone.
   });
 
   it("routes unsupported facts to verification instead of fabrication", () => {
@@ -122,8 +129,10 @@ describe("Phase 7 conversation quality", () => {
       },
     });
     const result = evaluateConversationQuality({ response: unknown.proposed_response, output: unknown, director, style, recentMessages: context });
-    expect(result.action).toBe("verify_or_escalate");
-    expect(result.scores.factual_confidence).toBe(50);
+    expect(result.scores.policy_risk).toBe(0);
+    expect(result.grounding.factual_assertion_count).toBe(0);
+    expect(result.grounding.model_confidence).toBe(0.5);
+    expect(result.scores.factual_confidence).toBe(100); // Honest uncertainty is safe, not a 100%-certain business value.
   });
 
   it("preserves honest AI identity language", () => {
@@ -146,8 +155,8 @@ describe("Phase 7 conversation quality", () => {
   });
 
   it("ships all required behavior-oriented evaluation cases", () => {
-    expect(PHASE7_EVALUATION_CASES).toHaveLength(18);
-    expect(new Set(PHASE7_EVALUATION_CASES.map((item) => item.key)).size).toBe(18);
+    expect(PHASE7_EVALUATION_CASES).toHaveLength(94);
+    expect(new Set(PHASE7_EVALUATION_CASES.map((item) => item.key)).size).toBe(94);
     expect(PHASE7_EVALUATION_CASES.every((item) => item.expected.length > 0)).toBe(true);
   });
 });

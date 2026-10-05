@@ -1,0 +1,117 @@
+import { z } from "zod";
+
+export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
+export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated"] as const;
+export const responseClaimSchema = z.object({
+  text: z.string().trim().min(1).max(4096),
+  kind: z.enum(["social", "uncertainty", "question", "fact", "completed_action"]),
+  grounding: z.enum(CLAIM_GROUNDINGS),
+  evidence_refs: z.array(z.string().min(1).max(160)).max(12),
+  action_category: z.enum(ACTION_CATEGORIES).nullable(),
+}).strict();
+export type ResponseClaim = z.infer<typeof responseClaimSchema>;
+export type BackendEvidence = {
+  id: string; tenantId: string; conversationId: string; occurredAt: string;
+  status: "completed"; category: (typeof ACTION_CATEGORIES)[number] | "fact";
+  // Exact authorized statement, supplied by deterministic services, never the model.
+  statement: string;
+};
+export function normalizeConversationText(text: string): string {
+  return text.normalize("NFKC").replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/gu, "")
+    .toLowerCase().replace(/[^\p{L}\p{M}\p{N}\s]/gu, " ").replace(/\s+/gu, " ").trim();
+}
+export function splitResponseSentences(text: string): string[] {
+  return text.trim().split(/(?<=[.!?؟。！])\s+/u).filter(Boolean);
+}
+const uncertaintyPattern = /(?:\b(?:don['’]t|do not|can['’]t|cannot|not available|not confirmed|unknown|unsure|needs? (?:review|verification)|need to (?:check|verify|escalate)|haven['’]t|have not)\b|bilgi.*(?:yok|mevcut değil)|bilmiyorum|doğrulayam|henüz.*(?:yok|değil)|inceleme(?:si)? gerekiyor|kontrol etmek gerekir|netleştir|(?<!\p{L})(?:لا|ليس|ليست|غير)(?!\p{L})|يحتاج.*مراجعة|(?:нет|не имею|не могу|не знаю|не подтвержден|нужно проверить|требует проверки))/iu;
+const completedActions: ReadonlyArray<[(typeof ACTION_CATEGORIES)[number], RegExp]> = [
+  ["message_sent", /(?:\b(?:I (?:have |already )?sent|I['’]ve sent)\b|gönderdim|أرسلت|ارسلت|я отправил)/iu],
+  ["escalation_created", /(?:\b(?:I (?:have )?escalated|I['’]ve escalated|I['’]ve passed|I passed|has been escalated|was escalated)\b|ilettim|aktardım|صعّدت|تم تصعيد|передал.*(?:специалист|человек)|эскалиров)/iu],
+  ["forwarded", /(?:\b(?:I (?:have )?forwarded|I['’]ve forwarded|has been forwarded|was forwarded)\b|yönlendirdim|تم تحويل|حوّلت|перенаправил)/iu],
+  ["payment_confirmed", /(?:\b(?:payment (?:is |has been |was )?(?:confirmed|verified|received)|confirmed your payment)\b|ödemeniz.*(?:onaylandı|doğrulandı|alındı)|تم تأكيد.*(?:الدفع|دفعتك)|الدفع مؤكد|(?:платёж|платеж|оплата).*подтвержд)/iu],
+  ["access_active", /(?:\b(?:access (?:is |has been |was )?(?:active|activated|granted)|activated your access)\b|erişiminiz.*(?:aktif|açıldı)|تم تفعيل.*(?:الوصول|دخول)|الوصول.*مفعل|доступ.*(?:активирован|открыт|предоставлен))/iu],
+  ["account_checked", /(?:\b(?:I (?:have )?checked|I['’]ve checked|I (?:have )?reviewed|I['’]ve reviewed)\b|hesabınızı.*(?:kontrol ettim|inceledim)|راجعت.*حساب|تحققت.*حساب|проверил.*(?:аккаунт|счёт|счет))/iu],
+  ["team_contacted", /(?:\b(?:I (?:have )?(?:spoken|spoke|talked|checked) (?:with|to) (?:the |my )?(?:team|colleague)|I['’]ve (?:spoken|talked) (?:with|to))\b|ekiple.*görüştüm|konuştum|تحدثت.*(?:الفريق|زميل)|поговорил.*(?:команд|коллег))/iu],
+  ["subscription_updated", /(?:\b(?:I (?:have )?updated|I['’]ve updated|subscription (?:has been |was |is )?updated)\b|aboneliğinizi.*güncelledim|تم تحديث.*اشتراك|حدّثت.*اشتراك|подписк.*обновлен)/iu],
+];
+export function detectedCompletedActions(text: string): (typeof ACTION_CATEGORIES)[number][] {
+  // Negation is local to its predicate. An uncertainty clause cannot launder an
+  // affirmative "but I've escalated it" in the same sentence.
+  const affirmative = text.replace(/\b(?:I (?:have not|haven['’]t)|I (?:did not|didn['’]t)|I never)\s+(?:sent|send|escalated|escalate|forwarded|forward|checked|check|updated|update)\b/giu, "")
+    .replace(/\b(?:payment|access|subscription)\s+(?:is|was|has been)\s+(?:not|never)\s+(?:confirmed|verified|received|active|activated|granted|updated)\b/giu, "");
+  return [...new Set(completedActions.filter(([, pattern]) => pattern.test(affirmative)).map(([category]) => category))];
+}
+
+export function reviewClaimGrounding(input: {
+  response: string; claims: readonly ResponseClaim[]; modelConfidence: number;
+  tenantId?: string | undefined; conversationId?: string | undefined; boundary?: string | undefined;
+  messages: ReadonlyArray<{ id?: string; direction: string; content: string }>;
+  backendEvidence?: readonly BackendEvidence[] | undefined;
+}) {
+  const reasons: string[] = [];
+  const normalized = normalizeConversationText(input.response);
+  const covered = normalizeConversationText(input.claims.map((claim) => claim.text).join(" "));
+  if (!input.claims.length || normalized !== covered) reasons.push("CLAIM_COVERAGE_INVALID");
+  const evidence = (input.backendEvidence ?? []).filter((item) => item.tenantId === input.tenantId
+    && item.conversationId === input.conversationId && item.status === "completed"
+    && Boolean(input.boundary) && Date.parse(item.occurredAt) <= Date.parse(input.boundary ?? ""));
+  const actionFailures = detectedCompletedActions(input.response).filter((category) => !input.claims.some((claim) =>
+    claim.kind === "completed_action" && claim.action_category === category && evidence.some((item) =>
+      item.category === category && claim.evidence_refs.includes(item.id)
+      && normalizeConversationText(item.statement) === normalizeConversationText(claim.text))));
+  if (actionFailures.length) reasons.push("ACTION_RECEIPT_REQUIRED");
+  const claims = input.claims.map((claim) => {
+    let score = 0;
+    let valid = false;
+    if (claim.kind === "question") valid = /[?؟]\s*$/u.test(claim.text);
+    if (claim.kind === "uncertainty") valid = uncertaintyPattern.test(claim.text);
+    if (claim.kind === "social") valid = claim.grounding === "GENERAL_SAFE_STATEMENT"
+      && !detectedCompletedActions(claim.text).length
+      && /^(?:hi\b|hello\b|hey\b|thanks\b|thank you\b|sorry\b|I['’]m sorry\b|I understand\b|I can (?:help|have this checked)\b|this needs\b|yes,? I['’]m (?:an? )?(?:AI|automated)|merhaba|selam|teşekkür|üzgün|yardımcı olabilirim|evet,? (?:AI|yapay)|مرحبا|مرحباً|أهلا|أهلاً|آسف|أفهم|يمكنني مساعد|نعم.*(?:آلي|اصطناعي)|привет|здравствуйте|спасибо|извин|понимаю|могу помочь|да.*(?:ии|искусственн))/iu.test(claim.text)
+      && !/(?:\p{N}.*(?:[$€₽]|usd|eur|tl)|(?:membership|subscription|üyelik|abonelik|اشتراك|подписк).*(?:includes|costs|provides|renews|içerir|ücret|يشمل|стоит|включает))/iu.test(claim.text);
+    if (["fact", "completed_action"].includes(claim.kind)) {
+      if (["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL"].includes(claim.grounding)) {
+        valid = evidence.some((item) => claim.evidence_refs.includes(item.id)
+          && normalizeConversationText(item.statement) === normalizeConversationText(claim.text)
+          && item.category === (claim.kind === "completed_action" ? claim.action_category : "fact"));
+        score = valid ? 100 : 0;
+      } else if (claim.grounding === "CUSTOMER_REPORTED") {
+        // Explicit attribution is required; customer-reported payment is never backend confirmation.
+        valid = /(?:you (?:said|reported|mentioned)|you['’]re reporting|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
+          && claim.evidence_refs.length > 0 && claim.evidence_refs.every((id) => input.messages.some((m) => m.id === id && m.direction === "inbound"));
+        score = valid ? 70 : 0;
+      } else if (claim.grounding === "INFERRED") {
+        valid = /(?:may|might|appears|seems|olabilir|görün|ربما|يبدو|возможно|похоже)/iu.test(claim.text)
+          && claim.evidence_refs.length > 0 && claim.evidence_refs.every((id) => input.messages.some((m) => m.id === id));
+        score = valid ? 50 : 0;
+      }
+    } else score = valid ? 100 : 0; // Honesty/question safety, not certainty about the missing price.
+    if (claim.kind !== "completed_action" && detectedCompletedActions(claim.text).length) valid = false;
+    if (["uncertainty", "social"].includes(claim.kind) && /(?:[$€₽]\s*\p{N}|\p{N}\s*(?:usd|eur|tl|руб|دولار))/iu.test(claim.text)) valid = false;
+    if (claim.grounding === "UNSUPPORTED_CLAIM") valid = false;
+    if (!valid) reasons.push("UNSUPPORTED_CLAIM");
+    return { ...claim, validated: valid, evidence_confidence: score };
+  });
+  const asserted = claims.filter((claim) => ["fact", "completed_action"].includes(claim.kind));
+  const factualConfidence = asserted.length ? Math.min(...asserted.map((claim) => claim.evidence_confidence)) : 100;
+  return { model_confidence: input.modelConfidence, grounding_confidence: claims.length ? Math.min(...claims.map((claim) => claim.evidence_confidence)) : 0,
+    factual_confidence: factualConfidence, factual_assertion_count: asserted.length, claims,
+    action_receipt_failures: actionFailures, reasons: [...new Set(reasons)], blocked: reasons.length > 0 };
+}
+
+export function validateMemoryProposals<T extends { key: string; classification: string; provenance_message_ids: string[] }>(proposals: readonly T[], messages: ReadonlyArray<{ id: string; direction: string; content: string }>) {
+  const accepted: T[] = [];
+  const rejected: Array<{ key: string; reason: string; provenance_message_ids: string[] }> = [];
+  for (const proposal of proposals) {
+    if (!proposal.provenance_message_ids.length || proposal.provenance_message_ids.some((id) => !messages.some((m) => m.id === id && m.direction === "inbound"))) {
+      rejected.push({ key: proposal.key, reason: "PROVENANCE_NOT_IN_BOUNDED_INBOUND_CONTEXT", provenance_message_ids: proposal.provenance_message_ids });
+      continue;
+    }
+    const languagePreference = /language|locale|dil|язык|لغة/iu.test(proposal.key);
+    const explicitPreference = proposal.provenance_message_ids.some((id) => messages.some((m) => m.id === id
+      && /(?:always (?:speak|reply|respond)|please (?:speak|reply|respond)|hep.*(?:konuş|yaz)|(?:lütfen|lutfen).*(?:konuş|yaz)|تحدث.*(?:دائما|دائماً)|(?:всегда|пожалуйста).*(?:говори|отвечай))/iu.test(m.content)));
+    accepted.push(languagePreference && proposal.classification === "explicit_customer_fact" && !explicitPreference
+      ? { ...proposal, classification: "inferred_preference" } : proposal);
+  }
+  return { accepted, rejected };
+}
