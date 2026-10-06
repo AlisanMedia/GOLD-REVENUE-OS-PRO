@@ -69,11 +69,11 @@ describe("Phase 7 conversation quality", () => {
     expect(inferStyleProfile(messages("مرحباً، أحتاج إلى مساعدة")).language).toBe("ar");
   });
 
-  it("keeps short messages short and bounds the renderer to three sentences", () => {
+  it("preserves every sentence so QA sees trailing qualifications", () => {
     const short = inferStyleProfile(messages("Selam"));
-    expect(renderNaturalResponse("Bir. İki. Üç. Dört.", short)).toBe("Bir. İki.");
+    expect(renderNaturalResponse("Bir. İki. Üç. Dört.", short)).toBe("Bir. İki. Üç. Dört.");
     const medium = { ...short, preferred_message_length: "medium" as const };
-    expect(renderNaturalResponse("Bir. İki. Üç. Dört.", medium)).toBe("Bir. İki. Üç.");
+    expect(renderNaturalResponse("Bir. İki. Üç. Dört.", medium)).toBe("Bir. İki. Üç. Dört.");
   });
 
   it("detects high-risk escalation categories deterministically", () => {

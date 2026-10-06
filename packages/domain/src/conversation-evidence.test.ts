@@ -10,6 +10,20 @@ const review = (text: string, item: ResponseClaim) => reviewClaimGrounding({ ...
 
 describe("Unicode quality and evidence truth contracts", () => {
   it.each([
+    "Membership provides access, but I don't have verified details.",
+    "Üyelik, seçtiğiniz plana göre erişim sağlar ama detayları bilmiyorum.",
+    "العضوية هي اشتراك يوفّر لك الوصول إلى المحتوى، لكن لا أملك تفاصيل رسمية.",
+    "Подписка включает доступ, но я не знаю точных условий.",
+  ])("does not launder a product assertion through uncertainty: %s", (text) => {
+    const result = review(text, claim(text, "uncertainty", "UNKNOWN"));
+    expect(result.blocked).toBe(true);
+    expect(result.grounding_confidence).toBe(0);
+  });
+  it("preserves trailing uncertainty for QA rather than truncating it", () => {
+    const text = "Üyelik, seçtiğiniz plana göre erişim sağlar. Aylık seçenek ayrı bir plandır. Fiyat bilgisini şu anda doğrulayamıyorum.";
+    expect(renderNaturalResponse(text, inferStyleProfile([{ direction: "inbound", content: "Kısa anlatır mısın?" }]))).toBe(text);
+  });
+  it.each([
     "I do not have the exact price available.", "Güncel fiyat bilgisi burada yok.",
     "لا أعرف السعر الدقيق هنا.", "У меня нет точной информации о цене.",
     "English Türkçe العربية Русский", "مرحبا\u200F، كيف أساعدك؟",

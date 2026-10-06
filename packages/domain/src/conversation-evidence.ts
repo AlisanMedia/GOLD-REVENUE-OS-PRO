@@ -24,6 +24,9 @@ export function splitResponseSentences(text: string): string[] {
   return text.trim().split(/(?<=[.!?؟。！])\s+/u).filter(Boolean);
 }
 const uncertaintyPattern = /(?:\b(?:don['’]t|do not|can['’]t|cannot|not available|not confirmed|unknown|unsure|needs? (?:review|verification)|need to (?:check|verify|escalate)|haven['’]t|have not)\b|bilgi.*(?:yok|mevcut değil)|bilmiyorum|doğrulayam|henüz.*(?:yok|değil)|inceleme(?:si)? gerekiyor|kontrol etmek gerekir|netleştir|(?<!\p{L})(?:لا|ليس|ليست|غير)(?!\p{L})|يحتاج.*مراجعة|(?:нет|не имею|не могу|не знаю|не подтвержден|нужно проверить|требует проверки))/iu;
+// An honest qualifier does not ground an affirmative product clause in the same
+// sentence. These conservative predicates supplement claim typing, not replace it.
+const unverifiedProductAssertion = /(?:\b(?:membership|subscription|plan|access)\s+(?:is|are|provides|includes|costs|renews|gives|grants)\b|(?:üyelik|abonelik|seçenek|plan)[^.!?؟]*(?:sağlar|içerir|yenilenir|ayrı bir plandır)|(?:العضوية\s+هي|الاشتراك\s+هو|اشتراك\s+يوفّر|العضوية\s+(?:تشمل|توفر))|(?:подписка|тариф)\s+(?:это|даёт|дает|включает|предоставляет|стоит))/iu;
 const completedActions: ReadonlyArray<[(typeof ACTION_CATEGORIES)[number], RegExp]> = [
   ["message_sent", /(?:\b(?:I (?:have |already )?sent|I['’]ve sent)\b|gönderdim|أرسلت|ارسلت|я отправил)/iu],
   ["escalation_created", /(?:\b(?:I (?:have )?escalated|I['’]ve escalated|I['’]ve passed|I passed|has been escalated|was escalated)\b|ilettim|aktardım|صعّدت|تم تصعيد|передал.*(?:специалист|человек)|эскалиров)/iu],
@@ -87,10 +90,12 @@ export function reviewClaimGrounding(input: {
       }
     } else score = valid ? 100 : 0; // Honesty/question safety, not certainty about the missing price.
     if (claim.kind !== "completed_action" && detectedCompletedActions(claim.text).length) valid = false;
-    if (["uncertainty", "social"].includes(claim.kind) && /(?:[$€₽]\s*\p{N}|\p{N}\s*(?:usd|eur|tl|руб|دولار))/iu.test(claim.text)) valid = false;
+    if (["uncertainty", "social", "question"].includes(claim.kind)
+      && (unverifiedProductAssertion.test(claim.text)
+        || /(?:[$€₽]\s*\p{N}|\p{N}\s*(?:usd|eur|tl|руб|دولار))/iu.test(claim.text))) valid = false;
     if (claim.grounding === "UNSUPPORTED_CLAIM") valid = false;
     if (!valid) reasons.push("UNSUPPORTED_CLAIM");
-    return { ...claim, validated: valid, evidence_confidence: score };
+    return { ...claim, validated: valid, evidence_confidence: valid ? score : 0 };
   });
   const asserted = claims.filter((claim) => ["fact", "completed_action"].includes(claim.kind));
   const factualConfidence = asserted.length ? Math.min(...asserted.map((claim) => claim.evidence_confidence)) : 100;
