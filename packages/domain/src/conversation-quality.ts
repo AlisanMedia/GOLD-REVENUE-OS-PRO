@@ -3,13 +3,13 @@ import { normalizeConversationText, splitResponseSentences, responseClaimSchema,
 import { MULTILINGUAL_REGRESSION } from "./multilingual-regression";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v3",
+  prompt: "conversation-quality-prompt-v4",
   director: "conversation-director-v2",
-  renderer: "natural-renderer-v3",
-  qa: "conversation-qa-v2",
+  renderer: "natural-renderer-v4",
+  qa: "conversation-qa-v3",
   context: 3,
   outputSchema: 3,
-  evaluationSet: "phase7-core-v3",
+  evaluationSet: "phase7-core-v4",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -216,8 +216,9 @@ export function renderNaturalResponse(text: string, style: StyleProfile): string
     .replace(/^(mesajınız için teşekkürler|ulaştığınız için teşekkürler|anlıyorum ki|tabii ki[,!]?)\s*/i, "")
     .replace(/\s+/g, " ")
     .trim();
-  const sentenceLimit = style.preferred_message_length === "short" ? 2 : 3;
-  return sentenceParts(withoutFiller).slice(0, sentenceLimit).join(" ").slice(0, 1200).trim();
+  // Do not delete a trailing qualification or split a factual sentence. Length
+  // is evaluated on the complete draft and corrected by the bounded rewrite.
+  return withoutFiller;
 }
 
 export function repetitionScore(text: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>): number {
