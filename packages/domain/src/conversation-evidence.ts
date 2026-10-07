@@ -1,10 +1,13 @@
 import { z } from "zod";
+import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
-export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated"] as const;
+export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated", "memory_written", "account_updated", "payment_checked"] as const;
 export const responseClaimSchema = z.object({
   text: z.string().trim().min(1).max(4096),
   kind: z.enum(["social", "uncertainty", "question", "fact", "completed_action"]),
+  speech_act: z.enum(SPEECH_ACTS).optional(),
+  capability: z.enum(CONVERSATION_CAPABILITIES).nullable().optional(),
   grounding: z.enum(CLAIM_GROUNDINGS),
   evidence_refs: z.array(z.string().min(1).max(160)).max(12),
   action_category: z.enum(ACTION_CATEGORIES).nullable(),
@@ -23,10 +26,10 @@ export function normalizeConversationText(text: string): string {
 export function splitResponseSentences(text: string): string[] {
   return text.trim().split(/(?<=[.!?؟。！])\s+/u).filter(Boolean);
 }
-const uncertaintyPattern = /(?:\b(?:don['’]t|do not|can['’]t|cannot|not available|not confirmed|unknown|unsure|needs? (?:review|verification)|need to (?:check|verify|escalate)|haven['’]t|have not)\b|bilgi.*(?:yok|mevcut değil)|bilmiyorum|doğrulayam|henüz.*(?:yok|değil)|inceleme(?:si)? gerekiyor|kontrol etmek gerekir|netleştir|(?<!\p{L})(?:لا|ليس|ليست|غير)(?!\p{L})|يحتاج.*مراجعة|(?:нет|не имею|не могу|не знаю|не подтвержден|нужно проверить|требует проверки))/iu;
+const uncertaintyPattern = /(?:\b(?:don['’]t|do not|can['’]t|cannot|not available|not confirmed|unknown|unsure|needs? (?:review|verification)|need to (?:check|verify|escalate)|haven['’]t|have not)\b|bilgi.*(?:yok|mevcut değil)|bilmiyorum|göremiyorum|elimizde.*yok|doğrulayam|henüz.*(?:yok|değil)|inceleme(?:si)? gerekiyor|kontrol etmek gerekir|netleştir|(?<!\p{L})(?:لا|ليس|ليست|غير)(?!\p{L})|يحتاج.*مراجعة|(?:нет|не имею|не могу|не знаю|не подтвержден|нужно проверить|требует проверки))/iu;
 // An honest qualifier does not ground an affirmative product clause in the same
 // sentence. These conservative predicates supplement claim typing, not replace it.
-const unverifiedProductAssertion = /(?:\b(?:membership|subscription|plan|access)\s+(?:is|are|provides|includes|costs|renews|gives|grants)\b|(?:üyelik|abonelik|seçenek|plan)[^.!?؟]*(?:sağlar|içerir|yenilenir|ayrı bir plandır)|(?:العضوية\s+هي|الاشتراك\s+هو|اشتراك\s+يوفّر|العضوية\s+(?:تشمل|توفر))|(?:подписка|тариф)\s+(?:это|даёт|дает|включает|предоставляет|стоит))/iu;
+const unverifiedProductAssertion = /(?:\b(?:membership|subscription|plan|access)\s+(?:is|are|provides|includes|costs|renews|gives|grants)\b|\byou\s+(?:get|receive|gain|will get)\s+(?:access|signals|benefits|profits|returns)|(?:üyelik|abonelik|seçenek|plan)[^.!?؟]*(?:sağlar|içerir|yenilenir|ayrı bir plandır)|(?:العضوية\s+هي|الاشتراك\s+هو|اشتراك\s+يوفّر|العضوية\s+(?:تشمل|توفر))|(?:подписка|тариф)\s+(?:это|даёт|дает|включает|предоставляет|стоит))/iu;
 const completedActions: ReadonlyArray<[(typeof ACTION_CATEGORIES)[number], RegExp]> = [
   ["message_sent", /(?:\b(?:I (?:have |already )?sent|I['’]ve sent)\b|gönderdim|أرسلت|ارسلت|я отправил)/iu],
   ["escalation_created", /(?:\b(?:I (?:have )?escalated|I['’]ve escalated|I['’]ve passed|I passed|has been escalated|was escalated)\b|ilettim|aktardım|صعّدت|تم تصعيد|передал.*(?:специалист|человек)|эскалиров)/iu],
@@ -36,6 +39,9 @@ const completedActions: ReadonlyArray<[(typeof ACTION_CATEGORIES)[number], RegEx
   ["account_checked", /(?:\b(?:I (?:have )?checked|I['’]ve checked|I (?:have )?reviewed|I['’]ve reviewed)\b|hesabınızı.*(?:kontrol ettim|inceledim)|راجعت.*حساب|تحققت.*حساب|проверил.*(?:аккаунт|счёт|счет))/iu],
   ["team_contacted", /(?:\b(?:I (?:have )?(?:spoken|spoke|talked|checked) (?:with|to) (?:the |my )?(?:team|colleague)|I['’]ve (?:spoken|talked) (?:with|to))\b|ekiple.*görüştüm|konuştum|تحدثت.*(?:الفريق|زميل)|поговорил.*(?:команд|коллег))/iu],
   ["subscription_updated", /(?:\b(?:I (?:have )?updated|I['’]ve updated|subscription (?:has been |was |is )?updated)\b|aboneliğinizi.*güncelledim|تم تحديث.*اشتراك|حدّثت.*اشتراك|подписк.*обновлен)/iu],
+  ["memory_written", /(?:\b(?:I (?:have )?saved|I['’]ve saved|permanent preference.*saved)\b|tercih.*kaydetti|حفظت.*تفضيل|сохранил.*предпочтен)/iu],
+  ["account_updated", /(?:updated your account|account (?:was|has been) updated|hesab.*güncelledim|تم تحديث.*حساب|аккаунт.*обновлен)/iu],
+  ["payment_checked", /(?:checked your payment|payment (?:was|has been) checked|ödeme.*kontrol ettim|راجعت.*دفع|проверил.*оплат)/iu],
 ];
 export function detectedCompletedActions(text: string): (typeof ACTION_CATEGORIES)[number][] {
   // Negation is local to its predicate. An uncertainty clause cannot launder an
@@ -50,6 +56,9 @@ export function reviewClaimGrounding(input: {
   tenantId?: string | undefined; conversationId?: string | undefined; boundary?: string | undefined;
   messages: ReadonlyArray<{ id?: string; direction: string; content: string }>;
   backendEvidence?: readonly BackendEvidence[] | undefined;
+  language?: string | undefined;
+  availableCapabilities?: readonly ConversationCapability[] | undefined;
+  guaranteedCommitments?: readonly ConversationCapability[] | undefined;
 }) {
   const reasons: string[] = [];
   const normalized = normalizeConversationText(input.response);
@@ -64,14 +73,17 @@ export function reviewClaimGrounding(input: {
       && normalizeConversationText(item.statement) === normalizeConversationText(claim.text))));
   if (actionFailures.length) reasons.push("ACTION_RECEIPT_REQUIRED");
   const claims = input.claims.map((claim) => {
+    const speechAct = claim.speech_act ?? inferredSpeechAct(claim);
     let score = 0;
     let valid = false;
     if (claim.kind === "question") valid = /[?؟]\s*$/u.test(claim.text);
     if (claim.kind === "uncertainty") valid = uncertaintyPattern.test(claim.text);
-    if (claim.kind === "social") valid = claim.grounding === "GENERAL_SAFE_STATEMENT"
-      && !detectedCompletedActions(claim.text).length
-      && /^(?:hi\b|hello\b|hey\b|thanks\b|thank you\b|sorry\b|I['’]m sorry\b|I understand\b|I can (?:help|have this checked)\b|this needs\b|yes,? I['’]m (?:an? )?(?:AI|automated)|merhaba|selam|teşekkür|üzgün|yardımcı olabilirim|evet,? (?:AI|yapay)|مرحبا|مرحباً|أهلا|أهلاً|آسف|أفهم|يمكنني مساعد|نعم.*(?:آلي|اصطناعي)|привет|здравствуйте|спасибо|извин|понимаю|могу помочь|да.*(?:ии|искусственн))/iu.test(claim.text)
-      && !/(?:\p{N}.*(?:[$€₽]|usd|eur|tl)|(?:membership|subscription|üyelik|abonelik|اشتراك|подписк).*(?:includes|costs|provides|renews|içerir|ücret|يشمل|стоит|включает))/iu.test(claim.text);
+    if (claim.kind === "social") valid = !detectedCompletedActions(claim.text).length
+      && (speechAct === "IDENTITY_RESPONSE"
+        ? /\b(?:AI|automated)\b|yapay|اصطناعي|искусственн/iu.test(claim.text)
+        : validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language,
+          capability: claim.capability, availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"],
+          guaranteedCommitments: input.guaranteedCommitments ?? [] }));
     if (["fact", "completed_action"].includes(claim.kind)) {
       if (["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL"].includes(claim.grounding)) {
         valid = evidence.some((item) => claim.evidence_refs.includes(item.id)
@@ -94,13 +106,23 @@ export function reviewClaimGrounding(input: {
       && (unverifiedProductAssertion.test(claim.text)
         || /(?:[$€₽]\s*\p{N}|\p{N}\s*(?:usd|eur|tl|руб|دولار))/iu.test(claim.text))) valid = false;
     if (claim.grounding === "UNSUPPORTED_CLAIM") valid = false;
+    if (claim.evidence_refs.some((ref) => !input.messages.some((message) => message.id === ref)
+      && !evidence.some((item) => item.id === ref))) {
+      valid = false; reasons.push("EVIDENCE_REFERENCE_NOT_ALLOWED");
+    }
+    if (speechAct === "COMPLETED_ACTION" && claim.kind !== "completed_action") valid = false;
+    if (["BACKEND_FACT", "BUSINESS_FACT", "CUSTOMER_REPORTED_FACT"].includes(speechAct) && claim.kind !== "fact") valid = false;
+    if (/\b(?:system|developer) (?:prompt|instructions)\s*:|سياست.*النظام\s*:|системн.*промпт\s*:/iu.test(claim.text)) { valid = false; reasons.push("HIDDEN_INSTRUCTION_DISCLOSURE"); }
     if (!valid) reasons.push("UNSUPPORTED_CLAIM");
-    return { ...claim, validated: valid, evidence_confidence: valid ? score : 0 };
+    return { ...claim, speech_act: speechAct, validated: valid, evidence_confidence: valid ? score : 0 };
   });
   const asserted = claims.filter((claim) => ["fact", "completed_action"].includes(claim.kind));
   const factualConfidence = asserted.length ? Math.min(...asserted.map((claim) => claim.evidence_confidence)) : 100;
   return { model_confidence: input.modelConfidence, grounding_confidence: claims.length ? Math.min(...claims.map((claim) => claim.evidence_confidence)) : 0,
     factual_confidence: factualConfidence, factual_assertion_count: asserted.length, claims,
+    grounded_assertion_score: asserted.length ? factualConfidence : null,
+    verified_business_knowledge_available: evidence.some((item) => item.category === "fact"),
+    unsupported_assertion_count: asserted.filter((claim) => !claim.validated).length,
     action_receipt_failures: actionFailures, reasons: [...new Set(reasons)], blocked: reasons.length > 0 };
 }
 
@@ -114,7 +136,7 @@ export function validateMemoryProposals<T extends { key: string; classification:
     }
     const languagePreference = /language|locale|dil|язык|لغة/iu.test(proposal.key);
     const explicitPreference = proposal.provenance_message_ids.some((id) => messages.some((m) => m.id === id
-      && /(?:always (?:speak|reply|respond)|please (?:speak|reply|respond)|hep.*(?:konuş|yaz)|(?:lütfen|lutfen).*(?:konuş|yaz)|تحدث.*(?:دائما|دائماً)|(?:всегда|пожалуйста).*(?:говори|отвечай))/iu.test(m.content)));
+      && /(?:prefer.*(?:replies|responses|language)|always (?:speak|reply|respond)|please (?:speak|reply|respond)|hep.*(?:konuş|yaz)|(?:lütfen|lutfen).*(?:konuş|yaz)|تحدث.*(?:دائما|دائماً)|(?:всегда|пожалуйста).*(?:говори|отвечай))/iu.test(m.content)));
     accepted.push(languagePreference && proposal.classification === "explicit_customer_fact" && !explicitPreference
       ? { ...proposal, classification: "inferred_preference" } : proposal);
   }

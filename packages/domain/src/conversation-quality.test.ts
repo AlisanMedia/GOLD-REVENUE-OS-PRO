@@ -25,7 +25,7 @@ function output(overrides?: Partial<ConversationModelOutput>): ConversationModel
     semantic_response: {
       response_goal: "Address the customer's primary request concisely.",
       key_points: ["Answer briefly"],
-      factual_grounding: { classification: "inferred", evidence_refs: ["message-1"], missing_information: [] },
+      factual_grounding: { classification: "inferred", evidence_refs: [], missing_information: [] },
     },
     proposed_response: "Kısaca yardımcı olabilirim. Hangi konuyu netleştirelim?",
     confidence: 0.82,

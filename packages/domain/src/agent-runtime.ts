@@ -40,7 +40,7 @@ export type ModelRequest = {
   systemPolicy: string;
   context: AgentContext;
   timeoutMs: number;
-  outputSchemaVersion: 1 | 2 | 3;
+  outputSchemaVersion: 1 | 2 | 3 | 4;
   director?: ConversationDirector;
   styleProfile?: StyleProfile;
   versions?: typeof CONVERSATION_QUALITY_VERSIONS;
@@ -56,6 +56,7 @@ export type ModelUsage = {
 };
 
 export type ModelResponse = {
+  evidenceResolution?: { wireOutput: unknown; registry: ReadonlyArray<{ handle: string; messageId: string; direction: string }>; resolved: true };
   output: ConversationModelOutput;
   provider: string;
   model: string;

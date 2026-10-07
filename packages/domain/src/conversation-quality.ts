@@ -1,15 +1,16 @@
 import { z } from "zod";
 import { normalizeConversationText, splitResponseSentences, responseClaimSchema, reviewClaimGrounding, type BackendEvidence } from "./conversation-evidence";
 import { MULTILINGUAL_REGRESSION } from "./multilingual-regression";
+import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v4",
-  director: "conversation-director-v2",
-  renderer: "natural-renderer-v4",
-  qa: "conversation-qa-v3",
+  prompt: "conversation-quality-prompt-v5",
+  director: "conversation-director-v3",
+  renderer: "natural-renderer-v5",
+  qa: "conversation-qa-v4",
   context: 3,
-  outputSchema: 3,
-  evaluationSet: "phase7-core-v4",
+  outputSchema: 4,
+  evaluationSet: "phase7-balanced-v5",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -90,6 +91,8 @@ export type ConversationModelOutput = z.infer<typeof conversationModelOutputSche
 export const qaScoresSchema = z.object({
   robotic_language: z.number().int().min(0).max(100),
   context_fit: z.number().int().min(0).max(100),
+  structural_context_fit: z.number().int().min(0).max(100).optional(),
+  semantic_context_fit: z.number().int().min(0).max(100).optional(),
   tone_fit: z.number().int().min(0).max(100),
   excessive_length: z.number().int().min(0).max(100),
   repetition: z.number().int().min(0).max(100),
@@ -233,23 +236,25 @@ export function repetitionScore(text: string, recentMessages: ReadonlyArray<{ di
 
 export const REPRESENTATIVE_PROFILE = Object.freeze({ version: "representative-v1", tone: "attentive_professional", identity_policy: "truthful_when_directly_asked", primary_purposes_per_reply: 1, default_sentences: [1, 3], internal_routing_visible: false });
 
-export function reviewResponseNaturalness(response: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>) {
+export function reviewResponseNaturalness(response: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>, intent?: string) {
   const sentences = sentenceParts(response);
   const previous = recentMessages.filter((m) => m.direction === "outbound").map((m) => sentenceParts(m.content));
   const opening = normalizeConversationText(sentences[0] ?? "").split(" ").slice(0, 3).join(" ");
   const closing = normalizeConversationText(sentences.at(-1) ?? "");
   const filler = /^(?:of course|certainly|I understand|thank you for reaching out|I'd be happy|değerli müşterimiz|mesajınız alındı|بالطبع|شكرا لتواصلك|конечно|спасибо за обращение)/iu.test(response);
   const cta = /let me know if|anything else|would you like me to|başka.*yardım|başka.*soru|هل.*مساعدة أخرى|дайте знать|что-нибудь еще/iu.test(response);
+  const requested = requestedRepetition(latestInboundText(recentMessages), response);
+  const safeRefusal = intent === "prompt_injection" && /can['’]t|cannot|won['’]t|paylaşamam|لا|не могу|не буду/iu.test(response);
   return { method: "deterministic_text_indicators_v1", dimensions: {
-    template_similarity: repetitionScore(response, recentMessages),
+    template_similarity: requested ? 0 : repetitionScore(response, recentMessages),
     conversational_continuity: /^(?:hello|hi|merhaba|selam|مرحبا|привет)[!,]/iu.test(response) && previous.length > 0 ? 50 : 0,
     unnatural_acknowledgement: filler ? 70 : 0,
-    repeated_opening: opening && previous.some((p) => normalizeConversationText(p[0] ?? "").split(" ").slice(0, 3).join(" ") === opening) ? 100 : 0,
-    repeated_closing: closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
+    repeated_opening: !requested && opening && previous.some((p) => normalizeConversationText(p[0] ?? "").split(" ").slice(0, 3).join(" ") === opening) ? 100 : 0,
+    repeated_closing: !requested && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
     unnecessary_cta: cta ? 70 : 0,
-    sentence_variation: sentences.length > 1 && new Set(sentences.map((v) => normalizeConversationText(v).split(" ")[0])).size === 1 ? 70 : 0,
+    sentence_variation: !requested && sentences.length > 1 && new Set(sentences.map((v) => normalizeConversationText(v).split(" ")[0])).size === 1 ? 70 : 0,
     tone_consistency: /\p{Lu}{6,}/u.test(response) ? 70 : 0,
-    context_awareness: /source of truth|context_version|tool call|orchestrator|workflow|system prompt|bağlamımda/iu.test(response) ? 70 : 0,
+    context_awareness: /source of truth|context_version|tool call|orchestrator|workflow|bağlamımda/iu.test(response) || (!safeRefusal && /system prompt/iu.test(response)) ? 70 : 0,
     response_specificity: filler && cta ? 70 : 0,
     robotic_phrasing: filler ? 70 : 0,
   } }; // Observable risk indicators, not a fake aggregate human score or semantic judge.
@@ -273,23 +278,31 @@ export function evaluateConversationQuality(input: {
   ].filter((pattern) => pattern.test(response)).length;
   const deceptive = /\b(ben insanım|gerçek bir insanım|kişisel deneyimim|bizzat yaptım|I am human|my personal experience)\b/i.test(response);
   const grounding = reviewClaimGrounding({ response, claims: input.output.claims, modelConfidence: input.output.confidence,
-    messages: input.recentMessages, tenantId: input.tenantId, conversationId: input.conversationId, boundary: input.boundary, backendEvidence: input.backendEvidence });
-  const naturalness = reviewResponseNaturalness(response, input.recentMessages);
+    messages: input.recentMessages, tenantId: input.tenantId, conversationId: input.conversationId, boundary: input.boundary, backendEvidence: input.backendEvidence, language: input.style.language });
+  const naturalness = reviewResponseNaturalness(response, input.recentMessages, input.director.primary_intent);
+  const semantic = reviewSemanticContext(latestInboundText(input.recentMessages), response, input.director.primary_intent);
+  const requested = requestedRepetition(latestInboundText(input.recentMessages), response);
+  const invalidSemanticRefs = input.output.semantic_response.factual_grounding.evidence_refs.some((ref) => !input.recentMessages.some((m) => m.id === ref)
+    && !input.backendEvidence?.some((item) => item.id === ref));
   const pressureHits = [/(hemen|şimdi) (al|satın al|ödeme yap)/i, /son şans/i, /kaçırma/i, /garanti kazanç/i]
     .filter((pattern) => pattern.test(response)).length;
   const targetLength = input.style.preferred_message_length === "short" ? 2 : 3;
   const scores = qaScoresSchema.parse({
     robotic_language: Math.min(100, Math.max(naturalness.dimensions.robotic_phrasing, roboticHits * 35) + (/^(merhaba|selam)[,!]?\s+merhaba/i.test(response) ? 30 : 0)),
     context_fit: input.output.semantic_response.response_goal === input.director.response_goal ? 90 : 72,
+    structural_context_fit: input.output.semantic_response.response_goal === input.director.response_goal ? 90 : 72,
+    semantic_context_fit: semantic.score,
     tone_fit: input.style.formality === input.director.desired_style_profile ? 90 : 60,
     excessive_length: sentences.length <= targetLength && response.length <= 600 ? 0 : Math.min(100, 40 + Math.max(0, sentences.length - targetLength) * 20),
-    repetition: repetitionScore(response, input.recentMessages),
+    repetition: requested ? 0 : repetitionScore(response, input.recentMessages),
     sales_pressure: Math.min(100, pressureHits * 55),
     factual_confidence: grounding.factual_confidence,
-    policy_risk: deceptive ? 100 : grounding.blocked ? 100 : /garanti kazanç|guaranteed profit/i.test(response) ? 100 : 0,
+    policy_risk: deceptive || invalidSemanticRefs ? 100 : grounding.blocked ? 100 : /garanti kazanç|guaranteed profit/i.test(response) ? 100 : 0,
     escalation_need: input.director.should_escalate || input.output.escalation_recommended ? 100 : 0,
   });
   const reasons: string[] = [...grounding.reasons];
+  if (invalidSemanticRefs) reasons.push("EVIDENCE_REFERENCE_NOT_ALLOWED");
+  if (semantic.score < QA_THRESHOLDS.contextFitMinimum) reasons.push("SEMANTIC_CONTEXT_FIT_LOW");
   if (scores.policy_risk >= QA_THRESHOLDS.policyRiskBlock) reasons.push("POLICY_RISK");
   if (scores.escalation_need >= QA_THRESHOLDS.escalationNeedBlock) reasons.push("ESCALATION_REQUIRED");
   if (scores.factual_confidence < QA_THRESHOLDS.factualConfidenceMinimum) reasons.push("FACTUAL_CONFIDENCE_LOW");
@@ -309,7 +322,10 @@ export function evaluateConversationQuality(input: {
     : scores.factual_confidence < QA_THRESHOLDS.factualConfidenceMinimum
       ? "verify_or_escalate"
       : reasons.length > 0 ? "rewrite" : "approve";
-  return { scores, action, reasons: [...new Set(reasons)], customerFacingBlocked, grounding, naturalness };
+  return { scores, action, reasons: [...new Set(reasons)], customerFacingBlocked, grounding, naturalness, semantic,
+    factual_evidence: { grounded_assertion_score: grounding.grounded_assertion_score,
+      verified_business_knowledge_available: grounding.verified_business_knowledge_available,
+      unsupported_assertion_count: grounding.unsupported_assertion_count } };
 }
 
 export function textChangeMetadata(original: string, final: string): {

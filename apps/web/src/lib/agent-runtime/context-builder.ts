@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import {
   CONTEXT_LIMITS,
   assertSafeContext,
+  messageEvidenceHandles,
   type AgentContext,
   type ContextMessage,
 } from "@gold-revenue-os/domain";
@@ -161,6 +162,7 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
       context_fingerprint: createHash("sha256").update(JSON.stringify(context)).digest("hex"),
       mutable_state_retrieval: "exclude_versions_updated_after_source_boundary",
       backend_action_receipts: [],
+      evidence_handle_registry: messageEvidenceHandles(context),
       source_event_id: task.source_event_id,
       source_message_id: sourceMessageId,
       source_message_created_at: sourceMessage.created_at,
