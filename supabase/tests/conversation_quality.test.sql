@@ -98,7 +98,10 @@ begin
   loop
     risky:=task_value.content like 'Ödedim%';
     run_id_value:=public.begin_agent_run(task_value.tenant_id,task_value.id,'phase7-worker',
-      '{"context_version":3,"message_count":2,"knowledge_sources":["conversation.recent_messages"],"unavailable_sources":["pricing.source_of_truth"],"secrets_included":false}'::jsonb);
+      jsonb_build_object('context_version',3,'message_count',1,'source_event_id',task_value.source_event_id,
+        'source_message_id',(select payload->>'message_id' from public.domain_events where tenant_id=task_value.tenant_id and id=task_value.source_event_id),
+        'included_message_ids',jsonb_build_array((select payload->>'message_id' from public.domain_events where tenant_id=task_value.tenant_id and id=task_value.source_event_id)),
+        'knowledge_sources',jsonb_build_array('conversation.recent_messages'),'secrets_included',false));
     output_value:=jsonb_build_object(
       'classification',case when risky then 'payment_not_reflected' else 'information_request' end,
       'semantic_response',jsonb_build_object(
@@ -106,7 +109,7 @@ begin
         'key_points',jsonb_build_array('safe response'),
         'factual_grounding',jsonb_build_object(
           'classification',case when risky then 'unknown' else 'inferred' end,
-          'evidence_refs',jsonb_build_array('701'),
+          'evidence_refs',jsonb_build_array((select payload->>'message_id' from public.domain_events where tenant_id=task_value.tenant_id and id=task_value.source_event_id)),
           'missing_information',case when risky then jsonb_build_array('verified_payment_status') else '[]'::jsonb end
         )
       ),
@@ -300,6 +303,63 @@ select set_config('request.jwt.claim.role','authenticated',true);
 select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000003',true);
 select is((select count(*) from public.quality_stage_evidence),0::bigint,'other tenant cannot see stage evidence');
 select is((select count(*) from public.memory_provenance_failures),0::bigint,'other tenant cannot see provenance failures');
+
+-- All adversarial identities below are local transactional pgTAP fixtures.
+reset role;
+select ok(not has_function_privilege('authenticated','public.validate_agent_memory_provenance(uuid,uuid,uuid,uuid[])','EXECUTE'),'memory validation RPC is service-only');
+create temporary table provenance_scope as
+select r.tenant_id,r.id run_id,t.customer_id,t.conversation_id,m.id source_id,m.created_at source_at
+from public.agent_runs r join public.agent_tasks t on t.tenant_id=r.tenant_id and t.id=r.task_id
+join public.messages m on m.tenant_id=r.tenant_id and m.id::text=r.context_manifest->>'source_message_id'
+where r.tenant_id='a2000000-0000-4000-8000-000000000001' order by r.id limit 1;
+
+select public.ingest_telegram_message('a2000000-0000-4000-8000-000000000001','provenance-other-conversation','801','888','888',
+  'local_fixture','Local','Fixture','LOCAL_PROVENANCE_OTHER_CONVERSATION',null,now());
+select public.ingest_telegram_message('a2000000-0000-4000-8000-000000000002','provenance-other-tenant','802','999','999',
+  'local_fixture','Local','Fixture','LOCAL_PROVENANCE_OTHER_TENANT',null,now());
+
+insert into public.messages(tenant_id,conversation_id,customer_id,messaging_contact_id,provider_connection_id,direction,
+  content,status,provider_chat_id,idempotency_key,actor_type,correlation_id,occurred_at,created_at)
+select m.tenant_id,m.conversation_id,m.customer_id,m.messaging_contact_id,m.provider_connection_id,'inbound',
+  fixture.content,'received',m.provider_chat_id,fixture.content,'SYSTEM',gen_random_uuid(),s.source_at+fixture.delta,s.source_at+fixture.delta
+from provenance_scope s join public.messages m on m.tenant_id=s.tenant_id and m.id=s.source_id
+cross join (values ('LOCAL_PROVENANCE_FUTURE',interval '1 minute'),('LOCAL_PROVENANCE_EXCLUDED',interval '-1 minute')) fixture(content,delta);
+
+create temporary table provenance_cases as
+select 'nonexistent' name,'a9000000-0000-4000-8000-000000000098'::uuid ref,'PROVENANCE_MESSAGE_NOT_AUTHORIZED' code
+union all select 'other_conversation',id,'PROVENANCE_MESSAGE_NOT_AUTHORIZED' from public.messages where content='LOCAL_PROVENANCE_OTHER_CONVERSATION'
+union all select 'other_tenant',id,'PROVENANCE_MESSAGE_NOT_AUTHORIZED' from public.messages where content='LOCAL_PROVENANCE_OTHER_TENANT'
+union all select 'future',id,'PROVENANCE_AFTER_SOURCE_BOUNDARY' from public.messages where content='LOCAL_PROVENANCE_FUTURE'
+union all select 'excluded',id,'PROVENANCE_NOT_IN_BOUNDED_CONTEXT' from public.messages where content='LOCAL_PROVENANCE_EXCLUDED';
+
+select is(public.validate_agent_memory_provenance(s.tenant_id,s.run_id,s.customer_id,array[c.ref])->>'code',c.code,
+  'server provenance RPC rejects '||c.name) from provenance_scope s cross join provenance_cases c;
+select is(public.validate_agent_memory_provenance(s.tenant_id,s.run_id,s.customer_id,array[c.ref])->>'valid','false',
+  'server provenance validity is false for '||c.name) from provenance_scope s cross join provenance_cases c;
+select is(public.validate_agent_memory_provenance(s.tenant_id,s.run_id,s.customer_id,array[s.source_id])->>'code','PROVENANCE_VALID',
+  'server provenance RPC permits exact bounded inbound source') from provenance_scope s;
+
+insert into public.agent_memory_proposals(tenant_id,run_id,customer_id,memory_key,proposed_value,classification,confidence,provenance_message_ids)
+select s.tenant_id,s.run_id,s.customer_id,'deterministic_'||c.name,'fixture','temporary_context',0.9,array[c.ref]
+from provenance_scope s cross join provenance_cases c;
+select is(p.status,'rejected','database trigger rejects '||c.name)
+from provenance_cases c join public.agent_memory_proposals p on p.memory_key='deterministic_'||c.name;
+update public.agent_memory_proposals set status='accepted' where memory_key like 'deterministic_%';
+select is((select count(*) from public.agent_memory_proposals where memory_key like 'deterministic_%' and status='accepted'),0::bigint,
+  'none of the five invalid provenance cases can become accepted');
+select is((select count(distinct p.memory_key) from public.memory_provenance_failures f join public.agent_memory_proposals p on p.tenant_id=f.tenant_id and p.id=f.proposal_id
+  where p.memory_key like 'deterministic_%'),5::bigint,'every invalid proposal has structured rejection evidence');
+
+insert into public.agent_memory_proposals(tenant_id,run_id,customer_id,memory_key,proposed_value,classification,confidence,provenance_message_ids)
+select tenant_id,run_id,customer_id,'deterministic_valid_pending','fixture','temporary_context',0.9,array[source_id] from provenance_scope;
+select is((select status from public.agent_memory_proposals where memory_key='deterministic_valid_pending'),'pending','valid provenance stays pending without automatic acceptance');
+select throws_ok(format('select private.assert_quality_output_refs(%L,%L,%L::jsonb)',s.tenant_id,s.run_id,
+  '{"claims":[{"kind":"uncertainty","evidence_refs":["invented-message-id"]}]}'),
+  '22023','EVIDENCE_REFERENCE_NOT_ALLOWED','database rejects fabricated references even on uncertainty claims') from provenance_scope s;
+select throws_ok($$select private.resolve_quality_wire_refs('["EVIDENCE_MESSAGE_999"]','[{"handle":"EVIDENCE_CURRENT_MESSAGE","messageId":"real","direction":"inbound"}]')$$,
+  '22023','EVIDENCE_REFERENCE_NOT_ALLOWED','database independently rejects unknown wire handles');
+select throws_ok($$select private.resolve_quality_wire_refs('["EVIDENCE_CURRENT_MESSAGE"]','[{"handle":"EVIDENCE_CURRENT_MESSAGE","messageId":"real","direction":"outbound"}]',true)$$,
+  '22023','EVIDENCE_REFERENCE_NOT_ALLOWED','database independently rejects outbound memory provenance');
 
 select * from finish();
 rollback;

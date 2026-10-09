@@ -34,14 +34,14 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v4", director: "conversation-director-v2",
-  renderer: "natural-renderer-v4", qa: "conversation-qa-v3", context: 3,
-  outputSchema: 3, evaluationSet: "phase7-core-v4",
+  prompt: "conversation-quality-prompt-v5", director: "conversation-director-v3",
+  renderer: "natural-renderer-v5", qa: "conversation-qa-v4", context: 3,
+  outputSchema: 4, evaluationSet: "phase7-balanced-v5",
 } as const;
 
 const validOutput = {
   classification: "greeting",
-  semantic_response: { response_goal: director.response_goal, key_points: ["Greet briefly"], factual_grounding: { classification: "inferred", evidence_refs: [context.recentMessages[0].id], missing_information: [] } },
+  semantic_response: { response_goal: director.response_goal, key_points: ["Greet briefly"], factual_grounding: { classification: "inferred", evidence_refs: ["EVIDENCE_CURRENT_MESSAGE"], missing_information: [] } },
   proposed_response: "Selam! Nasıl yardımcı olabilirim?",
   confidence: 0.8,
   escalation_recommended: false,
@@ -49,13 +49,13 @@ const validOutput = {
   memory_proposals: [],
   proposed_tool_calls: [],
   claims: [
-    { text: "Selam!", kind: "social", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
-    { text: "Nasıl yardımcı olabilirim?", kind: "question", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
+    { text: "Selam!", kind: "social", speech_act: "ACKNOWLEDGEMENT", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
+    { text: "Nasıl yardımcı olabilirim?", kind: "question", speech_act: "QUESTION", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
   ],
 };
 
 function request() {
-  return { requestId: "run-1", systemPolicy: "safe", context, timeoutMs: 1000, outputSchemaVersion: 3 as const, director, styleProfile, versions };
+  return { requestId: "run-1", systemPolicy: "safe", context, timeoutMs: 1000, outputSchemaVersion: 4 as const, director, styleProfile, versions };
 }
 
 beforeAll(async () => {
@@ -71,7 +71,10 @@ describe("OpenAI Responses provider adapter", () => {
       expect(JSON.stringify(body.input)).toContain("style_profile.language");
       const input = body.input as Array<{ role: string; content: Array<{ text: string }> }>;
       const userInput = JSON.parse(input.find((item) => item.role === "user")!.content[0].text) as { source_message: unknown };
-      expect(userInput.source_message).toEqual(context.recentMessages.at(-1));
+      expect(userInput.source_message).toEqual({ evidence_handle: "EVIDENCE_CURRENT_MESSAGE", direction: "inbound", content: "Selam", occurredAt: context.recentMessages[0].occurredAt });
+      expect(JSON.stringify(body.input)).not.toContain(context.tenantId);
+      expect(JSON.stringify(body.input)).not.toContain(context.recentMessages[0].id);
+      expect(JSON.stringify(body.text)).toContain('"enum":["EVIDENCE_CURRENT_MESSAGE"]');
       expect(String(init?.headers && (init.headers as Record<string, string>).authorization)).toContain("test-key");
       return new Response(JSON.stringify({
         id: "resp_1", output: [{ type: "message", content: [{ type: "output_text", text: JSON.stringify(validOutput) }] }],
@@ -92,6 +95,20 @@ describe("OpenAI Responses provider adapter", () => {
       { status: 429, headers: { "retry-after": "2" } },
     ));
     await expect(provider.invoke(request())).rejects.toMatchObject({ kind: "RATE_LIMIT", retryable: true, retryAfterMs: 2000 });
+  });
+
+  it.each(["invented-uuid", "source_message:44444444-4444-4444-8444-444444444444", context.recentMessages[0].id])("rejects non-registry evidence %s without retrying", async (ref) => {
+    const output = { ...validOutput, claims: validOutput.claims.map((claim) => ({ ...claim, evidence_refs: [ref] })) };
+    const provider = new OpenAIResponsesProvider("test-key", "test-model", async () => new Response(JSON.stringify({ output_text: JSON.stringify(output) }), { status: 200 }));
+    await expect(provider.invoke(request())).rejects.toMatchObject({ kind: "INVALID_OUTPUT", retryable: false, message: "EVIDENCE_REFERENCE_NOT_ALLOWED" });
+  });
+
+  it("resolves memory handles and retains authoritative wire evidence", async () => {
+    const memory = { key: "preferred_language", value: "Turkish", classification: "inferred_preference", confidence: 0.7, provenance_evidence_refs: ["EVIDENCE_CURRENT_MESSAGE"] };
+    const provider = new OpenAIResponsesProvider("test-key", "test-model", async () => new Response(JSON.stringify({ output_text: JSON.stringify({ ...validOutput, memory_proposals: [memory] }) }), { status: 200 }));
+    const result = await provider.invoke(request());
+    expect(result.output.memory_proposals[0]).toMatchObject({ provenance_message_ids: [context.recentMessages[0].id] });
+    expect(result.evidenceResolution).toMatchObject({ resolved: true, wireOutput: { memory_proposals: [memory] }, registry: [{ handle: "EVIDENCE_CURRENT_MESSAGE", messageId: context.recentMessages[0].id }] });
   });
 
   it("does not retry exhausted-credit errors", async () => {
