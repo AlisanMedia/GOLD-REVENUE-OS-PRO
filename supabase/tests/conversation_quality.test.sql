@@ -321,7 +321,7 @@ select public.ingest_telegram_message('a2000000-0000-4000-8000-000000000002','pr
 insert into public.messages(tenant_id,conversation_id,customer_id,messaging_contact_id,provider_connection_id,direction,
   content,status,provider_chat_id,idempotency_key,actor_type,correlation_id,occurred_at,created_at)
 select m.tenant_id,m.conversation_id,m.customer_id,m.messaging_contact_id,m.provider_connection_id,'inbound',
-  fixture.content,'received',m.provider_chat_id,fixture.content,'system',gen_random_uuid(),s.source_at+fixture.delta,s.source_at+fixture.delta
+  fixture.content,'received',m.provider_chat_id,fixture.content,'SYSTEM',gen_random_uuid(),s.source_at+fixture.delta,s.source_at+fixture.delta
 from provenance_scope s join public.messages m on m.tenant_id=s.tenant_id and m.id=s.source_id
 cross join (values ('LOCAL_PROVENANCE_FUTURE',interval '1 minute'),('LOCAL_PROVENANCE_EXCLUDED',interval '-1 minute')) fixture(content,delta);
 
