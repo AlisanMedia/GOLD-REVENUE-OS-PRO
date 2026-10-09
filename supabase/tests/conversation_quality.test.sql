@@ -361,5 +361,50 @@ select throws_ok($$select private.resolve_quality_wire_refs('["EVIDENCE_MESSAGE_
 select throws_ok($$select private.resolve_quality_wire_refs('["EVIDENCE_CURRENT_MESSAGE"]','[{"handle":"EVIDENCE_CURRENT_MESSAGE","messageId":"real","direction":"outbound"}]',true)$$,
   '22023','EVIDENCE_REFERENCE_NOT_ALLOWED','database independently rejects outbound memory provenance');
 
+-- New fixture proposals reuse valid immutable run/QA evidence; no live data is changed.
+reset role;
+select ok(not has_function_privilege('authenticated','public.queue_quality_approved_reply(uuid,uuid)','EXECUTE'),'browser cannot forge an automatic QA send');
+select ok(not has_function_privilege('authenticated','public.claim_quality_reply_delivery(uuid,uuid)','EXECUTE'),'browser cannot claim an automatic send lease');
+create temporary table auto_fixture as
+select p.tenant_id,p.task_id,p.run_id,t.conversation_id,gen_random_uuid() as proposal_id
+from public.agent_proposals p join public.agent_tasks t on t.id=p.task_id
+join public.conversation_quality_evaluations q on q.run_id=p.run_id
+where p.tenant_id='a2000000-0000-4000-8000-000000000001' and q.qa_action='approve'
+order by p.created_at limit 1;
+insert into public.agent_proposals(id,tenant_id,task_id,run_id,proposal_type,original_payload,approval_status,confidence)
+select f.proposal_id,f.tenant_id,f.task_id,f.run_id,'message_draft',p.original_payload,'pending',p.confidence
+from auto_fixture f join public.agent_proposals p on p.run_id=f.run_id limit 1;
+select is(public.queue_quality_approved_reply(tenant_id,proposal_id)->>'queued','false','default-off conversation does not send automatically') from auto_fixture;
+select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000002',true);
+select throws_ok(format('select public.set_conversation_automatic_replies(%L,%L,true,gen_random_uuid())',tenant_id,conversation_id),
+  '42501','automatic replies denied','analyst cannot enable automatic replies') from auto_fixture;
+select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000003',true);
+select throws_ok(format('select public.set_conversation_automatic_replies(%L,%L,true,gen_random_uuid())',tenant_id,conversation_id),
+  '42501','automatic replies denied','other tenant manager cannot enable automatic replies') from auto_fixture;
+select set_config('request.jwt.claim.sub','a1000000-0000-4000-8000-000000000001',true);
+select is(public.set_conversation_automatic_replies(tenant_id,conversation_id,true,gen_random_uuid()),true,'manager enables only the target conversation') from auto_fixture;
+update public.conversations set automatic_replies_enabled_at=now()+interval '1 second' where id=(select conversation_id from auto_fixture);
+select is(public.queue_quality_approved_reply(tenant_id,proposal_id)->>'queued','false','historical source messages are never automatically sent') from auto_fixture;
+update public.conversations set automatic_replies_enabled_at=now()-interval '1 second' where id=(select conversation_id from auto_fixture);
+update public.tenants set outbound_messaging_enabled=false where id=(select tenant_id from auto_fixture);
+select is(public.queue_quality_approved_reply(tenant_id,proposal_id)->>'queued','false','outbound kill switch stops automatic queuing') from auto_fixture;
+update public.tenants set outbound_messaging_enabled=true where id=(select tenant_id from auto_fixture);
+update public.conversations set runtime_mode='HUMAN_TAKEOVER',human_takeover=true where id=(select conversation_id from auto_fixture);
+select is(public.queue_quality_approved_reply(tenant_id,proposal_id)->>'queued','false','human takeover stops automatic queuing') from auto_fixture;
+update public.conversations set runtime_mode='AI_ACTIVE',human_takeover=false where id=(select conversation_id from auto_fixture);
+update public.messaging_contacts set contactability='blocked' where id=(select messaging_contact_id from public.conversations where id=(select conversation_id from auto_fixture));
+select is(public.queue_quality_approved_reply(tenant_id,proposal_id)->>'queued','false','blocked contact stops automatic queuing') from auto_fixture;
+update public.messaging_contacts set contactability='user_initiated' where id=(select messaging_contact_id from public.conversations where id=(select conversation_id from auto_fixture));
+update public.agent_proposals set customer_facing_blocked=true where id=(select proposal_id from auto_fixture);
+select is(public.queue_quality_approved_reply(tenant_id,proposal_id)->>'queued','false','blocked QA proposal never queues') from auto_fixture;
+update public.agent_proposals set customer_facing_blocked=false where id=(select proposal_id from auto_fixture);
+select is(public.queue_quality_approved_reply(tenant_id,proposal_id)->>'queued','true','eligible new QA-approved reply queues automatically') from auto_fixture;
+select is(public.queue_quality_approved_reply(tenant_id,proposal_id)->>'duplicate','true','repeated automatic queue is idempotent') from auto_fixture;
+select is((select count(*) from public.messages where actor_id='quality-approved-reply'),1::bigint,'one automatic message exists');
+update public.tenants set outbound_messaging_enabled=false where id=(select tenant_id from auto_fixture);
+select is(public.claim_quality_reply_delivery(f.tenant_id,p.sent_message_id),false,'kill switch is rechecked at send time') from auto_fixture f join public.agent_proposals p on p.id=f.proposal_id;
+update public.tenants set outbound_messaging_enabled=true where id=(select tenant_id from auto_fixture);
+select is(public.claim_quality_reply_delivery(f.tenant_id,p.sent_message_id),true,'eligible send obtains its lease') from auto_fixture f join public.agent_proposals p on p.id=f.proposal_id;
+select is(public.claim_quality_reply_delivery(f.tenant_id,p.sent_message_id),false,'overlapping dispatcher cannot obtain a second send lease') from auto_fixture f join public.agent_proposals p on p.id=f.proposal_id;
 select * from finish();
 rollback;

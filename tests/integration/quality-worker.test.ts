@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { conversationModelOutputSchema, directConversation, inferStyleProfile, type ModelRequest } from "../../packages/domain/src/index";
 
-const mocks = vi.hoisted(() => ({ rpc: vi.fn(), invoke: vi.fn(), context: vi.fn() }));
+const mocks = vi.hoisted(() => ({ rpc: vi.fn(), invoke: vi.fn(), context: vi.fn(), dispatch: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/messaging/outbound-dispatch", () => ({ dispatchQueuedTelegramMessage: mocks.dispatch }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: mocks.rpc }) }));
 vi.mock("@/lib/agent-runtime/context-builder", () => ({ buildAgentContext: mocks.context }));
 vi.mock("@/lib/agent-runtime/providers/openai-responses", () => ({ openAIProviderFromEnvironment: () => ({ provider: "openai", model: "gpt-5.4-mini", invoke: mocks.invoke }) }));
@@ -29,6 +30,28 @@ beforeEach(() => {
   mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "claim_event_outbox" ? [] : name === "begin_agent_run" ? "run-fixture" : name === "claim_agent_tasks" ? [{ task_id: "task-fixture", tenant_id: tenant, conversation_id: conversation, customer_id: null, source_event_id: "event-fixture", execution_mode: "SHADOW", timeout_ms: 30000, model_provider: "openai", model_name: "gpt-5.4-mini" }] : true }));
 });
 describe("Corrective worker integration (mocked provider, not live evidence)", () => {
+  it("uses scoped claims on the immediate webhook path and sends only a DB-authorized QA reply", async () => {
+    const previous = mocks.rpc.getMockImplementation()!;
+    mocks.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
+      if (name === "claim_conversation_reply_tasks") return previous("claim_agent_tasks", args);
+      if (name === "complete_quality_agent_run") return { error: null, data: { proposal_id: "proposal-fixture" } };
+      if (name === "queue_quality_approved_reply") return { error: null, data: { queued: true, message_id: "message-fixture" } };
+      return previous(name, args);
+    });
+    mocks.invoke.mockResolvedValue(response("Hi! What would you like to know?"));
+    const { runDeterministicWorker } = await import("../../apps/web/src/lib/agent-runtime/worker");
+    await runDeterministicWorker({ conversation: { tenantId: tenant, conversationId: conversation } });
+    expect(mocks.rpc.mock.calls.find(([name]) => name === "claim_conversation_reply_tasks")![1]).toMatchObject({ target_tenant_id: tenant, target_conversation_id: conversation });
+    expect(mocks.dispatch).toHaveBeenCalledWith({ tenantId: tenant, messageId: "message-fixture", automatic: true });
+  });
+  it("does not request automatic delivery for a QA-blocked draft", async () => {
+    mocks.invoke.mockResolvedValue(response("I understand. I understand."));
+    const { runDeterministicWorker } = await import("../../apps/web/src/lib/agent-runtime/worker");
+    await runDeterministicWorker();
+    expect(mocks.rpc.mock.calls.some(([name]) => name === "queue_quality_approved_reply")).toBe(false);
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+
   it("stores both stages and corrects repetition with exactly one rewrite", async () => {
     mocks.invoke.mockResolvedValueOnce(response("I understand. I understand.")).mockResolvedValueOnce(response("Hi! What would you like to know?"));
     const { runDeterministicWorker } = await import("../../apps/web/src/lib/agent-runtime/worker");

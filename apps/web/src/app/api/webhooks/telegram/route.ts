@@ -1,14 +1,17 @@
+import { drainAutomaticReplies } from "@/lib/messaging/automatic-replies";
 import { createHash, timingSafeEqual } from "node:crypto";
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import {
   MessagingValidationError,
   parseTelegramPrivateText,
   type TelegramUpdate,
 } from "@gold-revenue-os/domain";
+import { runDeterministicWorker } from "@/lib/agent-runtime/worker";
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 120;
 
 const MAX_WEBHOOK_BYTES = 256 * 1024;
 
@@ -81,6 +84,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "WEBHOOK_PROCESSING_FAILED" }, { status: 500 });
   }
   const result = data && typeof data === "object" ? data as Record<string, unknown> : {};
+  if (result.duplicate !== true && typeof result.conversation_id === "string") {
+    const conversationId = result.conversation_id;
+    after(async () => {
+      await runDeterministicWorker({
+        deploymentRef: process.env.VERCEL_GIT_COMMIT_SHA ?? "unknown",
+        conversation: { tenantId: env.tenantId, conversationId },
+      }).catch(() => undefined); // Persisted event/task leases allow cron recovery.
+      await drainAutomaticReplies();
+    });
+  }
   return NextResponse.json({ ok: true, duplicate: result.duplicate === true });
 }
 

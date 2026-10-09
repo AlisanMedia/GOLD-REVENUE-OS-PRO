@@ -1,0 +1,11 @@
+# ADR 005 — Owner-authorized automatic conversation replies
+
+Status: implementation under validation. The owner explicitly requested automatic, fast replies in the staging Telegram test chat on 2026-10-09. This extends Phase 7 conversation delivery; it does not start Phase 8 lead intelligence, execute model tools, import customers or authorize financial/access mutations.
+
+New conversation settings default off. The authenticated manager/super-admin action records owner authorization and returns that conversation to AI_ACTIVE. Enabling starts a new timestamp boundary; historical drafts and source messages are never retroactively auto-sent. Disable returns HUMAN_TAKEOVER. Tenant outbound gating, active provider, contactability, open conversation, current quality versions, nonblocked QA approval, no escalation and no tool proposals are enforced in the service-only queue. System approval is explicitly distinguished from human review in audit evidence.
+
+Telegram ingestion acknowledges first, then Next.js after runs a scoped worker immediately. Cron remains recovery. A task lease and per-conversation claim exclusion protect concurrent generation. Only one task per invocation and at most one rewrite remain. Send leases and proposal/message idempotency prevent overlapping webhook/cron dispatch. Automatic network failures with uncertain delivery are not retried because Telegram does not provide idempotency keys; explicit 429 retries are recovered. A send already accepted by the external provider cannot be recalled by a later takeover or kill-switch change.
+
+The live Turkish knowledge-limitation wording 'fiyat ve içerik detayları ... görünmüyor' is recognized with a narrow negative visibility predicate. Affirmative product clauses remain unsupported. The exact built-in AI identity statement is authoritative even if the model labels it a fact; an allowlist of complete statements never permits appended business or action claims. QA v5 / evaluation set phase7-balanced-v6 identifies this correction; numeric thresholds, model and prompt remain unchanged.
+
+Only the authorized owner test conversation is to be enabled after CI and isolated staging deployment pass. Fresh automatic Telegram delivery and remaining unsafe multilingual cases are required for closeout. Phase 7 remains OPEN.

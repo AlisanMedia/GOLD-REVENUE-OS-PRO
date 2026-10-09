@@ -82,6 +82,8 @@ export async function getConversationMessages(conversationId: string): Promise<M
 
 
 export type ConversationDetail = {
+  runtime_mode: string;
+  automatic_replies_enabled: boolean;
   id: string;
   customer_id: string | null;
   status: string;
@@ -103,7 +105,7 @@ export async function getConversationDetail(conversationId: string): Promise<Con
   const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("conversations")
-    .select("id,customer_id,status,unread_count,attention_required,last_message_at,messaging_contacts(username,provider_user_id,provider_chat_id,contactability,identity_resolution,review_required)")
+    .select("id,customer_id,status,runtime_mode,automatic_replies_enabled,unread_count,attention_required,last_message_at,messaging_contacts(username,provider_user_id,provider_chat_id,contactability,identity_resolution,review_required)")
     .eq("tenant_id", tenantId)
     .eq("id", conversationId)
     .maybeSingle();

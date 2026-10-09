@@ -19,6 +19,7 @@ import {
 } from "@gold-revenue-os/domain";
 import { buildAgentContext } from "@/lib/agent-runtime/context-builder";
 import { openAIProviderFromEnvironment } from "@/lib/agent-runtime/providers/openai-responses";
+import { dispatchQueuedTelegramMessage } from "@/lib/messaging/outbound-dispatch";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const EVENT_CONSUMER = "agent-runtime.v1";
@@ -273,7 +274,7 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
     const inputTokens = responses.reduce<number | null>((total, item) => item.usage.inputTokens === null ? total : (total ?? 0) + item.usage.inputTokens, null);
     const outputTokens = responses.reduce<number | null>((total, item) => item.usage.outputTokens === null ? total : (total ?? 0) + item.usage.outputTokens, null);
     const latencyMs = responses.reduce((total, item) => total + item.latencyMs, 0);
-    await invokeRpc("complete_quality_agent_run", {
+    const completed = await invokeRpc<{ proposal_id: string }>("complete_quality_agent_run", {
       target_tenant_id: task.tenant_id,
       target_run_id: runId,
       worker_id_value: workerId,
@@ -293,6 +294,16 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
       latency_ms_value: latencyMs,
       request_fingerprint_value: requestFingerprint(requests.at(-1)!),
     });
+    // Sending failure must not invalidate the already-completed model evidence.
+    if (evaluation.action === "approve" && !evaluation.customerFacingBlocked && completed?.proposal_id) {
+      await invokeRpc<{ queued: boolean; message_id?: string }>("queue_quality_approved_reply", {
+        target_tenant_id: task.tenant_id, target_proposal_id: completed.proposal_id,
+      }).then(async (queued) => {
+        if (queued.queued && queued.message_id) await dispatchQueuedTelegramMessage({
+          tenantId: task.tenant_id, messageId: queued.message_id, automatic: true,
+        });
+      }).catch(() => undefined); // Pending delivery remains available for cron recovery.
+    }
     return true;
   } catch (error) {
     if (!runId) return false;
@@ -331,7 +342,7 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
   }
 }
 
-export async function runDeterministicWorker(input?: { workerId?: string; deploymentRef?: string }): Promise<WorkerResult> {
+export async function runDeterministicWorker(input?: { workerId?: string; deploymentRef?: string; conversation?: { tenantId: string; conversationId: string } }): Promise<WorkerResult> {
   const workerId = input?.workerId ?? `vercel-${crypto.randomUUID()}`;
   const result: WorkerResult = {
     workerId,
@@ -354,7 +365,8 @@ export async function runDeterministicWorker(input?: { workerId?: string; deploy
       else result.eventsFailed += 1;
     }
 
-    const claimedTasks = rows<ClaimedTask>(await invokeRpc("claim_agent_tasks", {
+    const claimedTasks = rows<ClaimedTask>(await invokeRpc(input?.conversation ? "claim_conversation_reply_tasks" : "claim_agent_tasks", {
+      ...(input?.conversation ? { target_tenant_id: input.conversation.tenantId, target_conversation_id: input.conversation.conversationId } : {}),
       worker_id_value: workerId,
       batch_size_value: TASK_BATCH_SIZE,
       lease_seconds_value: 120,
