@@ -12,14 +12,14 @@ const operational = /(?:check|verify|confirm|activate|save|send|forward|update).
 // not the affirmative business assertion "the membership includes X".
 export function isConversationalClarificationOffer(text: string): boolean {
   const whole = text.normalize("NFKC").trim().replace(/[.!]$/u, "");
-  const list = /^(?:I can help(?: you)? (?:clarify|with)|You can ask about)\s+(.+)$/iu.exec(whole)?.[1];
+  const list = /^(?:I can help(?: you)? (?:clarify|explain|with)|You can ask about)\s+(.+)$/iu.exec(whole)?.[1];
   if (list) {
     // An illustrative introduction still names topics, never catalog values.
     // Remove only the bounded noun introduction before validating every item.
-    const topicList = list.replace(/^(?:the )?(?:monthly )?(?:membership|subscription) details,?\s+(?:like|such as|including)\s+/iu, "")
+    const topicList = list.replace(/^(?:the )?(?:monthly )?(?:membership|subscription) (?:details|questions),?\s+(?:like|such as|including)\s+/iu, "")
       .replace(/^questions about\s+/iu, "");
     const topics = topicList.replace(/,\s*(?:and|or)\s+/giu, ",").split(/,\s*|\s+(?:and|or)\s+/iu);
-    const topic = /^(?:(?:the )?(?:monthly )?(?:membership |subscription )?(?:(?:price|pricing|cost)(?: details| questions)?|details|cancellation terms)|what['’]s included|what (?:the )?(?:membership|subscription) includes|how it works|access after payment|(?:general )?access questions|any general questions you have)$/iu;
+    const topic = /^(?:(?:the )?(?:monthly )?(?:membership |subscription )?(?:(?:price|pricing|cost)(?: details| questions)?|details|cancellation terms)|what['’]s included|what (?:the )?(?:membership|subscription) includes|how it works|access after payment|(?:general )?access(?: questions)?|any general questions you have)$/iu;
     if (topics.length >= 1 && topics.length <= 4 && topics.every((item) => topic.test(item.trim()))) return true;
   }
   return [

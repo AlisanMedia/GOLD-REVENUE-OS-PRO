@@ -96,7 +96,12 @@ export function reviewClaimGrounding(input: {
     let score = 0;
     let valid = false;
     if (claim.kind === "question") valid = /[?؟]\s*$/u.test(claim.text)
-      || /^İsterseniz hangi üyelikten bahsettiğinizi yazın, daha net yardımcı olayım[.!]?$/iu.test(claim.text.normalize("NFKC").trim());
+      || /^İsterseniz hangi üyelikten bahsettiğinizi yazın, daha net yardımcı olayım[.!]?$/iu.test(claim.text.normalize("NFKC").trim())
+      // This entire imperative invites a conversational question, not an
+      // operation or a business assertion. A QUESTION label is not authority.
+      || (speechAct === "QUESTION" && /^Ask me anything you want to clarify[.!]?$/iu.test(claim.text.normalize("NFKC").trim())
+        && (claim.capability == null || claim.capability === "conversation.reply")
+        && (input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"]).includes("conversation.reply"));
     if (claim.kind === "uncertainty") valid = uncertaintyPattern.test(claim.text)
       || /^(?:üyeliğin|aboneliğin) (?:fiyatı ve içeriğiyle|fiyatıyla|içeriğiyle) ilgili (?:net|kesin) bilgiye (?:şu an |henüz )?sahip değilim[.!]?$/iu.test(claim.text.normalize("NFKC").trim())
       // Whole clarity limitation only: no amount, benefit or appended action.
