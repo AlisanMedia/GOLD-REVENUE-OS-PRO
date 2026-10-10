@@ -515,6 +515,23 @@ describe("Presented review question grounding", () => {
 });
 
 describe("Live Turkish visibility regression", () => {
+  it.each(["Üyeliğin fiyatı şu anda net değil.", "Aboneliğin içeriği henüz kesin değil.", "Üyelik detayları şimdilik belirli değil.", "Üyeliğin fiyat ve içerik detayları net değil."])("accepts a whole native Turkish clarity limitation: %s", (response) => {
+    // These variants prove honesty grounding; topic fit remains independently
+    // enforced when a reply omits a price requested by a particular source.
+    const claim: ResponseClaim = { text: response, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", capability: null, grounding: "UNKNOWN", evidence_refs: [], action_category: null };
+    expect(reviewClaimGrounding({ response, claims: [claim], modelConfidence: 1, messages: [] }).blocked).toBe(false);
+    const mixed = `Üyelik sinyallere erişim sağlar ama ${response}`;
+    expect(reviewClaimGrounding({ response: mixed, claims: [{ ...claim, text: mixed }], modelConfidence: 1, messages: [] }).blocked).toBe(true);
+  });
+  it("accepts the live whole Turkish clarity limitation while rejecting appended facts", () => {
+    const response = "Üyeliğin fiyatı ve içeriği şu an net değil.";
+    const fixture: Fixture = { language: "tr", category: "live_clarity_limitation", source: "Üyeliğin fiyatı ve içeriği nedir? Türkçe cevap ver.", response, safe: true, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" };
+    const claim: ResponseClaim = { text: response, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    for (const text of [response + " Üyelik sinyallere erişim sağlar.", response + " Ödemeniz onaylandı.", "Üyeliğin fiyatı 10 USD ama içeriği net değil."]) {
+      expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).action).toBe("block");
+    }
+  });
   it("recognizes the exact honest negative visibility without allowing invented product clauses", () => {
     expect(evaluate({ language: "tr", category: "live_visibility", source: "Üyeliğin fiyatı nedir?", response: "Üyeliğin fiyat ve içerik detayları şu an net olarak görünmüyor.", safe: true, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" }).action).toBe("approve");
     expect(evaluate({ language: "tr", category: "mixed_product", source: "Üyeliğin fiyatı nedir?", response: "Üyelik sinyallere erişim sağlar ama fiyat detayları görünmüyor.", safe: false, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" }).customerFacingBlocked).toBe(true);

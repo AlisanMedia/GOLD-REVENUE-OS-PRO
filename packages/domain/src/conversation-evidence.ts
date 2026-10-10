@@ -79,7 +79,9 @@ export function reviewClaimGrounding(input: {
     if (claim.kind === "question") valid = /[?؟]\s*$/u.test(claim.text)
       || /^İsterseniz hangi üyelikten bahsettiğinizi yazın, daha net yardımcı olayım[.!]?$/iu.test(claim.text.normalize("NFKC").trim());
     if (claim.kind === "uncertainty") valid = uncertaintyPattern.test(claim.text)
-      || /^(?:üyeliğin|aboneliğin) (?:fiyatı ve içeriğiyle|fiyatıyla|içeriğiyle) ilgili (?:net|kesin) bilgiye (?:şu an |henüz )?sahip değilim[.!]?$/iu.test(claim.text.normalize("NFKC").trim());
+      || /^(?:üyeliğin|aboneliğin) (?:fiyatı ve içeriğiyle|fiyatıyla|içeriğiyle) ilgili (?:net|kesin) bilgiye (?:şu an |henüz )?sahip değilim[.!]?$/iu.test(claim.text.normalize("NFKC").trim())
+      // Whole clarity limitation only: no amount, benefit or appended action.
+      || /^(?:(?:üyeliğin|aboneliğin) (?:fiyatı|içeriği|fiyatı ve içeriği|(?:fiyat ve içerik |fiyat |içerik )?detayları)|(?:üyelik|abonelik) detayları) (?:şu an(?:da)? |henüz |şimdilik )?(?:net|kesin|belirli) değil[.!]?$/iu.test(claim.text.normalize("NFKC").trim());
     if (claim.kind === "social") valid = !detectedCompletedActions(claim.text).length
       && (speechAct === "IDENTITY_RESPONSE"
         ? /\b(?:AI|automated)\b|yapay|اصطناعي|искусственн/iu.test(claim.text)
