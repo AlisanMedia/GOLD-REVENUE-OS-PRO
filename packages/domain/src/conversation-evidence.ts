@@ -136,7 +136,7 @@ export function reviewClaimGrounding(input: {
     // Untrusted speech-act labels cannot turn biography or trading guarantees
     // into social acknowledgements. These are unsupported business assertions.
     if (/\bI (?:personally trade|have (?:twenty|\d+) years of trading experience)\b|yirmi yıldır altın ticareti yapıyorum/iu.test(claim.text)
-      || /\b(?:membership|subscription|plan|trading)\b[^.!?]*\bguarantees? (?:daily )?(?:profits?|returns?)\b/iu.test(claim.text)) valid = false;
+      || /\b(?:membership|subscription|plan|trading)\s+guarantees? (?:daily )?(?:profits?|returns?)\b/iu.test(claim.text)) valid = false;
     if (isDraftedReviewIntroduction(claim.text)) {
       const next = input.claims[index + 1];
       valid = valid && Boolean(next && next.kind === "question"

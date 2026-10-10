@@ -483,7 +483,7 @@ describe("Presented review question grounding", () => {
     expect(evaluate({ ...fixture, response: `${completed.text} ${question}` }, [], [completed, ask]).action).toBe("block");
   });
   it("accepts truthful identity and honest limitations with acknowledgement labels", () => {
-    for (const response of ["I’m an AI, not a real human.", "I don’t know the exact cancellation terms.", "Understood."]) {
+    for (const response of ["I’m an AI, not a real human.", "I don’t know the exact cancellation terms.", "Trading does not guarantee profits.", "Understood."]) {
       const claim: ResponseClaim = { text: response, kind: "social", speech_act: "ACKNOWLEDGEMENT", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null };
       expect(reviewClaimGrounding({ response, claims: [claim], modelConfidence: 1, messages: [] }).blocked).toBe(false);
     }
