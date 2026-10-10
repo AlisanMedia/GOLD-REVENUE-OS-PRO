@@ -7,10 +7,10 @@ export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
   prompt: "conversation-quality-prompt-v5",
   director: "conversation-director-v3",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v5",
+  qa: "conversation-qa-v6",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v6",
+  evaluationSet: "phase7-balanced-v7",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -236,6 +236,24 @@ export function repetitionScore(text: string, recentMessages: ReadonlyArray<{ di
 
 export const REPRESENTATIVE_PROFILE = Object.freeze({ version: "representative-v1", tone: "attentive_professional", identity_policy: "truthful_when_directly_asked", primary_purposes_per_reply: 1, default_sentences: [1, 3], internal_routing_visible: false });
 
+function conventionalGreetingReply(response: string, messages: ReadonlyArray<{ direction: string; content: string }>, intent?: string): boolean {
+  // A new greeting legitimately receives the same short greeting as an earlier
+  // turn. This exception covers the whole reply, never appended business claims
+  // or accidental repeated sentences, and requires the current inbound greeting.
+  const greetings = /^(?:hi|hello|hey|merhaba|selam|sa|günaydın|مرحبا|مرحباً|привет|здравствуйте)$/iu;
+  if (intent !== "greeting" || !greetings.test(normalizeConversationText(latestInboundText(messages)))) return false;
+  const parts = sentenceParts(response).map(normalizeConversationText);
+  if (parts.length < 1 || parts.length > 2 || !greetings.test(parts[0] ?? "")) return false;
+  if (parts.length === 1) return true;
+  return new Set([
+    "how can i help", "how can i help you", "how can i help today", "how can i help you today",
+    "what can i help with", "what can i help you with", "what brings you here",
+    "nasıl yardımcı olabilirim", "size nasıl yardımcı olabilirim", "sana nasıl yardımcı olabilirim",
+    "كيف يمكنني مساعدتك", "كيف أساعدك", "بماذا يمكنني مساعدتك",
+    "чем могу помочь", "чем я могу помочь", "как я могу вам помочь",
+  ]).has(parts[1] ?? "");
+}
+
 export function reviewResponseNaturalness(response: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>, intent?: string) {
   const sentences = sentenceParts(response);
   const previous = recentMessages.filter((m) => m.direction === "outbound").map((m) => sentenceParts(m.content));
@@ -244,13 +262,14 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
   const filler = /^(?:of course|certainly|I understand|thank you for reaching out|I'd be happy|değerli müşterimiz|mesajınız alındı|بالطبع|شكرا لتواصلك|конечно|спасибо за обращение)/iu.test(response);
   const cta = /let me know if|anything else|would you like me to|başka.*yardım|başka.*soru|هل.*مساعدة أخرى|дайте знать|что-нибудь еще/iu.test(response);
   const requested = requestedRepetition(latestInboundText(recentMessages), response);
+  const conventionalGreeting = conventionalGreetingReply(response, recentMessages, intent);
   const safeRefusal = intent === "prompt_injection" && /can['’]t|cannot|won['’]t|paylaşamam|لا|не могу|не буду/iu.test(response);
   return { method: "deterministic_text_indicators_v1", dimensions: {
-    template_similarity: requested ? 0 : repetitionScore(response, recentMessages),
+    template_similarity: requested || conventionalGreeting ? 0 : repetitionScore(response, recentMessages),
     conversational_continuity: /^(?:hello|hi|merhaba|selam|مرحبا|привет)[!,]/iu.test(response) && previous.length > 0 ? 50 : 0,
     unnatural_acknowledgement: filler ? 70 : 0,
-    repeated_opening: !requested && opening && previous.some((p) => normalizeConversationText(p[0] ?? "").split(" ").slice(0, 3).join(" ") === opening) ? 100 : 0,
-    repeated_closing: !requested && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
+    repeated_opening: !requested && !conventionalGreeting && opening && previous.some((p) => normalizeConversationText(p[0] ?? "").split(" ").slice(0, 3).join(" ") === opening) ? 100 : 0,
+    repeated_closing: !requested && !conventionalGreeting && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
     unnecessary_cta: cta ? 70 : 0,
     sentence_variation: !requested && sentences.length > 1 && new Set(sentences.map((v) => normalizeConversationText(v).split(" ")[0])).size === 1 ? 70 : 0,
     tone_consistency: /\p{Lu}{6,}/u.test(response) ? 70 : 0,
@@ -294,7 +313,7 @@ export function evaluateConversationQuality(input: {
     semantic_context_fit: semantic.score,
     tone_fit: input.style.formality === input.director.desired_style_profile ? 90 : 60,
     excessive_length: sentences.length <= targetLength && response.length <= 600 ? 0 : Math.min(100, 40 + Math.max(0, sentences.length - targetLength) * 20),
-    repetition: requested ? 0 : repetitionScore(response, input.recentMessages),
+    repetition: requested || conventionalGreetingReply(response, input.recentMessages, input.director.primary_intent) ? 0 : repetitionScore(response, input.recentMessages),
     sales_pressure: Math.min(100, pressureHits * 55),
     factual_confidence: grounding.factual_confidence,
     policy_risk: deceptive || invalidSemanticRefs ? 100 : grounding.blocked ? 100 : /garanti kazanç|guaranteed profit/i.test(response) ? 100 : 0,

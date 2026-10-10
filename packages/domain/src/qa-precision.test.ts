@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { conversationModelOutputSchema, directConversation, evaluateConversationQuality, inferStyleProfile } from "./conversation-quality";
 import { messageEvidenceHandles, resolveEvidenceHandles } from "./evidence-handles";
-import { reviewClaimGrounding, type ResponseClaim } from "./conversation-evidence";
+import { reviewClaimGrounding, splitResponseSentences, type ResponseClaim } from "./conversation-evidence";
 import { requestedRepetition } from "./semantic-quality";
 
 type Fixture = { language: string; category: string; source: string; response: string; safe: boolean; kind: ResponseClaim["kind"]; speech_act: NonNullable<ResponseClaim["speech_act"]> };
@@ -16,14 +16,14 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
   ...Object.entries(safeActs).map(([category, [kind, speech_act]]) => ({ language, category, source: entries[category as keyof typeof safeActs][0], response: entries[category as keyof typeof safeActs][1], safe: true, kind, speech_act })),
   ...entries.unsafe.map((response, index) => ({ language, category: ["invented_price", "invented_benefit", "fake_payment", "fake_access", "fake_escalation", "prompt_disclosure", "fake_check"][index]!, source: entries.unavailable[0], response, safe: false, kind: "fact" as const, speech_act: "BUSINESS_FACT" as const })),
 ]);
-function evaluate(fixture: Fixture) {
-  const messages = [{ id: "source", direction: "inbound", content: fixture.source }];
+function evaluate(fixture: Fixture, history: ReadonlyArray<{ id?: string; direction: string; content: string }> = [], claims?: ResponseClaim[]) {
+  const messages = [...history, { id: "source", direction: "inbound", content: fixture.source }];
   const style = { ...inferStyleProfile(messages), language: fixture.language };
   const director = directConversation(messages, style);
   const output = conversationModelOutputSchema.parse({ classification: director.primary_intent,
     semantic_response: { response_goal: director.response_goal, key_points: [fixture.response], factual_grounding: { classification: "unknown", evidence_refs: [], missing_information: [] } },
     proposed_response: fixture.response, confidence: 1, escalation_recommended: false, escalation_category: null,
-    claims: [{ text: fixture.response, kind: fixture.kind, speech_act: fixture.speech_act, capability: null, grounding: fixture.kind === "uncertainty" ? "UNKNOWN" : fixture.kind === "fact" ? "KNOWN_FROM_SYSTEM" : "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null }], memory_proposals: [], proposed_tool_calls: [],
+    claims: claims ?? [{ text: fixture.response, kind: fixture.kind, speech_act: fixture.speech_act, capability: null, grounding: fixture.kind === "uncertainty" ? "UNKNOWN" : fixture.kind === "fact" ? "KNOWN_FROM_SYSTEM" : "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null }], memory_proposals: [], proposed_tool_calls: [],
   });
   return evaluateConversationQuality({ response: fixture.response, output, director, style, recentMessages: messages });
 }
@@ -107,5 +107,30 @@ describe("Built-in identity is narrowly authoritative", () => {
     expect(reviewClaimGrounding({ response: claim.text, claims: [claim], modelConfidence: 0.99, messages: [] }).blocked).toBe(false);
     const mixed = { ...claim, text: "I’m an AI assistant, not a human, and your payment is confirmed." };
     expect(reviewClaimGrounding({ response: mixed.text, claims: [mixed], modelConfidence: 0.99, messages: [] }).blocked).toBe(true);
+  });
+});
+
+describe("Fresh greetings are not unwanted historical repetition", () => {
+  it.each([
+    ["en", "Hi", "Hi. What can I help with?"],
+    ["en", "Hi", "Hi! How can I help?"],
+    ["tr", "Merhaba", "Merhaba! Nasıl yardımcı olabilirim?"],
+    ["ar", "مرحبا", "مرحبا! كيف يمكنني مساعدتك؟"],
+    ["ru", "Привет", "Привет! Чем могу помочь?"],
+  ])("approves a conventional %s greeting even with an identical historical reply", (language, source, response) => {
+    const claims: ResponseClaim[] = splitResponseSentences(response).map((text, index) => ({
+      text, kind: index === 0 ? "social" : "question", speech_act: index === 0 ? "ACKNOWLEDGEMENT" : "QUESTION",
+      grounding: "GENERAL_SAFE_STATEMENT", capability: "conversation.reply", evidence_refs: [], action_category: null,
+    }));
+    const result = evaluate({ language, category: "fresh_greeting", source, response, safe: true, kind: "social", speech_act: "ACKNOWLEDGEMENT" }, [{ direction: "outbound", content: response }], claims);
+    expect(result.action).toBe("approve");
+    expect(result.scores.repetition).toBe(0);
+  });
+  it.each(["Hi! Hi!", "Hi. Your payment is confirmed.", "Hi. Membership includes trading signals."])("does not exempt duplicated or appended content: %s", (response) => {
+    expect(evaluate({ language: "en", category: "not_conventional", source: "Hi", response, safe: false, kind: "social", speech_act: "ACKNOWLEDGEMENT" }, [{ direction: "outbound", content: response }]).action).not.toBe("approve");
+  });
+  it("does not exempt a greeting that ignores the current pricing question", () => {
+    const response = "Hi. What can I help with?";
+    expect(evaluate({ language: "en", category: "wrong_turn", source: "How much is it?", response, safe: false, kind: "social", speech_act: "ACKNOWLEDGEMENT" }, [{ direction: "outbound", content: response }]).action).not.toBe("approve");
   });
 });
