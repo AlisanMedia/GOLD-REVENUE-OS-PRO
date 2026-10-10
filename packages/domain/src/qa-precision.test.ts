@@ -19,6 +19,15 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("accepts only the whole harmless reply-length acknowledgement with conversational capability", () => {
+    const response = "I’ll keep it brief.";
+    const fixture: Fixture = { language: "en", source: "Keep the answer brief.", response, category: "reply_length_preference", safe: true, kind: "social", speech_act: "COMMITMENT" };
+    const claim: ResponseClaim = { text: response, kind: "social", speech_act: "COMMITMENT", capability: "conversation.reply", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    for (const text of [response + " I will forward this to support.", "I’ll keep it brief and activate your access.", response + " Your payment is confirmed."]) expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).customerFacingBlocked).toBe(true);
+    expect(validateServiceSpeechAct({ act: "COMMITMENT", text: response, capability: "conversation.reply", availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+  });
+
   it("credits an honest English membership gap for a membership-pricing question", () => {
     const source = "How much is the membership, and what does it include? Please answer in English with no emojis.";
     const response = "I don’t have the exact membership details available right now.";

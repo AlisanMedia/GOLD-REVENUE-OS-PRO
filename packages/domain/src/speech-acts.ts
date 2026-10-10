@@ -48,6 +48,13 @@ export function validateServiceSpeechAct(input: {
   guaranteedCommitments: readonly ConversationCapability[];
 }) {
   if (input.act === "UNKNOWN_ASSERTION") return false;
+  // A bounded reply-length acknowledgement is not an operational guarantee,
+  // even when the model uses COMMITMENT instead of PREFERENCE_CONFIRMATION.
+  if (["PREFERENCE_CONFIRMATION", "COMMITMENT"].includes(input.act)
+    && /^I['’]ll keep (?:it|my replies) (?:brief|short|concise)[.!]?$/iu.test(input.text.normalize("NFKC").trim())) {
+    return input.availableCapabilities.includes("conversation.reply")
+      && (input.capability == null || input.capability === "conversation.reply");
+  }
   if (input.act === "ACKNOWLEDGEMENT") {
     if (isConventionalCompoundGreeting(input.text)) return input.availableCapabilities.includes("conversation.reply")
       && (input.capability == null || input.capability === "conversation.reply");
