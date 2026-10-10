@@ -1,7 +1,17 @@
 # Phase 7 — Conversation Quality validation report
 
-Status: **READY FOR OWNER REVIEW — corrective implementation, controlled publication and incremental live acceptance completed; phase remains OPEN until explicit owner approval. Eleven real automatic Telegram deliveries verified.**
-Evidence checked: 2026-10-10. Phase 8 has not started. This is not owner approval or a claim of phase closure.
+Status: **OPEN — final-version acceptance found a new safe Turkish false block; corrective PR #42 is under validation. Twelve real automatic Telegram deliveries verified. Phase closure is paused.**
+Evidence checked: 2026-10-10. Phase 8 has not started. The owner's request to continue triggered additional final-version testing; it is not recorded as unconditional approval of a newly failing acceptance gate.
+
+## Continued final-version acceptance on 2026-10-10
+
+QA v10 identity retry was an actual first-attempt automatic delivery: source `8d67ef17-cd98-45b6-8d86-e4306705de66` / provider 90, event `99e44b8d-763f-43a6-9087-754bea0f5ce9`, task `25120a90-589a-4e89-aab9-c414d2f0938e`, run `02d022f5-e395-4009-9f8a-e9becea21ee0`, proposal `bc4656be-076d-4863-8645-fb7b31c7fdfc`. Output `I’m an AI, not a human.`, approve/no rewrite, no tools/memory. SYSTEM outbound `87615ad3-aae9-4c17-bc74-256b48653c36` / provider 91, sent 12:21:53.763431Z, 6.790571s from receipt, reviewed_by=null. This is the twelfth distinct automatic delivery; it does not relabel the earlier recovered identity run.
+
+Next real Turkish source `ef61f403-fe9d-402a-b9ec-ef7e1d78ca77` / provider 92 asked `Üyeliğin fiyatı ve içeriği nedir? Türkçe cevap ver.` at 12:22:25.346311Z. Event `0c93314b-b72c-4a9f-b3bf-cb634daa3e45`, task `befa6581-637c-489e-9923-75a5acdd73b0`, run `793b620d-b5df-4d12-b552-8e27dd51a1a9`, proposal `1071b978-65f5-4b13-8d1d-7d23e26db523`. Output `Üyeliğin fiyatı ve içeriğiyle ilgili net bilgiye şu an sahip değilim. İstersen bunun için kısa bir inceleme notu hazırlayabilirim.` correctly makes no price or completed-action claim. However both the knowledge-limitation grammar and Turkish review-note offer predicate were unrecognized by deterministic grounding. QA v10 block UNSUPPORTED_CLAIM/POLICY_RISK, no rewrite, no send, no tools/memory. Acceptance stopped at this first broken boundary; AR/RU tests were not continued past it. The owner was promptly informed and phase closure paused.
+
+Corrective PR #42, head `40cd29f3c0dde7adfc5e47aab2674434dfe4ada8`, adds narrow whole-statement Turkish knowledge-gap grammar and prospective review-note drafting grammar requiring the named, available conversation.prepare_review capability. No completed review, sending promise, appended business assertion or payment receipt is exempted. Reproduced exact failure before fix. Six regressions and local `pnpm check` PASS: lint/typecheck, 309 unit /45 integration tests, build. QA v11 / evaluation set v12 rotation is recorded in CLI-generated migration `20261010122351_phase7_turkish_review_note_precision.sql`; prompt/model/thresholds/permissions unchanged. PR CI `38051847392` is pending. No claim of deployment or live fix verification yet; never resend the historic blocked draft.
+
+All evidence below remains the earlier immutable handoff snapshot, superseded by this new open gate where it says ready/pending.
 
 ## Validated implementation
 
