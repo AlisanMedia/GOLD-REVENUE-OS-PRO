@@ -1,15 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ worker: vi.fn(), state: vi.fn() }));
+const mocks = vi.hoisted(() => ({ worker: vi.fn(), state: vi.fn(), drain: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/agent-runtime/worker", () => ({ runDeterministicWorker: mocks.worker }));
+vi.mock("@/lib/messaging/automatic-replies", () => ({ drainAutomaticReplies: mocks.drain }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ from: () => ({ select: () => ({ eq: () => ({ eq: () => ({ maybeSingle: mocks.state }) }) }) }) }) }));
 const input = { deploymentRef: "fixture", conversation: { tenantId: "tenant", conversationId: "conversation" } };
 beforeEach(() => {
   vi.restoreAllMocks(); vi.clearAllMocks();
   mocks.state.mockResolvedValue({ data: { automatic_replies_enabled: true, runtime_mode: "AI_ACTIVE", human_takeover: false }, error: null });
   mocks.worker.mockResolvedValue({ tasksClaimed: 1 });
+  mocks.drain.mockResolvedValue(undefined);
 });
 describe("Bounded immediate conversation burst (fixtures, not live evidence)", () => {
+  it("sends the preceding approved reply before claiming the next source-ordered task", async () => {
+    let pending = false;
+    const order: string[] = [];
+    mocks.worker.mockImplementation(async () => { order.push("claim"); if (pending) return { tasksClaimed: 0 }; pending = true; return { tasksClaimed: 1 }; });
+    mocks.drain.mockImplementation(async (scope) => { expect(scope).toEqual(input.conversation); order.push("send"); pending = false; });
+    const { runImmediateConversationReplies } = await import("../../apps/web/src/lib/agent-runtime/immediate-replies");
+    await runImmediateConversationReplies(input);
+    expect(order).toEqual(["claim", "send", "claim", "send", "claim", "send"]);
+  });
   it("processes at most three sequential single-task invocations in the same scope", async () => {
     const { runImmediateConversationReplies } = await import("../../apps/web/src/lib/agent-runtime/immediate-replies");
     await runImmediateConversationReplies(input);
@@ -23,6 +34,7 @@ describe("Bounded immediate conversation burst (fixtures, not live evidence)", (
     mocks.state.mockResolvedValue({ data, error: null });
     const { runImmediateConversationReplies } = await import("../../apps/web/src/lib/agent-runtime/immediate-replies");
     await runImmediateConversationReplies(input); expect(mocks.worker).toHaveBeenCalledTimes(1);
+    expect(mocks.drain).not.toHaveBeenCalled();
   });
   it("stops when another worker owns the lease or no task remains", async () => {
     mocks.worker.mockResolvedValueOnce({ tasksClaimed: 1 }).mockResolvedValueOnce({ tasksClaimed: 0 });
