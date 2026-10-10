@@ -77,7 +77,8 @@ export function reviewClaimGrounding(input: {
     let score = 0;
     let valid = false;
     if (claim.kind === "question") valid = /[?؟]\s*$/u.test(claim.text);
-    if (claim.kind === "uncertainty") valid = uncertaintyPattern.test(claim.text);
+    if (claim.kind === "uncertainty") valid = uncertaintyPattern.test(claim.text)
+      || /^(?:üyeliğin|aboneliğin) (?:fiyatı ve içeriğiyle|fiyatıyla|içeriğiyle) ilgili (?:net|kesin) bilgiye (?:şu an |henüz )?sahip değilim[.!]?$/iu.test(claim.text.normalize("NFKC").trim());
     if (claim.kind === "social") valid = !detectedCompletedActions(claim.text).length
       && (speechAct === "IDENTITY_RESPONSE"
         ? /\b(?:AI|automated)\b|yapay|اصطناعي|искусственн/iu.test(claim.text)

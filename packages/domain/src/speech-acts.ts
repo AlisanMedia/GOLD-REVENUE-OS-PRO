@@ -49,6 +49,12 @@ export function validateServiceSpeechAct(input: {
   }
   if (["CAPABILITY_OFFER", "PROSPECTIVE_ACTION", "COMMITMENT"].includes(input.act)) {
     if (operational.test(input.text)) return false; // No operational capability/commitment is enabled in Phase 7.
+    // Whole, prospective drafting offer only: neither a completed review nor
+    // sending/contacting anyone. A model label cannot append business clauses.
+    if (input.act !== "COMMITMENT" && /^(?:İstersen )?(?:bunun için )?(?:kısa bir |bir )?inceleme notu hazırlayabilirim[.!]?$/iu.test(input.text.normalize("NFKC").trim())) {
+      return input.capability === "conversation.prepare_review"
+        && input.availableCapabilities.includes("conversation.prepare_review");
+    }
     if (/(?:explain|açıkla|شرح|объясн).*(?:membership|subscription|plan|üyelik|abonelik|عضوية|اشتراك|подписк)/iu.test(input.text)
       && !input.availableCapabilities.includes("conversation.explain_known")) return false;
     const capability = input.capability ?? (input.act === "PROSPECTIVE_ACTION" ? "conversation.prepare_review" : "conversation.reply");
