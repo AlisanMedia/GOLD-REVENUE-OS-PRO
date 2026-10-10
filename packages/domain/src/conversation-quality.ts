@@ -1,17 +1,17 @@
 import { z } from "zod";
 import { normalizeConversationText, splitResponseSentences, responseClaimSchema, reviewClaimGrounding, type BackendEvidence } from "./conversation-evidence";
 import { MULTILINGUAL_REGRESSION } from "./multilingual-regression";
-import { requestedRepetition, reviewSemanticContext, repeatedMembershipClarification } from "./semantic-quality";
+import { requestedRepetition, reviewSemanticContext, repeatedMembershipClarification, requestsPriceAndInclusions } from "./semantic-quality";
 import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v20",
+  prompt: "conversation-quality-prompt-v21",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v25",
+  qa: "conversation-qa-v26",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v26",
+  evaluationSet: "phase7-balanced-v27",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -195,7 +195,7 @@ export function directConversation(messages: ReadonlyArray<{ direction: string; 
     ["human_request", /human|insanla|temsilci|إنسان|موظف|оператор|человек/iu],
     ["payment_status", /payment|paid|ödeme|ödedim|دفع|دفعت|платёж|платеж|оплат/iu],
     ["plan_comparison", /compare|difference|versus|karşılaştır|fark|مقارنة|الفرق|сравни|разница/iu],
-    ["pricing", /price|pricing|cost|how much|fiyat|ücret|kaç para|ne kadar|سعر|تكلفة|كم.*(?:ثمن|يكلف)|стоимост|цена|сколько стоит/iu],
+    ["pricing", /\bfree\b|(?<!\p{L})(?:bedava|ücretsiz)(?!\p{L})|price|pricing|cost|how much|fiyat|ücret|kaç para|ne kadar|سعر|تكلفة|كم.*(?:ثمن|يكلف)|стоимост|цена|сколько стоит/iu],
     ["membership_details", /membership|subscription|üyelik|abonelik|العضوية|اشتراك|подписк|членств/iu],
     ["complaint", /unacceptable|complaint|kabul edilemez|şikayet|شكوى|غير مقبول|жалоб|неприемлем/iu],
     ["clarification", /I meant|clarify|demek istedim|netleştir|أقصد|уточн|имел в виду/iu],
@@ -214,7 +214,7 @@ export function directConversation(messages: ReadonlyArray<{ direction: string; 
       : primaryIntent === "greeting" ? "Return the greeting briefly and invite the customer's topic."
       : "Address the customer's primary request concisely.",
     information_gap: pricing ? "pricing.source_of_truth" : primaryIntent === "membership_details" || primaryIntent === "plan_comparison" ? "product.source_of_truth" : shouldEscalate ? "verified_support_status" : null,
-    should_ask_question: !injection && !shouldEscalate && ["greeting", "pricing", "unknown"].includes(primaryIntent),
+    should_ask_question: !injection && !shouldEscalate && ["greeting", "pricing", "unknown"].includes(primaryIntent) && !requestsPriceAndInclusions(text),
     should_answer_directly: !injection && primaryIntent !== "unknown",
     should_sell: false, should_wait: false, should_escalate: shouldEscalate,
     desired_response_length: style.preferred_message_length,
@@ -322,7 +322,7 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
     context_awareness: /source of truth|context_version|tool call|orchestrator|workflow|bağlamımda/iu.test(response) || (!safeRefusal && /system prompt/iu.test(response)) ? 70 : 0,
     response_specificity: filler && cta ? 70 : 0,
     robotic_phrasing: filler ? 70 : 0,
-    grammar: /\bwhat are the (?:monthly )?(?:membership|subscription) price and what is included\?/iu.test(response) ? 70 : 0,
+    grammar: /\bwhat are the (?:monthly )?(?:membership|subscription) price and what is included\?|^Üyelik bedava mı, şu an net değil[.!]?$/iu.test(response) ? 70 : 0,
     redundant_clarification: repeatedMembershipClarification(response, recentMessages) ? 70 : 0,
   } }; // Observable risk indicators, not a fake aggregate human score or semantic judge.
 }
