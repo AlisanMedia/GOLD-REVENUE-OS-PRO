@@ -88,6 +88,7 @@ export function reviewClaimGrounding(input: {
           guaranteedCommitments: input.guaranteedCommitments ?? [] }));
     const exactIdentity = speechAct === "IDENTITY_RESPONSE" && [
       "i m an ai assistant not a human", "i am an ai assistant not a human", "i m an ai assistant", "i am an ai assistant",
+      "i m an ai assistant not a real human", "i am an ai assistant not a real human",
       "i m an ai not a real human", "i am an ai not a real human",
       "i m an ai not a human", "i am an ai not a human", "i m an ai", "i am an ai",
       "i m an ai assistant that helps answer questions and clarify what you need",
@@ -95,7 +96,12 @@ export function reviewClaimGrounding(input: {
       "ben bir yapay zeka asistanıyım insan değilim", "ben bir yapay zeka asistanıyım",
       "أنا مساعد ذكاء اصطناعي ولست إنسانا", "я ии помощник а не человек",
     ].includes(normalizeConversationText(claim.text)) && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding);
-    if (exactIdentity) { valid = true; score = 100; }
+    const exactClarificationOffer = ["CAPABILITY_OFFER", "PROSPECTIVE_ACTION"].includes(speechAct)
+      && isConversationalClarificationOffer(claim.text)
+      && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding)
+      && validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language, capability: claim.capability,
+        availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: input.guaranteedCommitments ?? [] });
+    if (exactIdentity || exactClarificationOffer) { valid = true; score = 100; }
     else if (["fact", "completed_action"].includes(claim.kind)) {
       if (["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL"].includes(claim.grounding)) {
         valid = evidence.some((item) => claim.evidence_refs.includes(item.id)
@@ -119,6 +125,8 @@ export function reviewClaimGrounding(input: {
           || (claim.kind === "question" && isMembershipClarificationQuestion(claim.text)))))
         || /(?:[$€₽]\s*\p{N}|\p{N}\s*(?:usd|eur|tl|руб|دولار))/iu.test(claim.text))) valid = false;
     if (claim.grounding === "UNSUPPORTED_CLAIM") valid = false;
+    if (claim.grounding === "CUSTOMER_REPORTED" && (!claim.evidence_refs.length
+      || claim.evidence_refs.some((id) => !input.messages.some((m) => m.id === id && m.direction === "inbound")))) valid = false;
     if (claim.evidence_refs.some((ref) => !input.messages.some((message) => message.id === ref)
       && !evidence.some((item) => item.id === ref))) {
       valid = false; reasons.push("EVIDENCE_REFERENCE_NOT_ALLOWED");
