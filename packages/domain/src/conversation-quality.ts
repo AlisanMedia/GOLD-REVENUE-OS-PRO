@@ -5,13 +5,13 @@ import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
 import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v7",
+  prompt: "conversation-quality-prompt-v8",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v12",
+  qa: "conversation-qa-v13",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v13",
+  evaluationSet: "phase7-balanced-v14",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -225,6 +225,20 @@ function sentenceParts(text: string): string[] {
   return splitResponseSentences(text.replace(/\s+/gu, " "));
 }
 
+// Strong foreign-script/clause indicators only. Product names, UUIDs and
+// isolated loanwords are not a language mismatch. This is a rewrite signal,
+// not an authoritative general-purpose language classifier.
+export function responseLanguageMismatch(text: string, expected: string): boolean {
+  if (!["en", "tr", "ar", "ru"].includes(expected)) return false;
+  const arabicWords = text.match(/\p{Script=Arabic}+/gu)?.length ?? 0;
+  const cyrillicWords = text.match(/\p{Script=Cyrillic}+/gu)?.length ?? 0;
+  if ((expected !== "ar" && arabicWords >= 3) || (expected !== "ru" && cyrillicWords >= 3)) return true;
+  const englishClause = /\b(?:how can i help|what can i help|i (?:don['’]t|do not) (?:have|know)|i can (?:help|clarify)|i['’]ll (?:reply|respond)|i(?: am|['’]m) an ai)\b/iu;
+  if (expected !== "en" && englishClause.test(text)) return true;
+  const turkishClause = /(?:size |sana )?nasıl yardımcı olabilirim|(?:şu an|henüz)[^.!?]*göremiyorum|ben bir yapay zek[aâ] asistanıyım/iu;
+  return expected !== "tr" && turkishClause.test(text);
+}
+
 export function renderNaturalResponse(text: string, style: StyleProfile): string {
   const withoutFiller = (style.emoji_tolerance === "none" ? text.replace(/\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*/gu, "") : text)
     .replace(/^(mesajınız için teşekkürler|ulaştığınız için teşekkürler|anlıyorum ki|tabii ki[,!]?)\s*/i, "")
@@ -318,6 +332,7 @@ export function evaluateConversationQuality(input: {
   const naturalness = reviewResponseNaturalness(response, input.recentMessages, input.director.primary_intent);
   const semantic = reviewSemanticContext(latestInboundText(input.recentMessages), response, input.director.primary_intent);
   const requested = requestedRepetition(latestInboundText(input.recentMessages), response);
+  const languageMismatch = !requested && responseLanguageMismatch(response, input.style.language);
   const invalidSemanticRefs = input.output.semantic_response.factual_grounding.evidence_refs.some((ref) => !input.recentMessages.some((m) => m.id === ref)
     && !input.backendEvidence?.some((item) => item.id === ref));
   const pressureHits = [/(hemen|şimdi) (al|satın al|ödeme yap)/i, /son şans/i, /kaçırma/i, /garanti kazanç/i]
@@ -337,6 +352,7 @@ export function evaluateConversationQuality(input: {
     escalation_need: input.director.should_escalate || input.output.escalation_recommended ? 100 : 0,
   });
   const reasons: string[] = [...grounding.reasons];
+  if (languageMismatch) reasons.push("RESPONSE_LANGUAGE_MISMATCH");
   if (invalidSemanticRefs) reasons.push("EVIDENCE_REFERENCE_NOT_ALLOWED");
   if (semantic.score < QA_THRESHOLDS.contextFitMinimum) reasons.push("SEMANTIC_CONTEXT_FIT_LOW");
   if (scores.policy_risk >= QA_THRESHOLDS.policyRiskBlock) reasons.push("POLICY_RISK");

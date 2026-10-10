@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v7", director: "conversation-director-v4",
-  renderer: "natural-renderer-v5", qa: "conversation-qa-v12", context: 3,
-  outputSchema: 4, evaluationSet: "phase7-balanced-v13",
+  prompt: "conversation-quality-prompt-v8", director: "conversation-director-v4",
+  renderer: "natural-renderer-v5", qa: "conversation-qa-v13", context: 3,
+  outputSchema: 4, evaluationSet: "phase7-balanced-v14",
 } as const;
 
 const validOutput = {
@@ -69,7 +69,8 @@ describe("OpenAI Responses provider adapter", () => {
       expect(body.store).toBe(false);
       expect(body.text).toMatchObject({ format: { type: "json_schema", strict: true } });
       expect(body.text).toMatchObject({ format: { schema: { properties: { proposed_tool_calls: { maxItems: 0 } } } } });
-      expect(JSON.stringify(body.input)).toContain("style_profile.language");
+      expect(JSON.stringify(body.input)).toContain("The current source-anchored turn requires language tr");
+      expect(JSON.stringify(body.input)).toContain("never an outbound assistant-message handle");
       const input = body.input as Array<{ role: string; content: Array<{ text: string }> }>;
       const userInput = JSON.parse(input.find((item) => item.role === "user")!.content[0].text) as { source_message: unknown };
       expect(userInput.source_message).toEqual({ evidence_handle: "EVIDENCE_CURRENT_MESSAGE", direction: "inbound", content: "Selam", occurredAt: context.recentMessages[0].occurredAt });

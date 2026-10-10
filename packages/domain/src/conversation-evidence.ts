@@ -103,7 +103,7 @@ export function reviewClaimGrounding(input: {
         score = valid ? 100 : 0;
       } else if (claim.grounding === "CUSTOMER_REPORTED") {
         // Explicit attribution is required; customer-reported payment is never backend confirmation.
-        valid = /(?:you (?:said|reported|mentioned)|you['’]re (?:reporting|asking about)|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
+        valid = /(?:you (?:said|reported|mentioned)|you['’]re (?:reporting|asking (?:about|for))|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
           && claim.evidence_refs.length > 0 && claim.evidence_refs.every((id) => input.messages.some((m) => m.id === id && m.direction === "inbound"));
         score = valid ? 70 : 0;
       } else if (claim.grounding === "INFERRED") {
