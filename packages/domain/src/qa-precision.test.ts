@@ -19,6 +19,30 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("grounds the live illustrative membership-topic offer without inventing catalog facts", () => {
+    const offer = "I can help clarify membership details like pricing, what’s included, cancellation terms, and access questions.";
+    const question = "What would you like to know first?";
+    const fixture: Fixture = { language: "en", source: "I’m looking into membership. What can you help me clarify?", response: `${offer} ${question}`, category: "illustrative_topic_list", safe: true, kind: "fact", speech_act: "CAPABILITY_OFFER" };
+    const claim: ResponseClaim = { text: offer, kind: "fact", speech_act: "CAPABILITY_OFFER", capability: "conversation.reply", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null };
+    const ask: ResponseClaim = { text: question, kind: "question", speech_act: "QUESTION", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim, ask]).action).toBe("approve");
+    for (const text of [offer + " Your payment is confirmed.", offer.replace("pricing", "pricing of 10 USD"), offer.replace("access questions", "membership guarantees profits"), offer.replace("access questions", "I will contact support")]) {
+      expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).action).toBe("block");
+    }
+  });
+  it.each([
+    "I can help you clarify membership details such as pricing, what’s included, cancellation terms, and access questions.",
+    "I can help clarify the membership details, including pricing, what’s included, cancellation terms, and access questions.",
+    "I can help with questions about pricing, what’s included, cancellation terms, and access after payment.",
+    "I can help clarify pricing details and general access questions.",
+  ])("accepts a bounded topic list while requiring a real reply capability: %s", (response) => {
+    const fixture: Fixture = { language: "en", source: "I’m looking into membership. What can you help me clarify?", response, category: "topic_list_surface_forms", safe: true, kind: "fact", speech_act: "CAPABILITY_OFFER" };
+    const claim: ResponseClaim = { text: response, kind: "fact", speech_act: "CAPABILITY_OFFER", capability: "conversation.reply", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    expect(validateServiceSpeechAct({ act: "CAPABILITY_OFFER", text: response, capability: "conversation.reply", availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+    expect(evaluate(fixture, [], [{ ...claim, capability: "conversation.explain_known" }]).action).toBe("block");
+  });
+
   it.each(["I’m an AI assistant who personally trades gold.", "This gold trading membership guarantees profits every day."])("blocks an unsafe assertion mislabelled as acknowledgement: %s", (response) => {
     const fixture: Fixture = { language: "en", source: "Are you an AI or a real human? Please answer directly.", response, category: "acknowledgement_label_boundary", safe: false, kind: "social", speech_act: "ACKNOWLEDGEMENT" };
     const claim: ResponseClaim = { text: response, kind: "social", speech_act: "ACKNOWLEDGEMENT", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null };
