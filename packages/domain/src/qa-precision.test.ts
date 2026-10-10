@@ -19,6 +19,14 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("recognizes the complete membership clarification question without treating its words as a product assertion", () => {
+    const response = "Which membership are you asking about?";
+    const fixture: Fixture = { language: "en", source: "How much is it?", response, category: "membership_clarification", safe: true, kind: "question", speech_act: "QUESTION" };
+    const claim: ResponseClaim = { text: response, kind: "question", speech_act: "QUESTION", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null };
+    expect(reviewClaimGrounding({ response, claims: [claim], modelConfidence: 1, messages: [{ id: "source", direction: "inbound", content: fixture.source }] }).blocked).toBe(false);
+    for (const text of [response + " Membership costs 10 USD.", "Which membership are you asking about, the one that costs 10 USD?", response + " Your payment is confirmed."]) expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).customerFacingBlocked).toBe(true);
+  });
+
   it("accepts only the whole harmless reply-length acknowledgement with conversational capability", () => {
     const response = "I’ll keep it brief.";
     const fixture: Fixture = { language: "en", source: "Keep the answer brief.", response, category: "reply_length_preference", safe: true, kind: "social", speech_act: "COMMITMENT" };
@@ -51,6 +59,15 @@ describe("Final acceptance safe-response regressions", () => {
     expect(evaluate(fixture, [], [claim]).action).toBe("approve");
     for (const evidence_refs of [[], ["invented"], ["source", "assistant"]]) expect(evaluate(fixture, [], [{ ...claim, evidence_refs }]).customerFacingBlocked).toBe(true);
     expect(evaluate({ ...fixture, response: "You’re asking about payment, and your payment is confirmed." }, [], [{ ...claim, text: "You’re asking about payment, and your payment is confirmed." }]).customerFacingBlocked).toBe(true);
+  });
+  it("accepts an explicit you-mean clarification only with included inbound attribution", () => {
+    const response = "Got it — you mean the monthly option, not the annual one.";
+    const fixture: Fixture = { language: "en", source: "Yes, just the monthly option, not the annual one.", response, category: "you_mean_summary", safe: true, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT" };
+    const claim: ResponseClaim = { text: response, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT", capability: null, grounding: "CUSTOMER_REPORTED", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    for (const evidence_refs of [[], ["invented"], ["source", "assistant"]]) expect(evaluate(fixture, [], [{ ...claim, evidence_refs }]).customerFacingBlocked).toBe(true);
+    const unsafe = response + " Your payment is confirmed.";
+    expect(evaluate({ ...fixture, response: unsafe }, [], [{ ...claim, text: unsafe }]).customerFacingBlocked).toBe(true);
   });
   it("accepts asking-for topic attribution only with authorized inbound evidence", () => {
     const response = "You’re asking for the monthly option’s price and what it includes.";
@@ -135,6 +152,17 @@ describe("Balanced multilingual safety and precision matrix", () => {
 });
 
 describe("Compound greeting acknowledgement precision", () => {
+  it.each([["en", "Hi", "Hi, how can I help you?"], ["tr", "Merhaba", "Merhaba, nasıl yardımcı olabilirim?"], ["ar", "مرحبا", "مرحبا، كيف يمكنني مساعدتك؟"], ["ru", "Привет", "Привет, чем могу помочь?"]])("accepts the whole safe greeting labelled social/QUESTION in %s", (language, source, response) => {
+    const claim: ResponseClaim = { text: response, kind: "social", speech_act: "QUESTION", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null };
+    const fixture: Fixture = { language: language, source: source, response: response, category: "compound_question_label", safe: true, kind: "social", speech_act: "QUESTION" };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    for (const tail of [" Your payment is confirmed.", " Membership costs 10 USD.", " I have contacted support."]) {
+      const text = response + tail;
+      expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).customerFacingBlocked).toBe(true);
+    }
+    expect(validateServiceSpeechAct({ act: "QUESTION", text: response, capability: null, availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+  });
+
   it("preserves native responses and product-name loanwords while detecting complete foreign clauses", () => {
     for (const [language, text] of [["en", "I’m an AI assistant."], ["tr", "Merhaba! Size nasıl yardımcı olabilirim? OpenAI."], ["ar", "لا تتوفر لدي تفاصيل دقيقة عن الاشتراك. OpenAI."], ["ru", "У меня сейчас нет точных данных о подписке. OpenAI."]]) expect(responseLanguageMismatch(text!, language!)).toBe(false);
     expect(responseLanguageMismatch("I’m an AI assistant.", "tr")).toBe(true);

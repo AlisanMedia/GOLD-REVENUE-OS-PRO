@@ -19,6 +19,9 @@ export function isRepresentativePurpose(text: string): boolean {
 export function isDraftedReviewQuestion(text: string): boolean {
   return /^Here['’]s a short review question: What does the monthly membership cost, and what is included\?$/iu.test(text.normalize("NFKC").trim());
 }
+export function isMembershipClarificationQuestion(text: string): boolean {
+  return /^Which (?:membership|subscription|plan) (?:are you asking about|do you mean)\?$/iu.test(text.normalize("NFKC").trim());
+}
 export function isConventionalCompoundGreeting(text: string): boolean {
   // Exact whole-utterance grammar: greeting + conversational help question.
   // No business clause, operational offer, promise or appended sentence is accepted.
@@ -55,9 +58,13 @@ export function validateServiceSpeechAct(input: {
     return input.availableCapabilities.includes("conversation.reply")
       && (input.capability == null || input.capability === "conversation.reply");
   }
-  if (input.act === "ACKNOWLEDGEMENT") {
-    if (isConventionalCompoundGreeting(input.text)) return input.availableCapabilities.includes("conversation.reply")
+  // A whole greeting + help question can legitimately be labelled QUESTION
+  // within a social claim. The exact grammar and capability boundary govern it.
+  if (["ACKNOWLEDGEMENT", "QUESTION"].includes(input.act) && isConventionalCompoundGreeting(input.text)) {
+    return input.availableCapabilities.includes("conversation.reply")
       && (input.capability == null || input.capability === "conversation.reply");
+  }
+  if (input.act === "ACKNOWLEDGEMENT") {
     // Structured acknowledgements may contain empathy/greetings, never an
     // operational predicate or a future promise. Facts are checked separately.
     return !operational.test(input.text) && !future.test(input.text) && !offer.test(input.text);

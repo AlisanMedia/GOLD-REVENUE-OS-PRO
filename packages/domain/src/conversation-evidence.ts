@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, type ConversationCapability } from "./speech-acts";
+import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
 export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated", "memory_written", "account_updated", "payment_checked"] as const;
@@ -104,7 +104,7 @@ export function reviewClaimGrounding(input: {
         score = valid ? 100 : 0;
       } else if (claim.grounding === "CUSTOMER_REPORTED") {
         // Explicit attribution is required; customer-reported payment is never backend confirmation.
-        valid = /(?:you (?:said|reported|mentioned)|you['’]re (?:reporting|asking (?:about|for))|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
+        valid = /(?:you (?:said|reported|mentioned|mean)|you['’]re (?:reporting|asking (?:about|for))|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
           && claim.evidence_refs.length > 0 && claim.evidence_refs.every((id) => input.messages.some((m) => m.id === id && m.direction === "inbound"));
         score = valid ? 70 : 0;
       } else if (claim.grounding === "INFERRED") {
@@ -115,7 +115,8 @@ export function reviewClaimGrounding(input: {
     } else score = valid ? 100 : 0; // Honesty/question safety, not certainty about the missing price.
     if (claim.kind !== "completed_action" && detectedCompletedActions(claim.text).length) valid = false;
     if (["uncertainty", "social", "question"].includes(claim.kind)
-      && ((unverifiedProductAssertion.test(claim.text) && !(valid && claim.kind === "social" && isConversationalClarificationOffer(claim.text)))
+      && ((unverifiedProductAssertion.test(claim.text) && !(valid && ((claim.kind === "social" && isConversationalClarificationOffer(claim.text))
+          || (claim.kind === "question" && isMembershipClarificationQuestion(claim.text)))))
         || /(?:[$€₽]\s*\p{N}|\p{N}\s*(?:usd|eur|tl|руб|دولار))/iu.test(claim.text))) valid = false;
     if (claim.grounding === "UNSUPPORTED_CLAIM") valid = false;
     if (claim.evidence_refs.some((ref) => !input.messages.some((message) => message.id === ref)

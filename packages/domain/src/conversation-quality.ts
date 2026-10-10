@@ -5,13 +5,13 @@ import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
 import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v10",
+  prompt: "conversation-quality-prompt-v11",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v15",
+  qa: "conversation-qa-v16",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v16",
+  evaluationSet: "phase7-balanced-v17",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
