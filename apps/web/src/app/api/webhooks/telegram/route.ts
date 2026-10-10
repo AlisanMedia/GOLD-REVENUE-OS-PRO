@@ -91,7 +91,7 @@ export async function POST(request: Request) {
         deploymentRef: process.env.VERCEL_GIT_COMMIT_SHA ?? "unknown",
         conversation: { tenantId: env.tenantId, conversationId },
       }).catch(() => undefined); // Persisted event/task leases allow cron recovery.
-      await drainAutomaticReplies();
+      await drainAutomaticReplies({ tenantId: env.tenantId, conversationId });
     });
   }
   return NextResponse.json({ ok: true, duplicate: result.duplicate === true });

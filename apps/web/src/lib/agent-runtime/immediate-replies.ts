@@ -1,6 +1,7 @@
 import "server-only";
 import { runDeterministicWorker } from "@/lib/agent-runtime/worker";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { drainAutomaticReplies } from "@/lib/messaging/automatic-replies";
 
 // Each worker invocation still claims one task. An enabled conversation may
 // finish up to three sequential turns within this webhook's 120s lifetime.
@@ -20,5 +21,8 @@ export async function runImmediateConversationReplies(input: {
     if (index > 0 && Date.now() - started >= 50_000) break;
     const result = await runDeterministicWorker(input);
     if (result.tasksClaimed === 0) break; // Another lease holder drains its own burst.
+    // Source ordering also waits for the preceding queued send. Finish that
+    // deterministic delivery before attempting to claim the next source.
+    if (enabled) await drainAutomaticReplies(input.conversation);
   }
 }
