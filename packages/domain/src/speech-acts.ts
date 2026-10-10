@@ -23,6 +23,9 @@ export function isConversationalClarificationOffer(text: string): boolean {
     if (topics.length >= 1 && topics.length <= 4 && topics.every((item) => topic.test(item.trim()))) return true;
   }
   return [
+    // Whole topic-only help offer. No asserted option, catalog value or action;
+    // the caller still requires the real reply capability and valid references.
+    /^(?:Yes\s*[—–-]\s*)?I can help explain membership options[.!]?$/iu,
     /^İstersen (?:başka bir )?üyelik sorusunu netleştirmeye çalışabilirim[.!]?$/iu,
     /^I can help clarify what the membership includes, how it works, and any general questions you have[.!]?$/iu,
     /^I can help(?: you)? clarify the (?:monthly )?price, what['’]s included, and (?:the )?cancellation terms[.!]?$/iu,

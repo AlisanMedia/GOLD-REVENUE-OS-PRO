@@ -1,0 +1,26 @@
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (184 tests | 1 failed | 183 skipped) 41ms
+   ❯ Final acceptance safe-response regressions (51)
+     × grounds the live explanation topic list and whole invitation despite QUESTION metadata 40ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > grounds the live explanation topic list and whole invitation despite QUESTION metadata
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:28:59
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 183 skipped (184)
+   Start at  23:22:22
+   Duration  392ms (transform 53%, import 30%, tests 16%, worker 1%)
+

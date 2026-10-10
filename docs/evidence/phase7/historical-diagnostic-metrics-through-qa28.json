@@ -1,0 +1,295 @@
+{
+  "rounds": [
+    {
+      "file": "initial-final-acceptance-qa11.json",
+      "source_sha": "3a3b19e86fe9059250bed2afa27720726384b57e",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "rows",
+        "evidence"
+      ],
+      "start": "2026-10-10T14:16:56.201337Z",
+      "first_received_at": "2026-10-10 14:17:06.158781+00",
+      "cases": 25,
+      "sent": 14,
+      "blocked": 11,
+      "calls": 28,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-acceptance-qa12.json",
+      "source_sha": "8edc1f81cb3b1bd09ef5d539397ff1d2fe24b4dc",
+      "raw_metadata_keys": [
+        "main",
+        "start",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 14:43:53.261076+00",
+      "first_received_at": "2026-10-10 14:44:49.275215+00",
+      "cases": 25,
+      "sent": 16,
+      "blocked": 9,
+      "calls": 25,
+      "failed_calls": 0,
+      "source_sha_original_key": "main"
+    },
+    {
+      "file": "pre-final-acceptance-qa13.json",
+      "source_sha": "82c50a19200dc3131e366aee3fff9193a6547785",
+      "raw_metadata_keys": [
+        "deployedMain",
+        "start",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 15:10:12.418327+00",
+      "first_received_at": "2026-10-10 15:10:24.204766+00",
+      "cases": 26,
+      "sent": 18,
+      "blocked": 8,
+      "calls": 28,
+      "failed_calls": 0,
+      "source_sha_original_key": "deployedMain"
+    },
+    {
+      "file": "pre-final-diagnostic-qa15.json",
+      "source_sha": "de866d3c238a52d4bfbaa8a984ba2d69339face0",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 15:37:26.755424+00",
+      "first_received_at": "2026-10-10 15:37:47.182671+00",
+      "cases": 10,
+      "sent": 7,
+      "blocked": 3,
+      "calls": 12,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-acceptance-qa16.json",
+      "source_sha": "12fe599d70056fd001b3875c8f904d1787e8baed",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 15:58:28.333747+00",
+      "first_received_at": "2026-10-10 15:58:37.161915+00",
+      "cases": 26,
+      "sent": 18,
+      "blocked": 8,
+      "calls": 28,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-diagnostic-qa18.json",
+      "source_sha": "193f6f31611537a03db86e6cac7f574ea6fcaec1",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 16:50:12.292947+00",
+      "first_received_at": "2026-10-10 16:50:22.603772+00",
+      "cases": 2,
+      "sent": 1,
+      "blocked": 1,
+      "calls": 2,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-acceptance-qa19.json",
+      "source_sha": "b9d975b26dbe0b1262488dfcf9cb2c0895b05e97",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 17:01:45.216876+00",
+      "first_received_at": "2026-10-10 17:01:58.449283+00",
+      "cases": 28,
+      "sent": 20,
+      "blocked": 8,
+      "calls": 30,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-acceptance-qa20.json",
+      "source_sha": "52297988647ad63fa5ae97414fc2a3a5fc4b4afa",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 17:25:08.196388+00",
+      "first_received_at": "2026-10-10 17:25:24.540343+00",
+      "cases": 28,
+      "sent": 20,
+      "blocked": 8,
+      "calls": 30,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-diagnostic-qa21.json",
+      "source_sha": "25e400db36aeb543fe320a15992b09dcb9a1dc4c",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 17:57:44.258801+00",
+      "first_received_at": "2026-10-10 17:58:08.441961+00",
+      "cases": 2,
+      "sent": 1,
+      "blocked": 1,
+      "calls": 2,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-diagnostic-qa22.json",
+      "source_sha": "04e144ba8f6b6ffa01358383d22e8a7a27312382",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 18:12:35.440357+00",
+      "first_received_at": "2026-10-10 18:12:44.095359+00",
+      "cases": 6,
+      "sent": 5,
+      "blocked": 1,
+      "calls": 6,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-diagnostic-qa23.json",
+      "source_sha": "e1b72b5143b616a849a2d1e2b74109103601892b",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details",
+        "burstHarnessCorrection"
+      ],
+      "start": "2026-10-10 18:32:26.086868+00",
+      "first_received_at": "2026-10-10 18:32:41.740684+00",
+      "cases": 18,
+      "sent": 17,
+      "blocked": 1,
+      "calls": 20,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-acceptance-qa24.json",
+      "source_sha": "08e2940a5ebc69d55b9b992c988e16ce22373f22",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 19:01:19.517687+00",
+      "first_received_at": "2026-10-10 19:01:29.670147+00",
+      "cases": 30,
+      "sent": 22,
+      "blocked": 8,
+      "calls": 32,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-acceptance-qa25.json",
+      "source_sha": "36ccbebb47ac91c718404084d519cfe7f48b0801",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details",
+        "defects",
+        "harness_note"
+      ],
+      "start": "2026-10-10 19:37:32.673736+00",
+      "first_received_at": "2026-10-10 19:37:49.690055+00",
+      "cases": 35,
+      "sent": 24,
+      "blocked": 11,
+      "calls": 38,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-acceptance-qa26.json",
+      "source_sha": "65d6df5cbfe2dc99a39bc1a1fedd923df387efb3",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details"
+      ],
+      "start": "2026-10-10 20:10:11.472612+00",
+      "first_received_at": "2026-10-10 20:10:20.619837+00",
+      "cases": 32,
+      "sent": 24,
+      "blocked": 8,
+      "calls": 34,
+      "failed_calls": 0
+    },
+    {
+      "file": "pre-final-diagnostic-qa27.json",
+      "source_sha": "6b7ff83c26149162fa40dd8fa51a4b95554b937a",
+      "raw_metadata_keys": [
+        "source_sha",
+        "start",
+        "round",
+        "rows",
+        "details",
+        "harness_notes"
+      ],
+      "start": "2026-10-10 20:33:01.674653+00",
+      "first_received_at": "2026-10-10 20:33:19.786954+00",
+      "cases": 6,
+      "sent": 5,
+      "blocked": 1,
+      "calls": 7,
+      "failed_calls": 0
+    },
+    {
+      "file": "final-owner-attempt-qa28-diagnostic.json",
+      "source_sha": "58c4aad039c3e456aaf7f1c6a63c2473806d961c",
+      "cases": 33,
+      "sent": 26,
+      "blocked": 7,
+      "calls": 38,
+      "failed_calls": 0,
+      "ordinary_false_blocks": [
+        31
+      ]
+    }
+  ],
+  "totals": {
+    "cases": 332,
+    "sent": 238,
+    "blocked": 94,
+    "calls": 360,
+    "failed_calls": 0
+  }
+}
