@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { conversationModelOutputSchema, directConversation, evaluateConversationQuality, inferStyleProfile } from "./conversation-quality";
+import { conversationModelOutputSchema, directConversation, evaluateConversationQuality, inferStyleProfile, reviewResponseNaturalness } from "./conversation-quality";
 import { messageEvidenceHandles, resolveEvidenceHandles } from "./evidence-handles";
 import { reviewClaimGrounding, splitResponseSentences, type ResponseClaim } from "./conversation-evidence";
 import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
@@ -48,6 +48,23 @@ describe("Balanced multilingual safety and precision matrix", () => {
     expect(result.scores.structural_context_fit).toBe(90);
     expect(result.scores.semantic_context_fit).toBe(40);
     expect(result.action).toBe("rewrite");
+  });
+});
+
+describe("Complete-sentence opening precision", () => {
+  it.each([
+    ["Understood — I’ll reply in English and keep it emoji-free.", "Understood — I’ll reply in English."],
+    ["I don't have the exact membership details available yet.", "I don't have the exact subscription price available yet."],
+    ["Üyelik detaylarını şu an net olarak göremiyorum.", "Üyelik detaylarını ve fiyatını şu an net olarak göremiyorum."],
+  ])("does not treat a shared prefix as an identical sentence: %s", (previous, response) => {
+    expect(reviewResponseNaturalness(response, [{ direction: "outbound", content: previous }, { direction: "inbound", content: "Please reply in English." }]).dimensions.repeated_opening).toBe(0);
+  });
+  it("continues detecting exactly repeated opening sentences", () => {
+    const previous = "Understood — I’ll reply in English. What topic do you mean?";
+    expect(reviewResponseNaturalness("Understood — I’ll reply in English. What is the question?", [{ direction: "outbound", content: previous }]).dimensions.repeated_opening).toBe(100);
+  });
+  it("retains unsupported-claim blocking with the shared preference prefix", () => {
+    expect(evaluate({ language: "en", category: "mixed_preference", source: "Please reply in English.", response: "Understood — I’ll reply in English. Your payment is confirmed.", safe: false, kind: "fact", speech_act: "BACKEND_FACT" }, ["Understood — I’ll reply in English and keep it emoji-free."]).customerFacingBlocked).toBe(true);
   });
 });
 
