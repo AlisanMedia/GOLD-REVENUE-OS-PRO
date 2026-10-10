@@ -406,5 +406,62 @@ select is(public.claim_quality_reply_delivery(f.tenant_id,p.sent_message_id),fal
 update public.tenants set outbound_messaging_enabled=true where id=(select tenant_id from auto_fixture);
 select is(public.claim_quality_reply_delivery(f.tenant_id,p.sent_message_id),true,'eligible send obtains its lease') from auto_fixture f join public.agent_proposals p on p.id=f.proposal_id;
 select is(public.claim_quality_reply_delivery(f.tenant_id,p.sent_message_id),false,'overlapping dispatcher cannot obtain a second send lease') from auto_fixture f join public.agent_proposals p on p.id=f.proposal_id;
+-- Local transactional burst fixtures only. Source reception order differs
+-- from task creation order; no real inbound/provider send is fabricated.
+reset role;
+select ok(not has_function_privilege('authenticated','private.conversation_reply_source_ready(uuid,uuid)','EXECUTE'),'browser cannot bypass source ordering');
+select public.ingest_telegram_message('a2000000-0000-4000-8000-000000000001','local-burst-1','1101','777','777','quality_fixture','Quality','Fixture','LOCAL_BURST_FIRST',null,now());
+select public.ingest_telegram_message('a2000000-0000-4000-8000-000000000001','local-burst-2','1102','777','777','quality_fixture','Quality','Fixture','LOCAL_BURST_SECOND',null,now());
+select public.ingest_telegram_message('a2000000-0000-4000-8000-000000000001','local-burst-3','1103','777','777','quality_fixture','Quality','Fixture','LOCAL_BURST_THIRD',null,now());
+update public.conversations set automatic_replies_enabled_at=now()+interval '100 seconds' where id=(select conversation_id from auto_fixture);
+update public.messages set created_at=now()+make_interval(secs=>101+(provider_message_id::integer-1101))
+where tenant_id='a2000000-0000-4000-8000-000000000001' and provider_message_id in ('1101','1102','1103');
+do $$ declare e record; begin
+  for e in select de.tenant_id,de.id from public.domain_events de join public.messages m on m.tenant_id=de.tenant_id and m.id::text=de.payload->>'message_id'
+    where de.event_type='message.received' and m.provider_message_id in ('1102','1103')
+  loop
+    perform public.begin_event_consumption(e.tenant_id,e.id,'agent-runtime.v1','local-burst');
+    perform public.consume_event_for_agent_runtime(e.tenant_id,e.id,'local-burst');
+    perform public.complete_event_consumption(e.tenant_id,e.id,'agent-runtime.v1','local-burst','ok');
+  end loop;
+end $$;
+select is((select count(*) from public.claim_conversation_reply_tasks(f.tenant_id,f.conversation_id,'local-out-of-order',1,120)),0::bigint,
+  'later scoped source cannot skip unconsumed earlier inbound') from auto_fixture f;
+select is((select count(*) from public.claim_agent_tasks('local-out-of-order-cron',1,120)),0::bigint,
+  'cron cannot skip unconsumed earlier inbound');
+do $$ declare e record; begin
+  select de.tenant_id,de.id into e from public.domain_events de join public.messages m on m.tenant_id=de.tenant_id and m.id::text=de.payload->>'message_id'
+    where de.event_type='message.received' and m.provider_message_id='1101';
+  perform public.begin_event_consumption(e.tenant_id,e.id,'agent-runtime.v1','local-burst');
+  perform public.consume_event_for_agent_runtime(e.tenant_id,e.id,'local-burst');
+  perform public.complete_event_consumption(e.tenant_id,e.id,'agent-runtime.v1','local-burst','ok');
+end $$;
+create temporary table burst_tasks as
+select t.id,t.tenant_id,t.conversation_id,m.id message_id,m.provider_message_id from public.agent_tasks t
+join public.domain_events e on e.tenant_id=t.tenant_id and e.id=t.source_event_id
+join public.messages m on m.tenant_id=t.tenant_id and m.id::text=e.payload->>'message_id'
+where t.tenant_id='a2000000-0000-4000-8000-000000000001' and m.provider_message_id in ('1101','1102','1103');
+update public.agent_tasks set priority=100,available_at=now()-interval '1 minute' where id in(select id from burst_tasks where provider_message_id<>'1101');
+select is((select task_id from public.claim_conversation_reply_tasks(f.tenant_id,f.conversation_id,'local-first',1,120)),
+  (select id from burst_tasks where provider_message_id='1101'),'reception order wins over reversed task creation and priority') from auto_fixture f;
+select is((select count(*) from public.claim_conversation_reply_tasks(f.tenant_id,f.conversation_id,'local-overlap',1,120)),0::bigint,
+  'second worker cannot overlap first source lease') from auto_fixture f;
+update public.agent_tasks set status='WAITING_FOR_APPROVAL',locked_by=null,locked_at=null where id=(select id from burst_tasks where provider_message_id='1101');
+insert into public.messages(tenant_id,conversation_id,customer_id,messaging_contact_id,provider_connection_id,direction,content,status,provider_chat_id,
+  idempotency_key,actor_type,actor_id,correlation_id,occurred_at,created_at,reply_to_message_id)
+select m.tenant_id,m.conversation_id,m.customer_id,m.messaging_contact_id,m.provider_connection_id,'outbound','LOCAL_BURST_SEND','pending',m.provider_chat_id,
+  'LOCAL_BURST_SEND','SYSTEM','quality-approved-reply',gen_random_uuid(),now(),now(),m.id
+from public.messages m join burst_tasks b on b.message_id=m.id where b.provider_message_id='1101';
+select is((select count(*) from public.claim_conversation_reply_tasks(f.tenant_id,f.conversation_id,'local-pending-send',1,120)),0::bigint,
+  'later reply waits for earlier queued provider delivery') from auto_fixture f;
+update public.messages set status='sent',sent_at=now(),provider_message_id='local-provider-fixture' where idempotency_key='LOCAL_BURST_SEND';
+select is((select task_id from public.claim_conversation_reply_tasks(f.tenant_id,f.conversation_id,'local-second',1,120)),
+  (select id from burst_tasks where provider_message_id='1102'),'second source becomes eligible after terminal first generation and delivery') from auto_fixture f;
+update public.agent_tasks set status='WAITING_FOR_APPROVAL',locked_by=null,locked_at=null where id=(select id from burst_tasks where provider_message_id='1102');
+select is((select task_id from public.claim_agent_tasks('local-third-cron',1,120)),
+  (select id from burst_tasks where provider_message_id='1103'),'cron uses the same order for the final source');
+select is(private.conversation_reply_source_ready('a2000000-0000-4000-8000-000000000002',(select id from burst_tasks where provider_message_id='1101')),false,
+  'other tenant cannot make a source eligible');
+
 select * from finish();
 rollback;

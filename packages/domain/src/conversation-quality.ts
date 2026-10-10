@@ -5,13 +5,13 @@ import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
 import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v6",
+  prompt: "conversation-quality-prompt-v7",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v11",
+  qa: "conversation-qa-v12",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v12",
+  evaluationSet: "phase7-balanced-v13",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -285,7 +285,10 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
     repeated_opening: !requested && !conventionalGreeting && opening && previous.some((p) => normalizeConversationText(p[0] ?? "") === opening) ? 100 : 0,
     repeated_closing: !requested && !conventionalGreeting && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
     unnecessary_cta: cta ? 70 : 0,
-    sentence_variation: !requested && sentences.length > 1 && new Set(sentences.map((v) => normalizeConversationText(v).split(" ")[0])).size === 1 ? 70 : 0,
+    // Two natural sentences starting with "I" are not mechanical repetition.
+    // Retain the indicator for three or more repeated multiword sentence stems.
+    sentence_variation: !requested && sentences.length > 2 && sentences.every((v) => normalizeConversationText(v).split(" ").length >= 3)
+      && new Set(sentences.map((v) => normalizeConversationText(v).split(" ").slice(0, 3).join(" "))).size === 1 ? 70 : 0,
     tone_consistency: /\p{Lu}{6,}/u.test(response) ? 70 : 0,
     context_awareness: /source of truth|context_version|tool call|orchestrator|workflow|bağlamımda/iu.test(response) || (!safeRefusal && /system prompt/iu.test(response)) ? 70 : 0,
     response_specificity: filler && cta ? 70 : 0,
