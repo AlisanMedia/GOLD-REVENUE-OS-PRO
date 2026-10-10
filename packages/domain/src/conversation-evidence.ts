@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isProspectiveReviewNoteOffer, isBoundedTurkishKnowledgeLimitation, type ConversationCapability } from "./speech-acts";
+import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isDraftedReviewQuestion, isProspectiveReviewNoteOffer, isBoundedTurkishKnowledgeLimitation, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
 export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated", "memory_written", "account_updated", "payment_checked"] as const;
@@ -25,6 +25,13 @@ export function normalizeConversationText(text: string): string {
 }
 export function splitResponseSentences(text: string): string[] {
   return text.trim().split(/(?<=[.!?؟。！])\s+/u).filter(Boolean);
+}
+function reportedMonthlySelection(claim: ResponseClaim, messages: ReadonlyArray<{ id?: string; direction: string; content: string }>): boolean {
+  // A whole acknowledgement of the actual customer's selection is not a
+  // catalog fact. Both selected and excluded options must be in cited inbound.
+  if (!/^(?:understood|got it) (?:just )?the monthly option not the annual one$/u.test(normalizeConversationText(claim.text))) return false;
+  return messages.some(m => m.direction === "inbound" && m.id !== undefined && claim.evidence_refs.includes(m.id)
+    && /^yes (?:just )?the monthly option not the annual one(?: keep the answer brief)?$/u.test(normalizeConversationText(m.content)));
 }
 function reportedMembershipInformationRequest(claim: ResponseClaim, messages: ReadonlyArray<{ id?: string; direction: string; content: string }>): boolean {
   // Bounded request summary, not a product assertion. Require an actual cited
@@ -121,7 +128,7 @@ export function reviewClaimGrounding(input: {
     const presentedQuestion = isDraftedReviewIntroduction(claim.text) && Boolean(nextClaim && nextClaim.kind === "question"
       && (nextClaim.speech_act == null || nextClaim.speech_act === "QUESTION") && /[?؟]\s*$/u.test(nextClaim.text));
     const exactReviewDraft = ["CAPABILITY_OFFER", "PROSPECTIVE_ACTION"].includes(speechAct)
-      && (presentedQuestion || isProspectiveReviewNoteOffer(claim.text))
+      && (presentedQuestion || isDraftedReviewQuestion(claim.text) || isProspectiveReviewNoteOffer(claim.text))
       && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding)
       && validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language, capability: claim.capability,
         availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: input.guaranteedCommitments ?? [] });
@@ -143,7 +150,7 @@ export function reviewClaimGrounding(input: {
       } else if (claim.grounding === "CUSTOMER_REPORTED") {
         // Explicit attribution is required; customer-reported payment is never backend confirmation.
         valid = (/(?:you (?:said|reported|mentioned|mean)|you(?:['’]re| are) (?:reporting|asking (?:about|for))|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
-          || reportedMembershipInformationRequest(claim, input.messages))
+          || reportedMembershipInformationRequest(claim, input.messages) || reportedMonthlySelection(claim, input.messages))
           && claim.evidence_refs.length > 0 && claim.evidence_refs.every((id) => input.messages.some((m) => m.id === id && m.direction === "inbound"));
         // An attribution prefix cannot launder an appended catalog value.
         // Product/value reports need the exact declarative statement in a cited
