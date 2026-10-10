@@ -19,6 +19,20 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("grounds monthly selection word order only from the matching cited inbound declaration", () => {
+    const source = "Yes, just the monthly option, not the annual one. Keep the answer brief.";
+    const fixture: Fixture = { language: "en", source, response: "", category: "monthly_selection_grammar", safe: true, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT" };
+    const responses = ["Got it — the monthly option only, not the annual one.", "Okay, only the monthly option, not the annual one.", "Noted — monthly only, not annual.", "Understood — just the monthly option, not the annual one.", "Got it — the monthly option only."];
+    for (const text of responses) {
+      const claim: ResponseClaim = { text, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT", grounding: "CUSTOMER_REPORTED", capability: null, evidence_refs: ["source"], action_category: null };
+      expect(evaluate({ ...fixture, response: text }, [], [claim]).action).toBe("approve");
+      expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, evidence_refs: ["fake"] }]).action).toBe("block");
+      for (const other of ["Yes, the annual option, not the monthly one.", "Membership costs 10 USD.", "Yes, just the monthly option, not the annual one, with verified access active."]) expect(evaluate({ ...fixture, source: other, response: text }, [], [claim]).action).toBe("block");
+      for (const appended of [" Membership costs 10 USD.", " Your payment is confirmed.", " VIP access is active."]) expect(evaluate({ ...fixture, response: text + appended }, [], [{ ...claim, text: text + appended }]).action).toBe("block");
+    }
+    const exclusion: ResponseClaim = { text: responses[0]!, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT", grounding: "CUSTOMER_REPORTED", capability: null, evidence_refs: ["source"], action_category: null };
+    expect(evaluate({ ...fixture, source: "Yes, the monthly option.", response: exclusion.text }, [], [exclusion]).action).toBe("block");
+  });
   it("grounds the live explanation topic list and whole invitation despite QUESTION metadata", () => {
     const offer = "I can help explain membership questions like pricing, what’s included, cancellation terms, and access.";
     const invitation = "Ask me anything you want to clarify.";
