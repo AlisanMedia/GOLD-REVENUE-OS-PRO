@@ -1,9 +1,25 @@
 # Phase 7 — Conversation Quality validation report
 
-Status: **OPEN — final-version acceptance found a new safe Turkish false block; corrective PR #42 is under validation. Twelve real automatic Telegram deliveries verified. Phase closure is paused.**
+Status: **READY FOR OWNER REVIEW — new Turkish false block corrected, CI/publication and fresh TR/AR/RU automatic delivery verified. Fifteen distinct automatic deliveries in total. Phase remains OPEN pending explicit approval of this updated evidence.**
 Evidence checked: 2026-10-10. Phase 8 has not started. The owner's request to continue triggered additional final-version testing; it is not recorded as unconditional approval of a newly failing acceptance gate.
 
 ## Continued final-version acceptance on 2026-10-10
+
+### Latest corrective publication and fresh delivery
+
+PR #42 merged as `3a3b19e86fe9059250bed2afa27720726384b57e`. PR CI `38051847392`, main CI `38052044075` and controlled staging `38052258369` PASS, including Application and Database checks, migration rebuild/history/lint, all pgTAP suites, tenant isolation/concurrency/auth and provider/worker validation. Local/CI application checks: lint/typecheck, 309 unit /45 integration tests, build, audit and production bundle smoke. READY deployment `dpl_92o57r89X9xQATZPsUEmrMoGFrY1`, CLI/prebuilt, exact githubCommitSha above; canonical staging alias unchanged. Active prompt v6/director v4/renderer v5/QA v11/context v3/output schema v4/evaluation phase7-balanced-v12; model unchanged. Authenticated admin UI briefly paused outbound for publication and restored true after both staging jobs passed. Owner automatic enable epoch remains 08:13:37.053956Z, AI_ACTIVE, human_takeover=false, exactly one conversation enabled. No wider rollout or Phase 8 work.
+
+| Fresh QA v11 case | Source / event / task / run | Proposal / outbound / provider pair | Receive→send |
+| --- | --- | --- | --- |
+| TR membership | source `a3062784-6185-46ff-9ff8-3e917dac3971`; event `e46807ba-afb2-4b03-bc32-b8cd832493d7`; task `3ce396a4-b9ba-4911-bea3-0fbb02d089fc`; run `8b7a41dd-401b-419e-9401-6ed83f89948b` | proposal `805ad903-a6d1-4861-ba18-ecbf2551b2bf`; outbound `8080550a-55ef-440b-98a0-9e0534b27e23`; 93→94 | 6.939257s; sent 12:34:30.391764Z |
+| AR membership | source `1ea869e2-0222-4630-ba68-e1e3ececa3f6`; event `da59bc40-0f1f-4147-a4be-a0916c21a54b`; task `ed298ec7-98b3-4706-9a92-eb5797315748`; run `10dd62cb-ea0b-4afa-9a97-51cf1c45a3c5` | proposal `a3abb338-15cd-42d2-9f74-1c4c8ff9a459`; outbound `fc498ecc-6041-4521-8aa3-e68252d11c83`; 95→96 | 8.071258s; sent 12:35:00.607003Z |
+| RU membership | source `576d156f-0896-4841-8bc1-361fe788d6c1`; event `113abe76-32a8-4070-9cf1-3f778b6cef10`; task `0273473b-8377-403b-bd48-f02fa1919677`; run `f2dbff97-fb20-4bc2-991e-9b8d454d6a9c` | proposal `dc464c26-85dc-477a-9050-8af30663635c`; outbound `2834c1a5-4248-4c70-8079-bc2da859f17c`; 97→98 | 6.364185s; sent 12:35:19.869508Z |
+
+Actual responses: TR `Üyeliğin fiyatı ve içeriğini şu an net olarak göremiyorum.`; AR `لا تتوفر لدي تفاصيل الاشتراك الدقيقة حاليًا.`; RU `У меня сейчас нет точных данных о стоимости и составе подписки.` All QA approve/no rewrite, original=rendered, authoritative resolution=true, zero factual business assertions, no tools/memory, reviewed_by=null, SYSTEM automatic send and queue audit human_review=false. All three visibly reviewed in Telegram. No price/benefit invented. The fresh Turkish wording uses the already-supported göremiyorum predicate and does not exercise the new exact two-claim review-note branch live; that original failure is fixed and verified by regression fixtures, not relabeled as a live branch pass. The full acceptance matrix has still not been rerun on final QA v11; final-version live evidence covers these three membership languages, while identity ran on QA v10 and other cases remain incrementally attributed below. Unsafe refusals previously withheld are still suppression evidence, not visible refusal deliveries. No broader rollout is authorized.
+
+Security advisors retain exactly the three baseline types (heartbeat no browser RLS policy INFO, role-checked admin SECURITY DEFINER WARN, pre-existing leaked-password protection WARN), not an all-clear claim. Latest cropped proof `telegram-automatic-replies-qa11-20261010.jpg` shows the identity response, original unsent Turkish source and new linked TR/AR/RU responses, without private chat sidebar/authentication data. The new technical blocker is corrected and published; formal phase closure waits for explicit owner acceptance of the updated limits.
+
+### Immutable failure and correction history
 
 QA v10 identity retry was an actual first-attempt automatic delivery: source `8d67ef17-cd98-45b6-8d86-e4306705de66` / provider 90, event `99e44b8d-763f-43a6-9087-754bea0f5ce9`, task `25120a90-589a-4e89-aab9-c414d2f0938e`, run `02d022f5-e395-4009-9f8a-e9becea21ee0`, proposal `bc4656be-076d-4863-8645-fb7b31c7fdfc`. Output `I’m an AI, not a human.`, approve/no rewrite, no tools/memory. SYSTEM outbound `87615ad3-aae9-4c17-bc74-256b48653c36` / provider 91, sent 12:21:53.763431Z, 6.790571s from receipt, reviewed_by=null. This is the twelfth distinct automatic delivery; it does not relabel the earlier recovered identity run.
 
