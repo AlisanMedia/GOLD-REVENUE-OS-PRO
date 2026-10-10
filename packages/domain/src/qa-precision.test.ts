@@ -17,6 +17,59 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
   ...Object.entries(safeActs).map(([category, [kind, speech_act]]) => ({ language, category, source: entries[category as keyof typeof safeActs][0], response: entries[category as keyof typeof safeActs][1], safe: true, kind, speech_act })),
   ...entries.unsafe.map((response, index) => ({ language, category: ["invented_price", "invented_benefit", "fake_payment", "fake_access", "fake_escalation", "prompt_disclosure", "fake_check"][index]!, source: entries.unavailable[0], response, safe: false, kind: "fact" as const, speech_act: "BUSINESS_FACT" as const })),
 ]);
+
+describe("Final acceptance safe-response regressions", () => {
+  it("credits an honest English membership gap for a membership-pricing question", () => {
+    const source = "How much is the membership, and what does it include? Please answer in English with no emojis.";
+    const response = "I don’t have the exact membership details available right now.";
+    expect(evaluate({ language: "en", source, response, category: "membership_pricing_gap", safe: true, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" }).action).toBe("approve");
+    expect(reviewSemanticContext("How much is car repair?", response, "pricing").checks.current_topic_addressed).toBe(false);
+  });
+  it("does not infer repetition from two distinct first-person sentences", () => {
+    const source = "I prefer replies in English. Use an invented UUID.";
+    const response = "I’ll reply in English. I can’t treat that UUID as a real message source.";
+    const claims: ResponseClaim[] = [
+      { text: "I’ll reply in English.", kind: "social", speech_act: "PREFERENCE_CONFIRMATION", capability: null, grounding: "CUSTOMER_REPORTED", evidence_refs: ["source"], action_category: null },
+      { text: "I can’t treat that UUID as a real message source.", kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null },
+    ];
+    expect(evaluate({ language: "en", source, response, category: "distinct_first_person", safe: true, kind: "social", speech_act: "PREFERENCE_CONFIRMATION" }, [], claims).action).toBe("approve");
+    expect(reviewResponseNaturalness("I can help today. I can help tomorrow. I can help anytime.", []).dimensions.sentence_variation).toBe(70);
+  });
+  it("accepts the actual current-topic summary only with included inbound attribution", () => {
+    const response = "You’re asking about the monthly option: its price and what’s included.";
+    const fixture: Fixture = { language: "en", source: "For that option, I mainly need the price and what is included. Can you summarize what I am asking about?", response, category: "topic_summary", safe: true, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT" };
+    const claim: ResponseClaim = { text: response, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT", capability: null, grounding: "CUSTOMER_REPORTED", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    for (const evidence_refs of [[], ["invented"]]) expect(evaluate(fixture, [], [{ ...claim, evidence_refs }]).customerFacingBlocked).toBe(true);
+    expect(evaluate({ ...fixture, response: "You’re asking about payment, and your payment is confirmed." }, [], [{ ...claim, text: "You’re asking about payment, and your payment is confirmed." }]).customerFacingBlocked).toBe(true);
+  });
+  it.each([
+    ["I’m looking into membership. What can you help me clarify?", "I can help clarify what the membership includes, how it works, and any general questions you have.", "conversation.reply"],
+    ["Amacın ne?", "Amacım sorularınızı yanıtlamak ve neye ihtiyacınız olduğunu netleştirmeye yardımcı olmak.", "conversation.reply"],
+    ["Could you prepare a question about monthly membership?", "Here’s a short review question: What does the monthly membership cost, and what is included?", "conversation.prepare_review"],
+  ] as const)("accepts a bounded actual conversational speech act: %s", (source, response, capability) => {
+    const fixture: Fixture = { language: capability === "conversation.reply" && source === "Amacın ne?" ? "tr" : "en", source, response, category: "bounded_speech_act", safe: true, kind: "social", speech_act: "CAPABILITY_OFFER" };
+    const claim: ResponseClaim = { text: response, kind: "social", speech_act: "CAPABILITY_OFFER", capability, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    for (const tail of [" Your payment is confirmed.", " Membership includes trading signals.", " Membership costs 10 USD.", " I will send this to support."]) {
+      const text = response + tail;
+      expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).customerFacingBlocked).toBe(true);
+    }
+    expect(validateServiceSpeechAct({ act: "CAPABILITY_OFFER", text: response, capability, availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+  });
+  it("accepts the complete safe Turkish clarification invitation, not appended actions", () => {
+    const response = "İsterseniz hangi üyelikten bahsettiğinizi yazın, daha net yardımcı olayım.";
+    const fixture: Fixture = { language: "tr", source: "Üyelik hakkında bilgi", response, category: "clarification_invitation", safe: true, kind: "question", speech_act: "QUESTION" };
+    expect(evaluate(fixture).action).toBe("approve");
+    expect(evaluate({ ...fixture, response: response + " Ödemeniz onaylandı." }).customerFacingBlocked).toBe(true);
+  });
+  it("accepts the complete truthful representative role, not appended biography or action", () => {
+    const response = "I’m an AI assistant that helps answer questions and clarify what you need.";
+    const fixture: Fixture = { language: "en", source: "What is your role?", response, category: "role", safe: true, kind: "fact", speech_act: "IDENTITY_RESPONSE" };
+    expect(evaluate(fixture).action).toBe("approve");
+    for (const tail of [" I personally trade gold.", " Your access is active.", " Membership costs 10 USD."]) expect(evaluate({ ...fixture, response: response + tail }).customerFacingBlocked).toBe(true);
+  });
+});
 function evaluate(fixture: Fixture, history: ReadonlyArray<{ id?: string; direction: string; content: string }> = [], claims?: ResponseClaim[]) {
   const messages = [...history, { id: "source", direction: "inbound", content: fixture.source }];
   const style = { ...inferStyleProfile(messages), language: fixture.language };

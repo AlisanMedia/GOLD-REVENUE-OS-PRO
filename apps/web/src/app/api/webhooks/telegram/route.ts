@@ -6,7 +6,7 @@ import {
   parseTelegramPrivateText,
   type TelegramUpdate,
 } from "@gold-revenue-os/domain";
-import { runDeterministicWorker } from "@/lib/agent-runtime/worker";
+import { runImmediateConversationReplies } from "@/lib/agent-runtime/immediate-replies";
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
 
 export const runtime = "nodejs";
@@ -87,7 +87,7 @@ export async function POST(request: Request) {
   if (result.duplicate !== true && typeof result.conversation_id === "string") {
     const conversationId = result.conversation_id;
     after(async () => {
-      await runDeterministicWorker({
+      await runImmediateConversationReplies({
         deploymentRef: process.env.VERCEL_GIT_COMMIT_SHA ?? "unknown",
         conversation: { tenantId: env.tenantId, conversationId },
       }).catch(() => undefined); // Persisted event/task leases allow cron recovery.

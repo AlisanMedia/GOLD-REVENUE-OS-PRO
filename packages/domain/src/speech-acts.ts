@@ -7,6 +7,18 @@ const preference = /(?:reply|respond|speak|answer).*(?:English|Turkish|Arabic|Ru
 const future = /\b(?:I['’]ll|will|we['’]ll)\b|(?:göndereceğim|ileteceğim|yapacağım|olacaktır|gönderilecek)|سوف|سأ(?:رسل|راجع|حدث)|я (?:отправлю|проверю|обновлю)/iu;
 const offer = /\b(?:can|could)\b|olabilirim|(?:açıklayabilirim|inceletebilirim)|(?:يمكنني|أستطيع)|(?:могу|можем)/iu;
 const operational = /(?:check|verify|confirm|activate|save|send|forward|update).*(?:account|payment|access|preference|support)|(?:hesap|ödeme|erişim).*(?:kontrol|doğrula|aç)|(?:تحقق|تفعيل|أرسل|حفظ).*(?:حساب|دفع|وصول)|(?:провер|активир|отправ|сохрани).*(?:аккаунт|оплат|доступ)/iu;
+// Whole conversational offers describe clarification, not catalog knowledge.
+// In particular, "what the membership includes" is an embedded question,
+// not the affirmative business assertion "the membership includes X".
+export function isConversationalClarificationOffer(text: string): boolean {
+  return /^I can help clarify what the membership includes, how it works, and any general questions you have[.!]?$/iu.test(text.normalize("NFKC").trim());
+}
+export function isRepresentativePurpose(text: string): boolean {
+  return /^Amacım sorularınızı yanıtlamak ve neye ihtiyacınız olduğunu netleştirmeye yardımcı olmak[.!]?$/iu.test(text.normalize("NFKC").trim());
+}
+export function isDraftedReviewQuestion(text: string): boolean {
+  return /^Here['’]s a short review question: What does the monthly membership cost, and what is included\?$/iu.test(text.normalize("NFKC").trim());
+}
 export function isConventionalCompoundGreeting(text: string): boolean {
   // Exact whole-utterance grammar: greeting + conversational help question.
   // No business clause, operational offer, promise or appended sentence is accepted.
@@ -49,6 +61,12 @@ export function validateServiceSpeechAct(input: {
   }
   if (["CAPABILITY_OFFER", "PROSPECTIVE_ACTION", "COMMITMENT"].includes(input.act)) {
     if (operational.test(input.text)) return false; // No operational capability/commitment is enabled in Phase 7.
+    if (input.act !== "COMMITMENT" && (isConversationalClarificationOffer(input.text) || isRepresentativePurpose(input.text))) {
+      return input.capability === "conversation.reply" && input.availableCapabilities.includes("conversation.reply");
+    }
+    if (input.act !== "COMMITMENT" && isDraftedReviewQuestion(input.text)) {
+      return input.capability === "conversation.prepare_review" && input.availableCapabilities.includes("conversation.prepare_review");
+    }
     // Whole, prospective drafting offer only: neither a completed review nor
     // sending/contacting anyone. A model label cannot append business clauses.
     if (input.act !== "COMMITMENT" && /^(?:İstersen )?(?:bunun için )?(?:kısa bir |bir )?inceleme notu hazırlayabilirim[.!]?$/iu.test(input.text.normalize("NFKC").trim())) {

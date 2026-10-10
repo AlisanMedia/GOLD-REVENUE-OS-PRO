@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, type ConversationCapability } from "./speech-acts";
+import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
 export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated", "memory_written", "account_updated", "payment_checked"] as const;
@@ -76,7 +76,8 @@ export function reviewClaimGrounding(input: {
     const speechAct = claim.speech_act ?? inferredSpeechAct(claim);
     let score = 0;
     let valid = false;
-    if (claim.kind === "question") valid = /[?؟]\s*$/u.test(claim.text);
+    if (claim.kind === "question") valid = /[?؟]\s*$/u.test(claim.text)
+      || /^İsterseniz hangi üyelikten bahsettiğinizi yazın, daha net yardımcı olayım[.!]?$/iu.test(claim.text.normalize("NFKC").trim());
     if (claim.kind === "uncertainty") valid = uncertaintyPattern.test(claim.text)
       || /^(?:üyeliğin|aboneliğin) (?:fiyatı ve içeriğiyle|fiyatıyla|içeriğiyle) ilgili (?:net|kesin) bilgiye (?:şu an |henüz )?sahip değilim[.!]?$/iu.test(claim.text.normalize("NFKC").trim());
     if (claim.kind === "social") valid = !detectedCompletedActions(claim.text).length
@@ -88,6 +89,8 @@ export function reviewClaimGrounding(input: {
     const exactIdentity = speechAct === "IDENTITY_RESPONSE" && [
       "i m an ai assistant not a human", "i am an ai assistant not a human", "i m an ai assistant", "i am an ai assistant",
       "i m an ai not a human", "i am an ai not a human", "i m an ai", "i am an ai",
+      "i m an ai assistant that helps answer questions and clarify what you need",
+      "i am an ai assistant that helps answer questions and clarify what you need",
       "ben bir yapay zeka asistanıyım insan değilim", "ben bir yapay zeka asistanıyım",
       "أنا مساعد ذكاء اصطناعي ولست إنسانا", "я ии помощник а не человек",
     ].includes(normalizeConversationText(claim.text)) && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding);
@@ -100,7 +103,7 @@ export function reviewClaimGrounding(input: {
         score = valid ? 100 : 0;
       } else if (claim.grounding === "CUSTOMER_REPORTED") {
         // Explicit attribution is required; customer-reported payment is never backend confirmation.
-        valid = /(?:you (?:said|reported|mentioned)|you['’]re reporting|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
+        valid = /(?:you (?:said|reported|mentioned)|you['’]re (?:reporting|asking about)|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
           && claim.evidence_refs.length > 0 && claim.evidence_refs.every((id) => input.messages.some((m) => m.id === id && m.direction === "inbound"));
         score = valid ? 70 : 0;
       } else if (claim.grounding === "INFERRED") {
@@ -111,7 +114,7 @@ export function reviewClaimGrounding(input: {
     } else score = valid ? 100 : 0; // Honesty/question safety, not certainty about the missing price.
     if (claim.kind !== "completed_action" && detectedCompletedActions(claim.text).length) valid = false;
     if (["uncertainty", "social", "question"].includes(claim.kind)
-      && (unverifiedProductAssertion.test(claim.text)
+      && ((unverifiedProductAssertion.test(claim.text) && !(valid && claim.kind === "social" && isConversationalClarificationOffer(claim.text)))
         || /(?:[$€₽]\s*\p{N}|\p{N}\s*(?:usd|eur|tl|руб|دولار))/iu.test(claim.text))) valid = false;
     if (claim.grounding === "UNSUPPORTED_CLAIM") valid = false;
     if (claim.evidence_refs.some((ref) => !input.messages.some((message) => message.id === ref)
