@@ -19,6 +19,19 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("accepts a newly requested whole Turkish price and inclusion knowledge gap from prior history", () => {
+    const response = "Üyeliğin fiyatı ve içeriği şu an net değil.";
+    const fixture: Fixture = { language: "tr", source: "Üyeliğin fiyatı ve içeriği nedir? Türkçe cevap ver.", response, category: "requested_knowledge_continuity", safe: true, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" };
+    const history = [{ direction: "outbound", content: response }];
+    expect(evaluate(fixture, history).action).toBe("approve");
+    expect(evaluate({ ...fixture, source: "Merhaba" }, history).action).toBe("rewrite");
+    const greeting = "Merhaba. " + response;
+    const claims: ResponseClaim[] = [{ text: "Merhaba.", kind: "social", speech_act: "ACKNOWLEDGEMENT", grounding: "GENERAL_SAFE_STATEMENT", capability: "conversation.reply", evidence_refs: [], action_category: null }, { text: response, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", grounding: "UNKNOWN", capability: null, evidence_refs: [], action_category: null }];
+    expect(evaluate({ ...fixture, response: greeting }, history, claims).action).toBe("rewrite");
+    for (const text of [response + " Ödemeniz onaylandı.", "Üyeliğin fiyatı 10 USD ama içeriği net değil.", response + " Üyelik sinyallere erişim sağlar."]) expect(evaluate({ ...fixture, response: text }, history).action).toBe("block");
+    const other = "Üyeliğin fiyatı şu an net değil.";
+    expect(evaluate({ ...fixture, response: other }, [{ direction: "outbound", content: other }]).action).toBe("rewrite");
+  });
   it("reviews the live source-grounded monthly selection without hard blocking its repeated limitation", () => {
     const ack = "Understood — just the monthly option, not the annual one.";
     const limitation = "I don’t have the exact monthly price or what’s included right now.";
