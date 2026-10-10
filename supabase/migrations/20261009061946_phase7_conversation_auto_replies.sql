@@ -351,7 +351,10 @@ begin
       at.status = 'RUNNING'
       and at.locked_at < now() - make_interval(secs => greatest(30, least(lease_seconds_value,3600)))
     )
-    ) and (at.conversation_id is null or (
+    ) and (at.conversation_id is null or not exists (
+      select 1 from public.conversations cv where cv.tenant_id=at.tenant_id
+        and cv.id=at.conversation_id and cv.automatic_replies_enabled
+    ) or (
       pg_try_advisory_xact_lock(hashtextextended(at.tenant_id::text||':'||at.conversation_id::text,0))
       and not exists(select 1 from public.agent_tasks busy where busy.tenant_id=at.tenant_id
         and busy.conversation_id=at.conversation_id and busy.id<>at.id and busy.status='RUNNING'
