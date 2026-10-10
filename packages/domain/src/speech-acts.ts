@@ -7,6 +7,16 @@ const preference = /(?:reply|respond|speak|answer).*(?:English|Turkish|Arabic|Ru
 const future = /\b(?:I['’]ll|will|we['’]ll)\b|(?:göndereceğim|ileteceğim|yapacağım|olacaktır|gönderilecek)|سوف|سأ(?:رسل|راجع|حدث)|я (?:отправлю|проверю|обновлю)/iu;
 const offer = /\b(?:can|could)\b|olabilirim|(?:açıklayabilirim|inceletebilirim)|(?:يمكنني|أستطيع)|(?:могу|можем)/iu;
 const operational = /(?:check|verify|confirm|activate|save|send|forward|update).*(?:account|payment|access|preference|support)|(?:hesap|ödeme|erişim).*(?:kontrol|doğrula|aç)|(?:تحقق|تفعيل|أرسل|حفظ).*(?:حساب|دفع|وصول)|(?:провер|активир|отправ|сохрани).*(?:аккаунт|оплат|доступ)/iu;
+export function isConventionalCompoundGreeting(text: string): boolean {
+  // Exact whole-utterance grammar: greeting + conversational help question.
+  // No business clause, operational offer, promise or appended sentence is accepted.
+  return [
+    /^(?:hi|hello|hey)[,!.-]?\s+(?:how can i help(?: you)?(?: today)?|what can i help(?: you)? with)\?$/iu,
+    /^(?:merhaba|selam)[,!.-]?\s+(?:nasıl|size nasıl|sana nasıl) yardımcı olabilirim\?$/iu,
+    /^(?:مرحبا|مرحباً)[,!،.-]?\s+(?:كيف يمكنني مساعدتك|كيف أساعدك|بماذا يمكنني مساعدتك)[?؟]$/iu,
+    /^(?:привет|здравствуйте)[,!.-]?\s+(?:чем могу помочь|чем я могу вам помочь|как я могу вам помочь)\?$/iu,
+  ].some((pattern) => pattern.test(text.normalize("NFKC").trim()));
+}
 export function inferredSpeechAct(claim: { kind: string; grounding: string; text: string }): SpeechAct {
   if (claim.kind === "completed_action") return "COMPLETED_ACTION";
   if (claim.kind === "question") return "QUESTION";
@@ -27,6 +37,8 @@ export function validateServiceSpeechAct(input: {
 }) {
   if (input.act === "UNKNOWN_ASSERTION") return false;
   if (input.act === "ACKNOWLEDGEMENT") {
+    if (isConventionalCompoundGreeting(input.text)) return input.availableCapabilities.includes("conversation.reply")
+      && (input.capability == null || input.capability === "conversation.reply");
     // Structured acknowledgements may contain empathy/greetings, never an
     // operational predicate or a future promise. Facts are checked separately.
     return !operational.test(input.text) && !future.test(input.text) && !offer.test(input.text);
