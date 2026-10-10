@@ -1,0 +1,157 @@
+[
+  {
+    "path": "/workspace/scratch/telegram-phase7-owner-initial-qa11-20261010.jpg",
+    "bytes": 148355,
+    "sha256": "4243acdf1ce815fe6cdd78681aee7fa32822686131e2ecf2e8bfd21b5090e521"
+  },
+  {
+    "path": "/workspace/scratch/telegram-phase7-final-qa13-languages-20261010.jpg",
+    "bytes": 140439,
+    "sha256": "9081ee2705cbfcf98914a1de4997b118a34a851a5b01e94158aea832790b645f"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa21-controlled-staging-20261010.jpg",
+    "bytes": 82344,
+    "sha256": "1e16f94540037de25a7536718e945f9c29b009e668873758c5aa173a891e1c33"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa22-controlled-staging-20261010.jpg",
+    "bytes": 82280,
+    "sha256": "0b9fb66da4c8c86407619a2cd43074eb7b734f42bbb2afd90e9752f10af74f4d"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa23-controlled-staging-20261010.jpg",
+    "bytes": 82485,
+    "sha256": "81f4667b6c8fdbb52cbee44ac75d0fc3ce6098cc1f170a8f93e68c804cb804b1"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa23-live-languages-20261010.jpg",
+    "bytes": 138663,
+    "sha256": "c21abdf4aad217958ba226fe2d11d0b7fc9505665be2fa5bf203b61ab2c59c95"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa23-live-context-20261010.jpg",
+    "bytes": 131514,
+    "sha256": "6f40866770c8f1a10d3f1ba182ce979404da716c0e75de72e66e9aa15eee2188"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa24-controlled-staging-20261010.jpg",
+    "bytes": 82468,
+    "sha256": "af1b43ac13585a40047d23c534cfa363cdd8aaea91fb198995d0cd698cc52590"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa24-live-languages-20261010.jpg",
+    "bytes": 142653,
+    "sha256": "ead8d49c4718c6dafbe6d469e3bdeb69877337acfd29a995d66fc4c736b2b19e"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa24-live-context-20261010.jpg",
+    "bytes": 130783,
+    "sha256": "763f66df2688f1922e7a400a74f52d2c6f68f536381161d70e12677c9adb70eb"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa24-live-safety-20261010.jpg",
+    "bytes": 159070,
+    "sha256": "c4ddebd9a9b192fedb195f7ee214e0ec317dcc130539af0276a4f70e9974039a"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa25-controlled-staging-20261010.jpg",
+    "bytes": 82501,
+    "sha256": "1b89e08fc09f57de4b6d53960ca601dfd8ab63757108242d12071cb2100a8546"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa25-live-languages-20261010.jpg",
+    "bytes": 134385,
+    "sha256": "fca98557d34faa09bdb289a422d39012da1ddc863970766c945b76bb0b9b6a12"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa25-live-context-20261010.jpg",
+    "bytes": 127596,
+    "sha256": "02a85fe73e759d45627452576256c395fe5126bd01e992b70e411f3bf5c35373"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa25-live-safety-20261010.jpg",
+    "bytes": 134839,
+    "sha256": "4a7fcddb112218c751b335968e24d5b6d851a10963bc58037b7be32d27887bce"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa26-controlled-staging-20261010.jpg",
+    "bytes": 82485,
+    "sha256": "daf997f1a876a77aea27fd431bc453e71f218bc61942325e626c21d9c2a0b4d3"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa26-live-languages-20261010.jpg",
+    "bytes": 136904,
+    "sha256": "e824b4ff06c3c6e613c746efce355965f254cb88019aebfa25849b812f492d4c"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa26-live-context-20261010.jpg",
+    "bytes": 128416,
+    "sha256": "28581483ab86ffc9cf1d6bab1fb4f8c8eaa176a7311fbea878595cb612c4cdc1"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa26-live-safety-20261010.jpg",
+    "bytes": 153614,
+    "sha256": "318351720d64233d52d6f81f1f1e331d3463788ce7b0c1bc02016ac474d572b7"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa27-controlled-staging-20261010.jpg",
+    "bytes": 80809,
+    "sha256": "95dfdd673aac736ab51bfb86751ba3e4acdb1877e246b233d3eb1de1397c0cb8"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa27-partial-live-20261010.jpg",
+    "bytes": 130923,
+    "sha256": "2e922e36e5ddb6140a9bc2c4e88357e2ec7e6b9d69ebac0154017387c3903c08"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa28-controlled-staging-20261010.jpg",
+    "bytes": 82459,
+    "sha256": "6959865644f2b6d0e25232a0cc9f233c4433fc5cce0f68829d3e2cee2b9e0a5b"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa28-live-languages-20261010.jpg",
+    "bytes": 140041,
+    "sha256": "c993fe73207796e2a54018703acd56be98866aaff2f3f3d9a1e4c2a424e05f0c"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa28-live-context-20261010.jpg",
+    "bytes": 130044,
+    "sha256": "8e26ac20db68fee727c55ee640011c25ca21dc37e053925d8da0aaf13a00d014"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa28-live-safety-20261010.jpg",
+    "bytes": 157175,
+    "sha256": "e187e11cceaa5f67ed2f758ca52abeedf33c2a6bb40b27db75cc554537dc1b22"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa29-controlled-staging-20261010.jpg",
+    "bytes": 82565,
+    "sha256": "0ad11fc8d759cf115ebc640714e7c4d1e9e787c9074336590fc3ac0c8ddbbf4e"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa29-partial-live-20261010.jpg",
+    "bytes": 143054,
+    "sha256": "397ed5140aa79824a5e909e743053580e1ff94b1cc145588446abb20c6883d6b"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa30-controlled-staging-20261010.jpg",
+    "bytes": 82156,
+    "sha256": "0e7751c033a3aacd9131ac64f53053f8f0f50584c8f1425dd23e56504bf1be86"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa30-live-languages-20261010.jpg",
+    "bytes": 138944,
+    "sha256": "41df3c9cb157f68b04513d8a336a641e28c1a81791015da1275e09630878fca4"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa30-partial-live-context-20261010.jpg",
+    "bytes": 129460,
+    "sha256": "32277a3c090a9a02e7d7551dabe291168a599eee36fc514dec389af60ffda432"
+  },
+  {
+    "path": "/workspace/scratch/phase7-qa31-controlled-staging-20261010.jpg",
+    "bytes": 82360,
+    "sha256": "8a3b9fd62cea9788e010c3eca520d83d2c8e70ecd84c4608763a443dbe3d7a01"
+  }
+]

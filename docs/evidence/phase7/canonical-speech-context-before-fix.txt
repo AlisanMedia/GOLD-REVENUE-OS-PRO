@@ -1,0 +1,105 @@
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (179 tests | 9 failed | 170 skipped) 75ms
+   ❯ Final acceptance safe-response regressions (46)
+     × accepts the expanded you are attribution with real inbound evidence 40ms
+     × reviews the safe Turkish attempt-to-clarify offer rather than hard blocking it 21ms
+     × validates the whole honest Turkish limitation despite the model's fact/unknown-assertion label 2ms
+     × grounds an exact topic offer from its real reply capability despite UNKNOWN metadata 5ms
+     × reviews an answered generic first-question clarification in en 2ms
+     × reviews an answered generic first-question clarification in tr 0ms
+     × reviews an answered generic first-question clarification in ar 1ms
+     × reviews an answered generic first-question clarification in ru 0ms
+     × classifies free membership as pricing and reviews its awkward honest limitation 1ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 9 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > accepts the expanded you are attribution with real inbound evidence
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:26:51
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > reviews the safe Turkish attempt-to-clarify offer rather than hard blocking it
+AssertionError: expected 'block' to be 'rewrite' // Object.is equality
+
+Expected: "rewrite"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:34:50
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > validates the whole honest Turkish limitation despite the model's fact/unknown-assertion label
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:43:51
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > grounds an exact topic offer from its real reply capability despite UNKNOWN metadata
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:52:51
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > reviews an answered generic first-question clarification in en
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > reviews an answered generic first-question clarification in tr
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > reviews an answered generic first-question clarification in ar
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > reviews an answered generic first-question clarification in ru
+AssertionError: expected +0 to be 70 // Object.is equality
+
+- Expected
++ Received
+
+- 70
++ 0
+
+ ❯ packages/domain/src/qa-precision.test.ts:64:95
+     62|   ])("reviews an answered generic first-question clarification in %s",…
+     63|     const messages = [{ direction: "inbound", content: source! }];
+     64|     expect(reviewResponseNaturalness(response!, messages).dimensions.r…
+       |                                                                                               ^
+     65|     expect(directConversation(messages, inferStyleProfile(messages)).s…
+     66|     expect(reviewResponseNaturalness(response!, [{ direction: "inbound…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > classifies free membership as pricing and reviews its awkward honest limitation
+AssertionError: expected 'membership_details' to be 'pricing' // Object.is equality
+
+Expected: "pricing"
+Received: "membership_details"
+
+ ❯ packages/domain/src/qa-precision.test.ts:72:86
+     70|     const source = "Üyelik bedava mı? Türkçe ve kısa cevap ver.";
+     71|     const messages = [{ direction: "inbound", content: source }];
+     72|     expect(directConversation(messages, inferStyleProfile(messages)).p…
+       |                                                                                      ^
+     73|     const fixture: Fixture = { language: "tr", source, response, categ…
+     74|     expect(evaluate(fixture).action).toBe("rewrite");
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  9 failed | 170 skipped (179)
+   Start at  21:53:42
+   Duration  477ms (transform 46%, import 28%, tests 24%, worker 2%)
+

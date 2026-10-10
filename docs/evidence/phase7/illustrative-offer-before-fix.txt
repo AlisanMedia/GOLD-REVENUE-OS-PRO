@@ -1,0 +1,28 @@
+$ vitest run packages -- -t 'illustrative membership-topic'
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (156 tests | 1 failed) 193ms
+   ❯ Final acceptance safe-response regressions (28)
+     × grounds the live illustrative membership-topic offer without inventing catalog facts 56ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > grounds the live illustrative membership-topic offer without inventing catalog facts
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:28:56
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 8 passed (9)
+      Tests  1 failed | 354 passed (355)
+   Start at  20:00:34
+   Duration  634ms (transform 48%, import 29%, tests 21%, worker 2%)
+
+[ELIFECYCLE] Command failed with exit code 1.

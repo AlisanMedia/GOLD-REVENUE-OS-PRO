@@ -1,0 +1,31 @@
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (179 tests | 1 failed | 178 skipped) 38ms
+   ❯ Final acceptance safe-response regressions (46)
+     × accepts the expanded you are attribution with real inbound evidence 36ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > accepts the expanded you are attribution with real inbound evidence
+AssertionError: expected 'approve' to be 'block' // Object.is equality
+
+Expected: "block"
+Received: "approve"
+
+ ❯ packages/domain/src/qa-precision.test.ts:31:89
+     29|     for (const opening of ["You are asking about the monthly option.",…
+     30|       const text = opening + " Membership costs 10 USD.";
+     31|       expect(evaluate({ ...fixture, response: text }, [], [{ ...claim,…
+       |                                                                                         ^
+     32|     }
+     33|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 178 skipped (179)
+   Start at  21:55:02
+   Duration  374ms (transform 52%, import 32%, tests 15%, worker 1%)
+

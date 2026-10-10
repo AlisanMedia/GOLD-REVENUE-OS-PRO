@@ -1,0 +1,37 @@
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (168 tests | 2 failed | 166 skipped) 49ms
+   ❯ Final acceptance safe-response regressions (35)
+     × grounds the live two-sentence summary of the customer's actual price/inclusion request 34ms
+     × does not read no inside cannot as a report of missing access 12ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > grounds the live two-sentence summary of the customer's actual price/inclusion request
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:26:50
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > does not read no inside cannot as a report of missing access
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:39:50
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 166 skipped (168)
+   Start at  21:18:02
+   Duration  451ms (transform 50%, import 33%, tests 16%, worker 1%)

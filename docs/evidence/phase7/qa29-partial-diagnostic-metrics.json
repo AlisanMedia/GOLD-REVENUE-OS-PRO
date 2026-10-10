@@ -1,0 +1,149 @@
+{
+  "cases": 2,
+  "runs": 2,
+  "sent": 1,
+  "qa_actions": {
+    "approve": 1,
+    "block": 1
+  },
+  "qa_versions": {
+    "conversation-qa-v29": 2
+  },
+  "stage_versions": {
+    "{\"context\": 3, \"director\": \"conversation-director-v4\", \"evaluationSet\": \"phase7-balanced-v30\", \"outputSchema\": 4, \"prompt\": \"conversation-quality-prompt-v24\", \"qa\": \"conversation-qa-v29\", \"renderer\": \"natural-renderer-v5\"}": 3
+  },
+  "model_calls": 3,
+  "failed_model_calls": 0,
+  "rewrite_sources": [
+    "683"
+  ],
+  "successful_single_rewrite_sources": [],
+  "provider_delivery_attempts": 1,
+  "delivery_statuses": {
+    "200": 1
+  },
+  "delivery_errors": [],
+  "human_reviewed": 0,
+  "sent_actor_types": {
+    "SYSTEM": 1
+  },
+  "blocked_sent": [],
+  "reply_link_errors": [],
+  "duplicate_reply_provider_ids": 0,
+  "sent_event_errors": [],
+  "system_approval_errors": [],
+  "detected_languages": {
+    "en": 2
+  },
+  "unavailable_capability_sources": [],
+  "anchor_errors": [],
+  "wire_reference_errors": [],
+  "memory_accepted": 0,
+  "memory_rejected": 0,
+  "original_rendered_changes": 0,
+  "receive_to_send_seconds": {
+    "sample_size": 1,
+    "minimum": 6.788178,
+    "median": 6.788178,
+    "p95_linear_interpolation": null,
+    "maximum": 6.788178
+  },
+  "model_call_ms": {
+    "median": 2277,
+    "maximum": 2361
+  },
+  "receive_to_quality_completion_seconds": {
+    "sample_size": 2,
+    "minimum": 5.790054,
+    "median": 7.0242854999999995,
+    "p95_linear_interpolation": null,
+    "maximum": 8.258517
+  },
+  "blocked_receive_to_quality_completion_seconds": {
+    "sample_size": 1,
+    "minimum": 8.258517,
+    "median": 8.258517,
+    "p95_linear_interpolation": null,
+    "maximum": 8.258517
+  },
+  "latency_contributions_seconds": {
+    "receive_to_run_start": {
+      "sample_size": 1,
+      "minimum": 2.514922,
+      "median": 2.514922,
+      "p95_linear_interpolation": null,
+      "maximum": 2.514922
+    },
+    "receive_to_task_created": {
+      "sample_size": 1,
+      "minimum": 0.819151,
+      "median": 0.819151,
+      "p95_linear_interpolation": null,
+      "maximum": 0.819151
+    },
+    "task_created_to_run_start": {
+      "sample_size": 1,
+      "minimum": 1.695771,
+      "median": 1.695771,
+      "p95_linear_interpolation": null,
+      "maximum": 1.695771
+    },
+    "model_seconds": {
+      "sample_size": 1,
+      "minimum": 2.227,
+      "median": 2.227,
+      "p95_linear_interpolation": null,
+      "maximum": 2.227
+    },
+    "run_non_model": {
+      "sample_size": 1,
+      "minimum": 1.0481320000000003,
+      "median": 1.0481320000000003,
+      "p95_linear_interpolation": null,
+      "maximum": 1.0481320000000003
+    },
+    "run_completion_to_outbound_created": {
+      "sample_size": 1,
+      "minimum": 0.322975,
+      "median": 0.322975,
+      "p95_linear_interpolation": null,
+      "maximum": 0.322975
+    },
+    "outbound_created_to_sent": {
+      "sample_size": 1,
+      "minimum": 0.675149,
+      "median": 0.675149,
+      "p95_linear_interpolation": null,
+      "maximum": 0.675149
+    }
+  },
+  "per_send_contributions": [
+    {
+      "source_provider": "681",
+      "receive_to_send": 6.788178,
+      "receive_to_run_start": 2.514922,
+      "receive_to_task_created": 0.819151,
+      "task_created_to_run_start": 1.695771,
+      "model_calls": 1,
+      "model_seconds": 2.227,
+      "run_non_model": 1.0481320000000003,
+      "run_completion_to_outbound_created": 0.322975,
+      "outbound_created_to_sent": 0.675149
+    }
+  ],
+  "outliers": [
+    {
+      "source_provider": "681",
+      "receive_to_send": 6.788178,
+      "receive_to_run_start": 2.514922,
+      "receive_to_task_created": 0.819151,
+      "task_created_to_run_start": 1.695771,
+      "model_calls": 1,
+      "model_seconds": 2.227,
+      "run_non_model": 1.0481320000000003,
+      "run_completion_to_outbound_created": 0.322975,
+      "outbound_created_to_sent": 0.675149
+    }
+  ],
+  "retry_attempts": []
+}
