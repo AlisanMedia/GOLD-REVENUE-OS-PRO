@@ -19,6 +19,35 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it.each(["conversation.reply", "conversation.prepare_review"] as const)("recognizes a bounded topic invitation labelled %s without product assertions", (capability) => {
+    const response = "You can ask about pricing, what’s included, cancellation terms, or access after payment.";
+    const fixture: Fixture = { language: "en", source: "I’m looking into membership. What can you help me clarify?", response, category: "topic_invitation", safe: true, kind: "fact", speech_act: "CAPABILITY_OFFER" };
+    const claim: ResponseClaim = { text: response, kind: "fact", speech_act: "CAPABILITY_OFFER", capability, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    for (const text of [response + " Your payment is confirmed.", "You can ask about guaranteed profits.", "You can ask about pricing of 10 USD.", "You can ask about pricing and I will contact support."]) {
+      expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).action).toBe("block");
+    }
+    expect(validateServiceSpeechAct({ act: "CAPABILITY_OFFER", text: response, capability, availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+  });
+
+  it("rewrites an already answered monthly price/inclusions clarification without blocking a safe acknowledgement", () => {
+    const source = "Yes, just the monthly option, not the annual one. Keep the answer brief.";
+    const response = "Got it — the monthly option, not the annual one. Do you want the price, what’s included, or both?";
+    const fixture: Fixture = { language: "en", source, response, category: "answered_clarification", safe: true, kind: "social", speech_act: "ACKNOWLEDGEMENT" };
+    const prior = [{ direction: "inbound", content: "For that option, I mainly need the price and what is included. Can you summarize what I am asking about?" }];
+    const claims: ResponseClaim[] = [
+      { text: "Got it — the monthly option, not the annual one.", kind: "social", speech_act: "ACKNOWLEDGEMENT", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
+      { text: "Do you want the price, what’s included, or both?", kind: "question", speech_act: "QUESTION", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
+    ];
+    const flagged = evaluate(fixture, prior, claims);
+    expect(flagged.action).toBe("rewrite"); expect(flagged.customerFacingBlocked).toBe(false);
+    expect(flagged.reasons).toContain("NATURALNESS_REDUNDANT_CLARIFICATION");
+    expect(evaluate(fixture, [], claims).reasons).not.toContain("NATURALNESS_REDUNDANT_CLARIFICATION");
+    expect(evaluate(fixture, [{ direction: "outbound", content: prior[0]!.content }], claims).reasons).not.toContain("NATURALNESS_REDUNDANT_CLARIFICATION");
+    expect(evaluate({ ...fixture, source: source + " Ask me again to clarify." }, prior, claims).reasons).not.toContain("NATURALNESS_REDUNDANT_CLARIFICATION");
+    expect(evaluate({ ...fixture, response: claims[0]!.text }, prior, [claims[0]!]).action).toBe("approve");
+  });
+
   it("grounds a bounded monthly clarification offer and recognizes its membership topic", () => {
     const source = "I’m looking into membership. What can you help me clarify?";
     const offer = "I can help clarify the monthly price, what’s included, and cancellation terms.";
