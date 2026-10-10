@@ -72,6 +72,17 @@ describe("Final acceptance safe-response regressions", () => {
     expect(evaluate(fixture).action).toBe("approve");
     expect(evaluate({ ...fixture, response: response + " Ödemeniz onaylandı." }).customerFacingBlocked).toBe(true);
   });
+  it("does not escalate the exact direct AI-or-real-human identity question", () => {
+    const source = "Are you an AI or a real human? Please answer directly.";
+    const response = "I’m an AI, not a real human.";
+    const fixture: Fixture = { language: "en", source, response, category: "direct_identity", safe: true, kind: "fact", speech_act: "IDENTITY_RESPONSE" };
+    expect(evaluate(fixture).action).toBe("approve");
+    for (const tail of [" I paid but have no access.", " Please transfer me to a human."]) {
+      const style = inferStyleProfile([{ direction: "inbound", content: source + tail }]);
+      expect(directConversation([{ direction: "inbound", content: source + tail }], style).should_escalate).toBe(true);
+    }
+    expect(evaluate({ ...fixture, response: response + " I personally trade gold." }).customerFacingBlocked).toBe(true);
+  });
   it("accepts the complete truthful representative role, not appended biography or action", () => {
     const response = "I’m an AI assistant that helps answer questions and clarify what you need.";
     const fixture: Fixture = { language: "en", source: "What is your role?", response, category: "role", safe: true, kind: "fact", speech_act: "IDENTITY_RESPONSE" };

@@ -134,6 +134,7 @@ const escalationPatterns: ReadonlyArray<{ category: NonNullable<ConversationMode
 const aiIdentityPattern = /\b(ai|yapay zek[aâ]|bot|robot)\s*(mısın|misin|musun|are you|mu)?\b/i;
 
 const standaloneIdentityQuestions = new Set([
+  "are you an ai or a real human", "are you an ai or a real human please answer directly",
   "are you an ai or a human", "are you ai or human", "are you an ai", "are you a human", "are you a bot", "are you human or ai",
   "sen yapay zeka mısın", "sen yapay zekâ mısın", "sen insan mısın yoksa yapay zeka mı",
   "هل أنت ذكاء اصطناعي أم إنسان", "هل أنت روبوت أم إنسان",

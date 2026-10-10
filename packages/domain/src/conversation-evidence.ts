@@ -88,6 +88,7 @@ export function reviewClaimGrounding(input: {
           guaranteedCommitments: input.guaranteedCommitments ?? [] }));
     const exactIdentity = speechAct === "IDENTITY_RESPONSE" && [
       "i m an ai assistant not a human", "i am an ai assistant not a human", "i m an ai assistant", "i am an ai assistant",
+      "i m an ai not a real human", "i am an ai not a real human",
       "i m an ai not a human", "i am an ai not a human", "i m an ai", "i am an ai",
       "i m an ai assistant that helps answer questions and clarify what you need",
       "i am an ai assistant that helps answer questions and clarify what you need",
