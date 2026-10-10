@@ -7,10 +7,10 @@ export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
   prompt: "conversation-quality-prompt-v6",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v8",
+  qa: "conversation-qa-v9",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v9",
+  evaluationSet: "phase7-balanced-v10",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -267,7 +267,9 @@ function conventionalGreetingReply(response: string, messages: ReadonlyArray<{ d
 export function reviewResponseNaturalness(response: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>, intent?: string) {
   const sentences = sentenceParts(response);
   const previous = recentMessages.filter((m) => m.direction === "outbound").map((m) => sentenceParts(m.content));
-  const opening = normalizeConversationText(sentences[0] ?? "").split(" ").slice(0, 3).join(" ");
+  // Shared three-word prefixes are not repeated sentences (e.g. preference
+  // confirmations with different constraints). Full-template checks remain.
+  const opening = normalizeConversationText(sentences[0] ?? "");
   const closing = normalizeConversationText(sentences.at(-1) ?? "");
   const filler = /^(?:of course|certainly|I understand|thank you for reaching out|I'd be happy|değerli müşterimiz|mesajınız alındı|بالطبع|شكرا لتواصلك|конечно|спасибо за обращение)/iu.test(response);
   const cta = /let me know if|anything else|would you like me to|başka.*yardım|başka.*soru|هل.*مساعدة أخرى|дайте знать|что-нибудь еще/iu.test(response);
@@ -278,7 +280,7 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
     template_similarity: requested || conventionalGreeting ? 0 : repetitionScore(response, recentMessages),
     conversational_continuity: /^(?:hello|hi|merhaba|selam|مرحبا|привет)[!,]/iu.test(response) && previous.length > 0 ? 50 : 0,
     unnatural_acknowledgement: filler ? 70 : 0,
-    repeated_opening: !requested && !conventionalGreeting && opening && previous.some((p) => normalizeConversationText(p[0] ?? "").split(" ").slice(0, 3).join(" ") === opening) ? 100 : 0,
+    repeated_opening: !requested && !conventionalGreeting && opening && previous.some((p) => normalizeConversationText(p[0] ?? "") === opening) ? 100 : 0,
     repeated_closing: !requested && !conventionalGreeting && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
     unnecessary_cta: cta ? 70 : 0,
     sentence_variation: !requested && sentences.length > 1 && new Set(sentences.map((v) => normalizeConversationText(v).split(" ")[0])).size === 1 ? 70 : 0,
