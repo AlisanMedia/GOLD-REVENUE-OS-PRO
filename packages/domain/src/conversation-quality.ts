@@ -5,13 +5,13 @@ import { requestedRepetition, reviewSemanticContext, repeatedMembershipClarifica
 import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v19",
+  prompt: "conversation-quality-prompt-v20",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v24",
+  qa: "conversation-qa-v25",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v25",
+  evaluationSet: "phase7-balanced-v26",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -123,7 +123,7 @@ const escalationPatterns: ReadonlyArray<{ category: NonNullable<ConversationMode
   { category: "refund_request", pattern: /(refund|iade|paramı geri|para iadesi)/i },
   { category: "payment_not_reflected", pattern: /(ödeme.*yansım|payment.*missing|ödedim.*görünm|ödeme.*görünm)/i },
   { category: "access_missing_after_payment", pattern: /(ödedim.*eriş|paid.*access|vip.*gelmedi|kanal.*açılmadı)/i },
-  { category: "legal_threat", pattern: /(avukat|mahkeme|dava|savcılık|legal action|sue)/i },
+  { category: "legal_threat", pattern: /(?<!\p{L})(?:avukat|mahkeme|dava|savcılık)|\blegal action\b|\b(?:sue|sued|suing|lawsuit)\b/iu },
   { category: "fraud_accusation", pattern: /(dolandırıcı|dolandırıldım|scam|fraud)/i },
   { category: "financial_loss_complaint", pattern: /(zarar ettim|para kaybettim|lost money|financial loss)/i },
   { category: "security_issue", pattern: /(hack|çalındı|güvenlik|security breach|hesabım ele)/i },
@@ -189,7 +189,7 @@ export function directConversation(messages: ReadonlyArray<{ direction: string; 
   const riskIntents: Record<string, string> = { refund_request: "refund", payment_not_reflected: "payment_status", access_missing_after_payment: "access_problem", financial_loss_complaint: "financial_loss", user_requests_human: "human_request" };
   const intentPatterns: ReadonlyArray<[string, RegExp]> = [
     ["financial_loss", /lost money|financial loss|para kaybettim|zarar ettim|خسرت.*(?:مال|أموال)|потерял.*деньги/iu],
-    ["access_problem", /(?:paid|ödedim|دفعت|оплатил).*?(?:access|eriş|وصول|دоступ)|(?:no|missing|don't have).*access|erişim.*(?:yok|açıl)|لا.*(?:وصول|دخول)|нет доступа/iu],
+    ["access_problem", /(?:paid|ödedim|دفعت|оплатил).*?(?:access|eriş|وصول|دоступ)|\b(?:no|missing|don['’]t have)\b[^.!?]*\baccess\b|\b(?:cannot|can['’]t) (?:get |gain )?access\b|\b(?:my|our|the) access (?:is |remains )?(?:missing|unavailable)\b|erişim.*(?:yok|açıl)|لا.*(?:وصول|دخول)|нет доступа/iu],
     ["refund", /refund|iade|استرداد|возврат/iu],
     ["cancellation", /cancel|iptal|إلغاء|отмен/iu],
     ["human_request", /human|insanla|temsilci|إنسان|موظف|оператор|человек/iu],

@@ -26,6 +26,18 @@ export function normalizeConversationText(text: string): string {
 export function splitResponseSentences(text: string): string[] {
   return text.trim().split(/(?<=[.!?؟。！])\s+/u).filter(Boolean);
 }
+function reportedMembershipInformationRequest(claim: ResponseClaim, messages: ReadonlyArray<{ id?: string; direction: string; content: string }>): boolean {
+  // Bounded request summary, not a product assertion. Require an actual cited
+  // inbound first-person request for both topics; a reference alone is not proof.
+  if (!/^you (?:(?:mainly|primarily) )?(?:want|need) (?:its|the) (?:price|pricing) and (?:what is included|what s included|inclusions)$/u.test(normalizeConversationText(claim.text))) return false;
+  return messages.some(m => {
+    if (m.direction !== "inbound" || m.id === undefined || !claim.evidence_refs.includes(m.id)) return false;
+    const source = normalizeConversationText(m.content);
+    return /\b(?:i|we) (?:(?:mainly|primarily) )?(?:want|need)\b/u.test(source)
+      && /\b(?:price|pricing)\b/u.test(source) && /\b(?:what is included|what s included|inclusions)\b/u.test(source)
+      && !/\b(?:no|not) (?:the )?(?:price|pricing)\b/u.test(source);
+  });
+}
 const uncertaintyPattern = /(?:\b(?:don['’]t|do not|can['’]t|cannot|not available|not confirmed|unknown|unsure|needs? (?:review|verification)|need to (?:check|verify|escalate)|haven['’]t|have not)\b|bilgi.*(?:yok|mevcut değil)|bilmiyorum|göremiyorum|(?:detay|bilgi|fiyat)[^.!?؟]*(?:görünmüyor|görünmemekte)|elimizde.*yok|doğrulayam|henüz.*(?:yok|değil)|inceleme(?:si)? gerekiyor|kontrol etmek gerekir|netleştir|(?<!\p{L})(?:لا|ليس|ليست|غير)(?!\p{L})|يحتاج.*مراجعة|(?:нет|не имею|не могу|не знаю|не подтвержден|нужно проверить|требует проверки))/iu;
 // An honest qualifier does not ground an affirmative product clause in the same
 // sentence. These conservative predicates supplement claim typing, not replace it.
@@ -122,7 +134,8 @@ export function reviewClaimGrounding(input: {
         score = valid ? 100 : 0;
       } else if (claim.grounding === "CUSTOMER_REPORTED") {
         // Explicit attribution is required; customer-reported payment is never backend confirmation.
-        valid = /(?:you (?:said|reported|mentioned|mean)|you['’]re (?:reporting|asking (?:about|for))|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
+        valid = (/(?:you (?:said|reported|mentioned|mean)|you['’]re (?:reporting|asking (?:about|for))|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
+          || reportedMembershipInformationRequest(claim, input.messages))
           && claim.evidence_refs.length > 0 && claim.evidence_refs.every((id) => input.messages.some((m) => m.id === id && m.direction === "inbound"));
         score = valid ? 70 : 0;
       } else if (claim.grounding === "INFERRED") {
