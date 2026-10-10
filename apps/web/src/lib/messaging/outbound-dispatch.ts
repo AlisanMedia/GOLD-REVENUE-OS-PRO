@@ -12,6 +12,7 @@ export type OutboundDispatchResult = {
 export async function dispatchQueuedTelegramMessage(input: {
   tenantId: string;
   messageId: string;
+  automatic?: boolean;
 }): Promise<OutboundDispatchResult> {
   const env = telegramServerEnv();
   if (env.tenantId !== input.tenantId) throw new Error("TENANT_PROVIDER_NOT_CONFIGURED");
@@ -24,13 +25,21 @@ export async function dispatchQueuedTelegramMessage(input: {
     .single();
   if (messageError || !message || message.direction !== "outbound") throw new Error("OUTBOUND_MESSAGE_READ_FAILED");
   if (message.status === "sent") return { messageId: input.messageId, result: "sent", providerStatus: 200 };
+  if (input.automatic) {
+    const { data: claimed, error } = await admin.rpc("claim_quality_reply_delivery", {
+      target_tenant_id: input.tenantId, target_message_id: input.messageId,
+    });
+    if (error || claimed !== true) return { messageId: input.messageId, result: "blocked", providerStatus: 0 };
+  }
   const provider = await sendTelegramText({
     botToken: env.botToken,
     chatId: String(message.provider_chat_id),
     text: String(message.content),
     replyToProviderMessageId: message.reply_to_provider_message_id,
   });
-  const result = provider.result;
+  const result = input.automatic && provider.result.kind === "failed" && provider.providerStatus === 0
+    ? { kind: "failed" as const, errorCode: "TELEGRAM_DELIVERY_UNCERTAIN", retryable: false }
+    : provider.result;
   const mapped = result.kind === "sent"
     ? { result: "sent" as const, providerId: result.providerMessageId, error: null, retryAfter: null }
     : result.kind === "retry"

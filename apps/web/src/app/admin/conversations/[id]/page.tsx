@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { setAutomaticReplies } from "./actions";
 import { notFound } from "next/navigation";
 import { ManualMessageReply } from "@/components/manual-message-reply";
 import { hasAdminCapability } from "@/lib/admin/permissions";
@@ -44,6 +45,14 @@ export default async function ConversationDetailPage({ params }: { params: Promi
         <small>{new Date(message.occurred_at).toLocaleString("en-GB")}{message.failure_code ? ` · ${message.failure_code}` : ""}</small>
       </li>)}{messages.length === 0 ? <li className="empty-state">No messages.</li> : null}</ul>
     </section>
+    {hasAdminCapability(context.role, "messaging.send") && ["super_admin", "manager"].includes(context.role) ? <section className="form-panel">
+      <h2>Automatic replies</h2><p>{conversation.automatic_replies_enabled && conversation.runtime_mode === "AI_ACTIVE" ? "Enabled — new messages receive replies after quality checks." : "Disabled — replies require operator review."}</p>
+      <form action={setAutomaticReplies}>
+        <input type="hidden" name="conversation_id" value={conversation.id} />
+        <input type="hidden" name="enabled" value={conversation.automatic_replies_enabled && conversation.runtime_mode === "AI_ACTIVE" ? "false" : "true"} />
+        <button type="submit">{conversation.automatic_replies_enabled && conversation.runtime_mode === "AI_ACTIVE" ? "Disable automatic replies / Human takeover" : "Enable automatic replies"}</button>
+      </form><p className="muted">Applies only to this conversation and future messages. Blocked answers stay for review. The outbound switch still applies.</p>
+    </section> : null}
     {hasAdminCapability(context.role, "messaging.send") ? <section className="form-panel"><h2>Manual reply</h2><p className="muted">The tenant kill switch and Telegram contactability are enforced again by the backend.</p><ManualMessageReply conversationId={conversation.id} /></section> : null}
   </main>;
 }

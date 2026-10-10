@@ -26,7 +26,7 @@ export function normalizeConversationText(text: string): string {
 export function splitResponseSentences(text: string): string[] {
   return text.trim().split(/(?<=[.!?؟。！])\s+/u).filter(Boolean);
 }
-const uncertaintyPattern = /(?:\b(?:don['’]t|do not|can['’]t|cannot|not available|not confirmed|unknown|unsure|needs? (?:review|verification)|need to (?:check|verify|escalate)|haven['’]t|have not)\b|bilgi.*(?:yok|mevcut değil)|bilmiyorum|göremiyorum|elimizde.*yok|doğrulayam|henüz.*(?:yok|değil)|inceleme(?:si)? gerekiyor|kontrol etmek gerekir|netleştir|(?<!\p{L})(?:لا|ليس|ليست|غير)(?!\p{L})|يحتاج.*مراجعة|(?:нет|не имею|не могу|не знаю|не подтвержден|нужно проверить|требует проверки))/iu;
+const uncertaintyPattern = /(?:\b(?:don['’]t|do not|can['’]t|cannot|not available|not confirmed|unknown|unsure|needs? (?:review|verification)|need to (?:check|verify|escalate)|haven['’]t|have not)\b|bilgi.*(?:yok|mevcut değil)|bilmiyorum|göremiyorum|(?:detay|bilgi|fiyat)[^.!?؟]*(?:görünmüyor|görünmemekte)|elimizde.*yok|doğrulayam|henüz.*(?:yok|değil)|inceleme(?:si)? gerekiyor|kontrol etmek gerekir|netleştir|(?<!\p{L})(?:لا|ليس|ليست|غير)(?!\p{L})|يحتاج.*مراجعة|(?:нет|не имею|не могу|не знаю|не подтвержден|нужно проверить|требует проверки))/iu;
 // An honest qualifier does not ground an affirmative product clause in the same
 // sentence. These conservative predicates supplement claim typing, not replace it.
 const unverifiedProductAssertion = /(?:\b(?:membership|subscription|plan|access)\s+(?:is|are|provides|includes|costs|renews|gives|grants)\b|\byou\s+(?:get|receive|gain|will get)\s+(?:access|signals|benefits|profits|returns)|(?:üyelik|abonelik|seçenek|plan)[^.!?؟]*(?:sağlar|içerir|yenilenir|ayrı bir plandır)|(?:العضوية\s+هي|الاشتراك\s+هو|اشتراك\s+يوفّر|العضوية\s+(?:تشمل|توفر))|(?:подписка|тариф)\s+(?:это|даёт|дает|включает|предоставляет|стоит))/iu;
@@ -84,7 +84,13 @@ export function reviewClaimGrounding(input: {
         : validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language,
           capability: claim.capability, availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"],
           guaranteedCommitments: input.guaranteedCommitments ?? [] }));
-    if (["fact", "completed_action"].includes(claim.kind)) {
+    const exactIdentity = speechAct === "IDENTITY_RESPONSE" && [
+      "i m an ai assistant not a human", "i am an ai assistant not a human", "i m an ai assistant", "i am an ai assistant",
+      "ben bir yapay zeka asistanıyım insan değilim", "ben bir yapay zeka asistanıyım",
+      "أنا مساعد ذكاء اصطناعي ولست إنسانا", "я ии помощник а не человек",
+    ].includes(normalizeConversationText(claim.text)) && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding);
+    if (exactIdentity) { valid = true; score = 100; }
+    else if (["fact", "completed_action"].includes(claim.kind)) {
       if (["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL"].includes(claim.grounding)) {
         valid = evidence.some((item) => claim.evidence_refs.includes(item.id)
           && normalizeConversationText(item.statement) === normalizeConversationText(claim.text)
