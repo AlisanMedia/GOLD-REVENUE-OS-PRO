@@ -1,28 +1,28 @@
 # Phase 7 — Conversation Quality validation report
 
-Status: **OPEN — implementation and controlled staging validated; fresh live quality review pending.**
+Status: **OPEN — three fresh automatic Telegram replies delivered; Arabic false block correction and remaining live acceptance pending.**
 Evidence checked: 2026-10-10. Phase 8 has not started. This is not owner approval or a claim of phase closure.
 
 ## Validated implementation
 
-Validated code: `7c3587773b2394ac948da1cdca1258941bba540a`, merged automatic-reply PR [#35](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/35), including corrective PR [#33](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/33).
+Validated code: `f390962dc7be8e02abdff9f5032a01891ec646ac`, merged greeting correction PR [#36](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/36), including automatic-reply PR [#35](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/35) and corrective PR [#33](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/33).
 
 The implementation includes style profiles, director, renderer, QA, shadow generation and human approve/edit/reject review. Corrective work adds precise speech acts, opaque message evidence handles, independent database evidence resolution, bounded memory provenance, semantic intent/constraint checks and separate factual-grounding dimensions. Existing numeric QA thresholds and the maximum one-rewrite budget remain unchanged. Deterministic semantic checks are limited safeguards; multilingual manual review remains required.
 
 | Gate | Evidence | Result |
 | --- | --- | --- |
-| Application CI | [main CI 38036813794](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38036813794) | PASS: lint, typecheck, 269 unit / 42 integration tests, build, audit and production bundle smoke test |
+| Application CI | [main CI 38038393597](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38038393597) | PASS: lint, typecheck, 278 unit / 42 integration tests, build, audit and production bundle smoke test |
 | Database CI | Same main CI | PASS: migration rebuild/history/lint, pgTAP, tenant isolation, transition concurrency and authentication smoke test |
-| Controlled deployment | [staging 38036986231](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38036986231) | PASS: Supabase migrations/auth, Vercel prebuilt deployment, worker and quality runtime validation |
-| Active quality versions | Staging database query | prompt v5, director v3, renderer v5, QA v5, context v3, evaluation set `phase7-balanced-v6` |
+| Controlled deployment | [staging 38038561420](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38038561420) | PASS: Supabase migrations/auth, Vercel prebuilt deployment, worker and quality runtime validation |
+| Active quality versions | Staging database query | prompt v5, director v3, renderer v5, QA v6, context v3, evaluation set `phase7-balanced-v7` |
 | Real outbound transport | Authorized owner test conversation, 2026-10-09 06:08:53 UTC | PASS: `Hi! How can I help?`, message status `sent`, Telegram provider message ID `54` |
-| Fresh quality evaluations on active versions | Staging database query after deployment | **0 — pending** |
+| Fresh quality evaluations on active versions | Four real Telegram source messages | 3 approve/delivered, 1 Arabic false block; not complete acceptance |
 | Automatic reply configuration | Authenticated admin action and database/audit verification, 2026-10-10 08:13:37 UTC | PASS: owner test conversation AI_ACTIVE, automatic replies enabled, human takeover off; no other conversation enabled |
-| Fresh automatic Telegram delivery | New owner message after enable timestamp required | **PENDING — configuration is not end-to-end send evidence** |
+| Fresh automatic Telegram delivery | Provider message pairs 62→63, 64→65, 66→67 | PASS: SYSTEM automatic delivery, not manual human approval |
 
 The successful controlled deployment is the deployment evidence for this SHA. Previously observed automatic Vercel Git builds failed with module-resolution errors; they are not represented as successful releases.
 
-Exact deployment: `dpl_Hhg65AZDbdFNzxH2czJBhWHoDScz`, READY, CLI/prebuilt, isolated staging project's production target (for cron), canonical alias `https://gold-revenue-os-staging.vercel.app`, exact commit `7c3587773b2394ac948da1cdca1258941bba540a`. It is not a customer production release. Supabase project: `xqvwkghpmezcpgugetqc`. Runtime error scan on this deployment through 2026-10-10 08:13:25 UTC returned no error logs; that short window is not a durable monitoring guarantee.
+Exact deployment: `dpl_73wgBVexmUz7AeHnPAAPYFPc7D9W`, READY, CLI/prebuilt, isolated staging project's production target (for cron), canonical alias `https://gold-revenue-os-staging.vercel.app`, exact commit `f390962dc7be8e02abdff9f5032a01891ec646ac`. It is not a customer production release. Supabase project: `xqvwkghpmezcpgugetqc`. The earlier deployment's short error-log scan is not evidence for this new deployment or a durable monitoring guarantee.
 
 ## Current operating state and evidence limits
 
@@ -37,6 +37,25 @@ Exact deployment: `dpl_Hhg65AZDbdFNzxH2czJBhWHoDScz`, READY, CLI/prebuilt, isola
 - Supabase security advisors flag the intentionally authenticated SECURITY DEFINER admin RPCs, including the new setting RPC. Its body checks actual manager/super-admin tenant roles; anonymous EXECUTE is denied. All three automatic queue/claim RPCs deny anon/authenticated EXECUTE and allow service_role only; fixed search paths were independently checked. Existing service-only heartbeat RLS has no browser policy (deny-by-default). A separate existing warning remains for [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); it was not silently changed in this conversation-delivery task.
 
 ## Remaining live acceptance work
+
+### Real automatic delivery and Arabic regression on QA v6
+
+All messages below were sent through the signed-in owner's Telegram Web session to the verified `@gold_revenue_os_staging_bot`. They were not inserted as fake inbound records. Generated safe replies were automatically SYSTEM-approved and sent; `reviewed_by` is null and outbound actor is `quality-approved-reply`.
+
+| Source / provider pair | Run | Actual generated answer | Result |
+| --- | --- | --- | --- |
+| Hi / 62→63 | `3414c85c-d388-4bfe-9099-243ca5f79203` | `Hi. How can I help?` | approve, no rewrite, sent; received 08:40:53.506792Z, sent 08:41:02.208500Z (8.70s) |
+| EN preference / 64→65 | `0084d663-0242-4722-be23-30eea84e4085` | `Understood — I’ll reply in English and keep it emoji-free.` | approve, no rewrite, sent; no durable-memory-write claim |
+| TR pricing/content / 66→67 | `9354f0dc-672a-4e67-bdb2-0efe31c764f0` | `Üyeliğin fiyat ve içerik detaylarını şu an net olarak göremiyorum. Hangi üyelik türünü kastediyorsunuz?` | approve, no rewrite, sent; no invented price or benefit |
+| AR pricing/content / 68→none | `3ca7478a-df14-43d7-b7e6-3c79cad38d91` | `لا تتوفر لدي تفاصيل الاشتراك الدقيقة حاليًا. أي نوع عضوية تقصد؟` | false block: SEMANTIC_CONTEXT_FIT_LOW, REWRITE_BUDGET_EXHAUSTED; unsent |
+
+Original and rendered text were identical for these cases. Evidence-handle resolution was authoritative and successful. EN preference proposals refer to actual inbound `27fcf8d2-61ba-4c23-b405-14741882e1d6`; they are proposals, not a claim of an accepted customer memory write. Other cases proposed no memory. The AR original and single rewrite were both reviewed: identical honest unavailable-subscription-details wording, no fabricated facts, no tools and no escalation. The pricing-topic keyword check falsely rejected it because it omitted an explicit price word. PR #37 adds narrow Arabic unavailable-membership-details topic credit only when the current source explicitly concerns membership. Independent grounding and delivery gates remain unchanged. QA v7 / evaluation set v8 correction has 283 unit /42 integration tests, lint, typecheck and build passing locally; publication and fresh acceptance still pending. Old failures remain immutable.
+
+### Fresh owner greeting: actual false block on 2026-10-10
+
+Inbound Telegram `Hi`, provider message `61`, was received at `2026-10-10T08:24:04.302864Z`. Its immediate worker run `6067be8e-2779-4fd5-863a-10947019e791` started at `08:24:06.759895Z` and generated `Hi. What can I help with?`. QA v5 blocked proposal `44d26992-5132-452c-b013-acb05a08e4e1` with `NATURALNESS_REPEATED_OPENING,REWRITE_BUDGET_EXHAUSTED`. No outbound was sent. This confirms ingestion and immediate AI generation, but is a failed automatic-delivery acceptance case, not a connection failure or a pass.
+
+Corrective PR #36 adds a narrow conventional-greeting exception requiring the current inbound to be an exact greeting and the whole reply to contain only a greeting plus an optional allowlisted help question. Appended business claims, duplicate greeting sentences, and greetings to a non-greeting current turn are not exempt. QA v6 / evaluation set `phase7-balanced-v7` identifies the change. Local 278 unit / 42 integration tests, lint, typecheck and build passed; PR CI `38038178172` passed Application and Database. The PR merged as `f390962dc7be8e02abdff9f5032a01891ec646ac`. Main CI, controlled staging publication and fresh Telegram acceptance must be recorded separately after completion. The original blocked run remains unchanged.
 
 ### Owner's six real Telegram messages on 2026-10-09
 
@@ -61,7 +80,7 @@ ADR 005 documents owner-authorized, default-off, conversation-scoped automatic Q
 
 The first PR database run caught a legacy manual-task recovery regression. Generic per-conversation serialization was restricted to automatically enabled conversations, preserving existing manual-mode task recovery; the corrected PR and main checks passed.
 
-Controlled staging deployment passed as recorded above. Fresh automatic Telegram delivery is still a separate pending acceptance gate. Do not infer success from CI, deployment readiness or the enabled UI alone.
+Controlled staging deployment passed as recorded above. Three fresh automatic replies are now separately proven by Telegram provider IDs, SYSTEM approval and send records. Full live acceptance remains open because the Arabic case falsely blocked and the remaining unsafe/other-language tests have not completed.
 
 Send the following as separate new messages to `@gold_revenue_os_staging_bot` from the authorized owner chat. Current source-message language should control each answer. These are test prompts, not real payment/access requests.
 
