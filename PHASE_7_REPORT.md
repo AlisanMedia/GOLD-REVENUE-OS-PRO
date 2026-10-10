@@ -1,28 +1,28 @@
 # Phase 7 — Conversation Quality validation report
 
-Status: **OPEN — three fresh automatic Telegram replies delivered; Arabic false block correction and remaining live acceptance pending.**
+Status: **OPEN — five fresh automatic Telegram replies delivered; latest identity output passed QA but failed completion because it proposed a non-executable speech capability as a tool. PR #39 correction and remaining live acceptance pending.**
 Evidence checked: 2026-10-10. Phase 8 has not started. This is not owner approval or a claim of phase closure.
 
 ## Validated implementation
 
-Validated code: `f390962dc7be8e02abdff9f5032a01891ec646ac`, merged greeting correction PR [#36](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/36), including automatic-reply PR [#35](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/35) and corrective PR [#33](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/33).
+Validated code: `ea2176155b89fc51037fb0313e79dc1ae7916d86`, merged Arabic correction PR [#37](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/37), including greeting correction PR [#36](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/36), automatic-reply PR [#35](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/35) and corrective PR [#33](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/33).
 
 The implementation includes style profiles, director, renderer, QA, shadow generation and human approve/edit/reject review. Corrective work adds precise speech acts, opaque message evidence handles, independent database evidence resolution, bounded memory provenance, semantic intent/constraint checks and separate factual-grounding dimensions. Existing numeric QA thresholds and the maximum one-rewrite budget remain unchanged. Deterministic semantic checks are limited safeguards; multilingual manual review remains required.
 
 | Gate | Evidence | Result |
 | --- | --- | --- |
-| Application CI | [main CI 38038393597](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38038393597) | PASS: lint, typecheck, 278 unit / 42 integration tests, build, audit and production bundle smoke test |
+| Application CI | [main CI 38039779420](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38039779420) | PASS: lint, typecheck, 291 unit / 42 integration tests, build, audit and production bundle smoke test |
 | Database CI | Same main CI | PASS: migration rebuild/history/lint, pgTAP, tenant isolation, transition concurrency and authentication smoke test |
-| Controlled deployment | [staging 38038561420](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38038561420) | PASS: Supabase migrations/auth, Vercel prebuilt deployment, worker and quality runtime validation |
-| Active quality versions | Staging database query | prompt v5, director v3, renderer v5, QA v6, context v3, evaluation set `phase7-balanced-v7` |
+| Controlled deployment | [staging 38039967099](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38039967099) | PASS: Supabase migrations/auth, Vercel prebuilt deployment, worker and quality runtime validation |
+| Active quality versions | Staging database query | prompt v5, director v4, renderer v5, QA v8, context v3, evaluation set `phase7-balanced-v9` |
 | Real outbound transport | Authorized owner test conversation, 2026-10-09 06:08:53 UTC | PASS: `Hi! How can I help?`, message status `sent`, Telegram provider message ID `54` |
-| Fresh quality evaluations on active versions | Four real Telegram source messages | 3 approve/delivered, 1 Arabic false block; not complete acceptance |
+| Fresh quality evidence on active versions | Identity source provider 74 / QA v8 | Stage QA approve, completion failed, no delivery; not acceptance |
 | Automatic reply configuration | Authenticated admin action and database/audit verification, 2026-10-10 08:13:37 UTC | PASS: owner test conversation AI_ACTIVE, automatic replies enabled, human takeover off; no other conversation enabled |
-| Fresh automatic Telegram delivery | Provider message pairs 62→63, 64→65, 66→67 | PASS: SYSTEM automatic delivery, not manual human approval |
+| Fresh automatic Telegram delivery | Provider message pairs 62→63, 64→65, 66→67 (QA v6), 69→70, 71→72 (QA v7) | PASS: SYSTEM automatic delivery, not manual human approval |
 
 The successful controlled deployment is the deployment evidence for this SHA. Previously observed automatic Vercel Git builds failed with module-resolution errors; they are not represented as successful releases.
 
-Exact deployment: `dpl_73wgBVexmUz7AeHnPAAPYFPc7D9W`, READY, CLI/prebuilt, isolated staging project's production target (for cron), canonical alias `https://gold-revenue-os-staging.vercel.app`, exact commit `f390962dc7be8e02abdff9f5032a01891ec646ac`. It is not a customer production release. Supabase project: `xqvwkghpmezcpgugetqc`. The earlier deployment's short error-log scan is not evidence for this new deployment or a durable monitoring guarantee.
+Exact deployment: `dpl_71kJW1hogdSbaJEqQufYPDniRyVF`, READY, CLI/prebuilt, isolated staging project's production target (for cron), canonical alias `https://gold-revenue-os-staging.vercel.app`, exact commit `ea2176155b89fc51037fb0313e79dc1ae7916d86`. It is not a customer production release. Supabase project: `xqvwkghpmezcpgugetqc`. The earlier deployment's short error-log scan is not evidence for this new deployment or a durable monitoring guarantee.
 
 ## Current operating state and evidence limits
 
@@ -37,6 +37,24 @@ Exact deployment: `dpl_73wgBVexmUz7AeHnPAAPYFPc7D9W`, READY, CLI/prebuilt, isola
 - Supabase security advisors flag the intentionally authenticated SECURITY DEFINER admin RPCs, including the new setting RPC. Its body checks actual manager/super-admin tenant roles; anonymous EXECUTE is denied. All three automatic queue/claim RPCs deny anon/authenticated EXECUTE and allow service_role only; fixed search paths were independently checked. Existing service-only heartbeat RLS has no browser policy (deny-by-default). A separate existing warning remains for [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); it was not silently changed in this conversation-delivery task.
 
 ## Remaining live acceptance work
+
+### Latest identity retry: internal completion failure, not a quality pass/delivery
+
+PR #38 merged as `e4bf8f66b3bdaa0f139ec2860950f856517da0ce`. Main CI `38039779420` and controlled staging `38039967099` passed; deployment `dpl_H6ULkvwHzeTaLfzai7tYtfNXR9un` is READY on that exact SHA, prompt v5 / director v4 / QA v8 / evaluation set v9. Outbound was restored after publication; the original automatic-enable timestamp was preserved.
+
+Fresh identity source `850c8376-0629-4eb3-bc89-94d2c4c839d1` / Telegram provider 74 received at 09:05:19.020716Z created event `7783903f-9fd5-46db-961f-1d452bf557e9`, task `894e8b19-6221-4eb3-aeae-3d7714bcd47c`, run `4039dfdf-3c53-4649-86b8-200985506f71`. OpenAI generation succeeded (1446ms). Stage evidence contains `I’m an AI assistant, not a human.`, grounded exact identity, QA approve, no rewrite or memory proposals. However the model also proposed `conversation.reply` as an executable tool. The current agent allowed-tools list does not contain this speech capability, and `complete_quality_agent_run` correctly rejects unregistered/disallowed proposals. No proposal or outbound message was created; run FAILED with generic `AGENT_RUNTIME_UNEXPECTED`. The generic failure category misattributes an internal completion rejection to the model provider; that label is not evidence of an OpenAI outage. The scoped error/warning log query returned no entries, not proof of no error.
+
+PR #39 narrows the provider contract: strict JSON `proposed_tool_calls.maxItems=0`, explicit speech-capability/tool separation, and a non-retryable typed `PHASE7_TOOL_PROPOSAL_NOT_ALLOWED` rejection before completion if violated. No tool registry, permissions, QA thresholds, approval or delivery guards are relaxed. Prompt v6 configuration rotation uses CLI-generated migration `20261010091141_phase7_non_executable_capability_contract.sql`. Local lint/typecheck, 291 unit / 45 integration tests and build passed; the initial ENOTEMPTY build-cache error was resolved by recoverably moving the prior generated cache. Publication and a fresh real Telegram identity test must be verified separately. Historical failed runs are unchanged.
+
+### QA v7 Arabic/Russian delivery and identity director regression
+
+AR retry source `02473d37-8d97-4f99-94ae-ebf814f9fe40` / provider 69 produced `لا تتوفر لدي الآن تفاصيل دقيقة عن سعر الاشتراك أو ما يشمله.` in run `b7db8539-25a5-4120-bc35-82b93435e0e5`, approved without rewrite and sent as provider 70 at 08:53:44.956392Z. The new generated wording explicitly contains a price keyword; this fresh pass does not prove the new narrow unavailable-details exception was exercised by the model. The exact old blocked wording passes its regression fixture and remains immutable as historical failure.
+
+RU source `c700cb16-f2d3-4a96-b6df-1825a78e453d` / provider 71 produced `Сейчас у меня нет точных данных о цене подписки и о том, что в неё входит.` in run `8a42054a-7a7b-4a75-bcf0-79ec42fd4dc6`, approved without rewrite and sent as provider 72 at 08:54:05.543672Z. Both answers are natural knowledge limitations; no price or benefit was invented.
+
+Identity source `29d1757a-01b4-4fca-ba03-35bee2a730da` / provider 73, run `0dfcf4ce-b924-466f-af42-67b81704902a`, was falsely directed to `human_request` / `should_escalate=true` because the identity question contained the word human. Actual output: `I’m an AI, not a human. If you want, I can prepare this for human review.` Final QA block: UNSUPPORTED_CLAIM, POLICY_RISK, ESCALATION_REQUIRED, FACTUAL_CONFIDENCE_LOW. The optional capability offer was independently validated; the short truthful identity first sentence missed the exact allowlist. No outbound was sent.
+
+PR #38 scopes standalone multilingual identity questions separately from genuine operator requests, preserves mixed payment/access/handoff escalation, and adds complete short truthful AI identity statements to the exact allowlist without permitting appended business assertions. Proposed versions: director v4 / QA v8 / evaluation set v9. Local 291 unit /42 integration tests, lint, typecheck and build pass. Publication and new live acceptance remain pending; no old failed evidence is rewritten.
 
 ### Real automatic delivery and Arabic regression on QA v6
 
