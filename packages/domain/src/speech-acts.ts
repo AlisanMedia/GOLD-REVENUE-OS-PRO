@@ -13,7 +13,7 @@ const operational = /(?:check|verify|confirm|activate|save|send|forward|update).
 export function isConversationalClarificationOffer(text: string): boolean {
   return [
     /^I can help clarify what the membership includes, how it works, and any general questions you have[.!]?$/iu,
-    /^I can help(?: you)? clarify the price, what['’]s included, and the cancellation terms[.!]?$/iu,
+    /^I can help(?: you)? clarify the (?:monthly )?price, what['’]s included, and (?:the )?cancellation terms[.!]?$/iu,
   ].some((pattern) => pattern.test(text.normalize("NFKC").trim()));
 }
 export function isRepresentativePurpose(text: string): boolean {
