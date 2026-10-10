@@ -34,7 +34,7 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v5", director: "conversation-director-v4",
+  prompt: "conversation-quality-prompt-v6", director: "conversation-director-v4",
   renderer: "natural-renderer-v5", qa: "conversation-qa-v8", context: 3,
   outputSchema: 4, evaluationSet: "phase7-balanced-v9",
 } as const;
@@ -68,6 +68,7 @@ describe("OpenAI Responses provider adapter", () => {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
       expect(body.store).toBe(false);
       expect(body.text).toMatchObject({ format: { type: "json_schema", strict: true } });
+      expect(body.text).toMatchObject({ format: { schema: { properties: { proposed_tool_calls: { maxItems: 0 } } } } });
       expect(JSON.stringify(body.input)).toContain("style_profile.language");
       const input = body.input as Array<{ role: string; content: Array<{ text: string }> }>;
       const userInput = JSON.parse(input.find((item) => item.role === "user")!.content[0].text) as { source_message: unknown };
@@ -87,6 +88,12 @@ describe("OpenAI Responses provider adapter", () => {
       usage: { inputTokens: 10, outputTokens: 7, totalTokens: 17 },
       output: { proposed_response: validOutput.proposed_response },
     });
+  });
+
+  it.each(["conversation.reply", "message.create_draft", "payment.confirm"])("rejects executable proposal %s before completion, without retry", async (name) => {
+    const output = { ...validOutput, proposed_tool_calls: [{ name, version: 1, arguments: {} }] };
+    const provider = new OpenAIResponsesProvider("test-key", "test-model", async () => new Response(JSON.stringify({ output_text: JSON.stringify(output) }), { status: 200 }));
+    await expect(provider.invoke(request())).rejects.toMatchObject({ kind: "INVALID_OUTPUT", retryable: false, code: "PHASE7_TOOL_PROPOSAL_NOT_ALLOWED" });
   });
 
   it("maps retryable rate limits and honors Retry-After", async () => {
