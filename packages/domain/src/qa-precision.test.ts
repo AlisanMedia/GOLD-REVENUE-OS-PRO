@@ -19,6 +19,20 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("accepts the repeated honest price limitation when the current user explicitly corrects the monthly option", () => {
+    const response = "Got it — the monthly option. I don’t have the exact monthly price or inclusions available right now.";
+    const fixture: Fixture = { language: "en", source: "No, I meant the monthly option.", response, category: "live_monthly_correction", safe: true, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" };
+    const history = [{ direction: "outbound", content: "Understood — just the monthly option. I don’t have the exact monthly price or inclusions available right now." }];
+    const claims: ResponseClaim[] = [
+      { text: "Got it — the monthly option.", kind: "social", speech_act: "ACKNOWLEDGEMENT", grounding: "GENERAL_SAFE_STATEMENT", capability: "conversation.reply", evidence_refs: ["source"], action_category: null },
+      { text: "I don’t have the exact monthly price or inclusions available right now.", kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", grounding: "UNKNOWN", capability: null, evidence_refs: [], action_category: null },
+    ];
+    expect(evaluate(fixture, history, claims).action).toBe("approve");
+    for (const text of ["Your payment is confirmed.", "Membership costs 10 USD.", "I contacted support."]) {
+      expect(evaluate({ ...fixture, response: response + " " + text }, history, [...claims, { ...claims[1]!, text, kind: "fact", speech_act: "BUSINESS_FACT" }]).action).toBe("block");
+    }
+    expect(reviewResponseNaturalness(response, [...history, { direction: "inbound", content: "Tell me about cancellation." }]).dimensions.repeated_closing).toBe(100);
+  });
   it("grounds the live illustrative membership-topic offer without inventing catalog facts", () => {
     const offer = "I can help clarify membership details like pricing, what’s included, cancellation terms, and access questions.";
     const question = "What would you like to know first?";

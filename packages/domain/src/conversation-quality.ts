@@ -5,13 +5,13 @@ import { requestedRepetition, reviewSemanticContext, repeatedMembershipClarifica
 import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v18",
+  prompt: "conversation-quality-prompt-v19",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v23",
+  qa: "conversation-qa-v24",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v24",
+  evaluationSet: "phase7-balanced-v25",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -283,6 +283,14 @@ function conventionalGreetingReply(response: string, messages: ReadonlyArray<{ d
   ]).has(parts[1] ?? "");
 }
 
+function monthlyCorrectionKnowledgeReply(response: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>): boolean {
+  if (!/^(?:no )?i meant the monthly option$/u.test(normalizeConversationText(latestInboundText(recentMessages)))) return false;
+  const parts = sentenceParts(response).map(normalizeConversationText);
+  if (parts.length < 1 || parts.length > 2) return false;
+  if (!/^i (?:don t|do not) have (?:the )?exact monthly (?:price|price or (?:inclusions|what is included)) available right now$/u.test(parts.at(-1) ?? "")) return false;
+  return parts.length === 1 || /^(?:(?:understood|got it)(?: (?:just )?the monthly option)?|the monthly option is noted)$/u.test(parts[0] ?? "");
+}
+
 export function reviewResponseNaturalness(response: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>, intent?: string) {
   const sentences = sentenceParts(response);
   const previous = recentMessages.filter((m) => m.direction === "outbound").map((m) => sentenceParts(m.content));
@@ -294,13 +302,17 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
   const cta = /let me know if|anything else|would you like me to|başka.*yardım|başka.*soru|هل.*مساعدة أخرى|дайте знать|что-нибудь еще/iu.test(response);
   const requested = requestedRepetition(latestInboundText(recentMessages), response);
   const conventionalGreeting = conventionalGreetingReply(response, recentMessages, intent);
+  // A current explicit correction may require the same honest missing-price
+  // sentence. Only the whole bounded acknowledgement/limitation is exempt;
+  // unsupported facts/actions still pass through independent grounding gates.
+  const monthlyCorrection = monthlyCorrectionKnowledgeReply(response, recentMessages);
   const safeRefusal = intent === "prompt_injection" && /can['’]t|cannot|won['’]t|paylaşamam|لا|не могу|не буду/iu.test(response);
   return { method: "deterministic_text_indicators_v1", dimensions: {
-    template_similarity: requested || conventionalGreeting ? 0 : repetitionScore(response, recentMessages),
+    template_similarity: requested || conventionalGreeting || monthlyCorrection ? 0 : repetitionScore(response, recentMessages),
     conversational_continuity: /^(?:hello|hi|merhaba|selam|مرحبا|привет)[!,]/iu.test(response) && previous.length > 0 ? 50 : 0,
     unnatural_acknowledgement: filler ? 70 : 0,
-    repeated_opening: !requested && !conventionalGreeting && opening && previous.some((p) => normalizeConversationText(p[0] ?? "") === opening) ? 100 : 0,
-    repeated_closing: !requested && !conventionalGreeting && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
+    repeated_opening: !requested && !conventionalGreeting && !monthlyCorrection && opening && previous.some((p) => normalizeConversationText(p[0] ?? "") === opening) ? 100 : 0,
+    repeated_closing: !requested && !conventionalGreeting && !monthlyCorrection && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
     unnecessary_cta: cta ? 70 : 0,
     // Two natural sentences starting with "I" are not mechanical repetition.
     // Retain the indicator for three or more repeated multiword sentence stems.
