@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isProspectiveReviewNoteOffer, type ConversationCapability } from "./speech-acts";
+import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isProspectiveReviewNoteOffer, isBoundedTurkishKnowledgeLimitation, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
 export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated", "memory_written", "account_updated", "payment_checked"] as const;
@@ -114,7 +114,7 @@ export function reviewClaimGrounding(input: {
     ].includes(normalizeConversationText(claim.text)) && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding);
     const exactClarificationOffer = ["CAPABILITY_OFFER", "PROSPECTIVE_ACTION"].includes(speechAct)
       && isConversationalClarificationOffer(claim.text)
-      && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding)
+      && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT", "UNKNOWN"].includes(claim.grounding)
       && validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language, capability: claim.capability,
         availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: input.guaranteedCommitments ?? [] });
     const nextClaim = input.claims[index + 1];
@@ -125,7 +125,15 @@ export function reviewClaimGrounding(input: {
       && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding)
       && validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language, capability: claim.capability,
         availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: input.guaranteedCommitments ?? [] });
-    if (exactIdentity || exactClarificationOffer || exactReviewDraft) { valid = true; score = 100; }
+    // Whole knowledge-gap grammar expresses no price/product value. A model
+    // metadata error cannot make it a backend assertion. Keep every reference,
+    // action, receipt, disclosure and unsupported-grounding check below intact.
+    const exactKnowledgeGap = isBoundedTurkishKnowledgeLimitation(claim.text)
+      && ["fact", "uncertainty", "social"].includes(claim.kind)
+      && ["KNOWLEDGE_LIMITATION", "UNKNOWN_ASSERTION"].includes(speechAct)
+      && ["UNKNOWN", "CUSTOMER_REPORTED", "GENERAL_SAFE_STATEMENT", "KNOWN_FROM_SYSTEM"].includes(claim.grounding)
+      && claim.capability == null && claim.action_category == null;
+    if (exactIdentity || exactClarificationOffer || exactReviewDraft || exactKnowledgeGap) { valid = true; score = 100; }
     else if (["fact", "completed_action"].includes(claim.kind)) {
       if (["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL"].includes(claim.grounding)) {
         valid = evidence.some((item) => claim.evidence_refs.includes(item.id)
@@ -134,9 +142,19 @@ export function reviewClaimGrounding(input: {
         score = valid ? 100 : 0;
       } else if (claim.grounding === "CUSTOMER_REPORTED") {
         // Explicit attribution is required; customer-reported payment is never backend confirmation.
-        valid = (/(?:you (?:said|reported|mentioned|mean)|you['’]re (?:reporting|asking (?:about|for))|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
+        valid = (/(?:you (?:said|reported|mentioned|mean)|you(?:['’]re| are) (?:reporting|asking (?:about|for))|söyledi|belirtti|bildirdi|ذكرت|أفدت|сообщили|сказали)/iu.test(claim.text)
           || reportedMembershipInformationRequest(claim, input.messages))
           && claim.evidence_refs.length > 0 && claim.evidence_refs.every((id) => input.messages.some((m) => m.id === id && m.direction === "inbound"));
+        // An attribution prefix cannot launder an appended catalog value.
+        // Product/value reports need the exact declarative statement in a cited
+        // inbound sentence; a customer question or an unrelated ref is no proof.
+        if (valid && (unverifiedProductAssertion.test(claim.text)
+          || /(?:[$€₽]\s*\p{N}|\p{N}\s*(?:usd|eur|tl|руб|دولار))/iu.test(claim.text))) {
+          const reported = /^you (?:said|reported|mentioned) (.+)$/u.exec(normalizeConversationText(claim.text))?.[1];
+          valid = Boolean(reported && input.messages.some(m => m.direction === "inbound" && m.id !== undefined
+            && claim.evidence_refs.includes(m.id) && splitResponseSentences(m.content).some(sentence =>
+              !/[?؟]\s*$/u.test(sentence) && normalizeConversationText(sentence) === reported)));
+        }
         score = valid ? 70 : 0;
       } else if (claim.grounding === "INFERRED") {
         valid = /(?:may|might|appears|seems|olabilir|görün|ربما|يبدو|возможно|похоже)/iu.test(claim.text)
