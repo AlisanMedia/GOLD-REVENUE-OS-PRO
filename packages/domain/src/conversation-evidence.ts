@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, type ConversationCapability } from "./speech-acts";
+import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isProspectiveReviewNoteOffer, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
 export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated", "memory_written", "account_updated", "payment_checked"] as const;
@@ -72,7 +72,7 @@ export function reviewClaimGrounding(input: {
       item.category === category && claim.evidence_refs.includes(item.id)
       && normalizeConversationText(item.statement) === normalizeConversationText(claim.text))));
   if (actionFailures.length) reasons.push("ACTION_RECEIPT_REQUIRED");
-  const claims = input.claims.map((claim) => {
+  const claims = input.claims.map((claim, index) => {
     const speechAct = claim.speech_act ?? inferredSpeechAct(claim);
     let score = 0;
     let valid = false;
@@ -86,7 +86,8 @@ export function reviewClaimGrounding(input: {
         : validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language,
           capability: claim.capability, availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"],
           guaranteedCommitments: input.guaranteedCommitments ?? [] }));
-    const exactIdentity = speechAct === "IDENTITY_RESPONSE" && [
+    const identityDeclaration = /\b(?:i['’]m|i am) (?:an? )?(?:ai|automated|human|real human|person)\b|ben (?:bir )?yapay zeka|ai destekli bir asistanım|أنا مساعد ذكاء اصطناعي|я ии помощник/iu.test(claim.text);
+    const exactIdentity = (speechAct === "IDENTITY_RESPONSE" || identityDeclaration) && [
       "i m an ai assistant not a human", "i am an ai assistant not a human", "i m an ai assistant", "i am an ai assistant",
       "i m an ai assistant not a real human", "i am an ai assistant not a real human",
       "i m an ai not a real human", "i am an ai not a real human",
@@ -102,7 +103,15 @@ export function reviewClaimGrounding(input: {
       && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding)
       && validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language, capability: claim.capability,
         availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: input.guaranteedCommitments ?? [] });
-    if (exactIdentity || exactClarificationOffer) { valid = true; score = 100; }
+    const nextClaim = input.claims[index + 1];
+    const presentedQuestion = isDraftedReviewIntroduction(claim.text) && Boolean(nextClaim && nextClaim.kind === "question"
+      && (nextClaim.speech_act == null || nextClaim.speech_act === "QUESTION") && /[?؟]\s*$/u.test(nextClaim.text));
+    const exactReviewDraft = ["CAPABILITY_OFFER", "PROSPECTIVE_ACTION"].includes(speechAct)
+      && (presentedQuestion || isProspectiveReviewNoteOffer(claim.text))
+      && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding)
+      && validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language, capability: claim.capability,
+        availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: input.guaranteedCommitments ?? [] });
+    if (exactIdentity || exactClarificationOffer || exactReviewDraft) { valid = true; score = 100; }
     else if (["fact", "completed_action"].includes(claim.kind)) {
       if (["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL"].includes(claim.grounding)) {
         valid = evidence.some((item) => claim.evidence_refs.includes(item.id)
@@ -123,7 +132,16 @@ export function reviewClaimGrounding(input: {
     if (claim.kind !== "completed_action" && detectedCompletedActions(claim.text).length) valid = false;
     // Identity truth cannot depend on an untrusted kind label. The same whole
     // truthful-policy boundary applies to social and factual identity claims.
-    if (speechAct === "IDENTITY_RESPONSE" && !exactIdentity) valid = false;
+    if ((speechAct === "IDENTITY_RESPONSE" || identityDeclaration) && !exactIdentity) valid = false;
+    // Untrusted speech-act labels cannot turn biography or trading guarantees
+    // into social acknowledgements. These are unsupported business assertions.
+    if (/\bI (?:personally trade|have (?:twenty|\d+) years of trading experience)\b|yirmi yıldır altın ticareti yapıyorum/iu.test(claim.text)
+      || /\b(?:membership|subscription|plan|trading)\s+guarantees? (?:daily )?(?:profits?|returns?)\b/iu.test(claim.text)) valid = false;
+    if (isDraftedReviewIntroduction(claim.text)) {
+      const next = input.claims[index + 1];
+      valid = valid && Boolean(next && next.kind === "question"
+        && (next.speech_act == null || next.speech_act === "QUESTION") && /[?؟]\s*$/u.test(next.text));
+    }
     if (["uncertainty", "social", "question"].includes(claim.kind)
       && ((unverifiedProductAssertion.test(claim.text) && !(valid && ((claim.kind === "social" && isConversationalClarificationOffer(claim.text))
           || (claim.kind === "question" && isMembershipClarificationQuestion(claim.text)))))
