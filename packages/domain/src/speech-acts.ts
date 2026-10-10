@@ -23,10 +23,10 @@ export function isConventionalCompoundGreeting(text: string): boolean {
   // Exact whole-utterance grammar: greeting + conversational help question.
   // No business clause, operational offer, promise or appended sentence is accepted.
   return [
-    /^(?:hi|hello|hey)[,!.-]?\s+(?:how can i help(?: you)?(?: today)?|what can i help(?: you)? with)\?$/iu,
-    /^(?:merhaba|selam)[,!.-]?\s+(?:nasıl|size nasıl|sana nasıl) yardımcı olabilirim\?$/iu,
-    /^(?:مرحبا|مرحباً)[,!،.-]?\s+(?:كيف يمكنني مساعدتك|كيف أساعدك|بماذا يمكنني مساعدتك)[?؟]$/iu,
-    /^(?:привет|здравствуйте)[,!.-]?\s+(?:чем могу помочь|чем я могу вам помочь|как я могу вам помочь)\?$/iu,
+    /^(?:hi|hello|hey)\s*[,!.\u2013\u2014-]?\s+(?:how can i help(?: you)?(?: today)?|what can i help(?: you)? with)\?$/iu,
+    /^(?:merhaba|selam)\s*[,!.\u2013\u2014-]?\s+(?:nasıl|size nasıl|sana nasıl) yardımcı olabilirim\?$/iu,
+    /^(?:مرحبا|مرحباً)\s*[,!،.\u2013\u2014-]?\s+(?:كيف يمكنني مساعدتك|كيف أساعدك|بماذا يمكنني مساعدتك)[?؟]$/iu,
+    /^(?:привет|здравствуйте)\s*[,!.\u2013\u2014-]?\s+(?:чем могу помочь|чем я могу вам помочь|как я могу вам помочь)\?$/iu,
   ].some((pattern) => pattern.test(text.normalize("NFKC").trim()));
 }
 export function inferredSpeechAct(claim: { kind: string; grounding: string; text: string }): SpeechAct {
