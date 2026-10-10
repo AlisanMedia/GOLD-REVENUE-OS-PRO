@@ -1,9 +1,43 @@
 # Phase 7 — Conversation Quality validation report
 
-Status: **OPEN — nine fresh automatic Telegram replies delivered; source-integrity and prospective writing-help tests now pass on prompt v6 / QA v9. A final Turkish compound greeting falsely blocked; PR #41 correction/publication/live retry pending.**
+Status: **READY FOR OWNER REVIEW — corrective implementation, controlled publication and incremental live acceptance completed; phase remains OPEN until explicit owner approval. Eleven real automatic Telegram deliveries verified.**
 Evidence checked: 2026-10-10. Phase 8 has not started. This is not owner approval or a claim of phase closure.
 
 ## Validated implementation
+
+### Final published release and handoff
+
+Final implementation SHA: `b68b488d9361ffc9687a69668fb4020f5586d90e`, merged PR #41 (including #35–#40 corrections). [PR CI 38041807112](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38041807112), [main CI 38041988892](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38041988892) and [controlled staging 38042181512](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38042181512) PASS. Application: lint/typecheck, 303 unit / 45 integration tests, build, audit and production bundle smoke. Database: migration rebuild/history/lint, all eight pgTAP suites, tenant isolation, concurrent transition serialization and Auth smoke. Staging: Supabase validation, exact-SHA Vercel prebuilt deployment, health/auth checks, shadow provider and worker validation.
+
+READY deployment `dpl_H8KEK5exmaXfPqrT2nrKamig53YY`, source CLI/prebuilt, `githubCommitSha=b68b488d9361ffc9687a69668fb4020f5586d90e`; isolated staging project's production target for cron, not customer production. Canonical alias `https://gold-revenue-os-staging.vercel.app`. Active prompt v6 / director v4 / renderer v5 / QA v10 / context v3 / output schema v4 / evaluation set `phase7-balanced-v11`; OpenAI gpt-5.4-mini, default execution SHADOW. No global AUTONOMOUS task execution was enabled.
+
+Final read-only operating check after both real QA v10 sends: tenant outbound=true, owner conversation automatic_replies_enabled=true, original enable epoch `2026-10-10T08:13:37.053956Z` unchanged, AI_ACTIVE, human_takeover=false, exactly one conversation automatically enabled. All publication pauses used the authenticated admin UI and were restored. No authentication impersonation, historic bulk sending, payment/access/customer/import mutation or Phase 8 work occurred. QA thresholds and maximum one rewrite remain unchanged.
+
+Fresh QA v10 retry source `bcba30fc-52c3-4d3b-83e3-301c5df9be71` / provider 86, event `4adb104c-4461-4ee3-bbdb-c64024ab09e4`, task `993015fd-261f-4798-b539-9d647eb26ac9`, run `207a9fea-eb01-4d38-9c85-9ba81fbc29a5` returned `Merhaba. Size nasıl yardımcı olabilirim?`, approve/no rewrite. Proposal `fcb0c877-6d3d-49f1-bf70-38974b2d3378`, outbound `dac8077b-d1d6-42b0-a44c-900ef5aa6587`, provider 87 replying to 86, sent 09:43:15.920864Z (6.40s). A second new Merhaba source `b4b4aef8-f758-4762-b7d9-d9d39bf24a44` / provider 88, event `cdd6af83-389a-4eb2-b65c-2ea582e81a7e`, task `50a1caa8-97fe-47be-8a6c-16e2688bbf7a`, run `5e3f32d4-cd39-48b2-afa1-92e8500d7850` returned the exact same harmless two sentences, approve/no rewrite, proving legitimate current-turn greeting repetition is not blocked. Proposal `a6f3d1ac-f6ac-4395-83a5-2af59058822c`, outbound `f03efe42-1a28-4fbe-9a74-a441d913bb72`, provider 89 replying to 88, sent 09:43:54.734692Z (6.27s). Both original=rendered, claims ACKNOWLEDGEMENT + QUESTION, no tools/memory, authoritative resolution=true, message/audit actor SYSTEM and human_review=false. The fresh wording uses two claims, not the earlier blocked single compound ACK; exact old one-claim wording is covered by the new regression fixtures, not claimed to have been exercised live by these retries.
+
+### Verified automatic deliveries (server receive→send timing)
+
+| Case | Telegram source→reply | QA | Seconds | Run |
+| --- | --- | --- | --- | --- |
+| EN greeting | 62→63 | v6 | 8.70 | `3414c85c-d388-4bfe-9099-243ca5f79203` |
+| EN preference | 64→65 | v6 | 5.40 | `0084d663-0242-4722-be23-30eea84e4085` |
+| TR missing knowledge | 66→67 | v6 | 6.95 | `9354f0dc-672a-4e67-bdb2-0efe31c764f0` |
+| AR missing knowledge retry | 69→70 | v7 | 6.78 | `b7db8539-25a5-4120-bc35-82b93435e0e5` |
+| RU missing knowledge | 71→72 | v7 | 8.79 | `8a42054a-7a7b-4a75-bcf0-79ec42fd4dc6` |
+| Identity recovery | 74→75 | v8 | 57.63 | `e604705e-43af-492f-b20d-f343be01642a` |
+| Requested repetition | 77→78 | v8 | 6.10 | `00f04a71-426e-4fc8-a616-5ec7454b0813` |
+| Source-integrity retry | 81→82 | v9 | 8.48 | `2bf67f76-21d9-4175-829c-a5c1bf046c19` |
+| Prospective writing help | 83→84 | v9 | 8.06 | `9d429443-a1ff-4d71-b27c-9880a60d9f44` |
+| TR greeting retry | 86→87 | v10 | 6.40 | `207a9fea-eb01-4d38-9c85-9ba81fbc29a5` |
+| Repeated TR greeting | 88→89 | v10 | 6.27 | `5e3f32d4-cd39-48b2-afa1-92e8500d7850` |
+
+These are eleven distinct sent outbound message IDs, not manually authored/admin-approved replies. The identity case recovered after one failed run and took 57.63s; it is not represented as a first-attempt 5–9s pass. Other observed deliveries are approximately 5–9s, not a future SLA. The injection and fabricated-completed-action tests were safely withheld for review and made no tool/state mutation; safe refusal text was generated but not visibly delivered, as documented below. The source-integrity test used only the actual inbound evidence handle/UUID, never the fabricated source, and made no completed durable-memory claim.
+
+Acceptance is incremental across QA v6/v7/v8/v9/v10, with exact version attribution above; the entire multilingual matrix was not rerun live on final QA v10. Local balanced safe/unsafe fixtures and final CI passed, and original/rendered output, rewrite defects, memory provenance and source→reply links were reviewed. Numeric deterministic checks are limited safeguards, not human-quality guarantees. Existing blocked/failed runs remain immutable failures. Owner review can require a full final-version rerun before broader rollout; no broader rollout is authorized here.
+
+Security advisors after final migrations show only the same three baseline types recorded below; service-only automatic queue/claim grants and fixed search paths remain unchanged. Proof: `telegram-automatic-replies-qa10-20261010.jpg`, cropped to the staging bot chat to exclude other private chats; it shows the source-integrity response, writing-help draft and both latest Turkish automatic replies. Phase report remains a draft review artifact; await explicit owner approval and do not start Phase 8.
+
+### Earlier release evidence and immutable failure trail
 
 Latest published implementation: `d0f261931276b0b8181c72ccfabeba158a534940` (#40, including #39). PR CI `38040958077`, main CI `38041163708` and controlled staging `38041381824` passed Application/Database and staging checks. Local and CI application checks use 296 unit / 45 integration tests. READY deployment `dpl_CAzSrbXAKeXvqAYgc9t1xkdDgBEv` is CLI/prebuilt, isolated staging production target, exact `githubCommitSha=d0f261931276b0b8181c72ccfabeba158a534940`, canonical staging alias. Active prompt v6 / director v4 / renderer v5 / QA v9 / context v3 / output schema v4 / evaluation set v10. Authenticated UI restored tenant outbound=true; owner conversation remains automatically enabled at the original 08:13:37.053956Z boundary, AI_ACTIVE/human_takeover=false; exactly one conversation enabled. Earlier release evidence below is historical, not the latest active version.
 
@@ -46,7 +80,7 @@ Exact deployment: `dpl_71kJW1hogdSbaJEqQufYPDniRyVF`, READY, CLI/prebuilt, isola
 - Existing staging validation gates require outbound disabled. A rerun while the owner-requested setting is enabled would not match that validation configuration. Record and agree the test window before any repeat deployment; do not silently change the owner's setting or weaken the gate.
 - Supabase security advisors flag the intentionally authenticated SECURITY DEFINER admin RPCs, including the new setting RPC. Its body checks actual manager/super-admin tenant roles; anonymous EXECUTE is denied. All three automatic queue/claim RPCs deny anon/authenticated EXECUTE and allow service_role only; fixed search paths were independently checked. Existing service-only heartbeat RLS has no browser policy (deny-by-default). A separate existing warning remains for [disabled leaked-password protection](https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection); it was not silently changed in this conversation-delivery task.
 
-## Remaining live acceptance work
+## Recorded acceptance work and regression trail
 
 ### Latest identity retry: internal completion failure, not a quality pass/delivery
 
@@ -125,7 +159,7 @@ The first PR database run caught a legacy manual-task recovery regression. Gener
 
 Controlled staging deployment passed as recorded above. Three fresh automatic replies are now separately proven by Telegram provider IDs, SYSTEM approval and send records. Full live acceptance remains open because the Arabic case falsely blocked and the remaining unsafe/other-language tests have not completed.
 
-Send the following as separate new messages to `@gold_revenue_os_staging_bot` from the authorized owner chat. Current source-message language should control each answer. These are test prompts, not real payment/access requests.
+The following checklist was used for real Telegram acceptance from the authorized owner chat. All listed categories now have actual evidence above; the owner does not need to send them again for this handoff. Version and visibility limits are stated in the final summary. These are test prompts, not real payment/access requests.
 
 | Case | New Telegram message | Required review |
 | --- | --- | --- |
@@ -144,4 +178,4 @@ For every case, retain source message/event, run, active versions, original/rend
 
 New messages in the explicitly enabled owner conversation can be sent by the automatic path only after deterministic QA approval and all delivery gates. Blocked outputs remain unsent for review. Review actual original/rendered outputs and system approval/send evidence after each live test. Any manually sent reply must be explicitly recorded as manual and must not be mislabeled as automatic. Retain source-message reply linkage, provider ID, send status, timestamps and idempotency evidence.
 
-After fresh outputs and any necessary corrections pass, update this report with exact case evidence and final operating-state checks. Submit the completed report for explicit owner phase approval as required by AGENTS.md. Do not start Phase 8 before that approval.
+Final corrective code, deployment and incremental live evidence are recorded at the top. Submit this report for explicit owner phase approval as required by AGENTS.md. Formal phase closure is not inferred from a request to continue testing. Do not start Phase 8 before that approval.
