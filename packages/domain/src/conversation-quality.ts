@@ -2,16 +2,16 @@ import { z } from "zod";
 import { normalizeConversationText, splitResponseSentences, responseClaimSchema, reviewClaimGrounding, type BackendEvidence } from "./conversation-evidence";
 import { MULTILINGUAL_REGRESSION } from "./multilingual-regression";
 import { requestedRepetition, reviewSemanticContext, repeatedMembershipClarification, requestsPriceAndInclusions } from "./semantic-quality";
-import { isConventionalCompoundGreeting } from "./speech-acts";
+import { isConventionalCompoundGreeting, isBoundedTurkishKnowledgeLimitation } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v22",
+  prompt: "conversation-quality-prompt-v23",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v27",
+  qa: "conversation-qa-v28",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v28",
+  evaluationSet: "phase7-balanced-v29",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -283,6 +283,11 @@ function conventionalGreetingReply(response: string, messages: ReadonlyArray<{ d
   ]).has(parts[1] ?? "");
 }
 
+function requestedTurkishKnowledgeGap(response: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>): boolean {
+  return isBoundedTurkishKnowledgeLimitation(response)
+    && /fiyatı ve içeriği/iu.test(response)
+    && requestsPriceAndInclusions(latestInboundText(recentMessages));
+}
 function monthlyCorrectionKnowledgeReply(response: string, recentMessages: ReadonlyArray<{ direction: string; content: string }>): boolean {
   if (!/^(?:no )?i meant the monthly option$/u.test(normalizeConversationText(latestInboundText(recentMessages)))) return false;
   const parts = sentenceParts(response).map(normalizeConversationText);
@@ -306,13 +311,17 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
   // sentence. Only the whole bounded acknowledgement/limitation is exempt;
   // unsupported facts/actions still pass through independent grounding gates.
   const monthlyCorrection = monthlyCorrectionKnowledgeReply(response, recentMessages);
+  // A new explicit price-and-inclusions question legitimately needs the same
+  // whole honest answer when knowledge is still unavailable. This only changes
+  // repetition indicators; independent grounding/action/security gates remain.
+  const requestedKnowledgeGap = requestedTurkishKnowledgeGap(response, recentMessages);
   const safeRefusal = intent === "prompt_injection" && /can['’]t|cannot|won['’]t|paylaşamam|لا|не могу|не буду/iu.test(response);
   return { method: "deterministic_text_indicators_v1", dimensions: {
-    template_similarity: requested || conventionalGreeting || monthlyCorrection ? 0 : repetitionScore(response, recentMessages),
+    template_similarity: requested || conventionalGreeting || monthlyCorrection || requestedKnowledgeGap ? 0 : repetitionScore(response, recentMessages),
     conversational_continuity: /^(?:hello|hi|merhaba|selam|مرحبا|привет)[!,]/iu.test(response) && previous.length > 0 ? 50 : 0,
     unnatural_acknowledgement: filler ? 70 : 0,
-    repeated_opening: !requested && !conventionalGreeting && !monthlyCorrection && opening && previous.some((p) => normalizeConversationText(p[0] ?? "") === opening) ? 100 : 0,
-    repeated_closing: !requested && !conventionalGreeting && !monthlyCorrection && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
+    repeated_opening: !requested && !conventionalGreeting && !monthlyCorrection && !requestedKnowledgeGap && opening && previous.some((p) => normalizeConversationText(p[0] ?? "") === opening) ? 100 : 0,
+    repeated_closing: !requested && !conventionalGreeting && !monthlyCorrection && !requestedKnowledgeGap && closing && previous.some((p) => normalizeConversationText(p.at(-1) ?? "") === closing) ? 100 : 0,
     unnecessary_cta: cta ? 70 : 0,
     // Two natural sentences starting with "I" are not mechanical repetition.
     // Retain the indicator for three or more repeated multiword sentence stems.
@@ -362,7 +371,8 @@ export function evaluateConversationQuality(input: {
     semantic_context_fit: semantic.score,
     tone_fit: input.style.formality === input.director.desired_style_profile ? 90 : 60,
     excessive_length: sentences.length <= targetLength && response.length <= 600 ? 0 : Math.min(100, 40 + Math.max(0, sentences.length - targetLength) * 20),
-    repetition: requested || conventionalGreetingReply(response, input.recentMessages, input.director.primary_intent) ? 0 : repetitionScore(response, input.recentMessages),
+    repetition: requested || conventionalGreetingReply(response, input.recentMessages, input.director.primary_intent)
+      || requestedTurkishKnowledgeGap(response, input.recentMessages) ? 0 : repetitionScore(response, input.recentMessages),
     sales_pressure: Math.min(100, pressureHits * 55),
     factual_confidence: grounding.factual_confidence,
     policy_risk: deceptive || invalidSemanticRefs ? 100 : grounding.blocked ? 100 : /garanti kazanç|guaranteed profit/i.test(response) ? 100 : 0,
