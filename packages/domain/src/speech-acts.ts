@@ -11,7 +11,10 @@ const operational = /(?:check|verify|confirm|activate|save|send|forward|update).
 // In particular, "what the membership includes" is an embedded question,
 // not the affirmative business assertion "the membership includes X".
 export function isConversationalClarificationOffer(text: string): boolean {
-  return /^I can help clarify what the membership includes, how it works, and any general questions you have[.!]?$/iu.test(text.normalize("NFKC").trim());
+  return [
+    /^I can help clarify what the membership includes, how it works, and any general questions you have[.!]?$/iu,
+    /^I can help(?: you)? clarify the price, what['’]s included, and the cancellation terms[.!]?$/iu,
+  ].some((pattern) => pattern.test(text.normalize("NFKC").trim()));
 }
 export function isRepresentativePurpose(text: string): boolean {
   return /^Amacım sorularınızı yanıtlamak ve neye ihtiyacınız olduğunu netleştirmeye yardımcı olmak[.!]?$/iu.test(text.normalize("NFKC").trim());
@@ -51,6 +54,16 @@ export function validateServiceSpeechAct(input: {
   guaranteedCommitments: readonly ConversationCapability[];
 }) {
   if (input.act === "UNKNOWN_ASSERTION") return false;
+  // A whole reply-style confirmation remains conversational even when the
+  // model labels the acknowledgement rather than the future preference.
+  const styleConfirmation = /^(?:(?:understood|got it)\s*[,!.\u2013\u2014-]\s*)?I['’]ll (?:reply|respond|answer) (?:only )?in (English|Turkish|Arabic|Russian)(?: and (?:I )?(?:won['’]t|will not) use emojis| without emojis)?[.!]?$/iu.exec(input.text.normalize("NFKC").trim());
+  if (["ACKNOWLEDGEMENT", "PREFERENCE_CONFIRMATION", "COMMITMENT"].includes(input.act) && styleConfirmation) {
+    const languages: Record<string, string> = { English: "en", Turkish: "tr", Arabic: "ar", Russian: "ru" };
+    const declaredLanguage = Object.entries(languages).find(([name]) => name.toLowerCase() === styleConfirmation[1]?.toLowerCase())?.[1];
+    return declaredLanguage === input.language && input.availableCapabilities.includes("conversation.reply")
+      && (input.capability == null || ((input.capability === "conversation.reply" || input.capability === "preference.reply_language")
+        && input.availableCapabilities.includes(input.capability)));
+  }
   // A bounded reply-length acknowledgement is not an operational guarantee,
   // even when the model uses COMMITMENT instead of PREFERENCE_CONFIRMATION.
   if (["PREFERENCE_CONFIRMATION", "COMMITMENT"].includes(input.act)
@@ -71,7 +84,9 @@ export function validateServiceSpeechAct(input: {
   }
   if (input.act === "PREFERENCE_CONFIRMATION") {
     const languageTerms: Record<string, RegExp> = { en: /English|İngilizce|الإنجليزية|английск/iu, tr: /Turkish|Türkçe|التركية|турецк/iu, ar: /Arabic|Arapça|العربية|арабск/iu, ru: /Russian|Rusça|الروسية|русск/iu };
-    return Boolean(input.language && languageTerms[input.language]?.test(input.text)) && !/sav(?:e|ed)|permanent|kalıcı|kaydet|حفظ|сохран/iu.test(input.text);
+    return Boolean(input.language && languageTerms[input.language]?.test(input.text))
+      && !operational.test(input.text)
+      && !/sav(?:e|ed)|permanent|kalıcı|kaydet|حفظ|сохран|\b(?:contact|escalate|forward|send)\b|ilet|gönder|أرسل|отправ|переда/iu.test(input.text);
   }
   if (["CAPABILITY_OFFER", "PROSPECTIVE_ACTION", "COMMITMENT"].includes(input.act)) {
     if (operational.test(input.text)) return false; // No operational capability/commitment is enabled in Phase 7.

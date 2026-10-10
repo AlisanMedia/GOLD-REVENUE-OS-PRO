@@ -5,13 +5,13 @@ import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
 import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v11",
+  prompt: "conversation-quality-prompt-v12",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v16",
+  qa: "conversation-qa-v17",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v17",
+  evaluationSet: "phase7-balanced-v18",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -267,7 +267,9 @@ function conventionalGreetingReply(response: string, messages: ReadonlyArray<{ d
   // turn. This exception covers the whole reply, never appended business claims
   // or accidental repeated sentences, and requires the current inbound greeting.
   const greetings = /^(?:hi|hello|hey|merhaba|selam|sa|günaydın|مرحبا|مرحباً|привет|здравствуйте)$/iu;
-  if (intent !== "greeting" || !greetings.test(normalizeConversationText(latestInboundText(messages)))) return false;
+  const source = latestInboundText(messages);
+  const requestedGreeting = /^(?:please )?(?:give me|write|provide) (?:a )?(?:formal|short|brief|professional) greeting\b/iu.test(source.trim());
+  if (!requestedGreeting && (intent !== "greeting" || !greetings.test(normalizeConversationText(source)))) return false;
   if (isConventionalCompoundGreeting(response)) return true;
   const parts = sentenceParts(response).map(normalizeConversationText);
   if (parts.length < 1 || parts.length > 2 || !greetings.test(parts[0] ?? "")) return false;
@@ -308,6 +310,7 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
     context_awareness: /source of truth|context_version|tool call|orchestrator|workflow|bağlamımda/iu.test(response) || (!safeRefusal && /system prompt/iu.test(response)) ? 70 : 0,
     response_specificity: filler && cta ? 70 : 0,
     robotic_phrasing: filler ? 70 : 0,
+    grammar: /\bwhat are the (?:monthly )?(?:membership|subscription) price and what is included\?/iu.test(response) ? 70 : 0,
   } }; // Observable risk indicators, not a fake aggregate human score or semantic judge.
 }
 

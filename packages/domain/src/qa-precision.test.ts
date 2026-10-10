@@ -19,6 +19,70 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("recognizes a whole conversational clarification offer even when the model labels it fact", () => {
+    const offer = "I can help clarify the price, what’s included, and the cancellation terms.";
+    const gap = "I don’t have the exact membership details right now.";
+    const fixture: Fixture = { language: "en", source: "I’m looking into membership. What can you help me clarify?", response: `${offer} ${gap}`, category: "fact_labelled_service_offer", safe: true, kind: "fact", speech_act: "CAPABILITY_OFFER" };
+    const claims: ResponseClaim[] = [
+      { text: offer, kind: "fact", speech_act: "CAPABILITY_OFFER", capability: "conversation.reply", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: ["source"], action_category: null },
+      { text: gap, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", capability: null, grounding: "UNKNOWN", evidence_refs: [], action_category: null },
+    ];
+    expect(evaluate(fixture, [], claims).action).toBe("approve");
+    const repeated = evaluate(fixture, [{ direction: "outbound", content: gap }], claims);
+    expect(repeated.action).toBe("rewrite"); expect(repeated.customerFacingBlocked).toBe(false);
+    for (const tail of [" Membership costs 10 USD.", " Your payment is confirmed.", " I will contact support."]) {
+      const text = offer + tail;
+      expect(evaluate({ ...fixture, response: text }, [], [{ ...claims[0]!, text }]).customerFacingBlocked).toBe(true);
+    }
+    expect(evaluate({ ...fixture, response: offer }, [], [{ ...claims[0]!, speech_act: "BUSINESS_FACT" }]).customerFacingBlocked).toBe(true);
+    expect(validateServiceSpeechAct({ act: "CAPABILITY_OFFER", text: offer, capability: "conversation.reply", availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+  });
+
+  it.each(["ACKNOWLEDGEMENT", "PREFERENCE_CONFIRMATION", "COMMITMENT"] as const)("accepts only a whole grounded reply-style confirmation labelled %s", (speech_act) => {
+    const response = "Understood — I’ll reply only in English and won’t use emojis.";
+    const fixture: Fixture = { language: "en", source: "Please reply only in English from now on, and do not use emojis.", response, category: "whole_reply_style", safe: true, kind: "social", speech_act };
+    const claim: ResponseClaim = { text: response, kind: "social", speech_act, capability: "conversation.reply", grounding: "CUSTOMER_REPORTED", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    for (const evidence_refs of [[], ["invented"], ["assistant"]]) expect(evaluate(fixture, [{ id: "assistant", direction: "outbound", content: fixture.source }], [{ ...claim, evidence_refs }]).customerFacingBlocked).toBe(true);
+    for (const tail of [" I saved this permanently.", " Your payment is confirmed.", " I will contact support."]) {
+      const text = response + tail; expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).customerFacingBlocked).toBe(true);
+    }
+    expect(validateServiceSpeechAct({ act: speech_act, text: response, language: "tr", capability: "conversation.reply", availableCapabilities: ["conversation.reply"], guaranteedCommitments: [] })).toBe(false);
+    expect(validateServiceSpeechAct({ act: speech_act, text: response, language: "en", capability: "conversation.reply", availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+  });
+
+  it("accepts the whole truthful AI-assistant identity with real-human negation", () => {
+    const fixture: Fixture = { language: "en", source: "Are you an AI or a real human? Please answer directly.", response: "I’m an AI assistant, not a real human.", category: "ai_assistant_identity", safe: true, kind: "fact", speech_act: "IDENTITY_RESPONSE" };
+    expect(evaluate(fixture).action).toBe("approve");
+    for (const response of ["I’m a real human.", fixture.response + " I personally trade gold.", fixture.response + " Your access is activated."]) expect(evaluate({ ...fixture, response }).customerFacingBlocked).toBe(true);
+  });
+
+  it("does not mistake an explicitly requested whole greeting for an accidental opening repeat", () => {
+    const source = "Please give me a formal greeting that begins with Thank you for reaching out and then asks what help I need.";
+    const history = [{ direction: "outbound", content: "Hello. Hello." }];
+    const response = "Hello. What can I help you with?";
+    const fixture: Fixture = { language: "en", source, response, category: "requested_new_greeting", safe: true, kind: "social", speech_act: "ACKNOWLEDGEMENT" };
+    const claims: ResponseClaim[] = [
+      { text: "Hello.", kind: "social", speech_act: "ACKNOWLEDGEMENT", capability: "conversation.reply", grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
+      { text: "What can I help you with?", kind: "question", speech_act: "QUESTION", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null },
+    ];
+    expect(evaluate(fixture, history, claims).action).toBe("approve");
+    expect(reviewResponseNaturalness(response, [...history, { direction: "inbound", content: "How much is it?" }], "pricing").dimensions.repeated_opening).toBe(100);
+    expect(reviewResponseNaturalness("Thank you for reaching out. What can I help you with?", [...history, { direction: "inbound", content: source }]).dimensions.robotic_phrasing).toBe(70);
+    expect(reviewResponseNaturalness(response + " Membership costs 10 USD.", [...history, { direction: "inbound", content: source }]).dimensions.repeated_opening).toBe(100);
+  });
+
+  it("rewrites malformed coordinated review questions without relaxing factual safety", () => {
+    const source = "Could you prepare a short question about the monthly membership for someone to review, without sending it anywhere?";
+    const bad = "What are the monthly membership price and what is included?";
+    const good = "What is the monthly membership price, and what is included?";
+    const fixture: Fixture = { language: "en", source, response: bad, category: "review_question_grammar", safe: true, kind: "question", speech_act: "QUESTION" };
+    expect(evaluate(fixture).action).toBe("rewrite");
+    expect(evaluate(fixture).reasons).toContain("NATURALNESS_GRAMMAR");
+    expect(evaluate({ ...fixture, response: good }).action).toBe("approve");
+    expect(evaluate({ ...fixture, response: good + " Your payment is confirmed." }).customerFacingBlocked).toBe(true);
+  });
+
   it("recognizes the complete membership clarification question without treating its words as a product assertion", () => {
     const response = "Which membership are you asking about?";
     const fixture: Fixture = { language: "en", source: "How much is it?", response, category: "membership_clarification", safe: true, kind: "question", speech_act: "QUESTION" };

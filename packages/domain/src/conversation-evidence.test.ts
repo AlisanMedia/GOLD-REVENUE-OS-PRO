@@ -108,7 +108,7 @@ describe("Unicode quality and evidence truth contracts", () => {
     expect(before.action).toBe("rewrite"); expect(before.scores.repetition).toBe(100);
     expect(after.action).toBe("approve"); expect(after.scores.repetition).toBe(0);
     expect(after.scores.policy_risk).toBe(0);
-    expect(Object.keys(reviewResponseNaturalness(second.proposed_response, []).dimensions)).toHaveLength(11);
+    expect(reviewResponseNaturalness(second.proposed_response, []).dimensions.grammar).toBe(0);
   });
   it("honors explicit negative emoji preferences and current-source language switching", () => {
     const style = inferStyleProfile([{ direction: "inbound", content: "مرحبا" }, { direction: "inbound", content: "Hi 😃, no emojis please." }]);

@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v11", director: "conversation-director-v4",
-  renderer: "natural-renderer-v5", qa: "conversation-qa-v16", context: 3,
-  outputSchema: 4, evaluationSet: "phase7-balanced-v17",
+  prompt: "conversation-quality-prompt-v12", director: "conversation-director-v4",
+  renderer: "natural-renderer-v5", qa: "conversation-qa-v17", context: 3,
+  outputSchema: 4, evaluationSet: "phase7-balanced-v18",
 } as const;
 
 const validOutput = {
@@ -138,6 +138,8 @@ describe("OpenAI Responses provider adapter", () => {
       expect(body.input.map((item: { role: string }) => item.role)).toEqual(["developer", "user", "developer"]);
       const directive = body.input.at(-1).content[0].text;
       expect(directive).toContain("THIS REQUEST IS THE SINGLE QA REWRITE");
+      expect(directive).toContain("NATURALNESS_GRAMMAR");
+      expect(directive).toContain("correct subject-verb agreement");
       expect(directive).toContain("QA reason codes: ROBOTIC_LANGUAGE, REPETITION");
       expect(directive).toContain("not a fresh generation");
       expect(directive).toContain("do not copy the old sentence or only change punctuation");
