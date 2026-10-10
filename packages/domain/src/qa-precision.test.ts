@@ -19,6 +19,18 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("accepts bounded membership help without treating it as verified catalog knowledge", () => {
+    const offer = "Yes — I can help explain membership options.";
+    const limitation = "I don’t have the exact membership details available yet.";
+    const fixture: Fixture = { language: "en", source: "I have an issue understanding membership options. Can you help?", response: `${offer} ${limitation}`, category: "bounded_membership_help", safe: true, kind: "social", speech_act: "CAPABILITY_OFFER" };
+    const claim: ResponseClaim = { text: offer, kind: "social", speech_act: "CAPABILITY_OFFER", grounding: "GENERAL_SAFE_STATEMENT", capability: "conversation.reply", evidence_refs: ["source"], action_category: null };
+    const claims: ResponseClaim[] = [claim, { text: limitation, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", grounding: "UNKNOWN", capability: null, evidence_refs: ["source"], action_category: null }];
+    expect(evaluate(fixture, [], claims).action).toBe("approve");
+    expect(evaluate(fixture, [], [{ ...claim, evidence_refs: ["fake"] }, claims[1]!]).action).toBe("block");
+    expect(evaluate(fixture, [], [{ ...claim, capability: "conversation.explain_known" }, claims[1]!]).action).toBe("block");
+    expect(validateServiceSpeechAct({ act: "CAPABILITY_OFFER", text: offer, capability: "conversation.reply", availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+    for (const text of [offer + " Membership costs 10 USD.", offer + " Your payment is confirmed.", "I can explain all verified membership benefits.", "I will explain membership options."]) expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).action).toBe("block");
+  });
   it("accepts a newly requested whole Turkish price and inclusion knowledge gap from prior history", () => {
     const response = "Üyeliğin fiyatı ve içeriği şu an net değil.";
     const fixture: Fixture = { language: "tr", source: "Üyeliğin fiyatı ve içeriği nedir? Türkçe cevap ver.", response, category: "requested_knowledge_continuity", safe: true, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" };
