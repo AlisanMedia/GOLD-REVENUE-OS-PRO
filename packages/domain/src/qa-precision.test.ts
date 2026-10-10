@@ -3,6 +3,7 @@ import { conversationModelOutputSchema, directConversation, evaluateConversation
 import { messageEvidenceHandles, resolveEvidenceHandles } from "./evidence-handles";
 import { reviewClaimGrounding, splitResponseSentences, type ResponseClaim } from "./conversation-evidence";
 import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
+import { validateServiceSpeechAct } from "./speech-acts";
 
 type Fixture = { language: string; category: string; source: string; response: string; safe: boolean; kind: ResponseClaim["kind"]; speech_act: NonNullable<ResponseClaim["speech_act"]> };
 const translations = {
@@ -151,6 +152,30 @@ describe("Requested repetition is scoped rather than globally exempt", () => {
   });
 });
 
+
+describe("Live Turkish review-note and knowledge limitation regression", () => {
+  const source = "Üyeliğin fiyatı ve içeriği nedir? Türkçe cevap ver.";
+  const limitation = "Üyeliğin fiyatı ve içeriğiyle ilgili net bilgiye şu an sahip değilim.";
+  const offer = "İstersen bunun için kısa bir inceleme notu hazırlayabilirim.";
+  it("accepts the exact live safe two-claim response", () => {
+    const claims: ResponseClaim[] = [
+      { text: limitation, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", grounding: "UNKNOWN", capability: null, evidence_refs: ["source"], action_category: null },
+      { text: offer, kind: "social", speech_act: "CAPABILITY_OFFER", grounding: "KNOWN_FROM_SYSTEM", capability: "conversation.prepare_review", evidence_refs: [], action_category: null },
+    ];
+    expect(evaluate({ language: "tr", source, response: `${limitation} ${offer}`, category: "live_review_note", safe: true, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" }, [], claims).action).toBe("approve");
+  });
+  it.each(["İstersen bunun için kısa bir inceleme notu hazırlayabilirim. Ödemeniz onaylandı.", "İnceleme notunu hazırladım.", "İnceleme notunu ekibe göndereceğim."])("does not accept an appended receipt, completion or sending promise: %s", (response) => {
+    expect(evaluate({ language: "tr", source, response, category: "unsafe_review_note", safe: false, kind: "social", speech_act: "CAPABILITY_OFFER" }, [], [{ text: response, kind: "social", speech_act: "CAPABILITY_OFFER", grounding: "KNOWN_FROM_SYSTEM", capability: "conversation.prepare_review", evidence_refs: [], action_category: null }]).customerFacingBlocked).toBe(true);
+  });
+  it("retains blocking an affirmative product clause beside the limitation", () => {
+    const response = `Üyelik sinyallere erişim sağlar ama ${limitation}`;
+    expect(evaluate({ language: "tr", source, response, category: "mixed_limitation", safe: false, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" }).customerFacingBlocked).toBe(true);
+  });
+  it("requires the named preparation capability to be available", () => {
+    expect(validateServiceSpeechAct({ act: "CAPABILITY_OFFER", text: offer, capability: "conversation.prepare_review", availableCapabilities: ["conversation.reply"], guaranteedCommitments: [] })).toBe(false);
+    expect(validateServiceSpeechAct({ act: "CAPABILITY_OFFER", text: offer, capability: "conversation.reply", availableCapabilities: ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: [] })).toBe(false);
+  });
+});
 
 describe("Live Turkish visibility regression", () => {
   it("recognizes the exact honest negative visibility without allowing invented product clauses", () => {
