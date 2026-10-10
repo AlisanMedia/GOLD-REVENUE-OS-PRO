@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v9", director: "conversation-director-v4",
-  renderer: "natural-renderer-v5", qa: "conversation-qa-v14", context: 3,
-  outputSchema: 4, evaluationSet: "phase7-balanced-v15",
+  prompt: "conversation-quality-prompt-v10", director: "conversation-director-v4",
+  renderer: "natural-renderer-v5", qa: "conversation-qa-v15", context: 3,
+  outputSchema: 4, evaluationSet: "phase7-balanced-v16",
 } as const;
 
 const validOutput = {
@@ -67,6 +67,7 @@ describe("OpenAI Responses provider adapter", () => {
     const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
       expect(body.store).toBe(false);
+      expect((body.input as Array<{ role: string }>).map((item) => item.role)).toEqual(["developer", "user"]);
       expect(body.text).toMatchObject({ format: { type: "json_schema", strict: true } });
       expect(body.text).toMatchObject({ format: { schema: { properties: { proposed_tool_calls: { maxItems: 0 } } } } });
       expect(JSON.stringify(body.input)).toContain("The current source-anchored turn requires language tr");
@@ -128,6 +129,24 @@ describe("OpenAI Responses provider adapter", () => {
     const invocation = provider.invoke({ ...request(), context: mixedContext });
     if (reference === "EVIDENCE_CURRENT_MESSAGE") expect((await invocation).output.claims[0].evidence_refs).toEqual([context.recentMessages[0].id]);
     else await expect(invocation).rejects.toMatchObject({ kind: "INVALID_OUTPUT", retryable: false, message: "EVIDENCE_REFERENCE_NOT_ALLOWED" });
+  });
+
+  it("sends a dedicated final developer instruction only for the bounded QA rewrite", async () => {
+    const original = { ...validOutput, semantic_response: { ...validOutput.semantic_response, factual_grounding: { ...validOutput.semantic_response.factual_grounding, evidence_refs: [context.recentMessages[0].id] } }, proposed_response: "Thank you for reaching out. What can I help you with?" };
+    const fetchMock = vi.fn(async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      expect(body.input.map((item: { role: string }) => item.role)).toEqual(["developer", "user", "developer"]);
+      const directive = body.input.at(-1).content[0].text;
+      expect(directive).toContain("THIS REQUEST IS THE SINGLE QA REWRITE");
+      expect(directive).toContain("QA reason codes: ROBOTIC_LANGUAGE, REPETITION");
+      expect(directive).toContain("not a fresh generation");
+      expect(directive).toContain("do not copy the old sentence or only change punctuation");
+      expect(directive).toContain(JSON.stringify(original.proposed_response));
+      expect(directive).not.toContain(context.recentMessages[0].id);
+      return new Response(JSON.stringify({ output_text: JSON.stringify(validOutput) }), { status: 200 });
+    });
+    await new OpenAIResponsesProvider("test-key", "test-model", fetchMock).invoke({ ...request(), rewriteFeedback: { attempt: 1, reasons: ["ROBOTIC_LANGUAGE", "REPETITION"], scores: { robotic_language: 70, context_fit: 90, tone_fit: 90, excessive_length: 0, repetition: 100, sales_pressure: 0, factual_confidence: 100, policy_risk: 0, escalation_need: 0 }, originalOutput: original } });
+    expect(fetchMock).toHaveBeenCalledOnce();
   });
 
   it("resolves memory handles and retains authoritative wire evidence", async () => {
