@@ -1,17 +1,17 @@
 import { z } from "zod";
 import { normalizeConversationText, splitResponseSentences, responseClaimSchema, reviewClaimGrounding, type BackendEvidence } from "./conversation-evidence";
 import { MULTILINGUAL_REGRESSION } from "./multilingual-regression";
-import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
+import { requestedRepetition, reviewSemanticContext, repeatedMembershipClarification } from "./semantic-quality";
 import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v14",
+  prompt: "conversation-quality-prompt-v15",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v19",
+  qa: "conversation-qa-v20",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v20",
+  evaluationSet: "phase7-balanced-v21",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -311,6 +311,7 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
     response_specificity: filler && cta ? 70 : 0,
     robotic_phrasing: filler ? 70 : 0,
     grammar: /\bwhat are the (?:monthly )?(?:membership|subscription) price and what is included\?/iu.test(response) ? 70 : 0,
+    redundant_clarification: repeatedMembershipClarification(response, recentMessages) ? 70 : 0,
   } }; // Observable risk indicators, not a fake aggregate human score or semantic judge.
 }
 

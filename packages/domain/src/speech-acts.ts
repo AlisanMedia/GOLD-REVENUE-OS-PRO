@@ -11,6 +11,13 @@ const operational = /(?:check|verify|confirm|activate|save|send|forward|update).
 // In particular, "what the membership includes" is an embedded question,
 // not the affirmative business assertion "the membership includes X".
 export function isConversationalClarificationOffer(text: string): boolean {
+  const whole = text.normalize("NFKC").trim().replace(/[.!]$/u, "");
+  const list = /^(?:I can help(?: you)? (?:clarify|with)|You can ask about)\s+(.+)$/iu.exec(whole)?.[1];
+  if (list) {
+    const topics = list.replace(/,\s*(?:and|or)\s+/giu, ",").split(/,\s*|\s+(?:and|or)\s+/iu);
+    const topic = /^(?:(?:the )?(?:monthly )?(?:membership |subscription )?(?:price|pricing|cost|details|cancellation terms)|what['’]s included|what (?:the )?(?:membership|subscription) includes|how it works|access after payment|any general questions you have)$/iu;
+    if (topics.length >= 1 && topics.length <= 4 && topics.every((item) => topic.test(item.trim()))) return true;
+  }
   return [
     /^I can help clarify what the membership includes, how it works, and any general questions you have[.!]?$/iu,
     /^I can help(?: you)? clarify the (?:monthly )?price, what['’]s included, and (?:the )?cancellation terms[.!]?$/iu,
@@ -91,6 +98,11 @@ export function validateServiceSpeechAct(input: {
   if (["CAPABILITY_OFFER", "PROSPECTIVE_ACTION", "COMMITMENT"].includes(input.act)) {
     if (operational.test(input.text)) return false; // No operational capability/commitment is enabled in Phase 7.
     if (input.act !== "COMMITMENT" && (isConversationalClarificationOffer(input.text) || isRepresentativePurpose(input.text))) {
+      if (/^You can ask about\s/iu.test(input.text.trim())) {
+        return input.availableCapabilities.includes("conversation.reply")
+          && (input.capability === "conversation.reply" || input.capability === "conversation.prepare_review")
+          && input.availableCapabilities.includes(input.capability);
+      }
       return input.capability === "conversation.reply" && input.availableCapabilities.includes("conversation.reply");
     }
     if (input.act !== "COMMITMENT" && isDraftedReviewQuestion(input.text)) {
