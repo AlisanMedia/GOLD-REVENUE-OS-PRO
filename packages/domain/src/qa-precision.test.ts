@@ -64,7 +64,7 @@ describe("Complete-sentence opening precision", () => {
     expect(reviewResponseNaturalness("Understood — I’ll reply in English. What is the question?", [{ direction: "outbound", content: previous }]).dimensions.repeated_opening).toBe(100);
   });
   it("retains unsupported-claim blocking with the shared preference prefix", () => {
-    expect(evaluate({ language: "en", category: "mixed_preference", source: "Please reply in English.", response: "Understood — I’ll reply in English. Your payment is confirmed.", safe: false, kind: "fact", speech_act: "BACKEND_FACT" }, ["Understood — I’ll reply in English and keep it emoji-free."]).customerFacingBlocked).toBe(true);
+    expect(evaluate({ language: "en", category: "mixed_preference", source: "Please reply in English.", response: "Understood — I’ll reply in English. Your payment is confirmed.", safe: false, kind: "fact", speech_act: "BACKEND_FACT" }, [{ direction: "outbound", content: "Understood — I’ll reply in English and keep it emoji-free." }]).customerFacingBlocked).toBe(true);
   });
 });
 
