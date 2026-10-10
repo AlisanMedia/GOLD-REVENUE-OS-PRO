@@ -23,12 +23,18 @@ export function isConversationalClarificationOffer(text: string): boolean {
     if (topics.length >= 1 && topics.length <= 4 && topics.every((item) => topic.test(item.trim()))) return true;
   }
   return [
+    /^İstersen (?:başka bir )?üyelik sorusunu netleştirmeye çalışabilirim[.!]?$/iu,
     /^I can help clarify what the membership includes, how it works, and any general questions you have[.!]?$/iu,
     /^I can help(?: you)? clarify the (?:monthly )?price, what['’]s included, and (?:the )?cancellation terms[.!]?$/iu,
   ].some((pattern) => pattern.test(text.normalize("NFKC").trim()));
 }
 export function isRepresentativePurpose(text: string): boolean {
   return /^Amacım sorularınızı yanıtlamak ve neye ihtiyacınız olduğunu netleştirmeye yardımcı olmak[.!]?$/iu.test(text.normalize("NFKC").trim());
+}
+export function isBoundedTurkishKnowledgeLimitation(text: string): boolean {
+  const whole = text.normalize("NFKC").trim();
+  return /^(?:(?:üyeliğin|aboneliğin) (?:fiyatı|içeriği|fiyatı ve içeriği|(?:fiyat ve içerik |fiyat |içerik )?detayları)|(?:üyelik|abonelik) detayları) (?:şu an(?:da)? |henüz |şimdilik )?(?:net|kesin|belirli) değil[.!]?$/iu.test(whole)
+    || /^Üyelik bedava mı, şu an net değil[.!]?$/iu.test(whole);
 }
 export function isDraftedReviewQuestion(text: string): boolean {
   return /^Here['’]s a short review question: What does the monthly membership cost, and what is included\?$/iu.test(text.normalize("NFKC").trim());

@@ -18,10 +18,18 @@ export function requestedRepetition(source: string, response: string) {
     : helloRequested && /^(?:hello|hi|merhaba|selam|مرحبا|привет)(?:\s+(?:there|again))?[.!؟]?$/iu.test(sentence.trim()));
 }
 
+export function requestsPriceAndInclusions(source: string): boolean {
+  return /price|pricing|cost|how much|fiyat|ücret|سعر|تكلفة|сколько стоит|цен|стоимост/iu.test(source)
+    && /included|inclusions|includes|içeri[ğk]|kapsam|يشمل|تشمل|что[^?]*входит|состав/iu.test(source);
+}
 export function repeatedMembershipClarification(response: string, messages: ReadonlyArray<{ direction: string; content: string }>): boolean {
   const inbound = messages.filter((item) => item.direction === "inbound");
   const source = inbound.at(-1)?.content ?? "";
   const recent = inbound.slice(-4, -1);
+  const requested = /ask again|repeat|ask me|clarify again|answer exactly|tekrar sor|aynen cevap|اسألني مرة أخرى|أجب بالضبط|спроси снова|ответь точно/iu.test(source);
+  if (requested) return false;
+  if (requestsPriceAndInclusions(source)
+    && /what would you like to know first|önce neyi öğrenmek|ما الذي تود أن تعرفه أول[ًا]*|что вы хотите узнать сначала/iu.test(response)) return true;
   return /monthly[^.!?]*not[^.!?]*annual/iu.test(source)
     && !/ask again|repeat|ask me|clarify again/iu.test(source)
     && recent.some((item) => /price[^.!?]*(?:included|inclusions)/iu.test(item.content))
