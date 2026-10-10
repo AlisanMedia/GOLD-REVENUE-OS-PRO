@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v14", director: "conversation-director-v4",
-  renderer: "natural-renderer-v5", qa: "conversation-qa-v19", context: 3,
-  outputSchema: 4, evaluationSet: "phase7-balanced-v20",
+  prompt: "conversation-quality-prompt-v15", director: "conversation-director-v4",
+  renderer: "natural-renderer-v5", qa: "conversation-qa-v20", context: 3,
+  outputSchema: 4, evaluationSet: "phase7-balanced-v21",
 } as const;
 
 const validOutput = {
@@ -139,6 +139,7 @@ describe("OpenAI Responses provider adapter", () => {
       const directive = body.input.at(-1).content[0].text;
       expect(directive).toContain("THIS REQUEST IS THE SINGLE QA REWRITE");
       expect(directive).toContain("NATURALNESS_GRAMMAR");
+      expect(directive).toContain("NATURALNESS_REDUNDANT_CLARIFICATION");
       expect(directive).toContain("correct subject-verb agreement");
       expect(directive).toContain("QA reason codes: ROBOTIC_LANGUAGE, REPETITION");
       expect(directive).toContain("not a fresh generation");
@@ -149,6 +150,22 @@ describe("OpenAI Responses provider adapter", () => {
     });
     await new OpenAIResponsesProvider("test-key", "test-model", fetchMock).invoke({ ...request(), rewriteFeedback: { attempt: 1, reasons: ["ROBOTIC_LANGUAGE", "REPETITION"], scores: { robotic_language: 70, context_fit: 90, tone_fit: 90, excessive_length: 0, repetition: 100, sales_pressure: 0, factual_confidence: 100, policy_risk: 0, escalation_need: 0 }, originalOutput: original } });
     expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it.each(["preference.reply_language", "conversation.explain_known"])("constrains generation capabilities and independently rejects unavailable %s", async (capability) => {
+    const provider = new OpenAIResponsesProvider("test-key", "test-model", async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      const variants = body.text.format.schema.properties.claims.items.anyOf;
+      for (const variant of variants) expect(variant.properties.capability.anyOf[1].enum).toEqual(["conversation.reply", "conversation.prepare_review"]);
+      expect(body.text.format.schema.properties.proposed_tool_calls.maxItems).toBe(0);
+      return new Response(JSON.stringify({ output_text: JSON.stringify({ ...validOutput, claims: [{ ...validOutput.claims[0], capability }] }) }), { status: 200 });
+    });
+    await expect(provider.invoke(request())).rejects.toMatchObject({ kind: "INVALID_OUTPUT", retryable: false, message: "CAPABILITY_NOT_AVAILABLE" });
+  });
+
+  it("accepts a real reply capability for a language acknowledgement", async () => {
+    const provider = new OpenAIResponsesProvider("test-key", "test-model", async () => new Response(JSON.stringify({ output_text: JSON.stringify({ ...validOutput, claims: [{ ...validOutput.claims[0], capability: "conversation.reply" }] }) }), { status: 200 }));
+    expect((await provider.invoke(request())).output.claims[0]?.capability).toBe("conversation.reply");
   });
 
   it("resolves memory handles and retains authoritative wire evidence", async () => {

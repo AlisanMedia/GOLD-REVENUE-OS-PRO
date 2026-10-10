@@ -18,6 +18,16 @@ export function requestedRepetition(source: string, response: string) {
     : helloRequested && /^(?:hello|hi|merhaba|selam|مرحبا|привет)(?:\s+(?:there|again))?[.!؟]?$/iu.test(sentence.trim()));
 }
 
+export function repeatedMembershipClarification(response: string, messages: ReadonlyArray<{ direction: string; content: string }>): boolean {
+  const inbound = messages.filter((item) => item.direction === "inbound");
+  const source = inbound.at(-1)?.content ?? "";
+  const recent = inbound.slice(-4, -1);
+  return /monthly[^.!?]*not[^.!?]*annual/iu.test(source)
+    && !/ask again|repeat|ask me|clarify again/iu.test(source)
+    && recent.some((item) => /price[^.!?]*(?:included|inclusions)/iu.test(item.content))
+    && /\b(?:do you want|would you like|are you asking)[^?]*price[^?]*(?:included|inclusions|both)\?/iu.test(response);
+}
+
 export function reviewSemanticContext(source: string, response: string, intent: string) {
   const checks: Record<string, boolean> = {};
   const topics: Record<string, RegExp> = {
