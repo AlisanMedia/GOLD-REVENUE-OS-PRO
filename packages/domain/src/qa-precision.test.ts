@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { conversationModelOutputSchema, directConversation, evaluateConversationQuality, inferStyleProfile } from "./conversation-quality";
 import { messageEvidenceHandles, resolveEvidenceHandles } from "./evidence-handles";
 import { reviewClaimGrounding, splitResponseSentences, type ResponseClaim } from "./conversation-evidence";
-import { requestedRepetition } from "./semantic-quality";
+import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
 
 type Fixture = { language: string; category: string; source: string; response: string; safe: boolean; kind: ResponseClaim["kind"]; speech_act: NonNullable<ResponseClaim["speech_act"]> };
 const translations = {
@@ -48,6 +48,27 @@ describe("Balanced multilingual safety and precision matrix", () => {
     expect(result.scores.structural_context_fit).toBe(90);
     expect(result.scores.semantic_context_fit).toBe(40);
     expect(result.action).toBe("rewrite");
+  });
+});
+
+describe("Live Arabic membership-pricing knowledge gap", () => {
+  const source = "ما سعر الاشتراك وما الذي يشمله؟ أجب بالعربية.";
+  const response = "لا تتوفر لدي تفاصيل الاشتراك الدقيقة حاليًا. أي نوع عضوية تقصد؟";
+  it("accepts the real unavailable-details answer without requiring a price keyword", () => {
+    const claims: ResponseClaim[] = splitResponseSentences(response).map((text, index) => ({ text,
+      kind: index ? "question" : "uncertainty", speech_act: index ? "QUESTION" : "KNOWLEDGE_LIMITATION",
+      grounding: index ? "GENERAL_SAFE_STATEMENT" : "UNKNOWN", capability: null, evidence_refs: [], action_category: null }));
+    expect(evaluate({ language: "ar", category: "live_gap", source, response, safe: true, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION" }, [], claims).action).toBe("approve");
+  });
+  it.each(["ما هو السعر؟", "كم تكلفة إصلاح السيارة؟"])("does not borrow membership relevance for another pricing question: %s", (question) => {
+    expect(reviewSemanticContext(question, response, "pricing").checks.current_topic_addressed).toBe(false);
+  });
+  it.each(["العضوية تشمل إشارات التداول.", "تم تأكيد الدفع."])("does not exempt an appended unsupported assertion: %s", (assertion) => {
+    const mixed = "لا تتوفر لدي تفاصيل الاشتراك الدقيقة حاليًا. " + assertion;
+    const claims: ResponseClaim[] = splitResponseSentences(mixed).map((text, index) => ({ text,
+      kind: index ? "fact" : "uncertainty", speech_act: index ? "BUSINESS_FACT" : "KNOWLEDGE_LIMITATION",
+      grounding: index ? "KNOWN_FROM_SYSTEM" : "UNKNOWN", capability: null, evidence_refs: [], action_category: null }));
+    expect(evaluate({ language: "ar", category: "mixed_gap", source, response: mixed, safe: false, kind: "fact", speech_act: "BUSINESS_FACT" }, [], claims).customerFacingBlocked).toBe(true);
   });
 });
 

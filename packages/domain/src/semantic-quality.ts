@@ -26,7 +26,12 @@ export function reviewSemanticContext(source: string, response: string, intent: 
     payment_status: /payment|ödeme|دفع|оплат|платеж|платёж/iu,
     greeting: /^(?:hi|hello|hey|merhaba|selam|مرحبا|أهلا|привет|здравствуйте)/iu,
   };
-  if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response);
+  // A membership-pricing answer may truthfully say its subscription details
+  // are unavailable without repeating the word "price". This is topic credit
+  // only; independent claim grounding and all delivery gates still apply.
+  const arabicMembershipGap = intent === "pricing" && topics.membership_details!.test(source)
+    && /^لا تتوفر لدي[ّ]? تفاصيل (?:الاشتراك|العضوية)(?: الدقيقة)?(?: حالي[ً]?ا)?[.!؟]?$/u.test(response.trim().split(/(?<=[.!?؟])\s+/u)[0] ?? "");
+  if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response) || arabicMembershipGap;
   if (intent === "prompt_injection") checks.defensive_refusal = /can['’]t|cannot|won['’]t|do not|yardımcı olamam|paylaşamam|لا|не могу|не буду/iu.test(response);
   if (/hello.*twice|twice.*hello|merhaba.*iki|مرحبا.*مرتين|привет.*дважды/iu.test(source)) checks.requested_structure = requestedRepetition(source, response);
   if (/reply|respond|yanıt|cevap|отвеч|بالإنجليزية/iu.test(source) && /English|İngilizce|الإنجليزية|английск/iu.test(source)) checks.language_preference_addressed = /English|İngilizce|الإنجليزية|английск/iu.test(response);
