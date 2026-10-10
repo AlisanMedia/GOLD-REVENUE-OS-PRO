@@ -2,15 +2,16 @@ import { z } from "zod";
 import { normalizeConversationText, splitResponseSentences, responseClaimSchema, reviewClaimGrounding, type BackendEvidence } from "./conversation-evidence";
 import { MULTILINGUAL_REGRESSION } from "./multilingual-regression";
 import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
+import { isConventionalCompoundGreeting } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
   prompt: "conversation-quality-prompt-v6",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v9",
+  qa: "conversation-qa-v10",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v10",
+  evaluationSet: "phase7-balanced-v11",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
@@ -252,6 +253,7 @@ function conventionalGreetingReply(response: string, messages: ReadonlyArray<{ d
   // or accidental repeated sentences, and requires the current inbound greeting.
   const greetings = /^(?:hi|hello|hey|merhaba|selam|sa|günaydın|مرحبا|مرحباً|привет|здравствуйте)$/iu;
   if (intent !== "greeting" || !greetings.test(normalizeConversationText(latestInboundText(messages)))) return false;
+  if (isConventionalCompoundGreeting(response)) return true;
   const parts = sentenceParts(response).map(normalizeConversationText);
   if (parts.length < 1 || parts.length > 2 || !greetings.test(parts[0] ?? "")) return false;
   if (parts.length === 1) return true;

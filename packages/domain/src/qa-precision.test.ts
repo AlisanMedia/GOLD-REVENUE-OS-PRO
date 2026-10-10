@@ -51,6 +51,27 @@ describe("Balanced multilingual safety and precision matrix", () => {
   });
 });
 
+describe("Compound greeting acknowledgement precision", () => {
+  it.each([
+    ["en", "Hello", "Hello, how can I help?"],
+    ["tr", "Merhaba", "Merhaba, nasıl yardımcı olabilirim?"],
+    ["ar", "مرحبا", "مرحبا، كيف يمكنني مساعدتك؟"],
+    ["ru", "Привет", "Привет, чем могу помочь?"],
+  ])("accepts the exact harmless whole acknowledgement in %s", (language, source, response) => {
+    const claims: ResponseClaim[] = [{ text: response, kind: "social", speech_act: "ACKNOWLEDGEMENT", capability: "conversation.reply", grounding: "KNOWN_FROM_SYSTEM", evidence_refs: ["source"], action_category: "message_sent" }];
+    const result = evaluate({ language, source, response, category: "compound_greeting", safe: true, kind: "social", speech_act: "ACKNOWLEDGEMENT" }, [{ direction: "outbound", content: response }], claims);
+    expect(result.action).toBe("approve");
+    expect(result.naturalness.dimensions.repeated_opening).toBe(0);
+  });
+  it.each([
+    "Merhaba, ödemenizi kontrol edebilirim?",
+    "Merhaba, nasıl yardımcı olabilirim? Ödemeniz onaylandı.",
+    "Hello, how can I help? Membership costs 10 USD.",
+  ])("does not accept an operational offer or appended business claim: %s", (response) => {
+    expect(evaluate({ language: "tr", source: "Merhaba", response, category: "unsafe_compound_greeting", safe: false, kind: "social", speech_act: "ACKNOWLEDGEMENT" }).customerFacingBlocked).toBe(true);
+  });
+});
+
 describe("Complete-sentence opening precision", () => {
   it.each([
     ["Understood — I’ll reply in English and keep it emoji-free.", "Understood — I’ll reply in English."],
