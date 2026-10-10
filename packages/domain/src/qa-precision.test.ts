@@ -19,6 +19,21 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("grounds the live explanation topic list and whole invitation despite QUESTION metadata", () => {
+    const offer = "I can help explain membership questions like pricing, what’s included, cancellation terms, and access.";
+    const invitation = "Ask me anything you want to clarify.";
+    const fixture: Fixture = { language: "en", source: "I’m looking into membership. What can you help me clarify?", response: `${offer} ${invitation}`, category: "explanation_topic_invitation", safe: true, kind: "social", speech_act: "CAPABILITY_OFFER" };
+    const claim: ResponseClaim = { text: offer, kind: "social", speech_act: "CAPABILITY_OFFER", grounding: "KNOWN_FROM_SYSTEM", capability: "conversation.reply", evidence_refs: ["source"], action_category: null };
+    const invite: ResponseClaim = { text: invitation, kind: "question", speech_act: "QUESTION", grounding: "GENERAL_SAFE_STATEMENT", capability: null, evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim, invite]).action).toBe("approve");
+    expect(evaluate(fixture, [], [{ ...claim, evidence_refs: ["fake"] }, invite]).action).toBe("block");
+    expect(evaluate(fixture, [], [claim, { ...invite, evidence_refs: ["fake"] }]).action).toBe("block");
+    expect(evaluate(fixture, [], [{ ...claim, capability: "conversation.explain_known" }, invite]).action).toBe("block");
+    expect(validateServiceSpeechAct({ act: "CAPABILITY_OFFER", text: offer, capability: "conversation.reply", availableCapabilities: [], guaranteedCommitments: [] })).toBe(false);
+    expect(reviewClaimGrounding({ response: invitation, claims: [invite], modelConfidence: 1, messages: [{ id: "source", direction: "inbound", content: fixture.source }], availableCapabilities: [] }).blocked).toBe(true);
+    for (const text of [offer.replace("pricing", "pricing of 10 USD"), offer + " Your payment is confirmed.", "I can help explain verified membership benefits."]) expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).action).toBe("block");
+    for (const text of [invitation + " Membership costs 10 USD.", invitation + " Your payment is confirmed.", "Ask me to activate your access."]) expect(evaluate({ ...fixture, response: text }, [], [{ ...invite, text }]).action).toBe("block");
+  });
   it("accepts bounded membership help without treating it as verified catalog knowledge", () => {
     const offer = "Yes — I can help explain membership options.";
     const limitation = "I don’t have the exact membership details available yet.";
