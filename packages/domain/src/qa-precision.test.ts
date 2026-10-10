@@ -19,6 +19,30 @@ const cases: Fixture[] = Object.entries(translations).flatMap(([language, entrie
 ]);
 
 describe("Final acceptance safe-response regressions", () => {
+  it("reviews the live source-grounded monthly selection without hard blocking its repeated limitation", () => {
+    const ack = "Understood — just the monthly option, not the annual one.";
+    const limitation = "I don’t have the exact monthly price or what’s included right now.";
+    const source = "Yes, just the monthly option, not the annual one. Keep the answer brief.";
+    const fixture: Fixture = { language: "en", source, response: `${ack} ${limitation}`, category: "grounded_monthly_selection", safe: true, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT" };
+    const claim: ResponseClaim = { text: ack, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT", grounding: "CUSTOMER_REPORTED", capability: null, evidence_refs: ["source"], action_category: null };
+    const claims: ResponseClaim[] = [claim, { text: limitation, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", grounding: "UNKNOWN", capability: null, evidence_refs: [], action_category: null }];
+    expect(evaluate(fixture, [{ direction: "outbound", content: limitation }], claims).action).toBe("rewrite");
+    expect(evaluate({ ...fixture, response: ack }, [], [claim]).action).toBe("approve");
+    expect(evaluate({ ...fixture, source: "I need the annual option.", response: ack }, [], [claim]).action).toBe("block");
+    expect(evaluate({ ...fixture, response: ack }, [], [{ ...claim, evidence_refs: ["fake"] }]).action).toBe("block");
+    for (const text of [ack + " Membership costs 10 USD.", ack + " Your payment is confirmed."]) expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).action).toBe("block");
+  });
+  it("grounds the live visibly presented quoted review question with its real preparation capability", () => {
+    const response = "Sure — here’s a short question for review: “What is included in the monthly membership, and what is the price?”";
+    const source = "Could you help me prepare a short question about the monthly membership for someone to review, without sending it anywhere?";
+    const fixture: Fixture = { language: "en", source, response, category: "quoted_review_question", safe: true, kind: "social", speech_act: "CAPABILITY_OFFER" };
+    const claim: ResponseClaim = { text: response, kind: "social", speech_act: "CAPABILITY_OFFER", grounding: "KNOWN_FROM_SYSTEM", capability: "conversation.prepare_review", evidence_refs: ["source"], action_category: null };
+    expect(evaluate(fixture, [], [claim]).action).toBe("approve");
+    expect(evaluate(fixture, [], [{ ...claim, evidence_refs: ["fake"] }]).action).toBe("block");
+    expect(evaluate(fixture, [], [{ ...claim, capability: "conversation.explain_known" }]).action).toBe("block");
+    expect(reviewClaimGrounding({ response, claims: [claim], modelConfidence: 1, messages: [{ id: "source", direction: "inbound", content: source }], availableCapabilities: ["conversation.reply"] }).blocked).toBe(true);
+    for (const text of [response + " Your payment is confirmed.", response.replace("what is the price?", "is the price 10 USD?"), response.replace("What is included in the monthly membership, and what is the price?", "Your payment is confirmed."), "I prepared and sent the question to support."]) expect(evaluate({ ...fixture, response: text }, [], [{ ...claim, text }]).action).toBe("block");
+  });
   it("accepts the expanded you are attribution with real inbound evidence", () => {
     const response = "You are asking about the monthly option, specifically its price and what is included.";
     const fixture: Fixture = { language: "en", source: "For that option, I mainly need the price and what is included. Can you summarize what I am asking about?", response, category: "expanded_attribution", safe: true, kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT" };

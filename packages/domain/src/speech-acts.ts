@@ -37,7 +37,14 @@ export function isBoundedTurkishKnowledgeLimitation(text: string): boolean {
     || /^Üyelik bedava mı, şu an net değil[.!]?$/iu.test(whole);
 }
 export function isDraftedReviewQuestion(text: string): boolean {
-  return /^Here['’]s a short review question: What does the monthly membership cost, and what is included\?$/iu.test(text.normalize("NFKC").trim());
+  const whole = text.normalize("NFKC").trim();
+  if (/^Here['’]s a short review question: What does the monthly membership cost, and what is included\?$/iu.test(whole)) return true;
+  // Parse the visibly drafted question, including paired presentation quotes.
+  // The entire body is a finite topic question; appended values/actions fail.
+  const body = /^(?:Sure\s*[—–-]\s*)?Here(?: is|['’]s) (?:a |the )?(?:short )?(?:review question|question (?:to|for) review):\s*(.+)$/iu.exec(whole)?.[1];
+  if (!body) return false;
+  const paired = /^“(.+)”$/u.exec(body)?.[1] ?? /^"(.+)"$/u.exec(body)?.[1] ?? body;
+  return /^(?:What is included in the monthly membership, and what is the price|What does the monthly membership (?:cost, and what is included|include, and what is the price))\?$/iu.test(paired);
 }
 export function isDraftedReviewIntroduction(text: string): boolean {
   return /^Here(?: is|['’]s) (?:a |the )?(?:short )?(?:review question|question (?:to|for) review):$/iu.test(text.normalize("NFKC").trim());
