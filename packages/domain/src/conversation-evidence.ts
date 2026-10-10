@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, type ConversationCapability } from "./speech-acts";
+import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isProspectiveReviewNoteOffer, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
 export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated", "memory_written", "account_updated", "payment_checked"] as const;
@@ -103,7 +103,15 @@ export function reviewClaimGrounding(input: {
       && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding)
       && validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language, capability: claim.capability,
         availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: input.guaranteedCommitments ?? [] });
-    if (exactIdentity || exactClarificationOffer) { valid = true; score = 100; }
+    const nextClaim = input.claims[index + 1];
+    const presentedQuestion = isDraftedReviewIntroduction(claim.text) && Boolean(nextClaim && nextClaim.kind === "question"
+      && (nextClaim.speech_act == null || nextClaim.speech_act === "QUESTION") && /[?؟]\s*$/u.test(nextClaim.text));
+    const exactReviewDraft = ["CAPABILITY_OFFER", "PROSPECTIVE_ACTION"].includes(speechAct)
+      && (presentedQuestion || isProspectiveReviewNoteOffer(claim.text))
+      && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding)
+      && validateServiceSpeechAct({ act: speechAct, text: claim.text, language: input.language, capability: claim.capability,
+        availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"], guaranteedCommitments: input.guaranteedCommitments ?? [] });
+    if (exactIdentity || exactClarificationOffer || exactReviewDraft) { valid = true; score = 100; }
     else if (["fact", "completed_action"].includes(claim.kind)) {
       if (["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL"].includes(claim.grounding)) {
         valid = evidence.some((item) => claim.evidence_refs.includes(item.id)

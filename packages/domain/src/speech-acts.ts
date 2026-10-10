@@ -32,6 +32,9 @@ export function isDraftedReviewQuestion(text: string): boolean {
 export function isDraftedReviewIntroduction(text: string): boolean {
   return /^Here(?: is|['’]s) (?:a |the )?(?:short )?(?:review question|question (?:to|for) review):$/iu.test(text.normalize("NFKC").trim());
 }
+export function isProspectiveReviewNoteOffer(text: string): boolean {
+  return /^(?:İstersen )?(?:bunun için )?(?:kısa bir |bir )?inceleme notu hazırlayabilirim[.!]?$/iu.test(text.normalize("NFKC").trim());
+}
 export function isMembershipClarificationQuestion(text: string): boolean {
   return /^Which (?:membership|subscription|plan) (?:are you asking about|do you mean)\?$/iu.test(text.normalize("NFKC").trim());
 }
@@ -119,7 +122,7 @@ export function validateServiceSpeechAct(input: {
     }
     // Whole, prospective drafting offer only: neither a completed review nor
     // sending/contacting anyone. A model label cannot append business clauses.
-    if (input.act !== "COMMITMENT" && /^(?:İstersen )?(?:bunun için )?(?:kısa bir |bir )?inceleme notu hazırlayabilirim[.!]?$/iu.test(input.text.normalize("NFKC").trim())) {
+    if (input.act !== "COMMITMENT" && isProspectiveReviewNoteOffer(input.text)) {
       return input.availableCapabilities.includes("conversation.prepare_review")
         && (input.capability === "conversation.prepare_review" || input.capability === "conversation.reply")
         && input.availableCapabilities.includes(input.capability);

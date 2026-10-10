@@ -469,6 +469,7 @@ describe("Presented review question grounding", () => {
   const ask: ResponseClaim = { text: question, kind: "question", speech_act: "QUESTION", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: ["source"], action_category: null };
   it.each(["conversation.prepare_review", "conversation.reply"] as const)("accepts a visibly presented question with enabled %s", (capability) => {
     expect(evaluate(fixture, [], [{ ...prefix, capability }, ask]).action).toBe("approve");
+    expect(evaluate(fixture, [], [{ ...prefix, kind: "fact", capability }, ask]).action).toBe("approve");
   });
   it("requires the actual question, its safe grounding, and preparation capability", () => {
     expect(evaluate({ ...fixture, response: intro }, [], [prefix]).action).toBe("block");
