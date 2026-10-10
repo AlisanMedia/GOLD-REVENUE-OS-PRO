@@ -37,7 +37,8 @@ export function isRepresentativePurpose(text: string): boolean {
 export function isBoundedTurkishKnowledgeLimitation(text: string): boolean {
   const whole = text.normalize("NFKC").trim();
   return /^(?:(?:üyeliğin|aboneliğin) (?:fiyatı|içeriği|fiyatı ve içeriği|(?:fiyat ve içerik |fiyat |içerik )?detayları)|(?:üyelik|abonelik) detayları) (?:şu an(?:da)? |henüz |şimdilik )?(?:net|kesin|belirli) değil[.!]?$/iu.test(whole)
-    || /^Üyelik bedava mı, şu an net değil[.!]?$/iu.test(whole);
+    || /^Üyelik bedava mı, şu an net değil[.!]?$/iu.test(whole)
+    || /^(?:üyeliğin|aboneliğin) (?:ücretsiz|bedava) olup olmadığı (?:şu an(?:da)? |henüz |şimdilik )?(?:net|kesin|belirli) değil[.!]?$/iu.test(whole);
 }
 export function isDraftedReviewQuestion(text: string): boolean {
   const whole = text.normalize("NFKC").trim();

@@ -8,10 +8,10 @@ export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
   prompt: "conversation-quality-prompt-v26",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v31",
+  qa: "conversation-qa-v32",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v32",
+  evaluationSet: "phase7-balanced-v33",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
