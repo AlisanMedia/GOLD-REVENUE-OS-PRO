@@ -28,10 +28,22 @@ const wireOutputSchema = conversationModelOutputSchema.omit({ memory_proposals: 
 function bindEvidenceSchema(value: unknown, allowed: readonly string[], inbound: readonly string[]): unknown {
   if (Array.isArray(value)) return value.map((item) => bindEvidenceSchema(item, allowed, inbound));
   if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
+  const bound = Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
     key === "evidence_refs" || key === "provenance_evidence_refs"
       ? { type: "array", ...(key === "provenance_evidence_refs" ? { minItems: 1, maxItems: 8 } : { maxItems: 12 }), items: { type: "string", enum: key === "provenance_evidence_refs" ? inbound : allowed } }
       : bindEvidenceSchema(item, allowed, inbound)]));
+  const properties = bound.properties as Record<string, unknown> | undefined;
+  const grounding = properties?.grounding as { enum?: readonly string[] } | undefined;
+  if (properties?.speech_act && grounding?.enum?.includes("CUSTOMER_REPORTED")) {
+    // Constrain at generation time, not just by prompt. Outbound wording stays
+    // available for continuity but cannot prove a customer's statement.
+    return { anyOf: [
+      { ...bound, properties: { ...properties, grounding: { type: "string", enum: ["CUSTOMER_REPORTED"] },
+        evidence_refs: { type: "array", minItems: 1, maxItems: 12, items: { type: "string", enum: inbound } } } },
+      { ...bound, properties: { ...properties, grounding: { type: "string", enum: grounding.enum.filter((kind) => kind !== "CUSTOMER_REPORTED") } } },
+    ] };
+  }
+  return bound;
 }
 
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -294,7 +306,7 @@ export class OpenAIResponsesProvider implements ModelProvider {
       let output;
       try {
         output = conversationModelOutputSchema.parse({ ...wire.data,
-          claims: wire.data.claims.map((claim) => ({ ...claim, evidence_refs: resolveEvidenceHandles(claim.evidence_refs, registry) })),
+          claims: wire.data.claims.map((claim) => ({ ...claim, evidence_refs: resolveEvidenceHandles(claim.evidence_refs, registry, claim.grounding === "CUSTOMER_REPORTED") })),
           semantic_response: { ...wire.data.semantic_response, factual_grounding: { ...wire.data.semantic_response.factual_grounding,
             evidence_refs: resolveEvidenceHandles(wire.data.semantic_response.factual_grounding.evidence_refs, registry) } },
           memory_proposals: wire.data.memory_proposals.map(({ provenance_evidence_refs, ...proposal }) => ({ ...proposal,

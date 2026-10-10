@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v8", director: "conversation-director-v4",
-  renderer: "natural-renderer-v5", qa: "conversation-qa-v13", context: 3,
-  outputSchema: 4, evaluationSet: "phase7-balanced-v14",
+  prompt: "conversation-quality-prompt-v9", director: "conversation-director-v4",
+  renderer: "natural-renderer-v5", qa: "conversation-qa-v14", context: 3,
+  outputSchema: 4, evaluationSet: "phase7-balanced-v15",
 } as const;
 
 const validOutput = {
@@ -109,6 +109,25 @@ describe("OpenAI Responses provider adapter", () => {
     const output = { ...validOutput, claims: validOutput.claims.map((claim) => ({ ...claim, evidence_refs: [ref] })) };
     const provider = new OpenAIResponsesProvider("test-key", "test-model", async () => new Response(JSON.stringify({ output_text: JSON.stringify(output) }), { status: 200 }));
     await expect(provider.invoke(request())).rejects.toMatchObject({ kind: "INVALID_OUTPUT", retryable: false, message: "EVIDENCE_REFERENCE_NOT_ALLOWED" });
+  });
+
+  it.each(["EVIDENCE_CURRENT_MESSAGE", "EVIDENCE_MESSAGE_1"])("constrains customer attribution to inbound evidence: %s", async (reference) => {
+    const outbound = { ...context.recentMessages[0], id: "55555555-5555-4555-8555-555555555555", direction: "outbound" as const, content: "Previous assistant reply" };
+    const mixedContext = { ...context, recentMessages: [outbound, ...context.recentMessages] };
+    const output = { ...validOutput, claims: [{ ...validOutput.claims[0], text: "You said hello.", kind: "fact", speech_act: "CUSTOMER_REPORTED_FACT", grounding: "CUSTOMER_REPORTED", evidence_refs: [reference] }] };
+    const provider = new OpenAIResponsesProvider("test-key", "test-model", async (_url, init) => {
+      const body = JSON.parse(String(init?.body));
+      const variants = body.text.format.schema.properties.claims.items.anyOf;
+      const customer = variants.find((variant: { properties: { grounding: { enum: string[] } } }) => variant.properties.grounding.enum.includes("CUSTOMER_REPORTED"));
+      expect(customer.properties.evidence_refs.items.enum).toEqual(["EVIDENCE_CURRENT_MESSAGE"]);
+      expect(customer.properties.evidence_refs.minItems).toBe(1);
+      expect(variants.every((variant: { required: string[]; additionalProperties: boolean }) => variant.additionalProperties === false && variant.required.includes("evidence_refs"))).toBe(true);
+      expect(variants.find((variant: { properties: { grounding: { enum: string[] } } }) => variant.properties.grounding.enum.includes("INFERRED")).properties.evidence_refs.items.enum).toEqual(["EVIDENCE_MESSAGE_1", "EVIDENCE_CURRENT_MESSAGE"]);
+      return new Response(JSON.stringify({ output_text: JSON.stringify(output) }), { status: 200 });
+    });
+    const invocation = provider.invoke({ ...request(), context: mixedContext });
+    if (reference === "EVIDENCE_CURRENT_MESSAGE") expect((await invocation).output.claims[0].evidence_refs).toEqual([context.recentMessages[0].id]);
+    else await expect(invocation).rejects.toMatchObject({ kind: "INVALID_OUTPUT", retryable: false, message: "EVIDENCE_REFERENCE_NOT_ALLOWED" });
   });
 
   it("resolves memory handles and retains authoritative wire evidence", async () => {
