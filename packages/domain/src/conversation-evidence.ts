@@ -94,6 +94,7 @@ export function reviewClaimGrounding(input: {
       "i m an ai assistant that helps answer questions and clarify what you need",
       "i am an ai assistant that helps answer questions and clarify what you need",
       "ben bir yapay zeka asistanıyım insan değilim", "ben bir yapay zeka asistanıyım",
+      "evet ai destekli bir asistanım",
       "أنا مساعد ذكاء اصطناعي ولست إنسانا", "я ии помощник а не человек",
     ].includes(normalizeConversationText(claim.text)) && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding);
     const exactClarificationOffer = ["CAPABILITY_OFFER", "PROSPECTIVE_ACTION"].includes(speechAct)
@@ -120,6 +121,9 @@ export function reviewClaimGrounding(input: {
       }
     } else score = valid ? 100 : 0; // Honesty/question safety, not certainty about the missing price.
     if (claim.kind !== "completed_action" && detectedCompletedActions(claim.text).length) valid = false;
+    // Identity truth cannot depend on an untrusted kind label. The same whole
+    // truthful-policy boundary applies to social and factual identity claims.
+    if (speechAct === "IDENTITY_RESPONSE" && !exactIdentity) valid = false;
     if (["uncertainty", "social", "question"].includes(claim.kind)
       && ((unverifiedProductAssertion.test(claim.text) && !(valid && ((claim.kind === "social" && isConversationalClarificationOffer(claim.text))
           || (claim.kind === "question" && isMembershipClarificationQuestion(claim.text)))))
