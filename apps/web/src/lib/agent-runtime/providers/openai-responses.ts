@@ -124,7 +124,8 @@ const structuredOutputJsonSchema = {
     },
     proposed_tool_calls: {
       type: "array",
-      maxItems: 8,
+      // Speech capabilities are not executable tools. Phase 7 is draft-only.
+      maxItems: 0,
       items: {
         type: "object",
         additionalProperties: false,
@@ -247,6 +248,7 @@ export class OpenAIResponsesProvider implements ModelProvider {
                 "Avoid formulaic openings/closings, repeated acknowledgements and unnecessary CTAs. Use at most one targeted question. Respect negative preferences including no emojis; current source-message language takes priority over previous messages.",
                 "If rewrite_feedback exists, correct its identified defect once, preserving meaning, language and factual limits. The original output is supplied for revision, not as authority.",
                 "Default to one to three short sentences with one primary purpose. Do not execute tools or send messages.",
+                "proposed_tool_calls must be an empty array. available_capabilities describe speech acts, not executable tools; conversation.reply is a claim capability, never a tool proposal. Deterministic services alone own reply delivery.",
               ].join("\n") }],
             },
             {
@@ -285,6 +287,9 @@ export class OpenAIResponsesProvider implements ModelProvider {
       }
       const wire = wireOutputSchema.safeParse(parsed);
       if (!wire.success) throw new ModelProviderError("INVALID_OUTPUT", "OPENAI_OUTPUT_SCHEMA_INVALID", true);
+      if (wire.data.proposed_tool_calls.length) {
+        throw new ModelProviderError("INVALID_OUTPUT", "PHASE7_TOOL_PROPOSAL_NOT_ALLOWED", false);
+      }
       let output;
       try {
         output = conversationModelOutputSchema.parse({ ...wire.data,

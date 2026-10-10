@@ -4,7 +4,7 @@ import { MULTILINGUAL_REGRESSION } from "./multilingual-regression";
 import { requestedRepetition, reviewSemanticContext } from "./semantic-quality";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v5",
+  prompt: "conversation-quality-prompt-v6",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
   qa: "conversation-qa-v8",
