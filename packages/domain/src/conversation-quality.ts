@@ -5,13 +5,13 @@ import { requestedRepetition, reviewSemanticContext, repeatedMembershipClarifica
 import { isConventionalCompoundGreeting, isBoundedTurkishKnowledgeLimitation } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v23",
+  prompt: "conversation-quality-prompt-v24",
   director: "conversation-director-v4",
   renderer: "natural-renderer-v5",
-  qa: "conversation-qa-v28",
+  qa: "conversation-qa-v29",
   context: 3,
   outputSchema: 4,
-  evaluationSet: "phase7-balanced-v29",
+  evaluationSet: "phase7-balanced-v30",
 });
 
 export const STYLE_FORMALITIES = ["formal", "neutral", "casual", "very_casual"] as const;
