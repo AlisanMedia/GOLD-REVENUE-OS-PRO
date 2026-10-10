@@ -28,10 +28,22 @@ export function splitResponseSentences(text: string): string[] {
 }
 function reportedMonthlySelection(claim: ResponseClaim, messages: ReadonlyArray<{ id?: string; direction: string; content: string }>): boolean {
   // A whole acknowledgement of the actual customer's selection is not a
-  // catalog fact. Both selected and excluded options must be in cited inbound.
-  if (!/^(?:understood|got it) (?:just )?the monthly option not the annual one$/u.test(normalizeConversationText(claim.text))) return false;
-  return messages.some(m => m.direction === "inbound" && m.id !== undefined && claim.evidence_refs.includes(m.id)
-    && /^yes (?:just )?the monthly option not the annual one(?: keep the answer brief)?$/u.test(normalizeConversationText(m.content)));
+  // catalog fact. Every asserted selection/exclusion must be in cited inbound.
+  // Parse the same bounded selection body on both sides. Adverb position
+  // and acknowledgement wording cannot change the selected/excluded periods.
+  // Anchoring rejects appended values, catalog assertions and action claims.
+  const body = /^(?:(?:just|only) )?(?:the )?monthly(?: option)?(?: only)?(?: not (?:the )?(annual)(?: (?:one|option))?)?$/u;
+  const text = normalizeConversationText(claim.text);
+  if (!/^(?:understood|got it|noted|okay) /u.test(text)) return false;
+  const selected = body.exec(text.replace(/^(?:understood|got it|noted|okay) /u, ""));
+  if (!selected) return false;
+  return messages.some(m => {
+    if (m.direction !== "inbound" || m.id === undefined || !claim.evidence_refs.includes(m.id)) return false;
+    const source = normalizeConversationText(m.content);
+    if (!/^yes /u.test(source)) return false;
+    const declared = body.exec(source.replace(/^yes /u, "").replace(/ keep the answer brief$/u, ""));
+    return Boolean(declared && (selected[1] === undefined || selected[1] === declared[1]));
+  });
 }
 function reportedMembershipInformationRequest(claim: ResponseClaim, messages: ReadonlyArray<{ id?: string; direction: string; content: string }>): boolean {
   // Bounded request summary, not a product assertion. Require an actual cited
