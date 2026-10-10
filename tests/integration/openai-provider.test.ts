@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v5", director: "conversation-director-v3",
-  renderer: "natural-renderer-v5", qa: "conversation-qa-v7", context: 3,
-  outputSchema: 4, evaluationSet: "phase7-balanced-v8",
+  prompt: "conversation-quality-prompt-v5", director: "conversation-director-v4",
+  renderer: "natural-renderer-v5", qa: "conversation-qa-v8", context: 3,
+  outputSchema: 4, evaluationSet: "phase7-balanced-v9",
 } as const;
 
 const validOutput = {

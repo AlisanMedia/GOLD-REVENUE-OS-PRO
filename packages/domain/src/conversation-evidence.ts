@@ -86,6 +86,7 @@ export function reviewClaimGrounding(input: {
           guaranteedCommitments: input.guaranteedCommitments ?? [] }));
     const exactIdentity = speechAct === "IDENTITY_RESPONSE" && [
       "i m an ai assistant not a human", "i am an ai assistant not a human", "i m an ai assistant", "i am an ai assistant",
+      "i m an ai not a human", "i am an ai not a human", "i m an ai", "i am an ai",
       "ben bir yapay zeka asistanıyım insan değilim", "ben bir yapay zeka asistanıyım",
       "أنا مساعد ذكاء اصطناعي ولست إنسانا", "я ии помощник а не человек",
     ].includes(normalizeConversationText(claim.text)) && ["KNOWN_FROM_SYSTEM", "GENERAL_SAFE_STATEMENT"].includes(claim.grounding);

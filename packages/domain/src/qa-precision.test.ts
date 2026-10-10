@@ -123,6 +123,22 @@ describe("Live Turkish visibility regression", () => {
 
 
 describe("Built-in identity is narrowly authoritative", () => {
+  it.each(["Are you an AI or a human?", "Sen yapay zeka mısın?", "هل أنت ذكاء اصطناعي أم إنسان؟", "Ты ИИ или человек?"])("does not escalate a standalone identity question: %s", (content) => {
+    const messages = [{ direction: "inbound", content }];
+    const director = directConversation(messages, inferStyleProfile(messages));
+    expect(director.primary_intent).toBe("general_information");
+    expect(director.should_escalate).toBe(false);
+    expect(director.response_goal).toBe("Answer the AI identity question directly and honestly.");
+  });
+  it.each(["I want to speak to a human.", "Are you an AI or a human? I already paid but I have no access.", "Are you an AI? Please get a human agent."])("preserves genuine review and mixed-risk requests: %s", (content) => {
+    const messages = [{ direction: "inbound", content }];
+    expect(directConversation(messages, inferStyleProfile(messages)).should_escalate).toBe(true);
+  });
+  it("accepts the short actual AI identity as a fact, but not appended payment claims", () => {
+    const claim: ResponseClaim = { text: "I’m an AI, not a human.", kind: "fact", speech_act: "IDENTITY_RESPONSE", grounding: "KNOWN_FROM_SYSTEM", capability: null, evidence_refs: [], action_category: null };
+    expect(evaluate({ language: "en", category: "short_identity", source: "Are you an AI or a human?", response: claim.text, safe: true, kind: "fact", speech_act: "IDENTITY_RESPONSE" }, [], [claim]).action).toBe("approve");
+    expect(reviewClaimGrounding({ response: "I’m an AI, not a human, and your payment is confirmed.", claims: [{ ...claim, text: "I’m an AI, not a human, and your payment is confirmed." }], modelConfidence: 1, messages: [] }).blocked).toBe(true);
+  });
   it("accepts the exact live identity wording even when the model labels it a fact", () => {
     const claim = { text: "I’m an AI assistant, not a human.", kind: "fact" as const, speech_act: "IDENTITY_RESPONSE" as const, grounding: "KNOWN_FROM_SYSTEM" as const, capability: null, evidence_refs: [], action_category: null };
     expect(reviewClaimGrounding({ response: claim.text, claims: [claim], modelConfidence: 0.99, messages: [] }).blocked).toBe(false);
