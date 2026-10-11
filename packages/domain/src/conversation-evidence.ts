@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isDraftedReviewQuestion, isProspectiveReviewNoteOffer, isBoundedTurkishKnowledgeLimitation, type ConversationCapability } from "./speech-acts";
+import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isDraftedReviewQuestion, isProspectiveReviewNoteOffer, isBoundedTurkishKnowledgeLimitation, isBoundedTurkishAnaphoricLimitation, isOperationalDenial, withoutNegativeOperationalClauses, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
 export const ACTION_CATEGORIES = ["message_sent", "escalation_created", "forwarded", "payment_confirmed", "access_active", "account_checked", "team_contacted", "subscription_updated", "memory_written", "account_updated", "payment_checked"] as const;
@@ -77,9 +77,14 @@ const completedActions: ReadonlyArray<[(typeof ACTION_CATEGORIES)[number], RegEx
 export function detectedCompletedActions(text: string): (typeof ACTION_CATEGORIES)[number][] {
   // Negation is local to its predicate. An uncertainty clause cannot launder an
   // affirmative "but I've escalated it" in the same sentence.
-  const affirmative = text.replace(/\b(?:I (?:have not|haven['’]t)|I (?:did not|didn['’]t)|I never)\s+(?:sent|send|escalated|escalate|forwarded|forward|checked|check|updated|update)\b/giu, "")
+  const affirmative = withoutNegativeOperationalClauses(text).replace(/\b(?:I (?:have not|haven['’]t)|I (?:did not|didn['’]t)|I never)\s+(?:sent|send|escalated|escalate|forwarded|forward|checked|check|updated|update)\b/giu, "")
     .replace(/\b(?:payment|access|subscription)\s+(?:is|was|has been)\s+(?:not|never)\s+(?:confirmed|verified|received|active|activated|granted|updated)\b/giu, "");
-  return [...new Set(completedActions.filter(([, pattern]) => pattern.test(affirmative)).map(([category]) => category))];
+  const categories = completedActions.filter(([, pattern]) => pattern.test(affirmative)).map(([category]) => category);
+  // Bare and coordinated affirmative verbs must also require receipts.
+  if (/\b(?:verified|confirmed) (?:your |my |the )?payment\b/iu.test(affirmative)) categories.push("payment_confirmed");
+  if (/\b(?:activated|granted) (?:your |my |the )?access\b/iu.test(affirmative)) categories.push("access_active");
+  if (/\bcontacted (?:the )?(?:support|team)\b/iu.test(affirmative)) categories.push("team_contacted");
+  return [...new Set(categories)];
 }
 
 export function reviewClaimGrounding(input: {
@@ -152,12 +157,17 @@ export function reviewClaimGrounding(input: {
     // Whole knowledge-gap grammar expresses no price/product value. A model
     // metadata error cannot make it a backend assertion. Keep every reference,
     // action, receipt, disclosure and unsupported-grounding check below intact.
-    const exactKnowledgeGap = isBoundedTurkishKnowledgeLimitation(claim.text)
+    const exactKnowledgeGap = (isBoundedTurkishKnowledgeLimitation(claim.text) || isBoundedTurkishAnaphoricLimitation(claim.text))
       && ["fact", "uncertainty", "social"].includes(claim.kind)
       && ["KNOWLEDGE_LIMITATION", "UNKNOWN_ASSERTION"].includes(speechAct)
       && ["UNKNOWN", "CUSTOMER_REPORTED", "GENERAL_SAFE_STATEMENT", "KNOWN_FROM_SYSTEM"].includes(claim.grounding)
       && claim.capability == null && claim.action_category == null;
-    if (exactIdentity || exactClarificationOffer || exactReviewDraft || exactKnowledgeGap) { valid = true; score = 100; }
+    const exactActionDenial = isOperationalDenial(claim.text)
+      && ["fact", "uncertainty", "social"].includes(claim.kind)
+      && ["KNOWLEDGE_LIMITATION", "UNKNOWN_ASSERTION"].includes(speechAct)
+      && ["UNKNOWN", "GENERAL_SAFE_STATEMENT", "KNOWN_FROM_SYSTEM"].includes(claim.grounding)
+      && claim.capability == null && claim.action_category == null;
+    if (exactIdentity || exactClarificationOffer || exactReviewDraft || exactKnowledgeGap || exactActionDenial) { valid = true; score = 100; }
     else if (["fact", "completed_action"].includes(claim.kind)) {
       if (["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL"].includes(claim.grounding)) {
         valid = evidence.some((item) => claim.evidence_refs.includes(item.id)
@@ -187,6 +197,12 @@ export function reviewClaimGrounding(input: {
       }
     } else score = valid ? 100 : 0; // Honesty/question safety, not certainty about the missing price.
     if (claim.kind !== "completed_action" && detectedCompletedActions(claim.text).length) valid = false;
+    // The free-status uncertainty grammar and its anaphoric rewrite are whole
+    // clauses. An uncertainty substring cannot launder appended facts/actions.
+    if (/(?:üyeliğin|aboneliğin) (?:ücretsiz|bedava) olup olmad|^Bunu /iu.test(claim.text)) {
+      valid = valid && (isBoundedTurkishKnowledgeLimitation(claim.text) || isBoundedTurkishAnaphoricLimitation(claim.text));
+    }
+    if (/(?:üyelik|abonelik)\s+(?:ücretsiz|bedava)(?:dır)?(?:[.!]|$)|(?:kazanç|kâr|kar) garantisi/iu.test(claim.text)) valid = false;
     // Identity truth cannot depend on an untrusted kind label. The same whole
     // truthful-policy boundary applies to social and factual identity claims.
     if ((speechAct === "IDENTITY_RESPONSE" || identityDeclaration) && !exactIdentity) valid = false;
