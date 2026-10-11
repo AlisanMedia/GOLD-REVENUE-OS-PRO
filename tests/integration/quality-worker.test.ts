@@ -51,6 +51,23 @@ describe("Corrective worker integration (mocked provider, not live evidence)", (
     expect(mocks.rpc.mock.calls.some(([name]) => name === "queue_quality_approved_reply")).toBe(false);
     expect(mocks.dispatch).not.toHaveBeenCalled();
   });
+  it("persists the live denial without receipt failures and never sends the genuine dispute", async () => {
+    const source = [{ ...messages[0]!, content: "I paid for the membership, but I still do not have access. What should I do?" }];
+    mocks.context.mockResolvedValue({ context: { tenantId: tenant, customerId: null, conversationId: conversation, lifecycleState: null, contactability: "user_initiated", runtimeMode: "AI_ACTIVE", profile: null, memory: [], recentMessages: source, recentEventTypes: [] }, manifest: { context_version: 3, context_boundary_timestamp: messages[0]!.occurredAt } });
+    const generated = response("I’m sorry you’re having this issue. I haven’t verified your payment or access, so this needs human review.");
+    generated.output.claims = generated.output.claims.map(c => ({ ...c, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", grounding: "UNKNOWN" }));
+    mocks.invoke.mockResolvedValue(generated);
+    const { runDeterministicWorker } = await import("../../apps/web/src/lib/agent-runtime/worker");
+    await runDeterministicWorker();
+    const completion = mocks.rpc.mock.calls.find(([name]) => name === "complete_quality_agent_run")![1];
+    expect(completion.qa_action_value).toBe("block");
+    expect(completion.qa_reasons_value).toContain("ESCALATION_REQUIRED");
+    expect(completion.qa_reasons_value).not.toContain("ACTION_RECEIPT_REQUIRED");
+    const stage = mocks.rpc.mock.calls.find(([name]) => name === "record_quality_stage_evidence")![1];
+    expect(stage.evidence_value.evaluation.grounding.action_receipt_failures).toEqual([]);
+    expect(mocks.rpc.mock.calls.some(([name]) => name === "queue_quality_approved_reply")).toBe(false);
+    expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
 
   it("stores both stages and corrects repetition with exactly one rewrite", async () => {
     mocks.invoke.mockResolvedValueOnce(response("I understand. I understand.")).mockResolvedValueOnce(response("Hi! What would you like to know?"));

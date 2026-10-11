@@ -9,9 +9,14 @@ const offer = /\b(?:can|could)\b|olabilirim|(?:açıklayabilirim|inceletebilirim
 const operational = /(?:check|verify|confirm|activate|save|send|forward|update).*(?:account|payment|access|preference|support)|(?:hesap|ödeme|erişim).*(?:kontrol|doğrula|aç)|(?:تحقق|تفعيل|أرسل|حفظ).*(?:حساب|دفع|وصول)|(?:провер|активир|отправ|сохрани).*(?:аккаунт|оплат|доступ)/iu;
 // Finite verb/object grammar, not a financial-keyword whitelist. Coordination
 // inherits a negative auxiliary only until a new subject or contrastive clause.
-const operationalPredicate = String.raw`(?:(?:verify|verified|confirm|confirmed|check|checked) (?:your |my |the )?payment|(?:activate|activated|grant|granted) (?:your |my |the )?access|(?:contact|contacted) (?:the )?(?:support|team)|(?:check|checked|review|reviewed|update|updated) (?:your |my |the )?account|(?:update|updated) (?:your |my |the )?subscription|(?:send|sent|forward|forwarded|escalate|escalated) (?:it|this|(?:the |your )?message))`;
+const coordination = String.raw`\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)`;
+const verificationObject = String.raw`(?:your |my |the )?(?:payment|access)`;
+const verificationObjects = `${verificationObject}(?:${coordination}${verificationObject})*`;
+const operationalPredicate = String.raw`(?:(?:verify|verified|confirm|confirmed|check|checked) ${verificationObjects}|(?:activate|activated|grant|granted) (?:your |my |the )?access|(?:contact|contacted) (?:the )?(?:support|team)|(?:check|checked|review|reviewed|update|updated) (?:your |my |the )?account|(?:update|updated) (?:your |my |the )?subscription|(?:send|sent|forward|forwarded|escalate|escalated) (?:it|this|(?:the |your )?message))`;
 const coordinatedPredicates = `${operationalPredicate}(?:\\s*(?:,\\s*(?:(?:and|or)\\s+)?|\\s+(?:and|or)\\s+)${operationalPredicate})*`;
-const negativeOperationalClause = new RegExp(String.raw`\bI (?:have not|haven['’]t|did not|didn['’]t|do not|don['’]t|never)\s+${coordinatedPredicates}(?=\s*(?:[.!?;]|$|,?\s*\b(?:but|however|yet|and\s+I|or\s+I)\b))`, "giu");
+// An elided subject still negates its own predicate ("but haven't activated").
+// Causal explanations end that scope; their actions must remain visible.
+const negativeOperationalClause = new RegExp(String.raw`\b(?:I\s+)?(?:have not|haven['’]t|did not|didn['’]t|do not|don['’]t|never)\s+${coordinatedPredicates}(?=\s*(?:[.!?;]|$|,?\s*\b(?:but|however|yet|so|because|and\s+I|or\s+I)\b))`, "giu");
 export function withoutNegativeOperationalClauses(text: string): string {
   return text.normalize("NFKC").replace(negativeOperationalClause, "");
 }
