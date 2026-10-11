@@ -72,6 +72,25 @@ describe("Unicode quality and evidence truth contracts", () => {
     expect(detectedCompletedActions("I haven't checked your account. Your payment is not confirmed.")).toEqual([]);
   });
   it.each([
+    ["I haven't verified your payment or access, so this needs human review.", []],
+    ["I haven't verified payment, but I activated access.", ["access_active"]],
+    ["I verified your payment but haven't activated access.", ["payment_confirmed"]],
+    ["Your payment is confirmed.", ["payment_confirmed"]],
+    ["I haven’t verified your payment or your access, activated access, or contacted support, so this needs human review.", []],
+    ["I have not verified payment and access or activated access and contacted support.", []],
+    ["I didn't verify payment or access, because this needs human review.", []],
+    ["I haven't verified payment or access, so I contacted support.", ["team_contacted"]],
+    ["I haven't verified payment or access, because I activated access.", ["access_active"]],
+    ["I haven't verified payment or access, but your payment is confirmed.", ["payment_confirmed"]],
+    ["I haven't verified payment or access and I activated access.", ["access_active"]],
+    ["I have not only verified payment or access, but activated access.", ["payment_confirmed", "access_active"]],
+  ])("preserves exact receipt polarity across objects and clause boundaries: %s", (text, categories) => {
+    expect(detectedCompletedActions(text)).toEqual(categories);
+    const result = review(text, claim(text, "uncertainty", "UNKNOWN"));
+    expect(result.action_receipt_failures).toEqual(categories);
+    expect(result.reasons.includes("ACTION_RECEIPT_REQUIRED")).toBe(categories.length > 0);
+  });
+  it.each([
     ["I verified payment.", "payment_confirmed"],
     ["I activated access.", "access_active"],
     ["I contacted support.", "team_contacted"],
