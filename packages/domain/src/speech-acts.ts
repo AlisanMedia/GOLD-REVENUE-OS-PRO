@@ -7,6 +7,28 @@ const preference = /(?:reply|respond|speak|answer).*(?:English|Turkish|Arabic|Ru
 const future = /\b(?:I['’]ll|will|we['’]ll)\b|(?:göndereceğim|ileteceğim|yapacağım|olacaktır|gönderilecek)|سوف|سأ(?:رسل|راجع|حدث)|я (?:отправлю|проверю|обновлю)/iu;
 const offer = /\b(?:can|could)\b|olabilirim|(?:açıklayabilirim|inceletebilirim)|(?:يمكنني|أستطيع)|(?:могу|можем)/iu;
 const operational = /(?:check|verify|confirm|activate|save|send|forward|update).*(?:account|payment|access|preference|support)|(?:hesap|ödeme|erişim).*(?:kontrol|doğrula|aç)|(?:تحقق|تفعيل|أرسل|حفظ).*(?:حساب|دفع|وصول)|(?:провер|активир|отправ|сохрани).*(?:аккаунт|оплат|доступ)/iu;
+// Finite verb/object grammar, not a financial-keyword whitelist. Coordination
+// inherits a negative auxiliary only until a new subject or contrastive clause.
+const operationalPredicate = String.raw`(?:(?:verify|verified|confirm|confirmed|check|checked) (?:your |my |the )?payment|(?:activate|activated|grant|granted) (?:your |my |the )?access|(?:contact|contacted) (?:the )?(?:support|team)|(?:check|checked|review|reviewed|update|updated) (?:your |my |the )?account|(?:update|updated) (?:your |my |the )?subscription|(?:send|sent|forward|forwarded|escalate|escalated) (?:it|this|(?:the |your )?message))`;
+const coordinatedPredicates = `${operationalPredicate}(?:\\s*(?:,\\s*(?:(?:and|or)\\s+)?|\\s+(?:and|or)\\s+)${operationalPredicate})*`;
+const negativeOperationalClause = new RegExp(String.raw`\bI (?:have not|haven['’]t|did not|didn['’]t|do not|don['’]t|never)\s+${coordinatedPredicates}(?=\s*(?:[.!?;]|$|,?\s*\b(?:but|however|yet|and\s+I|or\s+I)\b))`, "giu");
+export function withoutNegativeOperationalClauses(text: string): string {
+  return text.normalize("NFKC").replace(negativeOperationalClause, "");
+}
+export function isOperationalDenial(text: string): boolean {
+  const whole = text.normalize("NFKC").trim();
+  return withoutNegativeOperationalClauses(whole) !== whole
+    && /^[.!]?$/u.test(withoutNegativeOperationalClauses(whole).trim());
+}
+export function isFalseActionAttestationRequest(text: string): boolean {
+  return new RegExp(String.raw`^(?:Just )?(?:tell me|say) (?:that )?you ${coordinatedPredicates},? even if (?:those |these )?actions (?:have not|haven['’]t) happened[.!]?$`, "iu").test(text.normalize("NFKC").trim());
+}
+export function isTurkishFreeMembershipQuestion(text: string): boolean {
+  return /(?:üyelik|üyeliğin|abonelik|aboneliğin)[^.!?]*(?:bedava|ücretsiz)[^.!?]*(?:mı|mi|olup olmad)[^.!?]*\?/iu.test(text);
+}
+export function isBoundedTurkishAnaphoricLimitation(text: string): boolean {
+  return /^Bunu (?:şu an(?:da)? |henüz )?(?:net (?:olarak )?)?(?:söyleyemem|söyleyemiyorum|doğrulayamıyorum)[.!]?$/iu.test(text.normalize("NFKC").trim());
+}
 // Whole conversational offers describe clarification, not catalog knowledge.
 // In particular, "what the membership includes" is an embedded question,
 // not the affirmative business assertion "the membership includes X".
@@ -38,7 +60,8 @@ export function isBoundedTurkishKnowledgeLimitation(text: string): boolean {
   const whole = text.normalize("NFKC").trim();
   return /^(?:(?:üyeliğin|aboneliğin) (?:fiyatı|içeriği|fiyatı ve içeriği|(?:fiyat ve içerik |fiyat |içerik )?detayları)|(?:üyelik|abonelik) detayları) (?:şu an(?:da)? |henüz |şimdilik )?(?:net|kesin|belirli) değil[.!]?$/iu.test(whole)
     || /^Üyelik bedava mı, şu an net değil[.!]?$/iu.test(whole)
-    || /^(?:üyeliğin|aboneliğin) (?:ücretsiz|bedava) olup olmadığı (?:şu an(?:da)? |henüz |şimdilik )?(?:net|kesin|belirli) değil[.!]?$/iu.test(whole);
+    || /^(?:üyeliğin|aboneliğin) (?:ücretsiz|bedava) olup olmadığı (?:şu an(?:da)? |henüz |şimdilik )?(?:net|kesin|belirli) değil[.!]?$/iu.test(whole)
+    || /^(?:(?:şu an(?:da)?|henüz) )?(?:üyeliğin|aboneliğin) (?:ücretsiz|bedava) olup olmadığını (?:şu an(?:da)? |henüz )?(?:doğrulayamıyorum|bilmiyorum|net (?:olarak )?(?:söyleyemem|söyleyemiyorum))[.!]?$/iu.test(whole);
 }
 export function isDraftedReviewQuestion(text: string): boolean {
   const whole = text.normalize("NFKC").trim();

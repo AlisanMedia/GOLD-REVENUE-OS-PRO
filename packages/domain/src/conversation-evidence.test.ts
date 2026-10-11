@@ -71,6 +71,20 @@ describe("Unicode quality and evidence truth contracts", () => {
     expect(detectedCompletedActions("This needs to be reviewed. I'll need to escalate this.")).toEqual([]);
     expect(detectedCompletedActions("I haven't checked your account. Your payment is not confirmed.")).toEqual([]);
   });
+  it.each([
+    ["I verified payment.", "payment_confirmed"],
+    ["I activated access.", "access_active"],
+    ["I contacted support.", "team_contacted"],
+  ] as const)("keeps exact scoped receipt requirements for affirmative %s", (text, category) => {
+    const item: ResponseClaim = { ...claim(text, "completed_action", "VERIFIED_BY_TOOL"), speech_act: "COMPLETED_ACTION", action_category: category, evidence_refs: ["receipt-1"] };
+    const receipt = { id: "receipt-1", tenantId: scope.tenantId, conversationId: scope.conversationId, occurredAt: scope.boundary, status: "completed" as const, category, statement: text };
+    const input = { ...scope, response: text, claims: [item], modelConfidence: 1, messages: [message] };
+    expect(reviewClaimGrounding(input).reasons).toContain("ACTION_RECEIPT_REQUIRED");
+    expect(reviewClaimGrounding({ ...input, backendEvidence: [receipt] }).blocked).toBe(false);
+    for (const wrong of [{ ...receipt, tenantId: "tenant-b" }, { ...receipt, conversationId: "other" }, { ...receipt, occurredAt: "2026-10-05T10:00:01Z" }, { ...receipt, statement: "I did not do that." }]) {
+      expect(reviewClaimGrounding({ ...input, backendEvidence: [wrong] }).blocked).toBe(true);
+    }
+  });
   it("does not derive unsupported pricing certainty from model confidence", () => {
     const text = "It costs $10 monthly.";
     expect(review(text, claim(text, "fact", "KNOWN_FROM_SYSTEM")).factual_confidence).toBe(0);

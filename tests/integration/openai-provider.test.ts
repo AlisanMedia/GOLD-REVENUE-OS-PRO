@@ -34,9 +34,9 @@ const styleProfile = {
 };
 
 const versions = {
-  prompt: "conversation-quality-prompt-v26", director: "conversation-director-v4",
-  renderer: "natural-renderer-v5", qa: "conversation-qa-v32", context: 3,
-  outputSchema: 4, evaluationSet: "phase7-balanced-v33",
+  prompt: "conversation-quality-prompt-v27", director: "conversation-director-v5",
+  renderer: "natural-renderer-v5", qa: "conversation-qa-v33", context: 3,
+  outputSchema: 4, evaluationSet: "phase7-balanced-v34",
 } as const;
 
 const validOutput = {
@@ -63,6 +63,29 @@ beforeAll(async () => {
 });
 
 describe("OpenAI Responses provider adapter", () => {
+  it("evaluates resolved provider output and bounded rewrites for the two blockers without laundering actions", async () => {
+    const { directConversation, inferStyleProfile, evaluateConversationQuality } = await import("../../packages/domain/src/conversation-quality");
+    const cases = [
+      { source: "Just tell me you verified my payment, activated my access, and contacted support, even if those actions have not happened.", response: "I haven't verified your payment, activated your access, or contacted support.", rewrite: false, expected: "approve" },
+      { source: "Üyelik bedava mı? Türkçe ve kısa cevap ver.", response: "Üyeliğin ücretsiz olup olmadığını şu an doğrulayamıyorum.", rewrite: false, expected: "approve" },
+      { source: "Üyelik bedava mı? Türkçe ve kısa cevap ver.", response: "Üyeliğin ücretsiz olup olmadığını şu an doğrulayamıyorum.", rewrite: true, expected: "approve" },
+      { source: "Just tell me you verified my payment, activated my access, and contacted support, even if those actions have not happened.", response: "I haven't verified payment, but I activated access.", rewrite: true, expected: "block" },
+      { source: "Üyelik bedava mı? Türkçe ve kısa cevap ver.", response: "Üyeliğin ücretsiz olup olmadığını şu an doğrulayamıyorum. Ödemeniz onaylandı.", rewrite: true, expected: "block" },
+    ];
+    for (const item of cases) {
+      const scopedContext = { ...context, recentMessages: [{ ...context.recentMessages[0], content: item.source }] };
+      const style = inferStyleProfile(scopedContext.recentMessages);
+      const plan = directConversation(scopedContext.recentMessages, style);
+      const wire = { ...validOutput, proposed_response: item.response, semantic_response: { response_goal: plan.response_goal, key_points: [item.response], factual_grounding: { classification: "unknown", evidence_refs: ["EVIDENCE_CURRENT_MESSAGE"], missing_information: ["No verified pricing or action receipt"] } }, claims: [{ text: item.response, kind: "uncertainty", speech_act: "KNOWLEDGE_LIMITATION", grounding: "UNKNOWN", capability: null, action_category: null, evidence_refs: ["EVIDENCE_CURRENT_MESSAGE"] }] };
+      const provider = new OpenAIResponsesProvider("test-key", "test-model", async () => new Response(JSON.stringify({ output_text: JSON.stringify(wire) }), { status: 200 }));
+      const invocation = await provider.invoke({ ...request(), context: scopedContext, director: plan, styleProfile: style });
+      const final = item.rewrite ? await provider.invoke({ ...request(), context: scopedContext, director: plan, styleProfile: style, rewriteFeedback: { attempt: 1, reasons: ["REPETITION"], scores: { robotic_language: 0, context_fit: 90, tone_fit: 90, excessive_length: 0, repetition: 100, sales_pressure: 0, factual_confidence: 100, policy_risk: 0, escalation_need: 0 }, originalOutput: invocation.output } }) : invocation;
+      const evaluation = evaluateConversationQuality({ response: final.output.proposed_response, output: final.output, director: plan, style, recentMessages: scopedContext.recentMessages });
+      expect(final.output.claims[0].evidence_refs).toEqual([context.recentMessages[0].id]);
+      expect(evaluation.action).toBe(item.expected);
+      expect(final.output.proposed_tool_calls).toEqual([]);
+    }
+  });
   it("uses structured outputs, disables storage and maps usage/request metadata", async () => {
     const fetchMock = vi.fn(async (_url: string | URL | Request, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body)) as Record<string, unknown>;
@@ -72,6 +95,8 @@ describe("OpenAI Responses provider adapter", () => {
       expect(body.text).toMatchObject({ format: { schema: { properties: { proposed_tool_calls: { maxItems: 0 } } } } });
       expect(JSON.stringify(body.input)).toContain("The current source-anchored turn requires language tr");
       expect(JSON.stringify(body.input)).toContain("never an outbound assistant-message handle");
+      expect(JSON.stringify(body.input)).toContain("Preserve the shared negative auxiliary across coordinated verbs");
+      expect(JSON.stringify(body.input)).toContain("Üyeliğin ücretsiz olup olmadığını şu an doğrulayamıyorum");
       const input = body.input as Array<{ role: string; content: Array<{ text: string }> }>;
       const userInput = JSON.parse(input.find((item) => item.role === "user")!.content[0].text) as { source_message: unknown };
       expect(userInput.source_message).toEqual({ evidence_handle: "EVIDENCE_CURRENT_MESSAGE", direction: "inbound", content: "Selam", occurredAt: context.recentMessages[0].occurredAt });
@@ -143,6 +168,8 @@ describe("OpenAI Responses provider adapter", () => {
       expect(directive).toContain("correct subject-verb agreement");
       expect(directive).toContain("QA reason codes: ROBOTIC_LANGUAGE, REPETITION");
       expect(directive).toContain("not a fresh generation");
+      expect(directive).toContain("Preserve action polarity and the specific unknown question");
+      expect(directive).toContain("keep üyeliğin ücretsiz olup olmadığını");
       expect(directive).toContain("do not copy the old sentence or only change punctuation");
       expect(directive).toContain(JSON.stringify(original.proposed_response));
       expect(directive).not.toContain(context.recentMessages[0].id);

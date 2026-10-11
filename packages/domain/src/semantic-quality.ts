@@ -1,7 +1,7 @@
 // Constraint-based semantic checks are separate from schema/goal-string fit.
 // Evidence reports the method and constraints; this is not a claim of a general
 // language-understanding score. Final live drafts also require human review.
-import { isConversationalClarificationOffer } from "./speech-acts";
+import { isConversationalClarificationOffer, isBoundedTurkishKnowledgeLimitation, isBoundedTurkishAnaphoricLimitation, isTurkishFreeMembershipQuestion } from "./speech-acts";
 
 export function requestedRepetition(source: string, response: string) {
   if (/don['’]t|do not|avoid|tekrar etme|لا تكرر|не повторяй/iu.test(source)) return false;
@@ -55,7 +55,9 @@ export function reviewSemanticContext(source: string, response: string, intent: 
     && /^I (?:do not|don['’]t) have (?:the )?(?:exact|current|confirmed) (?:membership|subscription) details (?:available )?(?:yet|right now|currently|at the moment)[.!]?$/iu.test(response.trim().split(/(?<=[.!?])\s+/u)[0] ?? "");
   const membershipClarificationOffer = intent === "membership_details" && topics.membership_details!.test(source)
     && isConversationalClarificationOffer(response.trim().split(/(?<=[.!?])\s+/u)[0] ?? "");
-  if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response) || arabicMembershipGap || englishMembershipGap || membershipClarificationOffer;
+  const turkishFreeMembershipGap = intent === "pricing" && isTurkishFreeMembershipQuestion(source)
+    && (isBoundedTurkishKnowledgeLimitation(response) || isBoundedTurkishAnaphoricLimitation(response));
+  if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response) || arabicMembershipGap || englishMembershipGap || membershipClarificationOffer || turkishFreeMembershipGap;
   if (intent === "prompt_injection") checks.defensive_refusal = /can['’]t|cannot|won['’]t|do not|yardımcı olamam|paylaşamam|لا|не могу|не буду/iu.test(response);
   if (/hello.*twice|twice.*hello|merhaba.*iki|مرحبا.*مرتين|привет.*дважды/iu.test(source)) checks.requested_structure = requestedRepetition(source, response);
   if (/reply|respond|yanıt|cevap|отвеч|بالإنجليزية/iu.test(source) && /English|İngilizce|الإنجليزية|английск/iu.test(source)) checks.language_preference_addressed = /English|İngilizce|الإنجليزية|английск/iu.test(response);
