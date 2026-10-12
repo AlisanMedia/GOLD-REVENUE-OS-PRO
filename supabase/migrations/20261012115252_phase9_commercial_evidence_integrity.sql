@@ -23,7 +23,7 @@ begin
   then raise exception 'EVIDENCE_COMMERCIAL_VERSION_NOT_ALLOWED' using errcode='22023';end if;
  end loop;
  for d in select value from jsonb_array_elements(ctx->'documents') x where exists(
-  select 1 from jsonb_array_elements(r.context_manifest->'commercial_versions') v where v->>'version_id'=x->>'version_id') loop
+  select 1 from jsonb_array_elements(r.context_manifest->'commercial_versions') selected_version where selected_version->>'version_id'=x->>'version_id') loop
   p:=d->'payload';statements:='[]';fact_index:=0;
   if d->>'kind'='plan' then
    period:=case p->>'duration_unit'
