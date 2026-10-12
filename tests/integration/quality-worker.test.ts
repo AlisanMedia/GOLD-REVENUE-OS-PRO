@@ -30,6 +30,21 @@ beforeEach(() => {
   mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "claim_event_outbox" ? [] : name === "begin_agent_run" ? "run-fixture" : name === "claim_agent_tasks" ? [{ task_id: "task-fixture", tenant_id: tenant, conversation_id: conversation, customer_id: null, source_event_id: "event-fixture", execution_mode: "SHADOW", timeout_ms: 30000, model_provider: "openai", model_name: "gpt-5.4-mini" }] : true }));
 });
 describe("Corrective worker integration (mocked provider, not live evidence)", () => {
+  it("runs Conversion as an internal task with no provider, tool, proposal or send",async()=>{
+    const previous=mocks.rpc.getMockImplementation()!;
+    mocks.rpc.mockImplementation(async(name:string,args:Record<string,unknown>)=>name==="claim_agent_tasks"?{error:null,data:[{task_id:"conversion-fixture",tenant_id:tenant,conversation_id:conversation,customer_id:null,source_event_id:"event-fixture",task_type:"conversion.prepare",execution_mode:"SHADOW"}]}:previous(name,args));
+    const {runDeterministicWorker}=await import("../../apps/web/src/lib/agent-runtime/worker");
+    const result=await runDeterministicWorker();
+    expect(result.conversionTasksCompleted).toBe(1);expect(mocks.invoke).not.toHaveBeenCalled();expect(mocks.dispatch).not.toHaveBeenCalled();
+    expect(mocks.rpc.mock.calls.find(([n])=>n==="complete_conversion_task")![1].result_value.follow_up.delivery).toBe("none");
+  });
+  it("uses the single rewrite budget for an unsupported optional inference and rechecks QA",async()=>{
+    mocks.invoke.mockResolvedValueOnce({...response("Late alerts can make that harder."),output:conversationModelOutputSchema.parse({...response("Late alerts can make that harder.").output,claims:[{text:"Late alerts can make that harder.",kind:"fact",grounding:"INFERRED",evidence_refs:[messageId],action_category:null}]})}).mockResolvedValueOnce(response("Hi!"));
+    const {runDeterministicWorker}=await import("../../apps/web/src/lib/agent-runtime/worker");await runDeterministicWorker();
+    expect(mocks.invoke).toHaveBeenCalledTimes(2);
+    expect(mocks.rpc.mock.calls.filter(([n])=>n==="record_quality_stage_evidence")).toHaveLength(2);
+    expect(mocks.rpc.mock.calls.find(([n])=>n==="complete_quality_agent_run")![1]).toMatchObject({rewrite_count_value:1,qa_action_value:"approve"});
+  });
   it("coordinates one invited qualification question through the existing Conversation/QA path",async()=>{
     const source=[{...messages[0]!,content:"Ask me one question."}];
     mocks.context.mockResolvedValue({context:{tenantId:tenant,customerId:null,conversationId:conversation,lifecycleState:null,contactability:"user_initiated",runtimeMode:"AI_ACTIVE",profile:null,memory:[],recentMessages:source,recentEventTypes:[]},manifest:{context_version:3,context_boundary_timestamp:source[0]!.occurredAt}});

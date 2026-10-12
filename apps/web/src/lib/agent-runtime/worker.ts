@@ -15,6 +15,9 @@ import {
   normalizeConversationText,
   buildLeadIntelligence,
   leadIntelligenceSchema,
+  buildConversion,
+  canRewriteOptionalInference,
+  commercialDirector,
   type ModelProvider,
   type ModelRequest,
   type ModelResponse,
@@ -63,6 +66,7 @@ export type WorkerResult = {
   tasksWaitingApproval: number;
   tasksFailed: number;
   leadTasksCompleted: number;
+  conversionTasksCompleted: number;
 };
 
 function providerFor(task: ClaimedTask): ModelProvider {
@@ -153,6 +157,16 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
       await invokeRpc("complete_lead_intelligence", { target_tenant_id: task.tenant_id, target_run_id: runId, worker_id_value: workerId, result_value: result });
       return true;
     }
+    if(task.task_type==="conversion.prepare"){
+      if(!task.conversation_id)throw new Error("CONVERSION_CONVERSATION_REQUIRED");
+      const built=await buildAgentContext({tenant_id:task.tenant_id,customer_id:task.customer_id,conversation_id:task.conversation_id,source_event_id:task.source_event_id??""});
+      const raw=await invokeRpc<unknown>("phase8_qualification_for_source",{target_tenant_id:task.tenant_id,target_event_id:task.source_event_id});
+      const lead=leadIntelligenceSchema.safeParse(raw);
+      runId=await invokeRpc<string>("begin_agent_run",{target_tenant_id:task.tenant_id,target_task_id:task.task_id,worker_id_value:workerId,context_manifest_value:built.manifest});
+      const result=buildConversion(built.context,built.context.commercial??{documents:[],conflict:false},lead.success?lead.data:null);
+      await invokeRpc("complete_conversion_task",{target_tenant_id:task.tenant_id,target_run_id:runId,worker_id_value:workerId,result_value:result});
+      return true;
+    }
     if (!(["SHADOW", "HUMAN_APPROVAL"] as const).includes(task.execution_mode as "SHADOW" | "HUMAN_APPROVAL") || !task.conversation_id) {
       throw new ModelProviderError("PROVIDER_ERROR", "PHASE7_HUMAN_REVIEW_TASK_REQUIRED", false);
     }
@@ -170,6 +184,7 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
     });
     const styleProfile = inferStyleProfile(built.context.recentMessages);
     let director = directConversation(built.context.recentMessages, styleProfile);
+    director=commercialDirector(director,built.context.recentMessages.at(-1)?.content??"",built.context.commercial);
     // Specialist output is an internal suggestion, never a second sender or a backend fact.
     if (task.task_type === "conversation.shadow_draft") {
       const raw = await invokeRpc<unknown>("phase8_qualification_for_source", { target_tenant_id: task.tenant_id, target_event_id: task.source_event_id });
@@ -223,7 +238,7 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
       director,
       style: styleProfile,
       recentMessages: built.context.recentMessages,
-      tenantId: task.tenant_id, conversationId: task.conversation_id, boundary: String(built.manifest.context_boundary_timestamp),
+      tenantId: task.tenant_id, conversationId: task.conversation_id, boundary: String(built.manifest.context_boundary_timestamp),backendEvidence:built.context.commercialEvidence??[],
     });
     const recordStage = async (sequence: number) => {
       const memoryReview = validateMemoryProposals(finalOutput.memory_proposals, built.context.recentMessages);
@@ -248,7 +263,7 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
     };
     await recordStage(1);
     let rewriteCount = 0;
-    if (evaluation.action === "rewrite" && rewriteCount < QA_THRESHOLDS.maximumRewrites) {
+    if ((evaluation.action === "rewrite" || canRewriteOptionalInference({response:finalOutput.proposed_response,claims:finalOutput.claims,reasons:evaluation.reasons})) && rewriteCount < QA_THRESHOLDS.maximumRewrites) {
       rewriteCount += 1;
       const rewriteRequest: ModelRequest = {
         ...request,
@@ -286,7 +301,7 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
         director,
         style: styleProfile,
         recentMessages: built.context.recentMessages,
-        tenantId: task.tenant_id, conversationId: task.conversation_id, boundary: String(built.manifest.context_boundary_timestamp),
+        tenantId: task.tenant_id, conversationId: task.conversation_id, boundary: String(built.manifest.context_boundary_timestamp),backendEvidence:built.context.commercialEvidence??[],
       });
     }
     if (rewriteCount) await recordStage(2);
@@ -375,6 +390,7 @@ export async function runDeterministicWorker(input?: { workerId?: string; deploy
     tasksWaitingApproval: 0,
     tasksFailed: 0,
     leadTasksCompleted: 0,
+    conversionTasksCompleted: 0,
   };
   try {
     const claimedEvents = rows<ClaimedEvent>(await invokeRpc("claim_event_outbox", {
@@ -398,6 +414,7 @@ export async function runDeterministicWorker(input?: { workerId?: string; deploy
     for (const task of claimedTasks) {
       if (await processTask(task, workerId)) {
         if (task.task_type === "lead.intelligence") result.leadTasksCompleted += 1;
+        else if(task.task_type==="conversion.prepare")result.conversionTasksCompleted+=1;
         else result.tasksWaitingApproval += 1;
       }
       else result.tasksFailed += 1;

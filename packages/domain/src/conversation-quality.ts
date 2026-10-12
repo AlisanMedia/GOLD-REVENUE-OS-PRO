@@ -5,7 +5,7 @@ import { requestedRepetition, reviewSemanticContext, repeatedMembershipClarifica
 import { isConventionalCompoundGreeting, isBoundedTurkishKnowledgeLimitation, isBoundedTurkishAnaphoricLimitation, isTurkishFreeMembershipQuestion, isFalseActionAttestationRequest } from "./speech-acts";
 
 export const CONVERSATION_QUALITY_VERSIONS = Object.freeze({
-  prompt: "conversation-quality-prompt-v27",
+  prompt: "conversation-quality-prompt-v28",
   director: "conversation-director-v5",
   renderer: "natural-renderer-v5",
   qa: "conversation-qa-v33",
