@@ -54,6 +54,15 @@ describe("Phase 9 commercial authority (isolated deterministic fixtures)",()=>{
  expect(reviewSemanticContext(source,"TEST-ONLY VIP costs 79.00 USD for 1 calendar month.","pricing")).toMatchObject({score:90,failures:[]});
  expect(reviewSemanticContext(source,"Aylık TEST-ONLY VIP üyeliği 79.00 USD tutarındadır.","pricing").failures).toContain("language_preference_addressed");
  });
+ it("accepts the exact selected-plan inclusion answer with a market symbol",()=>{
+ const messages=[{...context.recentMessages[0]!,content:"What does the monthly VIP membership include? Reply briefly in English."}],style=inferStyleProfile(messages),director=directConversation(messages,style);
+ const facts=commercialEvidence({documents:[doc],conflict:false},scope),text=facts[1]!.statement;
+ const output=conversationModelOutputSchema.parse({classification:director.primary_intent,semantic_response:{response_goal:director.response_goal,key_points:[text],factual_grounding:{classification:"known_from_system",evidence_refs:[facts[1]!.id],missing_information:[]}},proposed_response:text,confidence:1,escalation_recommended:false,escalation_category:null,claims:[{text,kind:"fact",speech_act:"BUSINESS_FACT",grounding:"KNOWN_FROM_SYSTEM",evidence_refs:[facts[1]!.id],action_category:null}],memory_proposals:[],proposed_tool_calls:[]});
+ const evaluation=evaluateConversationQuality({...scope,response:text,output,director,style,recentMessages:messages,backendEvidence:facts});
+ expect(evaluation.semantic).toMatchObject({score:90,failures:[]});
+ expect(evaluation.naturalness.dimensions.tone_consistency).toBe(0);
+ expect(evaluation).toMatchObject({action:"approve",reasons:[]});
+ });
  it("selects the only eligible published plan for direct price and inclusion questions",()=>{
  const price=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"How much is the monthly VIP membership?"}]},{documents:[doc],conflict:false},null);
  const inclusions=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"What does the monthly membership include?"}]},{documents:[doc],conflict:false},null);
