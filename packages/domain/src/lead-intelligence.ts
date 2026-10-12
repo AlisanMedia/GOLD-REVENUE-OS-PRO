@@ -67,7 +67,7 @@ export function buildLeadIntelligence(input: LeadInput): LeadIntelligence {
   if (input.runtimeMode!=="AI_ACTIVE" || !input.outboundEnabled || ["blocked","revoked","unknown"].includes(input.contactability)) next={...next,action:"WAIT",reason:"Human control or delivery policy forbids messaging"};
   else if (/refund|paid.*(?:no|not|without).*access|fraud|scam|lost money|human review|speak to a human|iade|dolandır|ödeme.*erişim/iu.test(latest)) next={...next,action:"HUMAN_REVIEW",reason:"Sensitive dispute requires human review"};
   else if (["QUALIFIED","OFFER_SENT","INTERESTED"].includes(input.lifecycleState ?? "")) next={...next,action:"PREPARE_LATER_STAGE",reason:"Sales stage requires future approved business engine"};
-  else if (/ask me (?:one |a )?question|what do you need to know|bana (?:bir )?soru sor/iu.test(latest)) {
+  else if (/^(?:Please )?(?:ask me (?:one |a )?question|what do you need to know|bana (?:bir )?soru sor)[.!?]?$/iu.test(latest.trim())) {
     const language=/bana .*soru|Türkçe/iu.test(latest)?"tr":"en";
     const field=["actively_trades","primary_instrument","experience_level","previous_service_experience","goals"].find(k=>missing.includes(k as LeadField["key"])) as LeadField["key"]|undefined;
     const question=field?questions[language]?.[field]:null;

@@ -26,6 +26,7 @@ describe("Lead evidence and qualification policy",()=>{
     expect(field("Ana enstrümanım XAUUSD.","primary_instrument").classification).toBe("explicit");
     expect(field("Aktif trade yapmıyorum.","actively_trades").value).toBe("no");
     expect(buildLeadIntelligence(input("What's the membership price?")).next_action.action).toBe("ANSWER_EXISTING_QUESTION");
+    expect(buildLeadIntelligence(input("Are you an AI? Ask me one question.")).next_action.action).toBe("ANSWER_EXISTING_QUESTION");
   });
   it("asks one question only with discovery consent and never repeats it",()=>{
     const i=input("Ask me one question."); const r=buildLeadIntelligence(i);
