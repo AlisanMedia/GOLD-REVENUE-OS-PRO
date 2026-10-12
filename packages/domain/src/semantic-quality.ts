@@ -60,7 +60,14 @@ export function reviewSemanticContext(source: string, response: string, intent: 
   if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response) || arabicMembershipGap || englishMembershipGap || membershipClarificationOffer || turkishFreeMembershipGap;
   if (intent === "prompt_injection") checks.defensive_refusal = /can['’]t|cannot|won['’]t|do not|yardımcı olamam|paylaşamam|لا|не могу|не буду/iu.test(response);
   if (/hello.*twice|twice.*hello|merhaba.*iki|مرحبا.*مرتين|привет.*дважды/iu.test(source)) checks.requested_structure = requestedRepetition(source, response);
-  if (/reply|respond|yanıt|cevap|отвеч|بالإنجليزية/iu.test(source) && /English|İngilizce|الإنجليزية|английск/iu.test(source)) checks.language_preference_addressed = /English|İngilizce|الإنجليزية|английск/iu.test(response);
+  if (/reply|respond|yanıt|cevap|отвеч|بالإنجليزية/iu.test(source) && /English|İngilizce|الإنجليزية|английск/iu.test(source)) {
+    // The requested language is satisfied by replying in that language. Do not
+    // require an unnatural meta-sentence such as "I'll reply in English."
+    const hasForeignScript = /\p{Script=Arabic}|\p{Script=Cyrillic}/u.test(response);
+    const hasEnglishClause = /\b(?:we|you|your|the|this|that|is|are|am|have|has|do|does|can|will|costs?|for|per|month|monthly|includes?|available|right|now)\b/iu.test(response)
+      || /\bI(?:['’]m| have| can| will| do| don['’]t| do not)\b/u.test(response);
+    checks.language_preference_addressed = !hasForeignScript && (hasEnglishClause || /English/iu.test(response));
+  }
   checks.no_irrelevant_cta = !(/membership|subscription|price|pricing|üyelik|abonelik|سعر|العضوية|подписк/iu.test(source)
     && /anything else|başka.*yardım|مساعدة أخرى|что-нибудь еще/iu.test(response));
   const failures = Object.entries(checks).filter(([, passed]) => !passed).map(([name]) => name);

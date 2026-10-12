@@ -140,19 +140,14 @@ export function canonicalizeRequestedPlanAnswer(
   const facts = ids.map((id) => input.evidence.find((item) => item.id === id && item.category === "fact"));
   if (facts.some((fact) => !fact)) return output;
   const resolved = facts as BackendEvidence[];
-  const confirmsEnglish = /(?:reply|respond).{0,30}English|English.{0,30}(?:reply|response)/iu.test(input.sourceText);
-  const preference = confirmsEnglish ? {
-    text:"I’ll reply in English.",kind:"social" as const,speech_act:"PREFERENCE_CONFIRMATION" as const,capability:null,
-    grounding:"CUSTOMER_REPORTED" as const,evidence_refs:[input.sourceMessageId],action_category:null,
-  } : null;
-  const response = [...(preference ? [preference.text] : []), ...resolved.map((fact) => fact.statement)].join(" ");
+  const response = resolved.map((fact) => fact.statement).join(" ");
   return {
     ...output,
     proposed_response: response,
     confidence: 1,
     escalation_recommended: false,
     escalation_category: null,
-    claims: [...(preference ? [preference] : []), ...resolved.map((fact) => ({text:fact.statement,kind:"fact" as const,speech_act:"BUSINESS_FACT" as const,grounding:"KNOWN_FROM_SYSTEM" as const,evidence_refs:[fact.id],action_category:null}))],
+    claims: resolved.map((fact) => ({text:fact.statement,kind:"fact" as const,speech_act:"BUSINESS_FACT" as const,grounding:"KNOWN_FROM_SYSTEM" as const,evidence_refs:[fact.id],action_category:null})),
     semantic_response: {
       ...output.semantic_response,
       key_points: resolved.slice(0, 4).map((fact) => fact.statement),
