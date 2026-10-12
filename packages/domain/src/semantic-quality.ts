@@ -55,9 +55,14 @@ export function reviewSemanticContext(source: string, response: string, intent: 
     && /^I (?:do not|don['’]t) have (?:the )?(?:exact|current|confirmed) (?:membership|subscription) details (?:available )?(?:yet|right now|currently|at the moment)[.!]?$/iu.test(response.trim().split(/(?<=[.!?])\s+/u)[0] ?? "");
   const membershipClarificationOffer = intent === "membership_details" && topics.membership_details!.test(source)
     && isConversationalClarificationOffer(response.trim().split(/(?<=[.!?])\s+/u)[0] ?? "");
+  // An exact catalog inclusion answer may name the plan instead of repeating
+  // the generic word "membership". Claim grounding remains an independent
+  // fail-closed gate; this only recognizes the requested answer shape.
+  const membershipInclusionAnswer = intent === "membership_details" && topics.membership_details!.test(source)
+    && /\b(?:includes?|inclusions?|benefits?)\b/iu.test(response);
   const turkishFreeMembershipGap = intent === "pricing" && isTurkishFreeMembershipQuestion(source)
     && (isBoundedTurkishKnowledgeLimitation(response) || isBoundedTurkishAnaphoricLimitation(response));
-  if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response) || arabicMembershipGap || englishMembershipGap || membershipClarificationOffer || turkishFreeMembershipGap;
+  if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response) || arabicMembershipGap || englishMembershipGap || membershipClarificationOffer || membershipInclusionAnswer || turkishFreeMembershipGap;
   if (intent === "prompt_injection") checks.defensive_refusal = /can['’]t|cannot|won['’]t|do not|yardımcı olamam|paylaşamam|لا|не могу|не буду/iu.test(response);
   if (/hello.*twice|twice.*hello|merhaba.*iki|مرحبا.*مرتين|привет.*дважды/iu.test(source)) checks.requested_structure = requestedRepetition(source, response);
   if (/reply|respond|yanıt|cevap|отвеч|بالإنجليزية/iu.test(source) && /English|İngilizce|الإنجليزية|английск/iu.test(source)) {
