@@ -1,6 +1,6 @@
 # ADR 005 — Owner-authorized automatic conversation replies
 
-Status: implementation under validation. The owner explicitly requested automatic, fast replies in the staging Telegram test chat on 2026-10-09. This extends Phase 7 conversation delivery; it does not start Phase 8 lead intelligence, execute model tools, import customers or authorize financial/access mutations.
+Status: Accepted and Phase 7 CLOSED by explicit owner approval on 2026-10-12; see `PHASE_7_REPORT.md`. Historical validation statements below are retained as release history. The owner explicitly requested automatic, fast replies in the staging Telegram test chat on 2026-10-09. This extends Phase 7 conversation delivery; it does not start Phase 8 lead intelligence, execute model tools, import customers or authorize financial/access mutations.
 
 New conversation settings default off. The authenticated manager/super-admin action records owner authorization and returns that conversation to AI_ACTIVE. Enabling starts a new timestamp boundary; historical drafts and source messages are never retroactively auto-sent. Disable returns HUMAN_TAKEOVER. Tenant outbound gating, active provider, contactability, open conversation, current quality versions, nonblocked QA approval, no escalation and no tool proposals are enforced in the service-only queue. System approval is explicitly distinguished from human review in audit evidence.
 
