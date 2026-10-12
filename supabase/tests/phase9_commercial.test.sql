@@ -58,6 +58,18 @@ select lives_ok($$select private.prepare_commercial_offer('c9200000-0000-4000-80
 select is((select count(*) from public.commercial_offers),1::bigint,'no duplicate offer');
 select is((select count(*) from public.messages where direction='outbound' and tenant_id='c9200000-0000-4000-8000-000000000001'),0::bigint,'offer preparation cannot send customer messages');
 select is((select count(*) from public.customer_state_history where tenant_id='c9200000-0000-4000-8000-000000000001'),0::bigint,'offer has no lifecycle/payment/access mutation');
+-- Lead provenance is exercised in the separate Phase 8 suite; this fixture completes
+-- its scheduling prerequisite to exercise Conversion's actual lease/completion RPC.
+update public.agent_tasks set status='SUCCEEDED',completed_at=now() where tenant_id='c9200000-0000-4000-8000-000000000001' and task_type='lead.intelligence';
+create temp table p9_claim as select * from public.claim_agent_tasks('conversion-worker',1,120);
+select is((select task_type from p9_claim),'conversion.prepare','Conversion specialist selected before Conversation');
+create temp table p9_run as select public.begin_agent_run('c9200000-0000-4000-8000-000000000001',(select task_id from p9_claim),'conversion-worker',jsonb_build_object('context_version',3,'source_event_id',(select event_id from p9_scope),'source_message_id',(select source_id from p9_scope),'context_boundary_timestamp',now(),'secrets_included',false)) id;
+select throws_ok($$select public.complete_conversion_task('c9200000-0000-4000-8000-000000000001',(select id from p9_run),'wrong-worker','{}')$$,'42501','conversion lease denied','another worker cannot complete Conversion task');
+select throws_ok($$select public.complete_conversion_task('c9200000-0000-4000-8000-000000000001',(select id from p9_run),'conversion-worker','{}')$$,'22023','conversion result invalid','invalid model/result data rejected at backend');
+select lives_ok($$select public.complete_conversion_task('c9200000-0000-4000-8000-000000000001',(select id from p9_run),'conversion-worker',jsonb_build_object('version','conversion-v1','action','PREPARE_OFFER','plan_version_id',(select value->>'version_id' from p9_state where key='plan'),'reason','Approved fixture offer','discount_bps',500,'follow_up',jsonb_build_object('action','WAIT','reason','No follow-up invited','delivery','none')))$$,'deterministic Conversion task completes without another offer');
+select is((select count(*) from public.commercial_offers),1::bigint,'task completion respects event-based offer idempotency');
+select is((select count(*) from public.agent_proposals where run_id=(select id from p9_run)),0::bigint,'Conversion cannot create competing reply proposal');
+select is((select count(*) from public.model_invocations where run_id=(select id from p9_run)),0::bigint,'Conversion makes no model invocation');
 set local role authenticated;
 insert into p9_state values('updated_plan',public.admin_save_commercial('c9200000-0000-4000-8000-000000000001','plan',jsonb_set((select value from p9_state where key='plan_payload'),'{amount}','"89.00"'),(select (value->>'item_id')::uuid from p9_state where key='plan'),'2020-02-01',null,null));
 select public.admin_review_commercial('c9200000-0000-4000-8000-000000000001',(select (value->>'version_id')::uuid from p9_state where key='updated_plan'),'approve');

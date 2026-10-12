@@ -3,7 +3,7 @@ import {requireAdminCapability} from "@/lib/admin/server";
 import {createSupabaseServerClient} from "@/lib/supabase/server";
 import {commercialPayload} from "@gold-revenue-os/domain";
 
-export type CommercialRow={id:string;kind:"product"|"plan"|"knowledge";version_id:string;version:number;status:string;archived_at:string|null;test_only:boolean;payload:Record<string,unknown>;effective_from:string;expires_at:string|null;published_at:string|null};
+export type CommercialRow={id:string;kind:"product"|"plan"|"knowledge";version_id:string;version:number;status:string;archived_at:string|null;test_only:boolean;payload:Record<string,unknown>;current_price?:{amount:string|null;currency:string|null;version:number}|null;effective_from:string;expires_at:string|null;published_at:string|null};
 export type VersionRow={id:string;item_id:string;version:number;status:string;payload:Record<string,unknown>;created_at:string;created_by:string;reviewer:string|null;reviewed_at:string|null;published_at:string|null;effective_from:string;expires_at:string|null;superseded_at:string|null};
 export async function commercialList(kind:string,search="",category=""):Promise<CommercialRow[]>{
  const c=await requireAdminCapability("commercial.read"),db=await createSupabaseServerClient();

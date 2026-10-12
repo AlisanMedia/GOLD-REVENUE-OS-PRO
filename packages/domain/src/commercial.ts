@@ -56,12 +56,13 @@ export function eligiblePlan(plan:z.infer<typeof planSchema>,lead:LeadIntelligen
   const checks:[string,string|null][]=[["primary_instrument",plan.eligibility.instrument],["experience_level",plan.eligibility.experience_level],["actively_trades",plan.eligibility.actively_trades===null?null:plan.eligibility.actively_trades?"yes":"no"]];
   return checks.every(([key,expected])=>expected===null||Boolean(lead?.fields.some(f=>f.key===key&&["explicit","verified_system"].includes(f.classification)&&f.value?.toLowerCase()===expected.toLowerCase())));
 }
-export const conversionResultSchema=z.object({version:z.literal("conversion-v1"),action:z.enum(["WAIT","ANSWER","RECOMMEND","PREPARE_OFFER","HUMAN_REVIEW"]),plan_version_id:z.string().uuid().nullable(),reason:z.string().max(200),discount_bps:z.number().int().min(0).max(10000),follow_up:z.object({action:z.literal("WAIT"),reason:z.string().max(160),delivery:z.literal("none")}).strict()}).strict();
+export const conversionResultSchema=z.object({version:z.literal("conversion-v1"),action:z.enum(["WAIT","ANSWER","RECOMMEND","PREPARE_OFFER","HUMAN_REVIEW"]),plan_version_id:z.string().uuid().nullable(),reason:z.string().max(200),discount_bps:z.number().int().min(0).max(10000),follow_up:z.object({action:z.enum(["WAIT","REVIEW_ONE_FOLLOW_UP"]),reason:z.string().max(160),delivery:z.literal("none")}).strict()}).strict();
 export function buildConversion(context:AgentContext,commercial:CommercialContext,lead:LeadIntelligence|null){
   const text=context.recentMessages.at(-1)?.content??"";
   let action:"WAIT"|"ANSWER"|"RECOMMEND"|"PREPARE_OFFER"|"HUMAN_REVIEW"="ANSWER",reason="Answer current question from published records",selected:CommercialDocument|undefined;
   if(context.runtimeMode!=="AI_ACTIVE"||["unknown","blocked","revoked"].includes(context.contactability)){action="WAIT";reason="Human control or contact policy";}
   else if(commercial.conflict){action="HUMAN_REVIEW";reason="Commercial knowledge conflicts with structured catalog";}
+  else if(lead?.next_action.action==="HUMAN_REVIEW"){action="HUMAN_REVIEW";reason="Sensitive customer dispute takes priority";}
   else if(/(?:recommend|which plan|offer|trial|öner|teklif|deneme|عرض|рекоменд|предлож)/iu.test(text)){
     const candidates=commercial.documents.filter(d=>d.kind==="plan"&&eligiblePlan(planSchema.parse(d.payload),lead));
     const period=/annual|year|yıllık|год|سنوي/iu.test(text)?"calendar_year":/monthly|month|aylık|месяц|شهري/iu.test(text)?"calendar_month":null;
@@ -71,7 +72,8 @@ export function buildConversion(context:AgentContext,commercial:CommercialContex
     if(selected){action=/offer|teklif|عرض|предлож/iu.test(text)?"PREPARE_OFFER":"RECOMMEND";reason="Published eligible plan matches explicit request";}
     else reason="No approved eligible plan; preserve uncertainty";
   }
-  return conversionResultSchema.parse({version:"conversion-v1",action,reason,plan_version_id:selected?.version_id??null,discount_bps:0,follow_up:{action:"WAIT",reason:"No independent outreach authorized; answer or wait",delivery:"none"}});
+  const invited=/follow up|remind me|hatırlat|напомни|ذكرني/iu.test(text)&&!/do not|don['’]t|never|no follow/iu.test(text)&&!["WAIT","HUMAN_REVIEW"].includes(action);
+  return conversionResultSchema.parse({version:"conversion-v1",action,reason,plan_version_id:selected?.version_id??null,discount_bps:0,follow_up:{action:invited?"REVIEW_ONE_FOLLOW_UP":"WAIT",reason:invited?"Customer explicitly requested follow-up; human review only, no scheduled send":"No independent outreach authorized; answer or wait",delivery:"none"}});
 }
 export function canRewriteOptionalInference(input:{response:string;claims:readonly {kind:string;grounding:string}[];reasons:readonly string[]}):boolean{
   return input.reasons.includes("UNSUPPORTED_CLAIM")&&input.claims.some(c=>c.kind==="fact"&&c.grounding==="INFERRED")
