@@ -16,7 +16,7 @@ export async function commercialHistory(id:string):Promise<VersionRow[]>{
  if(error)throw new Error("Commercial history unavailable");return (data??[]) as VersionRow[];
 }
 export {commercialPayload};
-export async function conversationCommercial(id:string):Promise<{run_id:string|null;status:string;failure:string|null;result:{action:string;reason:string;plan_version_id:string|null;offer_id:string|null}}|null>{
+export async function conversationCommercial(id:string):Promise<{run_id:string|null;status:string;failure:string|null;result:{action:string;reason:string;plan_version_id:string|null;offer_id:string|null;follow_up?:{action:string;reason:string}}}|null>{
  const c=await requireAdminCapability("commercial.read"),db=await createSupabaseServerClient();
  const {data,error}=await db.rpc("admin_conversation_commercial",{target_tenant_id:c.tenantId,target_conversation_id:id});
  if(error)throw new Error("Commercial conversation evidence unavailable");return data;
