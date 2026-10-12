@@ -63,6 +63,29 @@ describe("Phase 9 commercial authority (isolated deterministic fixtures)",()=>{
  expect(evaluation.naturalness.dimensions.tone_consistency).toBe(0);
  expect(evaluation).toMatchObject({action:"approve",reasons:[]});
  });
+ it("accepts an exact grounded FAQ denial for a membership profit-guarantee question",()=>{
+ const messages=[{...context.recentMessages[0]!,content:"Does this membership guarantee trading profits?"}],style=inferStyleProfile(messages),director=directConversation(messages,style);
+ const knowledge={item_id:id,version_id:"33333333-3333-4333-8333-333333333333",version:1,kind:"knowledge" as const,published_at:"2026-10-12T09:00:00Z",effective_from:"2026-10-12T09:00:00Z",expires_at:null,test_only:true,payload:{title:"Trading Results FAQ",locale:"en",source:"Approved fixture",content:"No trading results are promised.",category:"FAQ",plan_id:id,declared_amount:null,declared_currency:null}};
+ const facts=commercialEvidence({documents:[knowledge],conflict:false},scope),text=facts[0]!.statement;
+ const output=conversationModelOutputSchema.parse({classification:director.primary_intent,semantic_response:{response_goal:director.response_goal,key_points:[text],factual_grounding:{classification:"known_from_system",evidence_refs:[facts[0]!.id],missing_information:[]}},proposed_response:text,confidence:.99,escalation_recommended:false,escalation_category:null,claims:[{text,kind:"fact",speech_act:"BUSINESS_FACT",grounding:"KNOWN_FROM_SYSTEM",evidence_refs:[facts[0]!.id],action_category:null}],memory_proposals:[],proposed_tool_calls:[]});
+ const evaluation=evaluateConversationQuality({...scope,response:text,output,director,style,recentMessages:messages,backendEvidence:facts});
+ expect(director.primary_intent).toBe("membership_details");
+ expect(evaluation.semantic).toMatchObject({score:90,failures:[]});
+ expect(evaluation).toMatchObject({action:"approve",reasons:[]});
+ });
+ it.each([
+ ["Does this membership guarantee trading profits?","No trading results are promised."],
+ ["Bu üyelik kâr garantisi veriyor mu?","İşlem sonuçları garanti edilmez."],
+ ["هل تضمن هذه العضوية أرباح التداول؟","لا يوجد ضمان لأرباح التداول."],
+ ["Эта подписка гарантирует прибыль от торговли?","Прибыль не гарантируется."],
+ ])("recognizes a narrow multilingual membership trading-guarantee denial: %s",(source,response)=>{
+ expect(reviewSemanticContext(source,response,"membership_details")).toMatchObject({score:90,failures:[]});
+ });
+ it("does not give an unrelated or affirmative profit statement topic credit",()=>{
+ const source="Does this membership guarantee trading profits?";
+ expect(reviewSemanticContext(source,"Hello.","membership_details").failures).toContain("current_topic_addressed");
+ expect(reviewSemanticContext(source,"Trading profits are guaranteed.","membership_details").failures).toContain("current_topic_addressed");
+ });
  it("selects the only eligible published plan for direct price and inclusion questions",()=>{
  const price=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"How much is the monthly VIP membership?"}]},{documents:[doc],conflict:false},null);
  const inclusions=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"What does the monthly membership include?"}]},{documents:[doc],conflict:false},null);
