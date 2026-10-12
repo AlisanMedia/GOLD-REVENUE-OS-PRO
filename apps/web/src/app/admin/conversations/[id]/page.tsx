@@ -6,6 +6,7 @@ import { hasAdminCapability } from "@/lib/admin/permissions";
 import { requireAdminCapability } from "@/lib/admin/server";
 import { getConversationDetail, getConversationMessages } from "@/lib/messaging/server";
 import { getLeadIntelligence } from "@/lib/agent-runtime/lead-admin";
+import {conversationCommercial} from "@/lib/commercial/admin";
 
 export default async function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -17,6 +18,7 @@ export default async function ConversationDetailPage({ params }: { params: Promi
   if (!conversation) notFound();
   const contact = conversation.messaging_contacts;
   const lead = hasAdminCapability(context.role,"agents.read") ? await getLeadIntelligence(id) : null;
+  const commercial=hasAdminCapability(context.role,"commercial.read")?await conversationCommercial(id):null;
 
   return <main className="admin-main">
     <Link className="back-link" href="/admin/conversations">← Conversations</Link>
@@ -47,6 +49,7 @@ export default async function ConversationDetailPage({ params }: { params: Promi
         <small>{new Date(message.occurred_at).toLocaleString("en-GB")}{message.failure_code ? ` · ${message.failure_code}` : ""}</small>
       </li>)}{messages.length === 0 ? <li className="empty-state">No messages.</li> : null}</ul>
     </section>
+    {commercial?<section className="detail-card"><h2>Commercial recommendation</h2><p>{commercial.status}{commercial.failure?" · Attention: "+commercial.failure:""}</p><p>{commercial.result?.action} · {commercial.result?.reason}</p><p>Plan version: {commercial.result?.plan_version_id??"No eligible plan selected"} · {commercial.result?.offer_id?<Link href="/admin/offers">Offer proposal</Link>:"No offer prepared"}</p>{commercial.run_id&&<Link href={"/admin/agent-runs/"+commercial.run_id}>Source and task evidence</Link>}<p>Follow-up remains WAIT; no independent delivery.</p></section>:null}
     {lead ? <section className="table-card table-scroll">
       <h2>Lead qualification</h2>
       <p>{lead.status}{lead.failure ? ` · Attention required: ${lead.failure}` : ""} · {lead.runId ? <Link href={`/admin/agent-runs/${lead.runId}`}>Task / run evidence</Link> : "No completed run"}</p>

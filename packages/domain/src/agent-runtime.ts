@@ -103,6 +103,9 @@ export type AgentContext = {
   memory: ReadonlyArray<{ key: string; value: unknown; confidence: number | null }>;
   recentMessages: ReadonlyArray<ContextMessage>;
   recentEventTypes: readonly string[];
+  commercial?: import("./commercial").CommercialContext;
+  commercialEvidence?: readonly import("./conversation-evidence").BackendEvidence[];
+  conversion?: {run_id:string;result:Record<string,unknown>}|null;
 };
 
 export const CONTEXT_LIMITS = Object.freeze({

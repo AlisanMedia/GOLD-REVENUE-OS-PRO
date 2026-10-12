@@ -31,3 +31,4 @@ export * from "./conversation-evidence";
 export * from "./evidence-handles";
 export * from "./speech-acts";
 export * from "./lead-intelligence";
+export * from "./commercial";

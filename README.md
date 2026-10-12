@@ -52,3 +52,5 @@ Local execution is optional. The acceptance source of truth is the retained GitH
 - `docs/phase-0`: approved audit outputs
 - `docs/adr`: accepted architectural decisions
 - `infra/runbooks`: controlled operator procedures
+
+Phase 9: implementation prepared for mandatory CI, isolated staging and owner acceptance. No Phase 10 payment processing or Phase 11 access automation is authorized.
