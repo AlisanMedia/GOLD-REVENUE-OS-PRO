@@ -3,6 +3,7 @@ import type { AgentContext } from "./agent-runtime";
 import { splitResponseSentences, type BackendEvidence } from "./conversation-evidence";
 import type { LeadIntelligence } from "./lead-intelligence";
 import type {ConversationDirector} from "./conversation-quality";
+import type {ConversationModelOutput} from "./conversation-quality";
 
 export const KB_CATEGORIES = ["Product","Pricing","Support","Signal Service","Payment Information","Telegram","Trial","Renewal","Policies","FAQ"] as const;
 export const COMMERCIAL_LOCALES = ["en","tr","ar","ru"] as const;
@@ -80,6 +81,32 @@ export function canRewriteOptionalInference(input:{response:string;claims:readon
     &&!input.claims.some(c=>c.kind==="completed_action")
     &&!input.reasons.some(r=>["ACTION_RECEIPT_REQUIRED","ESCALATION_REQUIRED","EVIDENCE_REFERENCE_NOT_ALLOWED"].includes(r))
     &&!/(?:payment|access|refund|guarantee|profit|human|identity|ödeme|erişim|kazanç)/iu.test(input.response);
+}
+
+export function canonicalizeSingleCommercialFact(
+  output: ConversationModelOutput,
+  evidence: readonly BackendEvidence[],
+): ConversationModelOutput {
+  if (output.claims.length !== 1) return output;
+  const claim = output.claims[0]!;
+  if (claim.kind !== "fact" || claim.grounding !== "KNOWN_FROM_SYSTEM"
+    || claim.action_category !== null || claim.evidence_refs.length !== 1) return output;
+  const fact = evidence.find((item) => item.id === claim.evidence_refs[0] && item.category === "fact");
+  if (!fact) return output;
+  return {
+    ...output,
+    proposed_response: fact.statement,
+    claims: [{...claim,text:fact.statement}],
+    semantic_response: {
+      ...output.semantic_response,
+      key_points: [fact.statement],
+      factual_grounding: {
+        classification: "known_from_system",
+        evidence_refs: [fact.id],
+        missing_information: [],
+      },
+    },
+  };
 }
 export function commercialDirector(director:ConversationDirector,text:string,commercial:CommercialContext|undefined):ConversationDirector{
  if(commercial?.conflict)return {...director,should_escalate:true,should_ask_question:false,should_sell:false,response_goal:"State that commercial details need human review without quoting conflicting terms."};
