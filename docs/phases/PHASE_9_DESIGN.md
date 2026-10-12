@@ -13,3 +13,5 @@ Admin adds Products & Pricing, Knowledge Base and Offers, with bounded listings,
 An unsupported optional inference may use the existing single rewrite only when there is no action/identity/financial/escalation violation; original blocked evidence remains immutable, and the rewritten response must pass unchanged QA. Otherwise preserve the hold.
 
 No new provider, queue, vector database, service, import, cold outreach, financial processing or access grant. Phase 10/11 remain prohibited. Test-only records are explicitly isolated to the owner's staging conversation and archived after acceptance.
+
+Main Git deployments are disabled in Vercel configuration: they lacked required build-time public environment values and replaced the working alias before controlled validation. The existing CI-gated staging workflow remains the publication path; previews and all security checks remain available.
