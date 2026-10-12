@@ -319,6 +319,10 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
   // repetition indicators; independent grounding/action/security gates remain.
   const requestedKnowledgeGap = requestedTurkishKnowledgeGap(response, recentMessages);
   const safeRefusal = intent === "prompt_injection" && /can['’]t|cannot|won['’]t|paylaşamam|لا|не могу|не буду/iu.test(response);
+  // Compact market symbols such as XAUUSD are identifiers, not shouting.
+  // Remove only instrument-like pairs before retaining the existing uppercase
+  // prose indicator for ordinary six-letter words.
+  const proseForTone = response.replace(/\b[A-Z]{3}(?:USD|USDT|EUR|GBP|JPY|TRY|CHF|AUD|CAD|NZD)\b/gu, "");
   return { method: "deterministic_text_indicators_v1", dimensions: {
     template_similarity: requested || conventionalGreeting || monthlyCorrection || requestedKnowledgeGap ? 0 : repetitionScore(response, recentMessages),
     conversational_continuity: /^(?:hello|hi|merhaba|selam|مرحبا|привет)[!,]/iu.test(response) && previous.length > 0 ? 50 : 0,
@@ -330,7 +334,7 @@ export function reviewResponseNaturalness(response: string, recentMessages: Read
     // Retain the indicator for three or more repeated multiword sentence stems.
     sentence_variation: !requested && sentences.length > 2 && sentences.every((v) => normalizeConversationText(v).split(" ").length >= 3)
       && new Set(sentences.map((v) => normalizeConversationText(v).split(" ").slice(0, 3).join(" "))).size === 1 ? 70 : 0,
-    tone_consistency: /\p{Lu}{6,}/u.test(response) ? 70 : 0,
+    tone_consistency: /\p{Lu}{6,}/u.test(proseForTone) ? 70 : 0,
     context_awareness: /source of truth|context_version|tool call|orchestrator|workflow|bağlamımda/iu.test(response) || (!safeRefusal && /system prompt/iu.test(response)) ? 70 : 0,
     response_specificity: filler && cta ? 70 : 0,
     robotic_phrasing: filler ? 70 : 0,
