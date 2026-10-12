@@ -18,6 +18,7 @@ import {
   buildConversion,
   canRewriteOptionalInference,
   commercialDirector,
+  canonicalizeSingleCommercialFact,
   type ModelProvider,
   type ModelRequest,
   type ModelResponse,
@@ -227,11 +228,11 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
       error_code_value: null,
       request_fingerprint_value: requestFingerprint(request),
     });
-    let finalOutput = conversationModelOutputSchema.parse({
+    let finalOutput = canonicalizeSingleCommercialFact(conversationModelOutputSchema.parse({
       ...response.output,
       proposed_response: renderNaturalResponse(response.output.proposed_response, styleProfile),
       claims: response.output.claims.filter((claim) => normalizeConversationText(renderNaturalResponse(response.output.proposed_response, styleProfile)).includes(normalizeConversationText(claim.text))),
-    });
+    }), built.context.commercialEvidence ?? []);
     let evaluation = evaluateConversationQuality({
       response: finalOutput.proposed_response,
       output: finalOutput,
@@ -290,11 +291,11 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
         error_code_value: null,
         request_fingerprint_value: requestFingerprint(rewriteRequest),
       });
-      finalOutput = conversationModelOutputSchema.parse({
+      finalOutput = canonicalizeSingleCommercialFact(conversationModelOutputSchema.parse({
         ...response.output,
         proposed_response: renderNaturalResponse(response.output.proposed_response, styleProfile),
         claims: response.output.claims.filter((claim) => normalizeConversationText(renderNaturalResponse(response.output.proposed_response, styleProfile)).includes(normalizeConversationText(claim.text))),
-      });
+      }), built.context.commercialEvidence ?? []);
       evaluation = evaluateConversationQuality({
         response: finalOutput.proposed_response,
         output: finalOutput,
