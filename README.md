@@ -4,7 +4,7 @@ A modular-monolith foundation for a crypto-payment-first, provider-neutral reven
 
 ## Phase status
 
-Phase 7 is **CLOSED**, explicitly owner-approved on 2026-10-12. The final accepted application SHA is `4cd5b2eecff4068b37778882fe8b434c31521626`; see `PHASE_7_REPORT.md` for accepted evidence and preserved failure history. Phase 8 (Orchestrator + Lead Intelligence) is authorized for implementation. Phase 9 requires new explicit owner approval.
+Phase 7 is **CLOSED**, explicitly owner-approved on 2026-10-12. The final accepted application SHA is `4cd5b2eecff4068b37778882fe8b434c31521626`; see `PHASE_7_REPORT.md` for accepted evidence and preserved failure history. Phase 8 (Orchestrator + Lead Intelligence) is implemented and awaits controlled staging verification and owner acceptance; see `docs/phases/PHASE_8_DESIGN.md`. Phase 9 requires new explicit owner approval.
 
 See `PHASE_1_VALIDATION_REPORT.md` for the evidence gate and `MANUAL_ACTIONS_ROADMAP.md` for external dependencies through Phase 16.
 

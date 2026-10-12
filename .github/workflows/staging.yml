@@ -37,6 +37,11 @@ on:
         required: false
         default: false
         type: boolean
+      enable_phase8_orchestration:
+        description: Enable future-source-only Phase 8 profiling on the authorized staging tenant after deployment
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -469,6 +474,21 @@ jobs:
             ${{ runner.temp }}/phase7-quality-snapshot.json
           if-no-files-found: warn
           retention-days: 14
+      - name: Enable Phase 8 deterministic orchestration after verified deployment
+        if: ${{ inputs.enable_phase8_orchestration == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ inputs.run_agent_worker }}" = "true"
+          test "$TELEGRAM_STAGING_TENANT_ID" = "e372b64d-2066-4939-baf6-6c0540c2f605"
+          curl --fail-with-body --silent --show-error \
+            --header "apikey: $SUPABASE_SECRET_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            --header "Content-Type: application/json" \
+            --data "{\"target_tenant_id\":\"$TELEGRAM_STAGING_TENANT_ID\",\"enabled_value\":true}" \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/configure_phase8_orchestration" \
+            | jq -e '. == true' >/dev/null
+          echo "Phase 8 enabled for fresh sources only; no messages or model calls initiated." >>"$GITHUB_STEP_SUMMARY"
       - name: Register and validate Telegram staging webhook
         if: ${{ inputs.run_telegram_live == true }}
         env:
