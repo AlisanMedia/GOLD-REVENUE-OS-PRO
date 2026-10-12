@@ -60,9 +60,16 @@ export function reviewSemanticContext(source: string, response: string, intent: 
   // fail-closed gate; this only recognizes the requested answer shape.
   const membershipInclusionAnswer = intent === "membership_details" && topics.membership_details!.test(source)
     && /\b(?:includes?|inclusions?|benefits?)\b/iu.test(response);
+  // A grounded risk/policy answer can answer a membership guarantee question
+  // without repeating the generic membership noun. Credit only an explicit
+  // denial of the guarantee or promise; claim grounding and policy checks stay
+  // independent and continue to reject unsupported or affirmative guarantees.
+  const membershipTradingGuaranteeDenial = intent === "membership_details" && topics.membership_details!.test(source)
+    && /(?:guarantee|promise).{0,30}(?:profit|return|trading result)|(?:profit|return|trading result).{0,30}(?:guarantee|promise)|garanti.{0,25}(?:kazanç|kâr|getiri)|(?:kazanç|kâr|getiri).{0,25}garanti|(?:ضمان|مضمون|تضمن).{0,25}(?:ربح|أرباح|نتائج التداول)|(?:ربح|أرباح|نتائج التداول).{0,25}(?:ضمان|مضمون|تضمن)|гарант.{0,25}(?:прибыл|доход|результат торгов)|(?:прибыл|доход|результат торгов).{0,25}гарант/iu.test(source)
+    && /\bno (?:trading )?(?:profit|profits|return|returns|results) (?:is |are )?(?:guaranteed|promised)\b|\b(?:profit|profits|return|returns|trading results?) (?:is |are )?not (?:guaranteed|promised)\b|\b(?:does not|doesn['’]t|do not|cannot|can['’]t|won['’]t) guarantee\b|(?:kazanç|kâr|getiri|[İi]şlem sonuçları).{0,25}(?:garanti edilmez|garanti değildir|vaat edilmez)|لا.{0,35}(?:ضمان|مضمون|وعد).{0,20}(?:ربح|أرباح|نتائج التداول)|(?:прибыль|доход|результаты? торгов).{0,30}(?:не гарант|не обещ)/iu.test(response);
   const turkishFreeMembershipGap = intent === "pricing" && isTurkishFreeMembershipQuestion(source)
     && (isBoundedTurkishKnowledgeLimitation(response) || isBoundedTurkishAnaphoricLimitation(response));
-  if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response) || arabicMembershipGap || englishMembershipGap || membershipClarificationOffer || membershipInclusionAnswer || turkishFreeMembershipGap;
+  if (topics[intent] && (intent !== "clarification" || /monthly|aylık|شهري|месяч/iu.test(source))) checks.current_topic_addressed = topics[intent].test(response) || arabicMembershipGap || englishMembershipGap || membershipClarificationOffer || membershipInclusionAnswer || membershipTradingGuaranteeDenial || turkishFreeMembershipGap;
   if (intent === "prompt_injection") checks.defensive_refusal = /can['’]t|cannot|won['’]t|do not|yardımcı olamam|paylaşamam|لا|не могу|не буду/iu.test(response);
   if (/hello.*twice|twice.*hello|merhaba.*iki|مرحبا.*مرتين|привет.*дважды/iu.test(source)) checks.requested_structure = requestedRepetition(source, response);
   if (/reply|respond|yanıt|cevap|отвеч|بالإنجليزية/iu.test(source) && /English|İngilizce|الإنجليزية|английск/iu.test(source)) {
