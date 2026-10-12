@@ -282,6 +282,11 @@ begin
     join public.agent_definitions ad on ad.tenant_id=at.tenant_id and ad.id=at.agent_definition_id
     join public.agent_versions av on av.tenant_id=at.tenant_id and av.id=at.agent_version_id
     left join lateral (
+      select r.id from public.agent_runs r
+      where r.tenant_id=at.tenant_id and r.task_id=at.id
+      order by r.attempt_number desc limit 1
+    ) lr on true
+    left join lateral (
       select id,run_id,approval_status from public.agent_proposals p
       where p.tenant_id=at.tenant_id and p.task_id=at.id order by p.created_at desc limit 1
     ) ap on true
