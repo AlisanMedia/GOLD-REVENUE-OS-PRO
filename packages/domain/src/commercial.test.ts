@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {buildConversion,commercialEvidence,commercialPayload,eligiblePlan,isUnsafeCommercialContent,planSchema,canRewriteOptionalInference} from "./commercial";
+import {buildConversion,commercialEvidence,commercialPayload,eligiblePlan,isUnsafeCommercialContent,planSchema,canRewriteOptionalInference,canonicalizeSingleCommercialFact} from "./commercial";
 import {messageEvidenceHandles,resolveEvidenceHandles} from "./evidence-handles";
 import {reviewClaimGrounding} from "./conversation-evidence";
 import {buildLeadIntelligence} from "./lead-intelligence";
@@ -29,6 +29,15 @@ describe("Phase 9 commercial authority (isolated deterministic fixtures)",()=>{
  const facts=commercialEvidence({documents:[doc],conflict:false},scope),text=facts[0]!.statement;
  const output=conversationModelOutputSchema.parse({classification:director.primary_intent,semantic_response:{response_goal:director.response_goal,key_points:[text],factual_grounding:{classification:"known_from_system",evidence_refs:[facts[0]!.id],missing_information:[]}},proposed_response:text,confidence:1,escalation_recommended:false,escalation_category:null,claims:[{text,kind:"fact",speech_act:"BUSINESS_FACT",grounding:"KNOWN_FROM_SYSTEM",evidence_refs:[facts[0]!.id],action_category:null}],memory_proposals:[],proposed_tool_calls:[]});
  expect(evaluateConversationQuality({...scope,response:text,output,director,style,recentMessages:messages,backendEvidence:facts}).action).toBe("approve");
+ });
+ it("deterministically canonicalizes a single cited commercial paraphrase before QA",()=>{
+ const messages=[{...context.recentMessages[0]!,content:"How much is the monthly VIP membership?"}],style=inferStyleProfile(messages),director=directConversation(messages,style);
+ const facts=commercialEvidence({documents:[doc],conflict:false},scope),paraphrase="The monthly VIP membership costs 79.00 USD.";
+ const output=conversationModelOutputSchema.parse({classification:director.primary_intent,semantic_response:{response_goal:director.response_goal,key_points:[paraphrase],factual_grounding:{classification:"known_from_system",evidence_refs:[facts[0]!.id],missing_information:[]}},proposed_response:paraphrase,confidence:1,escalation_recommended:false,escalation_category:null,claims:[{text:paraphrase,kind:"fact",speech_act:"BUSINESS_FACT",grounding:"KNOWN_FROM_SYSTEM",evidence_refs:[facts[0]!.id],action_category:null}],memory_proposals:[],proposed_tool_calls:[]});
+ const canonical=canonicalizeSingleCommercialFact(output,facts);
+ expect(canonical.proposed_response).toBe(facts[0]!.statement);
+ expect(canonical.claims[0]?.text).toBe(facts[0]!.statement);
+ expect(evaluateConversationQuality({...scope,response:canonical.proposed_response,output:canonical,director,style,recentMessages:messages,backendEvidence:facts}).action).toBe("approve");
  });
  it("issues commercial handles only from the bounded backend registry; no customer fact laundering",()=>{
  const evidence=commercialEvidence({documents:[doc],conflict:false},scope),registry=messageEvidenceHandles({...context,commercialEvidence:evidence});
