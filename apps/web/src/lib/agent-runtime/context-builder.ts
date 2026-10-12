@@ -149,9 +149,11 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
     target_tenant_id:task.tenant_id,target_event_id:task.source_event_id,
   });
   if(commercialError)throw new Error("COMMERCIAL_CONTEXT_FAILED");
+  const detectedLanguage=inferStyleProfile(messages).language;
+  const commercialLocale=(["en","tr","ar","ru"].includes(detectedLanguage)?detectedLanguage:"en") as "en"|"tr"|"ar"|"ru";
   if(commercialRaw){
     context.commercial=commercialRaw as CommercialContext;
-    context.commercialEvidence=commercialEvidence(context.commercial,{tenantId:task.tenant_id,conversationId:task.conversation_id,boundary:sourceMessage.created_at,locale:(["en","tr","ar","ru"].includes(inferStyleProfile(messages).language)?inferStyleProfile(messages).language:"en") as "en"|"tr"|"ar"|"ru"});
+    context.commercialEvidence=commercialEvidence(context.commercial,{tenantId:task.tenant_id,conversationId:task.conversation_id,boundary:sourceMessage.created_at,locale:commercialLocale});
   }
   const {data:conversionRaw,error:conversionError}=await supabase.rpc("phase9_conversion_for_source",{target_tenant_id:task.tenant_id,target_event_id:task.source_event_id});
   if(conversionError)throw new Error("CONVERSION_CONTEXT_FAILED");
@@ -159,7 +161,7 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
   const selected=context.conversion?.result.plan_version_id;
   if(typeof selected==="string"&&context.commercial&&!context.commercial.conflict){
     context.commercial.documents=context.commercial.documents.filter(d=>d.kind!=="plan"||d.version_id===selected);
-    context.commercialEvidence=commercialEvidence(context.commercial,{tenantId:task.tenant_id,conversationId:task.conversation_id,boundary:sourceMessage.created_at,locale:inferStyleProfile(messages).language as "en"|"tr"|"ar"|"ru"});
+    context.commercialEvidence=commercialEvidence(context.commercial,{tenantId:task.tenant_id,conversationId:task.conversation_id,boundary:sourceMessage.created_at,locale:commercialLocale});
   }
   assertSafeContext(context);
   return {
@@ -182,6 +184,7 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
       mutable_state_retrieval: "exclude_versions_updated_after_source_boundary",
       backend_action_receipts: [],
       commercial_versions:context.commercial?.documents.map(d=>({item_id:d.item_id,version_id:d.version_id,version:d.version,kind:d.kind}))??[],
+      commercial_locale:commercialLocale,
       commercial_conflict:context.commercial?.conflict??false,
       conversion_run_id:context.conversion?.run_id??null,
       commercial_fact_ids:context.commercialEvidence?.map(f=>f.id)??[],
