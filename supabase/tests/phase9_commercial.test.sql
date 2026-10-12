@@ -114,7 +114,7 @@ select throws_ok($$select private.resolve_quality_wire_refs('["EVIDENCE_COMMERCI
  '22023','EVIDENCE_REFERENCE_NOT_ALLOWED','commercial facts cannot become customer-memory provenance');
 select throws_ok($$select private.quality_commercial_facts('c9200000-0000-4000-8000-000000000002',(select id from p9_conversation_run))$$,
  'P0002','query returned no rows','wrong tenant cannot resolve a run commercial registry');
-select public.record_model_invocation('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),2,'rewrite','mock','deterministic-shadow-v1','SUCCEEDED','commercial-test-rewrite',null,null,null,1,null,'commercial-fingerprint');
+select public.record_model_invocation('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),2,'qa_rewrite','mock','deterministic-shadow-v1','SUCCEEDED','commercial-test-rewrite',null,null,null,1,null,'commercial-fingerprint');
 select throws_ok($$select public.record_quality_stage_evidence('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),'commercial-evidence-worker',2,
  jsonb_build_object('versions',jsonb_build_object('outputSchema',4),'original_output',(select value from p9_resolved),'rendered_output',(select value from p9_resolved),
  'authoritative_evidence_resolution',jsonb_build_object('registry',(select jsonb_set(value,'{1,messageId}','"fabricated:fact:1"') from p9_registry),'resolved',true,'wireOutput',(select value from p9_wire))))$$,
