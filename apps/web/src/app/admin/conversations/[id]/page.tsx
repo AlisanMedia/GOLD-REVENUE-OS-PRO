@@ -5,6 +5,7 @@ import { ManualMessageReply } from "@/components/manual-message-reply";
 import { hasAdminCapability } from "@/lib/admin/permissions";
 import { requireAdminCapability } from "@/lib/admin/server";
 import { getConversationDetail, getConversationMessages } from "@/lib/messaging/server";
+import { getLeadIntelligence } from "@/lib/agent-runtime/lead-admin";
 
 export default async function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,6 +16,7 @@ export default async function ConversationDetailPage({ params }: { params: Promi
   ]);
   if (!conversation) notFound();
   const contact = conversation.messaging_contacts;
+  const lead = hasAdminCapability(context.role,"agents.read") ? await getLeadIntelligence(id) : null;
 
   return <main className="admin-main">
     <Link className="back-link" href="/admin/conversations">← Conversations</Link>
@@ -45,6 +47,19 @@ export default async function ConversationDetailPage({ params }: { params: Promi
         <small>{new Date(message.occurred_at).toLocaleString("en-GB")}{message.failure_code ? ` · ${message.failure_code}` : ""}</small>
       </li>)}{messages.length === 0 ? <li className="empty-state">No messages.</li> : null}</ul>
     </section>
+    {lead ? <section className="table-card table-scroll">
+      <h2>Lead qualification</h2>
+      <p>{lead.status}{lead.failure ? ` · Attention required: ${lead.failure}` : ""} · {lead.runId ? <Link href={`/admin/agent-runs/${lead.runId}`}>Task / run evidence</Link> : "No completed run"}</p>
+      {lead.result ? <>
+        <p>{lead.result.identity === "unmatched" ? "Unmatched identity — conversation evidence only; no customer profile linked." : "Verified customer linkage"}</p>
+        <p>Completeness: {Math.round(lead.result.completeness*100)}% · Missing / unconfirmed: {lead.result.missing_fields.join(", ") || "None"}</p>
+        <p>Recommended next action: <strong>{lead.result.next_action.action}</strong> · {lead.result.next_action.reason}</p>
+        <p>{lead.result.next_action.question ?? "No qualification question proposed."} · Delivery remains separately controlled.</p>
+        <table><thead><tr><th>Field</th><th>Value</th><th>Evidence class</th><th>Source / time</th></tr></thead><tbody>
+          {lead.result.fields.map(field=><tr key={field.key}><td>{field.key}</td><td>{field.value ?? "Unknown"}</td><td>{field.classification} · {Math.round(field.confidence*100)}%</td><td>{field.source ? <><small>{field.source.id} · {field.source.observed_at}</small><small>{field.source.quote}</small></> : "No evidence"}</td></tr>)}
+        </tbody></table>
+      </> : <p>No validated qualification result. Review the task status above.</p>}
+    </section> : null}
     {hasAdminCapability(context.role, "messaging.send") && ["super_admin", "manager"].includes(context.role) ? <section className="form-panel">
       <h2>Automatic replies</h2><p>{conversation.automatic_replies_enabled && conversation.runtime_mode === "AI_ACTIVE" ? "Enabled — new messages receive replies after quality checks." : "Disabled — replies require operator review."}</p>
       <form action={setAutomaticReplies}>

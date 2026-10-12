@@ -138,6 +138,17 @@ jobs:
           test -n "$db_url"
           echo "::add-mask::$db_url"
           bash supabase/tests/state_event_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/state-event-concurrency.log"
+      - name: Run Orchestrator and Lead Intelligence database tests
+        run: supabase test db supabase/tests/phase8_orchestration.test.sql
+      - name: Prove concurrent specialist task leasing
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/phase8-db.env"
+          db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/phase8-db.env")
+          test -n "$db_url"
+          echo "::add-mask::$db_url"
+          bash supabase/tests/phase8_concurrency.sh "$db_url"
       - name: Export local Auth credentials safely
         shell: bash
         run: |

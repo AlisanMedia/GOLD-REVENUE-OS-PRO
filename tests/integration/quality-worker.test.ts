@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { conversationModelOutputSchema, directConversation, inferStyleProfile, type ModelRequest } from "../../packages/domain/src/index";
+import { buildLeadIntelligence, conversationModelOutputSchema, directConversation, inferStyleProfile, type ModelRequest } from "../../packages/domain/src/index";
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), invoke: vi.fn(), context: vi.fn(), dispatch: vi.fn() }));
 vi.mock("server-only", () => ({}));
@@ -30,6 +30,41 @@ beforeEach(() => {
   mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "claim_event_outbox" ? [] : name === "begin_agent_run" ? "run-fixture" : name === "claim_agent_tasks" ? [{ task_id: "task-fixture", tenant_id: tenant, conversation_id: conversation, customer_id: null, source_event_id: "event-fixture", execution_mode: "SHADOW", timeout_ms: 30000, model_provider: "openai", model_name: "gpt-5.4-mini" }] : true }));
 });
 describe("Corrective worker integration (mocked provider, not live evidence)", () => {
+  it("coordinates one invited qualification question through the existing Conversation/QA path",async()=>{
+    const source=[{...messages[0]!,content:"Ask me one question."}];
+    mocks.context.mockResolvedValue({context:{tenantId:tenant,customerId:null,conversationId:conversation,lifecycleState:null,contactability:"user_initiated",runtimeMode:"AI_ACTIVE",profile:null,memory:[],recentMessages:source,recentEventTypes:[]},manifest:{context_version:3,context_boundary_timestamp:source[0]!.occurredAt}});
+    const lead=buildLeadIntelligence({messages:source,customerId:null,conversationId:conversation,sourceId:"event",observedAt:source[0]!.occurredAt,runtimeMode:"AI_ACTIVE",lifecycleState:null,contactability:"user_initiated",outboundEnabled:true});
+    const previous=mocks.rpc.getMockImplementation()!;
+    mocks.rpc.mockImplementation(async(name:string,args:Record<string,unknown>)=>{
+      if(name==="claim_agent_tasks"){const result=await previous(name,args);return {...result,data:result.data.map((t:Record<string,unknown>)=>({...t,task_type:"conversation.shadow_draft"}))};}
+      if(name==="phase8_qualification_for_source")return{error:null,data:lead};
+      return previous(name,args);
+    });
+    mocks.invoke.mockResolvedValue(response(lead.next_action.question!));
+    const {runDeterministicWorker}=await import("../../apps/web/src/lib/agent-runtime/worker");
+    await runDeterministicWorker();
+    const request=mocks.invoke.mock.calls[0]![0] as ModelRequest;
+    expect(request.director?.response_goal).toBe(lead.next_action.question);
+    expect(mocks.invoke).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc.mock.calls.some(([n])=>n==="complete_quality_agent_run")).toBe(true);
+    expect(mocks.rpc.mock.calls.some(([n])=>n==="complete_shadow_agent_run")).toBe(false);
+  });
+  it("completes a separate deterministic Lead task without a provider call or customer reply",async()=>{
+    const previous=mocks.rpc.getMockImplementation()!;
+    mocks.rpc.mockImplementation(async(name:string,args:Record<string,unknown>)=>{
+      if(name==="claim_agent_tasks") return {error:null,data:[{task_id:"lead-task",tenant_id:tenant,conversation_id:conversation,customer_id:null,source_event_id:"event-fixture",task_type:"lead.intelligence",execution_mode:"SHADOW"}]};
+      if(name==="phase8_task_context") return {error:null,data:{source_id:"event-fixture",observed_at:messages[0]!.occurredAt,customer_state:null,runtime_mode:"AI_ACTIVE",outbound_enabled:true,contactability:"user_initiated",prior:null}};
+      return previous(name,args);
+    });
+    const {runDeterministicWorker}=await import("../../apps/web/src/lib/agent-runtime/worker");
+    const r=await runDeterministicWorker();
+    expect(r.leadTasksCompleted).toBe(1);expect(r.tasksWaitingApproval).toBe(0);
+    expect(mocks.invoke).not.toHaveBeenCalled();expect(mocks.dispatch).not.toHaveBeenCalled();
+    const call=mocks.rpc.mock.calls.find(([n])=>n==="complete_lead_intelligence")![1];
+    expect(call.result_value.identity).toBe("unmatched");
+    expect(call.result_value.next_action.delivery).toBe("proposal_only");
+    expect(mocks.rpc.mock.calls.some(([n])=>n==="queue_quality_approved_reply")).toBe(false);
+  });
   it("uses scoped claims on the immediate webhook path and sends only a DB-authorized QA reply", async () => {
     const previous = mocks.rpc.getMockImplementation()!;
     mocks.rpc.mockImplementation(async (name: string, args: Record<string, unknown>) => {
