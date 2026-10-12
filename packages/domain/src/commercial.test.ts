@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {buildConversion,commercialEvidence,commercialPayload,eligiblePlan,isUnsafeCommercialContent,planSchema,canRewriteOptionalInference,canonicalizeSingleCommercialFact,canonicalizeRequestedPlanAnswer} from "./commercial";
+import {buildConversion,commercialEvidence,commercialPayload,eligiblePlan,isUnsafeCommercialContent,planSchema,canRewriteOptionalInference,canonicalizeSingleCommercialFact,canonicalizeRequestedPlanAnswer,conversionResultSchema} from "./commercial";
 import {messageEvidenceHandles,resolveEvidenceHandles} from "./evidence-handles";
 import {reviewClaimGrounding} from "./conversation-evidence";
 import {buildLeadIntelligence} from "./lead-intelligence";
@@ -59,6 +59,10 @@ describe("Phase 9 commercial authority (isolated deterministic fixtures)",()=>{
  const inclusions=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"What does the monthly membership include?"}]},{documents:[doc],conflict:false},null);
  expect(price).toMatchObject({action:"ANSWER",plan_version_id:version});
  expect(inclusions).toMatchObject({action:"ANSWER",plan_version_id:version});
+ });
+ it("accepts the persisted Conversion result after the database appends its offer id",()=>{
+ const result=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"What does the monthly membership include?"}]},{documents:[doc],conflict:false},null);
+ expect(conversionResultSchema.parse({...result,offer_id:null})).toMatchObject({action:"ANSWER",plan_version_id:version,offer_id:null});
  });
  it("issues commercial handles only from the bounded backend registry; no customer fact laundering",()=>{
  const evidence=commercialEvidence({documents:[doc],conflict:false},scope),registry=messageEvidenceHandles({...context,commercialEvidence:evidence});
