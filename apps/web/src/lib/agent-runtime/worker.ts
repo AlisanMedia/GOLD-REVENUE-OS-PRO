@@ -16,8 +16,10 @@ import {
   buildLeadIntelligence,
   leadIntelligenceSchema,
   buildConversion,
+  conversionResultSchema,
   canRewriteOptionalInference,
   commercialDirector,
+  canonicalizeRequestedPlanAnswer,
   canonicalizeSingleCommercialFact,
   type ModelProvider,
   type ModelRequest,
@@ -184,8 +186,11 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
       context_manifest_value: built.manifest,
     });
     const styleProfile = inferStyleProfile(built.context.recentMessages);
+    const sourceText = built.context.recentMessages.at(-1)?.content ?? "";
+    const conversion = conversionResultSchema.safeParse(built.context.conversion?.result);
+    const selectedPlanVersionId = conversion.success ? conversion.data.plan_version_id : null;
     let director = directConversation(built.context.recentMessages, styleProfile);
-    director=commercialDirector(director,built.context.recentMessages.at(-1)?.content??"",built.context.commercial);
+    director=commercialDirector(director,sourceText,built.context.commercial);
     // Specialist output is an internal suggestion, never a second sender or a backend fact.
     if (task.task_type === "conversation.shadow_draft") {
       const raw = await invokeRpc<unknown>("phase8_qualification_for_source", { target_tenant_id: task.tenant_id, target_event_id: task.source_event_id });
@@ -228,11 +233,11 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
       error_code_value: null,
       request_fingerprint_value: requestFingerprint(request),
     });
-    let finalOutput = canonicalizeSingleCommercialFact(conversationModelOutputSchema.parse({
+    let finalOutput = canonicalizeRequestedPlanAnswer(canonicalizeSingleCommercialFact(conversationModelOutputSchema.parse({
       ...response.output,
       proposed_response: renderNaturalResponse(response.output.proposed_response, styleProfile),
       claims: response.output.claims.filter((claim) => normalizeConversationText(renderNaturalResponse(response.output.proposed_response, styleProfile)).includes(normalizeConversationText(claim.text))),
-    }), built.context.commercialEvidence ?? []);
+    }), built.context.commercialEvidence ?? []), {sourceText,sourceMessageId:built.context.recentMessages.at(-1)!.id,planVersionId:selectedPlanVersionId,commercial:built.context.commercial,evidence:built.context.commercialEvidence ?? []});
     let evaluation = evaluateConversationQuality({
       response: finalOutput.proposed_response,
       output: finalOutput,
@@ -291,11 +296,11 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
         error_code_value: null,
         request_fingerprint_value: requestFingerprint(rewriteRequest),
       });
-      finalOutput = canonicalizeSingleCommercialFact(conversationModelOutputSchema.parse({
+      finalOutput = canonicalizeRequestedPlanAnswer(canonicalizeSingleCommercialFact(conversationModelOutputSchema.parse({
         ...response.output,
         proposed_response: renderNaturalResponse(response.output.proposed_response, styleProfile),
         claims: response.output.claims.filter((claim) => normalizeConversationText(renderNaturalResponse(response.output.proposed_response, styleProfile)).includes(normalizeConversationText(claim.text))),
-      }), built.context.commercialEvidence ?? []);
+      }), built.context.commercialEvidence ?? []), {sourceText,sourceMessageId:built.context.recentMessages.at(-1)!.id,planVersionId:selectedPlanVersionId,commercial:built.context.commercial,evidence:built.context.commercialEvidence ?? []});
       evaluation = evaluateConversationQuality({
         response: finalOutput.proposed_response,
         output: finalOutput,

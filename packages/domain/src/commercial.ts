@@ -72,6 +72,12 @@ export function buildConversion(context:AgentContext,commercial:CommercialContex
     selected=matching.find(d=>text.toLowerCase().includes(planSchema.parse(d.payload).title.toLowerCase()))??(matching.length===1?matching[0]:undefined);
     if(selected){action=/offer|teklif|عرض|предлож/iu.test(text)?"PREPARE_OFFER":"RECOMMEND";reason="Published eligible plan matches explicit request";}
     else reason="No approved eligible plan; preserve uncertainty";
+  } else if(/(?:how much|price|cost|include|included|inclusions?|benefits?|what do i get|fiyat|ücret|bedel|içer|neler|сколько|цена|стоим|вход|включ|السعر|كم|يشمل|يتضمن)/iu.test(text)){
+    const candidates=commercial.documents.filter(d=>d.kind==="plan"&&eligiblePlan(planSchema.parse(d.payload),lead));
+    const period=/annual|year|yıllık|год|سنوي/iu.test(text)?"calendar_year":/monthly|month|aylık|месяц|شهري/iu.test(text)?"calendar_month":null;
+    const matching=candidates.filter(d=>!period||planSchema.parse(d.payload).duration_unit===period);
+    selected=matching.find(d=>text.toLowerCase().includes(planSchema.parse(d.payload).title.toLowerCase()))??(matching.length===1?matching[0]:undefined);
+    reason=selected?"Published eligible plan matches explicit question":"No approved eligible plan; preserve uncertainty";
   }
   const invited=/follow up|remind me|hatırlat|напомни|ذكرني/iu.test(text)&&!/do not|don['’]t|never|no follow/iu.test(text)&&!["WAIT","HUMAN_REVIEW"].includes(action);
   return conversionResultSchema.parse({version:"conversion-v1",action,reason,plan_version_id:selected?.version_id??null,discount_bps:0,follow_up:{action:invited?"REVIEW_ONE_FOLLOW_UP":"WAIT",reason:invited?"Customer explicitly requested follow-up; human review only, no scheduled send":"No independent outreach authorized; answer or wait",delivery:"none"}});
@@ -105,6 +111,52 @@ export function canonicalizeSingleCommercialFact(
         evidence_refs: [fact.id],
         missing_information: [],
       },
+    },
+  };
+}
+
+export function canonicalizeRequestedPlanAnswer(
+  output: ConversationModelOutput,
+  input: {
+    sourceText: string;
+    sourceMessageId: string;
+    planVersionId: string | null | undefined;
+    commercial: CommercialContext | undefined;
+    evidence: readonly BackendEvidence[];
+  },
+): ConversationModelOutput {
+  if (!input.planVersionId || !input.commercial || input.commercial.conflict) return output;
+  if (/(?:payment|paid|access|refund|guarantee|profit|support|human|ödeme|erişim|iade|kazanç|kâr|оплат|доступ|прибыл|دفع|وصول|ربح)/iu.test(input.sourceText)) return output;
+  const asksPrice = /(?:how much|price|cost|fiyat|ücret|bedel|сколько|цена|стоим|السعر|كم)/iu.test(input.sourceText);
+  const asksInclusions = /(?:include|included|inclusions?|benefits?|what do i get|içer|neler|вход|включ|يشمل|يتضمن)/iu.test(input.sourceText);
+  if (!asksPrice && !asksInclusions) return output;
+  const document = input.commercial.documents.find((item) => item.kind === "plan" && item.version_id === input.planVersionId);
+  if (!document) return output;
+  const plan = planSchema.parse(document.payload);
+  const ids = [
+    ...(asksPrice ? [`${document.version_id}:fact:1`] : []),
+    ...(asksInclusions ? plan.inclusions.map((_, index) => `${document.version_id}:fact:${index + 2}`) : []),
+  ];
+  const facts = ids.map((id) => input.evidence.find((item) => item.id === id && item.category === "fact"));
+  if (facts.some((fact) => !fact)) return output;
+  const resolved = facts as BackendEvidence[];
+  const confirmsEnglish = /(?:reply|respond).{0,30}English|English.{0,30}(?:reply|response)/iu.test(input.sourceText);
+  const preference = confirmsEnglish ? {
+    text:"I’ll reply in English.",kind:"social" as const,speech_act:"PREFERENCE_CONFIRMATION" as const,capability:null,
+    grounding:"CUSTOMER_REPORTED" as const,evidence_refs:[input.sourceMessageId],action_category:null,
+  } : null;
+  const response = [...(preference ? [preference.text] : []), ...resolved.map((fact) => fact.statement)].join(" ");
+  return {
+    ...output,
+    proposed_response: response,
+    confidence: 1,
+    escalation_recommended: false,
+    escalation_category: null,
+    claims: [...(preference ? [preference] : []), ...resolved.map((fact) => ({text:fact.statement,kind:"fact" as const,speech_act:"BUSINESS_FACT" as const,grounding:"KNOWN_FROM_SYSTEM" as const,evidence_refs:[fact.id],action_category:null}))],
+    semantic_response: {
+      ...output.semantic_response,
+      key_points: resolved.slice(0, 4).map((fact) => fact.statement),
+      factual_grounding: {classification:"known_from_system",evidence_refs:resolved.map((fact) => fact.id),missing_information:[]},
     },
   };
 }

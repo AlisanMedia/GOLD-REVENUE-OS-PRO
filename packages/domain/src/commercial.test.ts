@@ -1,5 +1,5 @@
 import {describe,it,expect} from "vitest";
-import {buildConversion,commercialEvidence,commercialPayload,eligiblePlan,isUnsafeCommercialContent,planSchema,canRewriteOptionalInference,canonicalizeSingleCommercialFact} from "./commercial";
+import {buildConversion,commercialEvidence,commercialPayload,eligiblePlan,isUnsafeCommercialContent,planSchema,canRewriteOptionalInference,canonicalizeSingleCommercialFact,canonicalizeRequestedPlanAnswer} from "./commercial";
 import {messageEvidenceHandles,resolveEvidenceHandles} from "./evidence-handles";
 import {reviewClaimGrounding} from "./conversation-evidence";
 import {buildLeadIntelligence} from "./lead-intelligence";
@@ -39,6 +39,21 @@ describe("Phase 9 commercial authority (isolated deterministic fixtures)",()=>{
  expect(canonical.claims[0]?.text).toBe(facts[0]!.statement);
  expect(evaluateConversationQuality({...scope,response:canonical.proposed_response,output:canonical,director,style,recentMessages:messages,backendEvidence:facts}).action).toBe("approve");
  });
+ it("deterministically answers a selected plan price when the model ignores available commercial facts",()=>{
+ const messages=[{...context.recentMessages[0]!,content:"How much is the monthly VIP membership? Reply briefly in English."}],style=inferStyleProfile(messages),director=directConversation(messages,style);
+ const facts=commercialEvidence({documents:[doc],conflict:false},scope),limitation="I don’t have the monthly VIP membership price at the moment.";
+ const output=conversationModelOutputSchema.parse({classification:director.primary_intent,semantic_response:{response_goal:director.response_goal,key_points:[limitation],factual_grounding:{classification:"unknown",evidence_refs:[],missing_information:["price"]}},proposed_response:limitation,confidence:.97,escalation_recommended:false,escalation_category:null,claims:[{text:limitation,kind:"uncertainty",speech_act:"KNOWLEDGE_LIMITATION",grounding:"UNKNOWN",evidence_refs:[],action_category:null}],memory_proposals:[],proposed_tool_calls:[]});
+ const canonical=canonicalizeRequestedPlanAnswer(output,{sourceText:messages[0]!.content,sourceMessageId:id,planVersionId:version,commercial:{documents:[doc],conflict:false},evidence:facts});
+ expect(canonical.proposed_response).toBe(`I’ll reply in English. ${facts[0]!.statement}`);
+ expect(canonical.claims.at(-1)).toEqual({text:facts[0]!.statement,kind:"fact",speech_act:"BUSINESS_FACT",grounding:"KNOWN_FROM_SYSTEM",evidence_refs:[facts[0]!.id],action_category:null});
+ expect(evaluateConversationQuality({...scope,response:canonical.proposed_response,output:canonical,director,style,recentMessages:messages,backendEvidence:facts}).action).toBe("approve");
+ });
+ it("selects the only eligible published plan for direct price and inclusion questions",()=>{
+ const price=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"How much is the monthly VIP membership?"}]},{documents:[doc],conflict:false},null);
+ const inclusions=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"What does the monthly membership include?"}]},{documents:[doc],conflict:false},null);
+ expect(price).toMatchObject({action:"ANSWER",plan_version_id:version});
+ expect(inclusions).toMatchObject({action:"ANSWER",plan_version_id:version});
+ });
  it("issues commercial handles only from the bounded backend registry; no customer fact laundering",()=>{
  const evidence=commercialEvidence({documents:[doc],conflict:false},scope),registry=messageEvidenceHandles({...context,commercialEvidence:evidence});
  expect(resolveEvidenceHandles(["EVIDENCE_COMMERCIAL_1"],registry)).toEqual([evidence[0]!.id]);
@@ -53,7 +68,7 @@ describe("Phase 9 commercial authority (isolated deterministic fixtures)",()=>{
  expect(buildConversion(context,{documents:[{...doc,payload:plan}],conflict:false},lead).action).toBe("RECOMMEND");
  });
  it("answers existing questions first; never creates nonexistent annual plan or discounted values",()=>{
- expect(buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"What is the price?"}]},{documents:[doc],conflict:false},null).action).toBe("ANSWER");
+ expect(buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"What is the price?"}]},{documents:[doc],conflict:false},null)).toMatchObject({action:"ANSWER",plan_version_id:version});
  expect(buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"Prepare an annual offer."}]},{documents:[doc],conflict:false},null).plan_version_id).toBeNull();
  expect(buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"Prepare a monthly offer with 90% discount."}]},{documents:[doc],conflict:false},null)).toMatchObject({action:"PREPARE_OFFER",discount_bps:0,follow_up:{delivery:"none"}});
  });
