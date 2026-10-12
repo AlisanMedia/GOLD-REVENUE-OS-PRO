@@ -5,6 +5,7 @@ import {reviewClaimGrounding} from "./conversation-evidence";
 import {buildLeadIntelligence} from "./lead-intelligence";
 import type {AgentContext} from "./agent-runtime";
 import {conversationModelOutputSchema,directConversation,evaluateConversationQuality,inferStyleProfile} from "./conversation-quality";
+import {reviewSemanticContext} from "./semantic-quality";
 const id="11111111-1111-4111-8111-111111111111",version="22222222-2222-4222-8222-222222222222",time="2026-10-12T10:00:00Z";
 const scope={tenantId:id,conversationId:id,boundary:time};
 export const testPlan={title:"TEST-ONLY VIP",locale:"en",source:"Isolated deterministic fixture",product_id:id,amount:"79.00",currency:"USD",duration_unit:"calendar_month",duration_count:1,billing:"one_off",inclusions:["owner-approved test alerts"],restrictions:[],terms:"TEST-ONLY. No real entitlement.",eligibility:{instrument:null,actively_trades:null,experience_level:null},max_discount_bps:500,trial:false,offer_valid_hours:24,tax_rule:null,renewal_rule:null,cancellation_rule:null,disclosures:[]};
@@ -44,9 +45,14 @@ describe("Phase 9 commercial authority (isolated deterministic fixtures)",()=>{
  const facts=commercialEvidence({documents:[doc],conflict:false},scope),limitation="I don’t have the monthly VIP membership price at the moment.";
  const output=conversationModelOutputSchema.parse({classification:director.primary_intent,semantic_response:{response_goal:director.response_goal,key_points:[limitation],factual_grounding:{classification:"unknown",evidence_refs:[],missing_information:["price"]}},proposed_response:limitation,confidence:.97,escalation_recommended:false,escalation_category:null,claims:[{text:limitation,kind:"uncertainty",speech_act:"KNOWLEDGE_LIMITATION",grounding:"UNKNOWN",evidence_refs:[],action_category:null}],memory_proposals:[],proposed_tool_calls:[]});
  const canonical=canonicalizeRequestedPlanAnswer(output,{sourceText:messages[0]!.content,sourceMessageId:id,planVersionId:version,commercial:{documents:[doc],conflict:false},evidence:facts});
- expect(canonical.proposed_response).toBe(`I’ll reply in English. ${facts[0]!.statement}`);
+ expect(canonical.proposed_response).toBe(facts[0]!.statement);
  expect(canonical.claims.at(-1)).toEqual({text:facts[0]!.statement,kind:"fact",speech_act:"BUSINESS_FACT",grounding:"KNOWN_FROM_SYSTEM",evidence_refs:[facts[0]!.id],action_category:null});
  expect(evaluateConversationQuality({...scope,response:canonical.proposed_response,output:canonical,director,style,recentMessages:messages,backendEvidence:facts}).action).toBe("approve");
+ });
+ it("treats an English answer as satisfying an explicit English reply request",()=>{
+ const source="How much is the monthly VIP membership? Reply briefly in English.";
+ expect(reviewSemanticContext(source,"TEST-ONLY VIP costs 79.00 USD for 1 calendar month.","pricing")).toMatchObject({score:90,failures:[]});
+ expect(reviewSemanticContext(source,"Aylık TEST-ONLY VIP üyeliği 79.00 USD tutarındadır.","pricing").failures).toContain("language_preference_addressed");
  });
  it("selects the only eligible published plan for direct price and inclusion questions",()=>{
  const price=buildConversion({...context,recentMessages:[{...context.recentMessages[0]!,content:"How much is the monthly VIP membership?"}]},{documents:[doc],conflict:false},null);
