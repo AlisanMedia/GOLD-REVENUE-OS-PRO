@@ -70,6 +70,74 @@ select lives_ok($$select public.complete_conversion_task('c9200000-0000-4000-800
 select is((select count(*) from public.commercial_offers),1::bigint,'task completion respects event-based offer idempotency');
 select is((select count(*) from public.agent_proposals where run_id=(select id from p9_run)),0::bigint,'Conversion cannot create competing reply proposal');
 select is((select count(*) from public.model_invocations where run_id=(select id from p9_run)),0::bigint,'Conversion makes no model invocation');
+-- Exercise the actual Phase 7 stage-reference trigger with published commercial facts.
+create temp table p9_conversation_claim as select * from public.claim_agent_tasks('commercial-evidence-worker',1,120);
+create temp table p9_conversation_run as select public.begin_agent_run('c9200000-0000-4000-8000-000000000001',
+ (select task_id from p9_conversation_claim),'commercial-evidence-worker',jsonb_build_object(
+ 'context_version',3,'source_event_id',(select event_id from p9_scope),'source_message_id',(select source_id from p9_scope),
+ 'context_boundary_timestamp',(select created_at from public.messages where id=(select source_id from p9_scope)),
+ 'included_message_ids',jsonb_build_array((select source_id from p9_scope)), 'commercial_locale','en',
+ 'commercial_versions',(select jsonb_agg(jsonb_build_object('item_id',d->'item_id','version_id',d->'version_id','version',d->'version','kind',d->'kind')) from jsonb_array_elements(public.phase9_commercial_context('c9200000-0000-4000-8000-000000000001',(select event_id from p9_scope))->'documents') d),
+ 'commercial_fact_ids',jsonb_build_array(
+ (select value->>'version_id' from p9_state where key='plan')||':fact:1',
+ (select value->>'version_id' from p9_state where key='plan')||':fact:2',
+ (select value->>'version_id' from p9_state where key='plan')||':fact:3',
+ (select value->>'version_id' from p9_state where key='product')||':fact:1',
+ (select value->>'version_id' from p9_state where key='knowledge')||':fact:1'), 'secrets_included',false)) id;
+select is((select task_type from p9_conversation_claim),'conversation.shadow_draft','one existing Conversation task consumes commercial knowledge');
+select is(private.quality_commercial_facts('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run))->0->>'statement',
+ 'TEST ONLY VIP costs 79.00 USD for 1 calendar month.','database independently derives exact canonical price');
+select is(jsonb_array_length(private.quality_commercial_facts('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run))),5,'price, inclusion, terms, product and FAQ each retain version provenance');
+update public.agent_runs r set context_manifest=context_manifest||jsonb_build_object('evidence_handle_registry',
+ jsonb_build_array(jsonb_build_object('handle','EVIDENCE_CURRENT_MESSAGE','messageId',(select source_id from p9_scope),'direction','inbound'))||
+ (select jsonb_agg(jsonb_build_object('handle','EVIDENCE_COMMERCIAL_'||f.ordinality::text,'messageId',f.value->>'id','direction','system') order by f.ordinality)
+ from jsonb_array_elements(private.quality_commercial_facts(r.tenant_id,r.id)) with ordinality f(value,ordinality))) where id=(select id from p9_conversation_run);
+create temp table p9_registry as select context_manifest->'evidence_handle_registry' value from public.agent_runs where id=(select id from p9_conversation_run);
+create temp table p9_wire as select jsonb_build_object('semantic_response',jsonb_build_object('factual_grounding',jsonb_build_object('evidence_refs',jsonb_build_array('EVIDENCE_COMMERCIAL_1'))),
+ 'claims',jsonb_build_array(jsonb_build_object('text','TEST ONLY VIP costs 79.00 USD for 1 calendar month.','kind','fact','grounding','KNOWN_FROM_SYSTEM','evidence_refs',jsonb_build_array('EVIDENCE_COMMERCIAL_1'))),
+ 'memory_proposals','[]'::jsonb) value;
+create temp table p9_resolved as select jsonb_set(jsonb_set(value,'{semantic_response,factual_grounding,evidence_refs}',
+ jsonb_build_array((select value->>'version_id' from p9_state where key='plan')||':fact:1')),'{claims,0,evidence_refs}',
+ jsonb_build_array((select value->>'version_id' from p9_state where key='plan')||':fact:1')) value from p9_wire;
+select public.record_model_invocation('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),1,'generation','mock','deterministic-shadow-v1','SUCCEEDED','commercial-test',null,null,null,1,null,'commercial-fingerprint');
+select lives_ok($$select public.record_quality_stage_evidence('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),'commercial-evidence-worker',1,
+ jsonb_build_object('versions',jsonb_build_object('outputSchema',4),'original_output',(select value from p9_resolved),'rendered_output',(select value from p9_resolved),
+ 'authoritative_evidence_resolution',jsonb_build_object('registry',(select value from p9_registry),'resolved',true,'wireOutput',(select value from p9_wire))))$$,
+ 'published commercial handle passes actual stage persistence and exact wire resolution');
+select throws_ok($$select private.assert_quality_output_refs('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),
+ jsonb_set((select value from p9_resolved),'{claims,0,evidence_refs}','["00000000-0000-4000-8000-000000000099:fact:1"]'))$$,
+ '22023','EVIDENCE_REFERENCE_NOT_ALLOWED','model-created commercial version cannot become evidence');
+select throws_ok($$select private.assert_quality_output_refs('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),
+ jsonb_set((select value from p9_resolved),'{claims,0,evidence_refs}',jsonb_build_array((select value->>'version_id' from p9_state where key='plan')||':fact:99')))$$,
+ '22023','EVIDENCE_REFERENCE_NOT_ALLOWED','invented fact index cannot become evidence');
+select throws_ok($$select private.resolve_quality_wire_refs('["EVIDENCE_COMMERCIAL_1"]',(select value from p9_registry),true)$$,
+ '22023','EVIDENCE_REFERENCE_NOT_ALLOWED','commercial facts cannot become customer-memory provenance');
+select throws_ok($$select private.quality_commercial_facts('c9200000-0000-4000-8000-000000000002',(select id from p9_conversation_run))$$,
+ 'P0002','query returned no rows','wrong tenant cannot resolve a run commercial registry');
+select public.record_model_invocation('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),2,'qa_rewrite','mock','deterministic-shadow-v1','SUCCEEDED','commercial-test-rewrite',null,null,null,1,null,'commercial-fingerprint');
+select throws_ok($$select public.record_quality_stage_evidence('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),'commercial-evidence-worker',2,
+ jsonb_build_object('versions',jsonb_build_object('outputSchema',4),'original_output',(select value from p9_resolved),'rendered_output',(select value from p9_resolved),
+ 'authoritative_evidence_resolution',jsonb_build_object('registry',(select jsonb_set(value,'{1,messageId}','"fabricated:fact:1"') from p9_registry),'resolved',true,'wireOutput',(select value from p9_wire))))$$,
+ '22023','EVIDENCE_REGISTRY_NOT_AUTHORITATIVE','tampered registry cannot pass stage capture');
+select throws_ok($$select public.record_quality_stage_evidence('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),'commercial-evidence-worker',2,
+ jsonb_build_object('versions',jsonb_build_object('outputSchema',4),'original_output',(select jsonb_set(value,'{claims,0,text}','"altered original"') from p9_resolved),'rendered_output',(select value from p9_resolved),
+ 'authoritative_evidence_resolution',jsonb_build_object('registry',(select value from p9_registry),'resolved',true,'wireOutput',(select value from p9_wire))))$$,
+ '22023','EVIDENCE_RESOLUTION_MISMATCH','original evidence must exactly match provider wire resolution');
+update p9_wire set value=jsonb_set(jsonb_set(value,'{semantic_response,factual_grounding,evidence_refs}','["EVIDENCE_CURRENT_MESSAGE"]'),'{claims}',
+ jsonb_build_array(jsonb_build_object('text','Exact price unavailable.','kind','uncertainty','grounding','UNKNOWN','evidence_refs',jsonb_build_array('EVIDENCE_CURRENT_MESSAGE'))));
+update p9_resolved set value=jsonb_set(jsonb_set((select value from p9_wire),'{semantic_response,factual_grounding,evidence_refs}',jsonb_build_array((select source_id from p9_scope))),'{claims,0,evidence_refs}',jsonb_build_array((select source_id from p9_scope)));
+select lives_ok($$select public.record_quality_stage_evidence('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run),'commercial-evidence-worker',2,
+ jsonb_build_object('versions',jsonb_build_object('outputSchema',4),'original_output',(select value from p9_resolved),'rendered_output',(select value from p9_resolved),
+ 'authoritative_evidence_resolution',jsonb_build_object('registry',(select value from p9_registry),'resolved',true,'wireOutput',(select value from p9_wire))))$$,
+ 'uncertainty response persists with commercial context and message-only claim references');
+-- Registry remains deterministic for each supported language.
+update public.agent_runs set context_manifest=jsonb_set(context_manifest,'{commercial_locale}','"tr"') where id=(select id from p9_conversation_run);
+select is(private.quality_commercial_facts('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run))->0->>'statement','TEST ONLY VIP fiyatı 1 takvim ayı için 79.00 USD.','Turkish registry matches application canonical wording');
+update public.agent_runs set context_manifest=jsonb_set(context_manifest,'{commercial_locale}','"ar"') where id=(select id from p9_conversation_run);
+select is(private.quality_commercial_facts('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run))->0->>'statement','سعر TEST ONLY VIP هو 79.00 USD لمدة 1 شهر تقويمي.','Arabic registry matches application canonical wording');
+update public.agent_runs set context_manifest=jsonb_set(context_manifest,'{commercial_locale}','"ru"') where id=(select id from p9_conversation_run);
+select is(private.quality_commercial_facts('c9200000-0000-4000-8000-000000000001',(select id from p9_conversation_run))->0->>'statement','Стоимость TEST ONLY VIP: 79.00 USD за 1 календарный месяц.','Russian registry matches application canonical wording');
+update public.agent_runs set context_manifest=jsonb_set(context_manifest,'{commercial_locale}','"en"') where id=(select id from p9_conversation_run);
 set local role authenticated;
 insert into p9_state values('updated_plan',public.admin_save_commercial('c9200000-0000-4000-8000-000000000001','plan',jsonb_set((select value from p9_state where key='plan_payload'),'{amount}','"89.00"'),(select (value->>'item_id')::uuid from p9_state where key='plan'),'2020-02-01',null,null));
 select public.admin_review_commercial('c9200000-0000-4000-8000-000000000001',(select (value->>'version_id')::uuid from p9_state where key='updated_plan'),'approve');

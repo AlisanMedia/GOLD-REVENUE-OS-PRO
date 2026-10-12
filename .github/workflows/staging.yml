@@ -267,6 +267,17 @@ jobs:
           echo "VERCEL_ORG_ID=$resolved_org_id" >>"$GITHUB_ENV"
           echo "VERCEL_TEAM_SLUG=$resolved_team_slug" >>"$GITHUB_ENV"
           echo "Verified the exact Vercel project, team ID, and team scope without exposing credentials." >>"$GITHUB_STEP_SUMMARY"
+      - name: Capture preserved agent failure evidence before publication
+        if: ${{ inputs.run_agent_worker == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail-with-body --silent --show-error \
+            --header "apikey: $SUPABASE_SECRET_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/agent_tasks?select=id&tenant_id=eq.$TELEGRAM_STAGING_TENANT_ID&status=eq.DEAD_LETTER&order=id" \
+            >"$RUNNER_TEMP/phase6-preserved-failures.json"
+          jq -e 'type == "array"' "$RUNNER_TEMP/phase6-preserved-failures.json" >/dev/null
       - name: Pull isolated Vercel staging preview configuration
         if: ${{ inputs.run_agent_worker != true }}
         run: pnpm dlx vercel@59.16.0 pull --yes --environment=preview --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
@@ -434,7 +445,19 @@ jobs:
             --header "Content-Type: application/json" \
             --data "{\"target_tenant_id\":\"$TELEGRAM_STAGING_TENANT_ID\"}" \
             "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/rpc/phase6_runtime_validation_snapshot" >"$snapshot_file"
-          jq -e '.pending_outbox == 0 and .processing_outbox == 0 and .dead_letter_outbox == 0 and .agent_dead_letter == 0 and .outbound_kill_switch == false' "$snapshot_file" >/dev/null
+          jq -e '.pending_outbox == 0 and .processing_outbox == 0 and .dead_letter_outbox == 0 and .outbound_kill_switch == false' "$snapshot_file" >/dev/null
+          # Preserve existing failed tasks; never requeue or erase historical evidence.
+          # The exact failure-ID set must remain unchanged, not merely its count.
+          curl --fail-with-body --silent --show-error \
+            --header "apikey: $SUPABASE_SECRET_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SECRET_KEY" \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/agent_tasks?select=id&tenant_id=eq.$TELEGRAM_STAGING_TENANT_ID&status=eq.DEAD_LETTER&order=id" \
+            >"$RUNNER_TEMP/phase6-final-failures.json"
+          jq -e 'type == "array"' "$RUNNER_TEMP/phase6-final-failures.json" >/dev/null
+          jq -S . "$RUNNER_TEMP/phase6-preserved-failures.json" >"$RUNNER_TEMP/phase6-preserved-failures.sorted.json"
+          jq -S . "$RUNNER_TEMP/phase6-final-failures.json" >"$RUNNER_TEMP/phase6-final-failures.sorted.json"
+          cmp "$RUNNER_TEMP/phase6-preserved-failures.sorted.json" "$RUNNER_TEMP/phase6-final-failures.sorted.json"
+          test "$(jq '.agent_dead_letter' "$snapshot_file")" = "$(jq 'length' "$RUNNER_TEMP/phase6-final-failures.json")"
           jq . "$snapshot_file" >>"$GITHUB_STEP_SUMMARY"
       - name: Upload Phase 6 worker evidence
         if: ${{ always() && inputs.run_agent_worker == true }}
@@ -444,6 +467,8 @@ jobs:
           path: |
             ${{ runner.temp }}/phase6-worker-*.json
             ${{ runner.temp }}/phase6-runtime-snapshot.json
+            ${{ runner.temp }}/phase6-preserved-failures.json
+            ${{ runner.temp }}/phase6-final-failures.json
             ${{ runner.temp }}/phase7-openai-quota-recovery.json
           if-no-files-found: warn
           retention-days: 14
