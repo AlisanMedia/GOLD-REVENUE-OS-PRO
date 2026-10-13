@@ -215,3 +215,27 @@ revoke all on function public.admin_create_test_payment_invoice(uuid,uuid,text,t
 grant execute on function public.admin_create_test_payment_invoice(uuid,uuid,text,text,text,text),public.admin_simulate_test_payment(uuid,uuid,text,text),public.admin_request_test_reconciliation(uuid,uuid,text),public.admin_payment_list(uuid),public.admin_payment_detail(uuid,uuid) to authenticated;
 revoke all on function public.payment_get_test_invoice(uuid),public.payment_get_test_snapshot(uuid),public.payment_record_test_observation(uuid,uuid,uuid,text,text,text) from public,anon,authenticated;
 grant execute on function public.payment_get_test_invoice(uuid),public.payment_get_test_snapshot(uuid),public.payment_record_test_observation(uuid,uuid,uuid,text,text,text) to service_role;
+
+-- Time-bounded sandbox delivery window. Default closed and tenant-specific;
+-- closing it requires no redeployment and cannot activate a live provider.
+create table private.payment_test_webhook_windows(
+ tenant_id uuid primary key references public.tenants(id),enabled_until timestamptz not null
+);
+alter table private.payment_test_webhook_windows enable row level security;
+revoke all on private.payment_test_webhook_windows from public,anon,authenticated;
+grant all on private.payment_test_webhook_windows to service_role;
+create function public.admin_payment_test_webhook_window(target_tenant_id uuid,seconds_value int)
+returns boolean language plpgsql security definer set search_path=pg_catalog as $$
+begin
+ if not private.has_tenant_role(target_tenant_id,array['super_admin','manager']::public.app_role[]) then raise exception 'sandbox webhook control denied' using errcode='42501';end if;
+ if seconds_value is null or seconds_value not between 0 and 900 then raise exception 'sandbox window invalid' using errcode='22023';end if;
+ insert into private.payment_test_webhook_windows(tenant_id,enabled_until) values(target_tenant_id,clock_timestamp()+make_interval(secs=>seconds_value)) on conflict(tenant_id) do update set enabled_until=excluded.enabled_until;
+ insert into public.audit_logs(tenant_id,actor_type,actor_id,action,entity_type,entity_id,after_data) values(target_tenant_id,'HUMAN',auth.uid(),'payment.test_webhook_window','tenants',target_tenant_id::text,jsonb_build_object('seconds',seconds_value,'mode','test'));
+ return seconds_value>0;
+end;$$;
+create function public.payment_test_webhook_window_active(target_tenant_id uuid) returns boolean language sql stable security definer set search_path=pg_catalog as $$
+ select exists(select 1 from private.payment_test_webhook_windows w join public.tenants t on t.id=w.tenant_id where w.tenant_id=target_tenant_id and t.status='active' and w.enabled_until>clock_timestamp());
+$$;
+revoke all on function public.admin_payment_test_webhook_window(uuid,int),public.payment_test_webhook_window_active(uuid) from public,anon,authenticated;
+grant execute on function public.admin_payment_test_webhook_window(uuid,int) to authenticated;
+grant execute on function public.payment_test_webhook_window_active(uuid) to service_role;

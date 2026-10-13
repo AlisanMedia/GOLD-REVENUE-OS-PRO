@@ -34,3 +34,9 @@ export async function reconcileTestPayment(invoiceId: string, snapshotId: string
   const result = await configuredTestAdapter(invoice.provider_id).reconcile(invoice, snapshotId);
   return recordVerifiedTestObservation(invoice, result, "reconcile");
 }
+
+export async function sandboxWebhookWindowActive(tenantId: string): Promise<boolean> {
+  const { data, error } = await createSupabaseAdminClient().rpc("payment_test_webhook_window_active", { target_tenant_id: tenantId });
+  if (error) throw new Error("PAYMENT_PROVIDER_UNAVAILABLE");
+  return data === true;
+}

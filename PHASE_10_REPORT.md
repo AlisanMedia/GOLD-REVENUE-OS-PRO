@@ -46,3 +46,9 @@ Automatic approval review rejected git push. Its stated reason was that uploadin
 - Public merchant checkout, live provider credentials, real invoice dispatch and scheduled live reconciliation are not enabled in this increment.
 
 Phase 10 remains OPEN even when test CI passes. Phase 11 is NOT AUTHORIZED. No real transaction, subscription or VIP access action was performed.
+
+## 2026-10-13 publication continuation
+
+Owner explicitly authorized repository publication, PR CI, focused corrections, merge after passing checks, one isolated staging deployment and sandbox/admin acceptance. Publication blocker is resolved. PR #83 contains the exact original local tree plus focused CI and staging acceptance changes. Initial CI 38417647413: Application PASS; Database migration/lint PASS but the old Phase 3 event-contract count failed (24 actual vs 23 original contracts). The correction preserves the 23 original contracts and verifies the separate Phase 10 test-only event in payment tests. Failure evidence is retained.
+
+Staging acceptance uses only newly created synthetic, closed/blocked sandbox records. Its authenticated test webhook window defaults off, expires within 15 minutes and is closed in cleanup. Existing customer flags and conversation controls are compared before/after; worker backlog drain, historical retries and Telegram webhook registration are skipped. Current acceptance remains OPEN until CI and exact merged-SHA controlled staging finish.

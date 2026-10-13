@@ -180,6 +180,40 @@ jobs:
           echo "SUPABASE_SECRET_KEY=$secret_key" >>"$GITHUB_ENV"
       - name: Run authentication smoke test
         run: pnpm --filter @gold-revenue-os/web auth:smoke
+      - name: Run real sandbox webhook and Admin Payments HTTP acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/phase10-http-db.env"
+          phase10_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/phase10-http-db.env")
+          test -n "$phase10_db_url"
+          echo "::add-mask::$phase10_db_url"
+          export PHASE10_LOCAL_DB_URL="$phase10_db_url"
+          export PHASE10_LOCAL_APP_URL=http://127.0.0.1:3100
+          export NEXT_PUBLIC_APP_URL="$PHASE10_LOCAL_APP_URL"
+          export NEXT_PUBLIC_SUPABASE_URL="$SUPABASE_URL"
+          export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
+          export PAYMENT_TEST_WEBHOOKS_ENABLED=true
+          export PAYMENT_TEST_WEBHOOK_SECRET=$(openssl rand -hex 32)
+          echo "::add-mask::$PAYMENT_TEST_WEBHOOK_SECRET"
+          export PHASE10_EVIDENCE_FILE="$RUNNER_TEMP/phase10-http-acceptance.json"
+          export VALIDATED_SHA="$GITHUB_SHA"
+          pnpm build
+          pnpm --filter @gold-revenue-os/web start --port 3100 >"$RUNNER_TEMP/phase10-http-server.log" 2>&1 &
+          phase10_server_pid=$!
+          trap 'kill "$phase10_server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:3100/api/health/live >/dev/null; then break; fi
+            sleep 1
+          done
+          node apps/web/scripts/phase10-staging.mjs
+      - name: Upload sandbox HTTP acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase10-http-acceptance
+          path: ${{ runner.temp }}/phase10-http-acceptance.json
+          retention-days: 14
       - name: Upload database evidence
         if: always()
         uses: actions/upload-artifact@v4

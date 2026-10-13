@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { verifyTestWebhookAuthentication } from "@/lib/payments/adapters";
-import { configuredTestAdapter, getTestInvoice, recordVerifiedTestObservation } from "@/lib/payments/service";
+import { configuredTestAdapter, getTestInvoice, recordVerifiedTestObservation, sandboxWebhookWindowActive } from "@/lib/payments/service";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function POST(request: Request, context: { params: Promise<{ provider: string }> }) {
@@ -28,6 +28,7 @@ export async function POST(request: Request, context: { params: Promise<{ provid
     verifyTestWebhookAuthentication(input, secret);
     const signal = z.object({ invoice_id: z.uuid() }).passthrough().parse(JSON.parse(rawBody));
     const invoice = await getTestInvoice(signal.invoice_id);
+    if (!await sandboxWebhookWindowActive(invoice.tenant_id)) return NextResponse.json({ error: "SANDBOX_WEBHOOK_WINDOW_CLOSED" }, { status: 503 });
     if (invoice.provider_id !== provider) throw new Error("PAYMENT_PROVIDER_SCOPE_INVALID");
     const observation = await configuredTestAdapter(provider).verifyWebhook(input, invoice);
     const result = await recordVerifiedTestObservation(invoice, observation, "webhook");

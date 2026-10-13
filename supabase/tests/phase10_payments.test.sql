@@ -90,5 +90,11 @@ insert into p10_state values('refund',public.admin_simulate_test_payment('d32000
 select is(public.payment_record_test_observation('d3200000-0000-4000-8000-000000000001',(select value from p10_state where key='stars'),(select value from p10_state where key='refund'),'test:stars:refund',repeat('a',64),'reconcile')->>'state','REFUNDED','verified provider refund changes a confirmed simulation');
 insert into p10_state values('reorg',public.admin_simulate_test_payment('d3200000-0000-4000-8000-000000000001',(select value from p10_state where key='crypto'),'reorg','reorg'));
 select is(public.payment_record_test_observation('d3200000-0000-4000-8000-000000000001',(select value from p10_state where key='crypto'),(select value from p10_state where key='reorg'),'test:crypto:reorg',repeat('a',64),'reconcile')->>'state','REVIEW','chain reorg holds a previously confirmed simulation');
+select is(public.payment_test_webhook_window_active('d3200000-0000-4000-8000-000000000001'),false,'sandbox webhooks default closed');
+select is(public.admin_payment_test_webhook_window('d3200000-0000-4000-8000-000000000001',300),true,'authorized manager opens bounded test window');
+select is(public.payment_test_webhook_window_active('d3200000-0000-4000-8000-000000000001'),true,'opened sandbox window is active');
+select is(public.payment_test_webhook_window_active('d3200000-0000-4000-8000-000000000002'),false,'sandbox window cannot widen another tenant');
+select is(public.admin_payment_test_webhook_window('d3200000-0000-4000-8000-000000000001',0),false,'sandbox window can be restored without redeployment');
+select is(public.payment_test_webhook_window_active('d3200000-0000-4000-8000-000000000001'),false,'effective sandbox webhooks closed after restore');
 select finish();
 rollback;

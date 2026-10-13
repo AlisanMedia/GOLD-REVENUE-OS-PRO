@@ -47,3 +47,5 @@ Test webhooks default disabled. Enabling requires PAYMENT_TEST_WEBHOOKS_ENABLED=
 - Telegram payment object and webhook protocol: https://core.telegram.org/bots/api#successfulpayment
 - Supabase RLS/grants: https://supabase.com/docs/guides/database/postgres/row-level-security
 - Supabase database functions: https://supabase.com/docs/guides/database/functions
+
+Owner-authorized staging acceptance uses an expiring, tenant-scoped webhook window in addition to runtime HMAC/environment gates. Windows default closed, expire within 15 minutes and are closed after validation. The acceptance runner uses authenticated synthetic manager/support/readonly sessions and signed HTTP requests against the exact deployment; all sensitive configuration stays on the protected runner. It does not invoke the customer worker or send Telegram messages.

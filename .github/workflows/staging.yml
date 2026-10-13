@@ -43,6 +43,12 @@ on:
         default: false
         type: boolean
 
+      run_phase10_sandbox:
+        description: Validate isolated Phase 10 test adapters and restore the sandbox webhook window
+        required: false
+        default: false
+        type: boolean
+
 permissions:
   contents: read
   checks: read
@@ -280,14 +286,15 @@ jobs:
           jq -e 'type == "array"' "$RUNNER_TEMP/phase6-preserved-failures.json" >/dev/null
       - name: Pull isolated Vercel staging preview configuration
         if: ${{ inputs.run_agent_worker != true }}
-        run: pnpm dlx vercel@59.16.0 pull --yes --environment=preview --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
+        run: pnpm dlx vercel@59.16.0 pull --yes --environment=preview --scope="$VERCEL_TEAM_SLUG"
       - name: Pull isolated Vercel staging production-target configuration
         if: ${{ inputs.run_agent_worker == true }}
-        run: pnpm dlx vercel@59.16.0 pull --yes --environment=production --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
+        run: pnpm dlx vercel@59.16.0 pull --yes --environment=production --scope="$VERCEL_TEAM_SLUG"
       - name: Materialize isolated staging production build environment
         if: ${{ inputs.run_agent_worker == true }}
         env:
           CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
+          RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox }}
         shell: bash
         run: |
           set -euo pipefail
@@ -305,7 +312,7 @@ jobs:
             "TELEGRAM_STAGING_TENANT_ID",
             "CRON_SECRET",
           ];
-          if (process.env.CONFIGURE_OPENAI_SHADOW === "true") {
+          if (process.env.CONFIGURE_OPENAI_SHADOW === "true" || process.env.RUN_PHASE10_SANDBOX === "true") {
             names.push("OPENAI_API_KEY", "OPENAI_MODEL");
           }
           const content = names
@@ -313,12 +320,25 @@ jobs:
             .join("\\n");
           fs.writeFileSync(".vercel/.env.production.local", `${content}\\n`, { mode: 0o600 });
           NODE
+      - name: Prepare time-bounded Phase 10 sandbox webhook secret
+        if: ${{ inputs.run_phase10_sandbox == true }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ inputs.run_agent_worker }}" = "true"
+          test "${{ inputs.run_telegram_live }}" = "false"
+          test "${{ inputs.configure_openai_shadow }}" = "false"
+          test "${{ inputs.retry_resolved_openai_quota_tasks }}" = "false"
+          phase10_secret=$(openssl rand -hex 32)
+          echo "::add-mask::$phase10_secret"
+          echo "PAYMENT_TEST_WEBHOOK_SECRET=$phase10_secret" >>"$GITHUB_ENV"
+          echo "PAYMENT_TEST_WEBHOOKS_ENABLED=true" >>"$GITHUB_ENV"
       - name: Build staging preview deployment
         if: ${{ inputs.run_agent_worker != true }}
-        run: pnpm dlx vercel@59.16.0 build --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
+        run: pnpm dlx vercel@59.16.0 build --scope="$VERCEL_TEAM_SLUG"
       - name: Build isolated staging production-target deployment
         if: ${{ inputs.run_agent_worker == true }}
-        run: pnpm dlx vercel@59.16.0 build --prod --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
+        run: pnpm dlx vercel@59.16.0 build --prod --scope="$VERCEL_TEAM_SLUG"
       - name: Deploy staging artifact
         id: deploy
         shell: bash
@@ -326,12 +346,13 @@ jobs:
           RUN_TELEGRAM_LIVE: ${{ inputs.run_telegram_live }}
           RUN_AGENT_WORKER: ${{ inputs.run_agent_worker }}
           CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
+          RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox }}
         run: |
           set -euo pipefail
 
           deploy_args=(
             --prebuilt
-            --token="$VERCEL_TOKEN"
+           
             --scope="$VERCEL_TEAM_SLUG"
             --env "SUPABASE_SECRET_KEY=$SUPABASE_SECRET_KEY"
           )
@@ -352,13 +373,21 @@ jobs:
             )
           fi
 
-          if test "$CONFIGURE_OPENAI_SHADOW" = "true"; then
+          if test "$CONFIGURE_OPENAI_SHADOW" = "true" -o "$RUN_PHASE10_SANDBOX" = "true"; then
             deploy_args+=(
               --env "OPENAI_API_KEY=$OPENAI_API_KEY"
               --env "OPENAI_MODEL=$OPENAI_MODEL"
             )
           fi
 
+          if test "$RUN_PHASE10_SANDBOX" = "true"; then
+            deploy_args+=(
+              --env "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
+              --env "TELEGRAM_WEBHOOK_SECRET=$TELEGRAM_WEBHOOK_SECRET"
+              --env "PAYMENT_TEST_WEBHOOK_SECRET=$PAYMENT_TEST_WEBHOOK_SECRET"
+              --env "PAYMENT_TEST_WEBHOOKS_ENABLED=true"
+            )
+          fi
           deployment_url=$(pnpm dlx vercel@59.16.0 deploy "${deploy_args[@]}")
           echo "url=$deployment_url" >>"$GITHUB_OUTPUT"
           echo "Staging URL: $deployment_url" >>"$GITHUB_STEP_SUMMARY"
@@ -371,7 +400,7 @@ jobs:
           set -euo pipefail
           pnpm dlx vercel@59.16.0 alias set \
             "$DEPLOYMENT_URL" gold-revenue-os-staging.vercel.app \
-            --token="$VERCEL_TOKEN" --scope="$VERCEL_TEAM_SLUG"
+            --scope="$VERCEL_TEAM_SLUG"
           echo "Canonical staging alias: https://gold-revenue-os-staging.vercel.app" >>"$GITHUB_STEP_SUMMARY"
       - name: Validate staging deployment
         env:
@@ -423,7 +452,7 @@ jobs:
           jq -e '.requeued >= 0 and .requeued <= 25 and (.task_ids | type == "array")' "$recovery_file" >/dev/null
           jq '{requeued,correlation_id}' "$recovery_file" >>"$GITHUB_STEP_SUMMARY"
       - name: Drain and validate Phase 6 worker backlog without outbound messaging
-        if: ${{ inputs.run_agent_worker == true }}
+        if: ${{ inputs.run_agent_worker == true && inputs.run_phase10_sandbox != true }}
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         shell: bash
@@ -586,6 +615,25 @@ jobs:
           fi
 
           echo "Telegram staging webhook registered at the canonical HTTPS endpoint." >>"$GITHUB_STEP_SUMMARY"
+      - name: Run isolated Phase 10 sandbox and Admin Payments acceptance
+        if: ${{ inputs.run_phase10_sandbox == true }}
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+          VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+          PHASE10_EVIDENCE_FILE: ${{ runner.temp }}/phase10-owner-acceptance.json
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+          STAGING_SUPABASE_PROJECT_ID: ${{ secrets.STAGING_SUPABASE_PROJECT_ID }}
+        run: |
+          supabase link --project-ref "$STAGING_SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+          node apps/web/scripts/phase10-staging.mjs
+      - name: Upload sanitized Phase 10 sandbox evidence
+        if: ${{ always() && inputs.run_phase10_sandbox == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase10-owner-acceptance
+          path: ${{ runner.temp }}/phase10-owner-acceptance.json
+          retention-days: 14
       - name: Write Vercel validation evidence
         if: always()
         env:
