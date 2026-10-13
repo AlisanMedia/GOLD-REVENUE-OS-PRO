@@ -33,7 +33,7 @@ async function http(path,{cookie,body,signature,timestamp,method='GET'}={}){
 }
 async function snapshot(invoice,scenario){return rpc(manager.client,'admin_simulate_test_payment',{target_tenant_id:tenant,target_invoice_id:invoice,scenario_value:scenario,request_key_value:randomUUID()});}
 async function ledger(){return rpc(manager.client,'admin_entitlement_list',{target_tenant_id:tenant});}
-async function processJob(result){const job=await rpc(admin,'entitlement_claim_job',{target_tenant_id:tenant});if(!job)throw Error('TEST_JOB_REQUIRED');const data=typeof result==='function'?result(job):result;return rpc(admin,'entitlement_complete_job',{target_tenant_id:tenant,target_job_id:job.id,lease_value:job.lease_token,result_value:data});}
+async function processJob(result){let job;for(let n=0;n<8&&!job;n++)job=await rpc(admin,'entitlement_claim_job',{target_tenant_id:tenant});if(!job)throw Error('TEST_JOB_REQUIRED');const data=typeof result==='function'?result(job):result;return rpc(admin,'entitlement_complete_job',{target_tenant_id:tenant,target_job_id:job.id,lease_value:job.lease_token,result_value:data});}
 try {
  baseline=summary();
  const inserted=await admin.from('tenants').insert([{id:tenant,name:'Phase 11 isolated sandbox',slug:'phase11-sandbox-'+run},{id:otherTenant,name:'Phase 11 denial sandbox',slug:'phase11-sandbox-denial-'+run}]);if(inserted.error)throw Error('SANDBOX_TENANT_CREATE_FAILED');

@@ -72,7 +72,7 @@ create function private.entitlement_audit_record(sid uuid,act text,d jsonb defau
  insert into public.audit_logs(tenant_id,actor_type,actor_id,action,entity_type,entity_id,after_data) values(s.tenant_id,case when auth.uid() is null then 'SYSTEM'::public.audit_actor_type else 'HUMAN'::public.audit_actor_type end,auth.uid(),'entitlement.'||act,'subscriptions',sid::text,d||jsonb_build_object('mode',s.mode));end;$$;
 
 create function private.entitlement_apply(t uuid,source_id uuid,m text) returns uuid language plpgsql set search_path=pg_catalog as $$
-declare i public.payment_invoices%rowtype;r private.verified_payment_receipts%rowtype;e public.domain_events%rowtype;o public.commercial_offers%rowtype;s public.subscriptions%rowtype;terms jsonb;eid uuid;cid uuid;oid uuid;pid uuid;start_at timestamptz;end_at timestamptz;existing uuid;
+declare i public.payment_invoices%rowtype;r private.verified_payment_receipts%rowtype;e public.domain_events%rowtype;o public.commercial_offers%rowtype;s public.subscriptions%rowtype;terms jsonb;eid uuid;cid uuid;oid uuid;pid uuid;start_at timestamptz;end_at timestamptz;existing uuid;lifecycle public.customer_state;tr jsonb;started_event uuid;
 begin
  if m='test' then
   if not private.entitlement_test_tenant(t) then raise exception 'isolated test tenant required' using errcode='42501';end if;
@@ -91,12 +91,21 @@ begin
  if m='live' and (not exists(select 1 from public.commercial_items x join public.commercial_versions v on v.item_id=x.id and v.tenant_id=x.tenant_id where v.id=o.plan_version_id and x.tenant_id=t and not x.test_only) or o.snapshot->'plan'->'payload' is distinct from terms) then raise exception 'commercial provenance denied' using errcode='42501';end if;
  perform pg_advisory_xact_lock(hashtextextended(t::text||':'||cid::text||':'||o.plan_version_id::text||':'||m,0));
  select subscription_id into existing from public.subscription_payments where tenant_id=t and event_id=eid;if existing is not null then return existing;end if;
+ if m='live' then
+  select state into lifecycle from public.customers where tenant_id=t and id=cid for update;
+  if lifecycle='PAYMENT_PENDING' then tr:=public.transition_customer_state(t,cid,'PAYMENT_PENDING','PAID','verified_payment_receipt','SYSTEM',null,gen_random_uuid(),eid,'payment.confirmed',eid,'entitlement-paid:'||eid::text,now());if tr->>'accepted' is distinct from 'true' then raise exception 'verified lifecycle transition denied' using errcode='42501';end if;
+  elsif lifecycle not in ('PAID','ACCESS_GRANTED','ACTIVE','RENEWAL_DUE','RENEWED','EXPIRED') then raise exception 'payment lifecycle review required' using errcode='42501';end if;
+ end if;
+
  select * into s from public.subscriptions where tenant_id=t and customer_id=cid and plan_version_id=o.plan_version_id and mode=m for update;
  if s.state='CANCELLED' then raise exception 'cancelled subscription requires new offer' using errcode='42501';end if;
  start_at:=greatest(now(),coalesce(s.ends_at,now()));end_at:=public.subscription_expiry(start_at,terms);pid:=coalesce(s.id,gen_random_uuid());
  if s.id is null then insert into public.subscriptions(id,tenant_id,customer_id,plan_version_id,mode,state,plan_snapshot,commercial_snapshot,starts_at,ends_at,grace_until,renewal_due_at) values(pid,t,cid,o.plan_version_id,m,'ACTIVE',terms,o.snapshot,start_at,end_at,end_at+make_interval(days=>coalesce((terms->>'grace_days')::int,0)),end_at-make_interval(days=>coalesce((terms->>'renewal_notice_days')::int,3)));
  else update public.subscriptions set state=case when state in ('HOLD','SUSPENDED') then state else 'ACTIVE' end,ends_at=end_at,grace_until=end_at+make_interval(days=>coalesce((terms->>'grace_days')::int,0)),renewal_due_at=end_at-make_interval(days=>coalesce((terms->>'renewal_notice_days')::int,3)),revision=revision+1 where id=pid;end if;
  insert into public.subscription_payments(tenant_id,subscription_id,mode,test_invoice_id,receipt_id,event_id,term_snapshot,period_start,period_end) values(t,pid,m,case when m='test' then source_id end,case when m='live' then source_id end,eid,terms,start_at,end_at);
+ if m='live' then
+  started_event:=private.append_domain_event(t,cid,'subscription.started',1,jsonb_build_object('subscription_id',pid,'starts_at',coalesce(s.starts_at,start_at),'ends_at',end_at),'SYSTEM',null,'subscription_engine','TRUSTED',gen_random_uuid(),eid,'subscription-start:'||eid::text,now());
+ end if;
  perform private.entitlement_audit_record(pid,case when s.id is null then 'activated' else 'renewed' end,jsonb_build_object('payment_event',eid,'period_start',start_at,'period_end',end_at));
  if s.id is not null then perform private.entitlement_enqueue(pid,'reconcile');end if;
  if exists(select 1 from public.telegram_entitlement_bindings where tenant_id=t and customer_id=cid and mode=m) and exists(select 1 from public.vip_channels where tenant_id=t and mode=m and enabled and private_verified) and (s.id is null or s.state not in ('HOLD','SUSPENDED')) then
@@ -163,7 +172,7 @@ create function public.entitlement_claim_job(target_tenant_id uuid) returns json
  update public.entitlement_jobs set status='RUNNING',attempts=attempts+1,lease_token=gen_random_uuid(),lease_until=now()+interval '60 seconds' where id=j.id returning * into j;
  perform private.entitlement_audit_record(s.id,'job_claimed',jsonb_build_object('job_id',j.id,'operation',j.operation,'attempt',j.attempts));
  return to_jsonb(j)||jsonb_build_object('mode',s.mode,'subscription_id',s.id,'telegram_user_id',b.telegram_user_id,'chat_id',c.chat_id,'invite_reference',a.invite_reference,'invite_expires_at',least(s.grace_until,now()+make_interval(secs=>c.invite_ttl_seconds)));end;$$;
-create function public.entitlement_complete_job(target_tenant_id uuid,target_job_id uuid,lease_value uuid,result_value jsonb) returns boolean language plpgsql security definer set search_path=pg_catalog as $$declare j public.entitlement_jobs%rowtype;a public.channel_access%rowtype;s public.subscriptions%rowtype;ref text;member text;begin
+create function public.entitlement_complete_job(target_tenant_id uuid,target_job_id uuid,lease_value uuid,result_value jsonb) returns boolean language plpgsql security definer set search_path=pg_catalog as $$declare j public.entitlement_jobs%rowtype;a public.channel_access%rowtype;s public.subscriptions%rowtype;ref text;member text;access_event uuid;start_event uuid;customer_state_value public.customer_state;transition_result jsonb;begin
  select * into j from public.entitlement_jobs where tenant_id=target_tenant_id and id=target_job_id for update;
  if j.id is null or j.status<>'RUNNING' or j.lease_token is distinct from lease_value or j.lease_until<=now() then raise exception 'access lease denied' using errcode='42501';end if;
  select * into a from public.channel_access where id=j.access_id;select * into s from public.subscriptions where id=a.subscription_id for update;
@@ -177,6 +186,13 @@ create function public.entitlement_complete_job(target_tenant_id uuid,target_job
  elsif j.operation='revoke' then update public.channel_access set status='REVOKED',invite_reference=null,invite_expires_at=null,membership_checked_at=now() where id=a.id;
  else member:=result_value->>'membership';if member not in ('member','left','kicked') or member is null then raise exception 'membership evidence required' using errcode='22023';end if;
  if member='member' and s.state in ('ACTIVE','RENEWAL_DUE') and s.grace_until>now() then update public.channel_access set status='MEMBER',invite_reference=null,invite_expires_at=null,membership_checked_at=now() where id=a.id;
+ if s.mode='live' then
+  access_event:=private.append_domain_event(s.tenant_id,s.customer_id,'access.granted',1,jsonb_build_object('channel_access_id',a.id,'channel_id',a.channel_id),'SYSTEM',null,'access_engine','TRUSTED',gen_random_uuid(),null,'access-grant:'||j.id::text,now());
+  select state into customer_state_value from public.customers where tenant_id=s.tenant_id and id=s.customer_id for update;
+  if customer_state_value='PAID' then transition_result:=public.transition_customer_state(s.tenant_id,s.customer_id,'PAID','ACCESS_GRANTED','verified_channel_membership','SYSTEM',null,gen_random_uuid(),access_event,'access.granted',access_event,'access-state:'||j.id::text,now());if transition_result->>'accepted' is distinct from 'true' then raise exception 'verified access transition denied' using errcode='42501';end if;customer_state_value:='ACCESS_GRANTED';end if;
+  if customer_state_value='ACCESS_GRANTED' then select id into start_event from public.domain_events where tenant_id=s.tenant_id and customer_id=s.customer_id and event_type='subscription.started' and producer='subscription_engine' and authority='TRUSTED' and payload->>'subscription_id'=s.id::text order by recorded_at desc limit 1;transition_result:=public.transition_customer_state(s.tenant_id,s.customer_id,'ACCESS_GRANTED','ACTIVE','verified_membership_activation','SYSTEM',null,gen_random_uuid(),access_event,'subscription.started',start_event,'membership-state:'||j.id::text,now());if transition_result->>'accepted' is distinct from 'true' then raise exception 'verified subscription transition denied' using errcode='42501';end if;end if;
+ end if;
+
  elsif member='member' then update public.subscriptions set revision=revision+1 where id=s.id;update public.channel_access set status='REVIEW' where id=a.id;perform private.entitlement_enqueue(s.id,'revoke');
  else update public.channel_access set status='PENDING',membership_checked_at=now() where id=a.id;if s.state in ('ACTIVE','RENEWAL_DUE') and s.grace_until>now() then update public.subscriptions set revision=revision+1 where id=s.id;perform private.entitlement_enqueue(s.id,'invite');end if;end if;end if;
  update public.entitlement_jobs set status='DONE',lease_token=null,lease_until=null,last_error=null where id=j.id;perform private.entitlement_audit_record(s.id,'job_'||j.operation,jsonb_build_object('job_id',j.id));return true;end;$$;
