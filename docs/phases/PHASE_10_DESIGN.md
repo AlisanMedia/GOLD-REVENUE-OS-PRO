@@ -1,6 +1,6 @@
 # Phase 10 — Multi-channel Payments
 
-Status: OPEN. Implementation is authorized; live activation and Phase 11 are not.
+Status: CLOSED for sandbox/test infrastructure, formally owner-approved on 2026-10-13 after main CI `38428551092` and controlled staging `38429095259` passed on SHA `031509dc3d447703954f9c76396a7ae8504a9213`. Live activation and Phase 11 remain NOT AUTHORIZED. The rest of this design retains original implementation and acceptance requirements.
 
 Baseline: main 57cf4cc091c14b5a9412cd796464d1556520cfbf (owner-approved Phase 9 closeout). Repository/remote inspection found no existing Phase 10 code or branch. This increment extends the existing modular monolith and preserves Phase 7–9 acceptance; it does not rerun their live matrices.
 
@@ -39,7 +39,7 @@ Test webhooks default disabled. Enabling requires PAYMENT_TEST_WEBHOOKS_ENABLED=
 - Unified admin displays invoice, commercial snapshot, provider references, independent verification evidence, transactions and reconciliation/audit history with TEST ONLY labels.
 - Mandatory lint/typecheck/unit/integration/build/security audit and Database CI pass.
 - No real invoice send, funds collected, subscription creation, VIP granting, customer PAID transition or Phase 11.
-- Controlled staging/manual panel verification remains required before recommending Phase 10 closure; live approval dependencies remain explicit.
+- Controlled staging/manual panel verification for test-only scope was completed by run `38429095259`; live approval dependencies remain explicit and unresolved.
 
 ## Primary protocol references
 
