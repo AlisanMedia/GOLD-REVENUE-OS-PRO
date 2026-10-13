@@ -43,6 +43,12 @@ on:
         default: false
         type: boolean
 
+      run_phase11_sandbox:
+        description: Validate isolated Phase 11 subscriptions and access without real Telegram calls
+        required: false
+        default: false
+        type: boolean
+
       run_phase10_sandbox:
         description: Validate isolated Phase 10 test adapters and restore the sandbox webhook window
         required: false
@@ -294,7 +300,7 @@ jobs:
         if: ${{ inputs.run_agent_worker == true }}
         env:
           CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
-          RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox }}
+          RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox || inputs.run_phase11_sandbox }}
         shell: bash
         run: |
           set -euo pipefail
@@ -320,8 +326,8 @@ jobs:
             .join("\\n");
           fs.writeFileSync(".vercel/.env.production.local", `${content}\\n`, { mode: 0o600 });
           NODE
-      - name: Prepare time-bounded Phase 10 sandbox webhook secret
-        if: ${{ inputs.run_phase10_sandbox == true }}
+      - name: Prepare time-bounded sandbox webhook secret
+        if: ${{ inputs.run_phase10_sandbox == true || inputs.run_phase11_sandbox == true }}
         shell: bash
         run: |
           set -euo pipefail
@@ -346,7 +352,7 @@ jobs:
           RUN_TELEGRAM_LIVE: ${{ inputs.run_telegram_live }}
           RUN_AGENT_WORKER: ${{ inputs.run_agent_worker }}
           CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
-          RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox }}
+          RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox || inputs.run_phase11_sandbox }}
         run: |
           set -euo pipefail
 
@@ -452,7 +458,7 @@ jobs:
           jq -e '.requeued >= 0 and .requeued <= 25 and (.task_ids | type == "array")' "$recovery_file" >/dev/null
           jq '{requeued,correlation_id}' "$recovery_file" >>"$GITHUB_STEP_SUMMARY"
       - name: Drain and validate Phase 6 worker backlog without outbound messaging
-        if: ${{ inputs.run_agent_worker == true && inputs.run_phase10_sandbox != true }}
+        if: ${{ inputs.run_agent_worker == true && inputs.run_phase10_sandbox != true && inputs.run_phase11_sandbox != true }}
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         shell: bash
@@ -616,7 +622,7 @@ jobs:
 
           echo "Telegram staging webhook registered at the canonical HTTPS endpoint." >>"$GITHUB_STEP_SUMMARY"
       - name: Install Supabase CLI in the Vercel sandbox validation job
-        if: ${{ inputs.run_phase10_sandbox == true }}
+        if: ${{ inputs.run_phase10_sandbox == true || inputs.run_phase11_sandbox == true }}
         uses: supabase/setup-cli@v1
         with:
           version: 2.117.0
@@ -638,6 +644,25 @@ jobs:
         with:
           name: phase10-owner-acceptance
           path: ${{ runner.temp }}/phase10-owner-acceptance.json
+          retention-days: 14
+      - name: Run isolated Phase 11 subscription and authenticated Admin acceptance
+        if: ${{ inputs.run_phase11_sandbox == true }}
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+          VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+          PHASE11_EVIDENCE_FILE: ${{ runner.temp }}/phase11-owner-acceptance.json
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+          STAGING_SUPABASE_PROJECT_ID: ${{ secrets.STAGING_SUPABASE_PROJECT_ID }}
+        run: |
+          supabase link --project-ref "$STAGING_SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+          node apps/web/scripts/phase11-staging.mjs
+      - name: Upload sanitized Phase 11 evidence
+        if: ${{ always() && inputs.run_phase11_sandbox == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase11-owner-acceptance
+          path: ${{ runner.temp }}/phase11-owner-acceptance.json
           retention-days: 14
       - name: Write Vercel validation evidence
         if: always()

@@ -2,6 +2,7 @@ import ManualStateTransition from "@/components/manual-state-transition";
 import { hasAdminCapability } from "@/lib/admin/permissions";
 import { getCustomer360 } from "@/lib/customer-os/server";
 import Link from "next/link";
+import { entitlementList } from "@/lib/entitlements/admin";
 import { getConversationList } from "@/lib/messaging/server";
 
 function formatValue(value: unknown): string {
@@ -12,6 +13,7 @@ function formatValue(value: unknown): string {
 export default async function Customer360Page({ params }: { params: Promise<{ id: string }> }) {
   const customerId = (await params).id;
   const data = await getCustomer360(customerId);
+  const entitlements = hasAdminCapability(data.role,"entitlements.read") ? await entitlementList(customerId) : null;
   const conversations = hasAdminCapability(data.role, "messaging.read")
     ? await getConversationList({ customerId, page: 1, pageSize: 20 })
     : null;
@@ -27,6 +29,7 @@ export default async function Customer360Page({ params }: { params: Promise<{ id
       <h1>{data.customer.display_name || "Unnamed customer"}</h1>
       <p className="lede">{data.customer.state} · {data.customer.risk_level} · {data.customer.segment ?? "Unsegmented"}</p>
       <section className="detail-grid">
+        {entitlements && <article className="detail-card"><h2>Payments, subscriptions and VIP</h2>{entitlements.subscriptions.map(s=><p key={s.id}><Link href={"/admin/subscriptions/"+s.id}>{s.mode.toUpperCase()} · {s.state}</Link><br/>Expires {s.ends_at}<br/>Payment evidence: {entitlements.payments.filter(p=>p.subscription_id===s.id).map(p=>p.event_id).join(", ")}<br/>VIP: {entitlements.access.find(a=>a.subscription_id===s.id)?.status??"Not requested"}</p>)}{!entitlements.subscriptions.length&&<p>No verified entitlement.</p>}</article>}
         <article className="detail-card"><h2>Overview</h2><dl><div><dt>Lifecycle state</dt><dd>{data.customer.state}</dd></div><div><dt>Segment / risk</dt><dd>{data.customer.segment ?? "Unsegmented"} · {data.customer.risk_level}</dd></div><div><dt>Source</dt><dd>{data.customer.source_name ?? data.customer.source_type ?? "Unknown"} · {data.customer.source_record_ref ?? "no source reference"}</dd></div><div><dt>Created</dt><dd>{new Date(data.customer.created_at).toLocaleString("en-GB")}</dd></div></dl></article>
         <article className="detail-card"><h2>Identities</h2>{data.identities.length ? <ul>{data.identities.map((item) => <li key={item.id}><strong>{item.identity_type}{item.is_primary ? " · primary" : ""}</strong><span>{item.identity_value}</span><small>normalized: {item.normalized_value} · source: {item.source_name ?? item.source_type ?? "unknown"} · {item.source_record_ref ?? "no reference"}</small></li>)}</ul> : <p className="muted">No visible identities. The current role may not access identity PII.</p>}</article>
         <article className="detail-card"><h2>Trading profile</h2>{data.profile ? <dl>{Object.entries(data.profile).filter(([key, value]) => !["customer_id","tenant_id","field_metadata","updated_at"].includes(key) && value !== null && value !== undefined && value !== "").map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{formatValue(value)}</dd></div>)}</dl> : <p className="muted">Profile is not populated yet.</p>}</article>
