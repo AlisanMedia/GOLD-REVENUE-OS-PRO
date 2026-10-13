@@ -10,7 +10,7 @@ select has_table('public', 'customer_state_transition_attempts', 'transition att
 select has_table('public', 'scheduled_jobs', 'scheduled job base exists');
 
 select is((select count(*) from private.customer_state_transition_rules), 23::bigint, 'complete transition matrix has 23 directed edges');
-select is((select count(*) from private.event_contracts), 23::bigint, 'all Phase 3 event contracts are versioned');
+select is((select count(*) from private.event_contracts where event_type<>'payment.test_observed'), 23::bigint, 'all original Phase 3 event contracts remain versioned');
 
 select is((select relrowsecurity from pg_class where oid = 'public.domain_events'::regclass), true, 'event store has RLS');
 select is((select relrowsecurity from pg_class where oid = 'public.event_outbox'::regclass), true, 'outbox has RLS');
