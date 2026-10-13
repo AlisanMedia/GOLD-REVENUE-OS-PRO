@@ -144,6 +144,8 @@ jobs:
         run: supabase test db supabase/tests/phase9_commercial.test.sql
       - name: Run provider-neutral payment pgTAP tests
         run: supabase test db supabase/tests/phase10_payments.test.sql
+      - name: Run Phase 11 subscription and access security assertions
+        run: supabase test db supabase/tests/phase11_entitlements.test.sql
       - name: Prove concurrent payment idempotency
         shell: bash
         run: |
@@ -153,6 +155,8 @@ jobs:
           test -n "$phase10_db_url"
           echo "::add-mask::$phase10_db_url"
           bash supabase/tests/phase10_concurrency.sh "$phase10_db_url"
+      - name: Prove concurrent Phase 11 entitlement consumers and access leases
+        run: bash supabase/tests/phase11_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
       - name: Prove concurrent specialist task leasing
         shell: bash
         run: |
@@ -207,12 +211,21 @@ jobs:
             sleep 1
           done
           node apps/web/scripts/phase10-staging.mjs
+          export PHASE11_EVIDENCE_FILE="$RUNNER_TEMP/phase11-http-acceptance.json"
+          node apps/web/scripts/phase11-staging.mjs
       - name: Upload sandbox HTTP acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phase10-http-acceptance
           path: ${{ runner.temp }}/phase10-http-acceptance.json
+          retention-days: 14
+      - name: Upload Phase 11 HTTP/Admin acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase11-http-acceptance
+          path: ${{ runner.temp }}/phase11-http-acceptance.json
           retention-days: 14
       - name: Upload database evidence
         if: always()

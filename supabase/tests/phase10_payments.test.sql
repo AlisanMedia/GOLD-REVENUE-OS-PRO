@@ -49,8 +49,8 @@ select is((select count(*) from public.domain_events where tenant_id='d3200000-0
 select is((select count(*) from public.domain_events where tenant_id='d3200000-0000-4000-8000-000000000001' and event_type='payment.confirmed'),0::bigint,'test evidence cannot emit a real confirmation');
 select is((select state::text from public.customers where id='d3300000-0000-4000-8000-000000000001'),'NEW','customer lifecycle unchanged by simulated payments');
 select is((select count(*) from public.messages where tenant_id='d3200000-0000-4000-8000-000000000001' and direction='outbound'),0::bigint,'no Telegram invoice or message sent');
-select ok(to_regclass('public.subscriptions') is null,'no subscription implementation');
-select ok(to_regclass('public.channel_access') is null,'no VIP granting implementation');
+select is((select count(*) from public.subscriptions where mode='live'),0::bigint,'payment simulations create no live subscriptions');
+select is((select count(*) from public.channel_access where mode='live'),0::bigint,'payment simulations create no live VIP grants');
 select throws_ok($$update public.payment_invoices set mode='live' where id=(select value from p10_state where key='crypto')$$,'42501','invoice snapshot immutable','test invoice cannot turn into a real payment');
 select throws_ok($$update public.payment_invoices set amount_units=1 where id=(select value from p10_state where key='crypto')$$,'42501','invoice snapshot immutable','quote amount cannot be silently rewritten');
 select throws_ok($$delete from public.payment_observations where tenant_id='d3200000-0000-4000-8000-000000000001'$$,'42501','payment history immutable','provider evidence history is append only');

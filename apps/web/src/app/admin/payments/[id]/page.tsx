@@ -1,4 +1,5 @@
 import Link from "next/link";
+import MembershipCheckoutPreview from "@/components/membership-checkout-preview";
 import { randomUUID } from "node:crypto";
 import { notFound } from "next/navigation";
 import { atomicToDecimal, paymentInvoiceSchema } from "@gold-revenue-os/domain";
@@ -14,6 +15,7 @@ export default async function PaymentPage({ params, searchParams }: { params: Pr
   return <main className="admin-main"><Link href="/admin/payments">Payments</Link><h1>Test payment invoice</h1>
     <p role="status"><strong>TEST ONLY — no funds are collected.</strong> Live integration remains unapproved.</p>
     {(await searchParams).error && <p role="alert">The check failed. Existing payment state is preserved; retry reconciliation after reviewing provider evidence.</p>}
+    <MembershipCheckoutPreview title="Selected membership" amountUnits={i.amount_units} decimals={i.decimals} asset={i.asset} network={i.network} state={i.status} reason={observations[0]?.reason} />
     <dl><dt>Invoice</dt><dd>{i.id}</dd><dt>Offer / customer</dt><dd>{i.offer_id} / {i.customer_id}</dd><dt>Channel / surface</dt><dd>{i.channel} / {i.surface}</dd><dt>Provider reference</dt><dd>{i.provider_reference}</dd><dt>Amount</dt><dd>{atomicToDecimal(i.amount_units, i.decimals)} {i.asset} / {i.network}</dd><dt>State</dt><dd>{i.status} (simulation)</dd><dt>Required confirmations</dt><dd>{i.min_confirmations}</dd></dl>
     <section className="panel"><h2>{i.channel === "telegram_stars" ? "Stars invoice preview" : "Independent web checkout preview"}</h2>
       <p>{i.channel === "telegram_stars" ? "XTR invoice contract only. Nothing is sent to Telegram." : "A separate web checkout contract. No real wallet, deposit address or external payment link is generated."}</p>

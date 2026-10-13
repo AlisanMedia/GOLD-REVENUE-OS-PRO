@@ -1,0 +1,5 @@
+import { atomicToDecimal,purchaseJourney } from "@gold-revenue-os/domain";
+export default function MembershipCheckoutPreview({title,amountUnits,decimals,asset,network,state,reason}:{title:string;amountUnits:string;decimals:number;asset:string;network:string;state:string;reason:string|undefined}){
+ const status=purchaseJourney({paymentVerified:state==="CONFIRMED",paymentState:state,...(reason?{reason}:{}),entitled:false,membershipVerified:false,inviteAvailable:false,mode:"test"});
+ return <section className="panel"><h2>Purchase journey preview</h2><p>TEST ONLY · {title}</p><p><strong>{atomicToDecimal(amountUnits,decimals)} {asset}</strong>{asset!=="XTR"&&` · ${network}`}</p><p role="status">{state==="CONFIRMED"?"TEST ONLY — payment simulation confirmed. Membership processing is tracked separately below.":status.message}</p><button disabled>Payments available at launch</button><p>No funds collected. Simulation amounts do not establish a live conversion rate or commercial total.</p></section>;
+}

@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import {
   CONTEXT_LIMITS,
   assertSafeContext,
+  type BackendEvidence,
   messageEvidenceHandles,
   commercialEvidence,
   inferStyleProfile,
@@ -163,6 +164,18 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
     context.commercial.documents=context.commercial.documents.filter(d=>d.kind!=="plan"||d.version_id===selected);
     context.commercialEvidence=commercialEvidence(context.commercial,{tenantId:task.tenant_id,conversationId:task.conversation_id,boundary:sourceMessage.created_at,locale:commercialLocale});
   }
+  const receiptResult=await supabase.rpc("entitlement_conversation_receipts",{target_tenant_id:task.tenant_id,target_conversation_id:task.conversation_id,boundary_value:sourceMessage.created_at});
+  if(receiptResult.error)throw new Error("ENTITLEMENT_EVIDENCE_UNAVAILABLE");
+  const receipts=Array.isArray(receiptResult.data)?receiptResult.data as Array<{id:string;verified_at:string;ends_at:string;membership:string|null;membership_checked_at:string|null}>:[];
+  const receiptEvidence:BackendEvidence[]=receipts.slice(0,3).flatMap(r=>{
+    const scope={tenantId:task.tenant_id,conversationId:task.conversation_id,occurredAt:r.verified_at,status:"completed" as const};
+    const payment={en:"Your payment has been verified.",tr:"Ödemeniz doğrulandı.",ar:"تم التحقق من الدفع.",ru:"Ваш платёж подтверждён."}[commercialLocale];
+    const subscription={en:`Your membership is active until ${r.ends_at}.`,tr:`Üyeliğiniz ${r.ends_at} tarihine kadar aktif.`,ar:`عضويتك نشطة حتى ${r.ends_at}.`,ru:`Подписка активна до ${r.ends_at}.`}[commercialLocale];
+    const items:BackendEvidence[]=[{...scope,id:r.id+":payment",category:"payment_confirmed",statement:payment},{...scope,id:r.id+":subscription",category:"subscription_updated",statement:subscription}];
+    if(r.membership==="MEMBER"&&r.membership_checked_at&&Date.parse(r.membership_checked_at)<=Date.parse(sourceMessage.created_at))items.push({...scope,occurredAt:r.membership_checked_at,id:r.id+":access",category:"access_active",statement:{en:"Your VIP access is active.",tr:"VIP erişiminiz aktif.",ar:"وصولك إلى VIP نشط.",ru:"Доступ к VIP активен."}[commercialLocale]});
+    return items;
+  });
+  context.commercialEvidence=[...(context.commercialEvidence??[]),...receiptEvidence];
   assertSafeContext(context);
   return {
     context,
