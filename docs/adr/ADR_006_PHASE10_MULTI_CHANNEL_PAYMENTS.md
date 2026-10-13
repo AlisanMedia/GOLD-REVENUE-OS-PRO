@@ -1,6 +1,6 @@
 # ADR 006 — Provider-neutral multi-channel payment verification
 
-Status: Owner-authorized implementation; live activation remains prohibited.
+Status: Accepted architecture; sandbox/test Phase 10 formally CLOSED with owner approval on 2026-10-13. Accepted main/staging SHA `031509dc3d447703954f9c76396a7ae8504a9213`. Live payment activation and Phase 11 remain prohibited.
 
 The owner's 2026-10-13 clarification supersedes the channel preference in ADR-002 for Phase 10. The payment engine has no exclusive provider dependency. Digital membership sales initiated inside Telegram bots and Mini Apps use Stars. Crypto is available only through a separately approved independent web checkout. A Telegram conversation, bot or Mini App cannot route digital sales to external checkout. No crypto URL is added to any agent output or Telegram message.
 
