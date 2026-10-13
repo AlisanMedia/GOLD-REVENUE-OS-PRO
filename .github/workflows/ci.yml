@@ -142,6 +142,17 @@ jobs:
         run: supabase test db supabase/tests/phase8_orchestration.test.sql
       - name: Run commercial catalog, Knowledge Base and Conversion database tests
         run: supabase test db supabase/tests/phase9_commercial.test.sql
+      - name: Run provider-neutral payment pgTAP tests
+        run: supabase test db supabase/tests/phase10_payments.test.sql
+      - name: Prove concurrent payment idempotency
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/phase10-db.env"
+          phase10_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/phase10-db.env")
+          test -n "$phase10_db_url"
+          echo "::add-mask::$phase10_db_url"
+          bash supabase/tests/phase10_concurrency.sh "$phase10_db_url"
       - name: Prove concurrent specialist task leasing
         shell: bash
         run: |
