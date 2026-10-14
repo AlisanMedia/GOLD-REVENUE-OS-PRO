@@ -1,0 +1,44 @@
+name: Phase 11 isolated Telegram acceptance
+on:
+  workflow_dispatch:
+    inputs:
+      approval:
+        description: Enter PHASE11_PRIVATE_STAGING_8327046095 to authorize the exact isolated test
+        required: true
+        type: string
+      mode:
+        description: Preflight, real invite/revoke/restore cycle, or final administrator verification
+        required: true
+        default: preflight
+        type: choice
+        options: [preflight, acceptance, final-status]
+permissions:
+  contents: read
+concurrency:
+  group: phase11-private-telegram-channel
+  cancel-in-progress: false
+jobs:
+  isolated-telegram:
+    if: github.ref == 'refs/heads/main' && inputs.approval == 'PHASE11_PRIVATE_STAGING_8327046095'
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+      - name: Exact-channel Telegram acceptance (no app or database writes)
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          PHASE11_APPROVAL: ${{ inputs.approval }}
+          PHASE11_MODE: ${{ inputs.mode }}
+          PHASE11_EVIDENCE_FILE: ${{ runner.temp }}/phase11-telegram-evidence.json
+        run: node scripts/phase11-telegram-acceptance.mjs
+      - name: Preserve sanitized provider evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase11-telegram-${{ inputs.mode }}-${{ github.run_id }}
+          path: ${{ runner.temp }}/phase11-telegram-evidence.json
+          retention-days: 14
