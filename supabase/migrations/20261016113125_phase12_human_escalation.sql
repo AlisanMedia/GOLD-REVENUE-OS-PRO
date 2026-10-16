@@ -100,7 +100,7 @@ declare m public.messages%rowtype;c public.conversations%rowtype;e public.escala
  select * into c from public.conversations where tenant_id=t and id=m.conversation_id for update;
  if c.escalation_return_boundary is not null and m.created_at<c.escalation_return_boundary then return null;end if;
  -- Operator resolution is authoritative for that source, including a later/retried QA run.
- if exists(select 1 from public.escalation_cases e join public.escalation_evidence v on v.case_id=e.id and v.tenant_id=e.tenant_id where e.tenant_id=t and e.status='RESOLVED' and v.message_id=mid) then return null;end if;
+ if exists(select 1 from public.escalation_cases prior_case join public.escalation_evidence prior_evidence on prior_evidence.case_id=prior_case.id and prior_evidence.tenant_id=prior_case.tenant_id where prior_case.tenant_id=t and prior_case.status='RESOLVED' and prior_evidence.message_id=mid) then return null;end if;
  select * into e from public.escalation_cases where tenant_id=t and conversation_id=c.id and status<>'RESOLVED' for update;
  if e.id is null then
   insert into public.escalation_cases(tenant_id,conversation_id,customer_id,category,severity,source_message_id,locale) values(t,c.id,c.customer_id,cat,sev,m.id,loc) returning * into e;
