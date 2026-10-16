@@ -101,7 +101,30 @@ select throws_ok($$select public.set_conversation_automatic_replies('c1210000-00
 select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),6,'return');
 select ok((select automatic_replies_enabled and runtime_mode='AI_ACTIVE' and not human_takeover and escalation_return_boundary is not null from public.conversations where id=(select conversation_id from p12_scope)),'safe return enables only future sources');
 reset role;
+select throws_ok($$insert into public.messages(tenant_id,conversation_id,customer_id,messaging_contact_id,provider_connection_id,direction,message_type,content,status,provider_chat_id,reply_to_message_id,idempotency_key,actor_type,actor_id,correlation_id,occurred_at)
+ select tenant_id,conversation_id,customer_id,messaging_contact_id,provider_connection_id,'outbound','text','Stale AI draft','pending',provider_chat_id,id,'phase12-stale-draft','SYSTEM','quality-approved-reply',gen_random_uuid(),now() from public.messages where id=(select source_message_id from p12_scope)$$,'42501','escalation blocks automatic reply','return boundary rejects historical AI draft');
 select throws_ok($$update public.escalation_history set action='fabricated' where case_id=(select id from p12_scope)$$,'42501','entitlement evidence immutable','case history immutable');
 select is((select count(*) from private.agent_tool_registry),7::bigint,'AI tool whitelist unchanged');
+-- Exercise deferred QA integration, including legacy Phase 7 names and proposal persistence order.
+select public.configure_phase12_escalation('c1210000-0000-4000-8000-000000000002',true,'synthetic-quality-test');
+select public.ingest_telegram_message('c1210000-0000-4000-8000-000000000002','p12-quality-confidence','12201','12201','12201',null,'Test',null,'Explain this detail',null,now());
+select public.ingest_telegram_message('c1210000-0000-4000-8000-000000000002','p12-quality-conflict','12202','12202','12202',null,'Test',null,'Explain this offer',null,now());
+select public.ingest_telegram_message('c1210000-0000-4000-8000-000000000002','p12-quality-loss','12203','12203','12203',null,'Test',null,'Explain this report',null,now());
+do $$declare v uuid;task uuid;run uuid;qc uuid;r record;begin
+ v:=private.ensure_shadow_agent('c1210000-0000-4000-8000-000000000002');qc:=private.ensure_conversation_quality_config('c1210000-0000-4000-8000-000000000002');
+ for r in select m.*,de.id event_id from public.messages m join public.domain_events de on de.tenant_id=m.tenant_id and de.payload->>'message_id'=m.id::text and de.event_type='message.received' where m.tenant_id='c1210000-0000-4000-8000-000000000002' loop
+  insert into public.agent_tasks(tenant_id,agent_definition_id,agent_version_id,customer_id,conversation_id,source_event_id,task_type,objective,execution_mode,idempotency_key,correlation_id)
+   select r.tenant_id,agent_definition_id,v,r.customer_id,r.conversation_id,r.event_id,'quality-test','Synthetic deferred QA escalation test','SHADOW','p12-qa:'||r.id,gen_random_uuid() from public.agent_versions where id=v returning id into task;
+  insert into public.agent_runs(tenant_id,task_id,agent_version_id,attempt_number,execution_mode,worker_id) values(r.tenant_id,task,v,1,'SHADOW','p12-quality-fixture') returning id into run;
+  insert into public.conversation_quality_evaluations(tenant_id,run_id,quality_config_id,director_output,style_profile,qa_scores,qa_action,qa_reasons,factual_confidence,escalation_category,customer_facing_blocked,context_manifest_ref,prompt_version,director_version,renderer_version,qa_version,model_provider,model_name)
+   values(r.tenant_id,run,qc,'{}','{"language":"ar"}','{}','verify_or_escalate','{}','unknown',case r.provider_message_id when '12202' then 'knowledge_conflict' when '12203' then 'financial_loss_complaint' end,true,run,'fixture','fixture','fixture','fixture','mock','synthetic');
+  insert into public.agent_proposals(tenant_id,task_id,run_id,proposal_type,original_payload,confidence) values(r.tenant_id,task,run,'message_draft','{}',0.4);
+ end loop;
+end;$$;
+set constraints phase12_quality immediate;
+select is((select count(*) from public.escalation_cases where tenant_id='c1210000-0000-4000-8000-000000000002'),3::bigint,'deferred QA creates three source-linked cases');
+select ok(exists(select 1 from public.escalation_cases where tenant_id='c1210000-0000-4000-8000-000000000002' and category='low_confidence' and severity='MEDIUM' and locale='ar'),'low proposal confidence creates medium case with preserved locale');
+select ok(exists(select 1 from public.escalation_cases e join public.conversations c on c.id=e.conversation_id where e.tenant_id='c1210000-0000-4000-8000-000000000002' and e.category='knowledge_conflict' and e.severity='HIGH' and c.human_takeover),'QA knowledge conflict synchronously pauses AI');
+select ok(exists(select 1 from public.escalation_cases where tenant_id='c1210000-0000-4000-8000-000000000002' and category='financial_loss' and severity='CRITICAL'),'Phase 7 financial-loss classification retains critical severity');
 select * from finish();
 rollback;

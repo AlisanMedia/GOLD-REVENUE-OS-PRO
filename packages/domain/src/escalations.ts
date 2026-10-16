@@ -23,5 +23,5 @@ export type NotificationReceipt = {
 export function managerNotificationText(job: EscalationNotification, appOrigin: string): string {
   const origin = new URL(appOrigin);
   if (origin.protocol !== "https:" || origin.username || origin.password || origin.search || origin.hash || origin.pathname !== "/") throw new Error("APP_ORIGIN_INVALID");
-  return `${job.severity} · ${job.category}\nCase: ${job.case_id}\nCustomer: ${job.customer_id ?? "Unmatched"}\nWaiting: ${job.waiting_seconds}s\n${origin.origin}/admin/attention/${job.case_id}`;
+  return `PHASE 12 STAGING TEST\n${job.severity} · ${job.category}\nSummary: Human review required for ${job.category.replaceAll("_", " ")}. No payment or access action performed.\nCase: ${job.case_id}\nCustomer: ${job.customer_id ?? "Unmatched"}\nWaiting: ${job.waiting_seconds}s\n${origin.origin}/admin/attention/${job.case_id}`;
 }

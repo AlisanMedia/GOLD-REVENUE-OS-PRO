@@ -121,13 +121,14 @@ create function private.escalation_on_inbound() returns trigger language plpgsql
  if v is not null then perform private.escalation_open(new.tenant_id,new.id,v->>'category',v->>'severity',v->>'locale','inbound',new.id);end if;end if;return new;end;$$;
 create trigger phase12_inbound after insert on public.messages for each row execute function private.escalation_on_inbound();
 create function private.escalation_on_quality() returns trigger language plpgsql security definer set search_path=pg_catalog as $$
-declare t public.agent_tasks%rowtype;p jsonb;mid uuid;cat text;sev text;begin
+declare t public.agent_tasks%rowtype;mid uuid;cat text;sev text;begin
  if not private.escalation_enabled(new.tenant_id) then return new;end if;
  select at.* into t from public.agent_runs r join public.agent_tasks at on at.id=r.task_id and at.tenant_id=r.tenant_id where r.tenant_id=new.tenant_id and r.id=new.run_id;
  select (payload->>'message_id')::uuid into mid from public.domain_events where tenant_id=new.tenant_id and id=t.source_event_id and event_type='message.received';
  if mid is null then return new;end if;
- if new.escalation_category in ('knowledge_conflict','payment_dispute','missing_access','refund_request','fraud_accusation','legal_threat','financial_loss','security_issue','vip_complaint','human_request') then cat:=new.escalation_category;sev:=case when cat in ('fraud_accusation','legal_threat','financial_loss','security_issue') then 'CRITICAL' when cat='vip_complaint' then 'MEDIUM' else 'HIGH' end;
- elsif new.qa_action in ('verify_or_escalate','block') and ('LOW_CONFIDENCE'=any(new.qa_reasons) or coalesce((select confidence from public.agent_proposals where run_id=new.run_id),1)<0.65) then cat:='low_confidence';sev:='MEDIUM';
+ cat:=case new.escalation_category when 'payment_not_reflected' then 'payment_dispute' when 'access_missing_after_payment' then 'missing_access' when 'financial_loss_complaint' then 'financial_loss' when 'user_requests_human' then 'human_request' when 'agent_low_confidence' then 'low_confidence' else new.escalation_category end;
+ if cat in ('knowledge_conflict','payment_dispute','missing_access','refund_request','fraud_accusation','legal_threat','financial_loss','security_issue','vip_complaint','human_request','low_confidence') then sev:=case when cat in ('fraud_accusation','legal_threat','financial_loss','security_issue') then 'CRITICAL' when cat in ('vip_complaint','low_confidence') then 'MEDIUM' else 'HIGH' end;
+ elsif new.qa_action in ('verify_or_escalate','block') and ('LOW_CONFIDENCE'=any(new.qa_reasons) or coalesce((select min(confidence) from public.agent_proposals where tenant_id=new.tenant_id and run_id=new.run_id),1)<0.65) then cat:='low_confidence';sev:='MEDIUM';
  elsif 'ESCALATION_REQUIRED'=any(new.qa_reasons) then cat:='general_review';sev:='HIGH';else return new;end if;
  perform private.escalation_open(new.tenant_id,mid,cat,sev,case when new.style_profile->>'language' in ('en','tr','ar','ru') then new.style_profile->>'language' else 'en' end,'quality',new.id);return new;end;$$;
 -- Deferred until the complete run/proposal transaction has persisted confidence and evidence.
