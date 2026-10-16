@@ -73,7 +73,7 @@ try {
  check('authenticated-subscriptions-admin',managerUi.status===200&&managerUi.body.includes('YALNIZCA TEST kabulü'));
  check('authenticated-access-admin',accessUi.status===200&&accessUi.body.includes('test:12345'));
  check('customer360-entitlement-evidence',customerUi.status===200&&customerUi.body.includes('Ödemeler, abonelikler ve VIP'));
- check('customer-journey-preview-truthful',detailUi.status===200&&detailUi.body.includes('YALNIZCA TEST')&&!detailUi.body.includes('href="https://t.me/'));
+ check('customer-journey-preview-truthful',detailUi.status===200&&detailUi.body.includes('TEST ONLY')&&detailUi.body.includes('Müşteri önizlemesi · Varsayılan dil İngilizce.')&&detailUi.body.includes('lang="en"')&&!detailUi.body.includes('href="https://t.me/'));
  const supportUi=await http('/admin/subscriptions',{cookie:support.cookie()}),readonlyUi=await http('/admin/subscriptions',{cookie:readonly.cookie()});
  check('support-read-only-ui',supportUi.status===200&&!supportUi.body.includes('name="invoice_id"'));check('readonly-entitlement-ui-denied',[302,303,307].includes(readonlyUi.status));
  const supportWrite=await support.client.rpc('admin_subscription_control',{target_tenant_id:tenant,target_subscription_id:sub,action_value:'hold',request_id_value:randomUUID()});check('support-control-denied',supportWrite.error?.code==='42501');
