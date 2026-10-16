@@ -48,7 +48,11 @@ try{
  if(process.env.ESCALATION_TELEGRAM_BOT_TOKEN&&process.env.ESCALATION_TELEGRAM_CHAT_ID&&process.env.ESCALATION_TELEGRAM_BOT_ID){
   await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:true,approval_value:'Owner-approved exact private Phase 12 manager notification acceptance',chat_value:process.env.ESCALATION_TELEGRAM_CHAT_ID,bot_value:process.env.ESCALATION_TELEGRAM_BOT_ID});
   const worker=await http('/api/internal/escalation-worker',null,process.env.CRON_SECRET);check('scoped-notification-worker',worker.status===200);
-  d=await list(manager.client);const n=d.cases[0].notification;check('genuine-manager-notification',n.status==='SENT'&&/^[1-9][0-9]*$/u.test(n.provider_message_id));provider={status:'PASS',notification_id:n.id,provider_message_id:n.provider_message_id,sent_at:n.sent_at,chat_id:process.env.ESCALATION_TELEGRAM_CHAT_ID,bot_id:process.env.ESCALATION_TELEGRAM_BOT_ID};
+  d=await list(manager.client);const n=d.cases[0].notification;check('genuine-manager-notification',n.status==='SENT'&&/^[1-9][0-9]*$/u.test(n.provider_message_id));
+  check('sent-manager-notification-cannot-reclaim',await rpc(admin,'escalation_claim_notification',{target_tenant_id:tenant})===null);
+  const recorded=sql(`select jsonb_build_object('attempts',(select count(*) from public.escalation_notification_attempts where notification_id='${n.id}' and result='SENT' and provider_message_id=${q(n.provider_message_id)}),'audit',(select count(*) from public.escalation_history where case_id='${c.id}' and action='notification_sent')) as snapshot;`);
+  check('provider-receipt-case-audit-linked',recorded.attempts===1&&recorded.audit===1);
+  provider={status:'PASS',case_id:c.id,notification_id:n.id,provider_message_id:n.provider_message_id,sent_at:n.sent_at,chat_id:process.env.ESCALATION_TELEGRAM_CHAT_ID,bot_id:process.env.ESCALATION_TELEGRAM_BOT_ID,provider_acknowledged:true,human_read_confirmed:false,sent_receipts:recorded.attempts};
  }
  const action=async(action,assignee=null,note=null)=>{const current=(await list(manager.client)).cases[0];return rpc(manager.client,'admin_escalation_action',{target_tenant_id:tenant,target_case_id:current.id,expected_revision:current.revision,action_value:action,assignee_value:assignee,note_value:note});};
  await action('assign',manager.id);await action('acknowledge');await action('takeover');d=await list(manager.client);check('assignment-acknowledgment-takeover',d.cases[0].assigned_to===manager.id&&d.cases[0].status==='IN_PROGRESS'&&d.cases[0].acknowledged_at);
@@ -63,7 +67,7 @@ try{
 }finally{
  let cleanup=true;
  for(const client of sessions){try{await client.auth.signOut();}catch{cleanup=false;}}
- try{if(manager){await admin.from('tenant_members').update({status:'disabled'}).eq('tenant_id',tenant);await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:false,approval_value:'Phase12 acceptance cleanup'});}await admin.from('tenants').update({status:'suspended'}).in('id',[tenant,other]);}catch{cleanup=false;}
+ try{if(manager){const members=await admin.from('tenant_members').update({status:'disabled'}).eq('tenant_id',tenant);if(members.error)throw Error('MEMBER_CLEANUP_FAILED');await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:false,approval_value:'Phase12 acceptance cleanup'});}const tenants=await admin.from('tenants').update({status:'suspended'}).in('id',[tenant,other]);if(tenants.error)throw Error('TENANT_CLEANUP_FAILED');}catch{cleanup=false;}
  writeFileSync(out,JSON.stringify({phase:12,sha:process.env.VALIDATED_SHA??'local',status:done&&cleanup?'PASS':'FAILED',checks,mode:'synthetic isolated sandbox',actual_manager_notification:provider,cleanup_verified:cleanup,live_payments:false,production_vip:false,historical_import:'LOCKED',phase13:false},null,2),{mode:0o600});
  if(!cleanup)throw Error('ACCEPTANCE_CLEANUP_FAILED');
 }

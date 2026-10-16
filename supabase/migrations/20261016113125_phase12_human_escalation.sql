@@ -70,7 +70,7 @@ end;$$;
 
 -- Conservative multilingual detection. Policy/how-to questions alone are not disputes.
 create function public.classify_escalation(text_value text) returns jsonb language plpgsql immutable set search_path=pg_catalog as $$
-declare s text:=lower(coalesce(text_value,''));cat text;sev text;loc text:='en';begin
+declare s text:=lower(replace(coalesce(text_value,''),'İ','i'));cat text;sev text;loc text:='en';begin
  if s ~ '[а-яё]' then loc:='ru';elsif s ~ '[ء-ي]' then loc:='ar';elsif s ~ '[ıüğşöç]|insan|yetkili|iade|ödeme|erişim' then loc:='tr';end if;
  if s ~ 'grammar check|translate (this|the sentence)|for a grammar|dilbilgisi' then return null;end if;
  if s ~ 'hacked|account.*(stolen|compromised)|security (breach|problem|issue)|hesabım.*(çalındı|hack)|güvenlik (sorunu|ihlali)|взлом|украли.*аккаунт|اختراق|سرقة حساب' then cat:='security_issue';sev:='CRITICAL';
@@ -129,12 +129,12 @@ declare t public.agent_tasks%rowtype;p jsonb;mid uuid;cat text;sev text;begin
  if new.escalation_category in ('knowledge_conflict','payment_dispute','missing_access','refund_request','fraud_accusation','legal_threat','financial_loss','security_issue','vip_complaint','human_request') then cat:=new.escalation_category;sev:=case when cat in ('fraud_accusation','legal_threat','financial_loss','security_issue') then 'CRITICAL' when cat='vip_complaint' then 'MEDIUM' else 'HIGH' end;
  elsif new.qa_action in ('verify_or_escalate','block') and ('LOW_CONFIDENCE'=any(new.qa_reasons) or coalesce((select confidence from public.agent_proposals where run_id=new.run_id),1)<0.65) then cat:='low_confidence';sev:='MEDIUM';
  elsif 'ESCALATION_REQUIRED'=any(new.qa_reasons) then cat:='general_review';sev:='HIGH';else return new;end if;
- perform private.escalation_open(new.tenant_id,mid,cat,sev,'en','quality',new.id);return new;end;$$;
+ perform private.escalation_open(new.tenant_id,mid,cat,sev,case when new.style_profile->>'language' in ('en','tr','ar','ru') then new.style_profile->>'language' else 'en' end,'quality',new.id);return new;end;$$;
 -- Deferred until the complete run/proposal transaction has persisted confidence and evidence.
 create constraint trigger phase12_quality after insert on public.conversation_quality_evaluations deferrable initially deferred for each row execute function private.escalation_on_quality();
 
 create function private.escalation_conversation_guard() returns trigger language plpgsql security definer set search_path=pg_catalog as $$begin
- if (new.runtime_mode='AI_ACTIVE' or new.automatic_replies_enabled) and (old.runtime_mode<>'AI_ACTIVE' or not old.automatic_replies_enabled) and exists(select 1 from public.escalation_cases e where e.tenant_id=new.tenant_id and e.conversation_id=new.id and private.escalation_rank(e.severity)>=3 and (e.status<>'RESOLVED' or e.returned_to_ai_at is null)) then raise exception 'resolve and return through escalation control' using errcode='42501';end if;return new;end;$$;
+ if (new.runtime_mode='AI_ACTIVE' or new.automatic_replies_enabled) and (old.runtime_mode<>'AI_ACTIVE' or not old.automatic_replies_enabled) and (exists(select 1 from public.escalation_cases e where e.tenant_id=new.tenant_id and e.conversation_id=new.id and e.status<>'RESOLVED' and (private.escalation_rank(e.severity)>=3 or e.status='IN_PROGRESS')) or exists(select 1 from public.escalation_cases e where e.tenant_id=new.tenant_id and e.conversation_id=new.id and private.escalation_rank(e.severity)>=3 and e.returned_to_ai_at is null and e.id=(select id from public.escalation_cases where tenant_id=new.tenant_id and conversation_id=new.id and private.escalation_rank(severity)>=3 order by created_at desc,id desc limit 1))) then raise exception 'resolve and return through escalation control' using errcode='42501';end if;return new;end;$$;
 create trigger phase12_conversation_guard before update on public.conversations for each row execute function private.escalation_conversation_guard();
 
 create function public.admin_escalation_action(target_tenant_id uuid,target_case_id uuid,expected_revision int,action_value text,assignee_value uuid default null,note_value text default null) returns int language plpgsql security definer set search_path=pg_catalog as $$
@@ -164,7 +164,7 @@ declare e public.escalation_cases%rowtype;conv uuid;b timestamptz:=clock_timesta
   if e.status<>'RESOLVED' or e.resolution_note is null or e.returned_to_ai_at is not null then raise exception 'resolved case required for return' using errcode='55000';end if;
   if exists(select 1 from public.escalation_cases where tenant_id=target_tenant_id and conversation_id=conv and status<>'RESOLVED' and private.escalation_rank(severity)>=3) or exists(select 1 from public.messages where tenant_id=target_tenant_id and conversation_id=conv and direction='outbound' and status in ('pending','retry_scheduled','sending') and actor_type='HUMAN') or exists(select 1 from public.messages where tenant_id=target_tenant_id and conversation_id=conv and status='sending') then raise exception 'conversation still requires human control' using errcode='55000';end if;
   update public.escalation_cases set returned_to_ai_at=b where id=e.id;
-  update public.agent_tasks set status='CANCELLED',cancellation_reason='ESCALATION_RETURN_BOUNDARY',completed_at=b where tenant_id=target_tenant_id and conversation_id=conv and created_at<=b and status in ('QUEUED','RUNNING','WAITING_FOR_APPROVAL');
+  update public.agent_tasks set status='CANCELLED',cancellation_reason='ESCALATION_RETURN_BOUNDARY',completed_at=b where id in (select id from public.agent_tasks where tenant_id=target_tenant_id and conversation_id=conv and created_at<=b and status in ('QUEUED','WAITING_FOR_APPROVAL') for update skip locked);
   update public.messages set status='failed',failure_code='ESCALATION_RETURN_BOUNDARY' where tenant_id=target_tenant_id and conversation_id=conv and direction='outbound' and actor_type<>'HUMAN' and status in ('pending','retry_scheduled');
   update public.conversations set runtime_mode='AI_ACTIVE',human_takeover=false,automatic_replies_enabled=true,automatic_replies_enabled_at=b,escalation_return_boundary=b,attention_required=false where id=conv;
  end if;

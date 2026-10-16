@@ -53,6 +53,11 @@ on:
         required: false
         default: ""
         type: string
+      discover_phase12_admin:
+        description: Read-only dedicated notification bot and private admin group preflight; no deployment or message
+        required: false
+        default: false
+        type: boolean
 
       run_phase11_sandbox:
         description: Validate isolated Phase 11 subscriptions and access without real Telegram calls
@@ -75,8 +80,62 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  discover_phase12_admin:
+    name: Phase 12 private admin destination discovery
+    if: ${{ inputs.discover_phase12_admin == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    environment: staging
+    env:
+      ESCALATION_TELEGRAM_BOT_TOKEN: ${{ secrets.ESCALATION_TELEGRAM_BOT_TOKEN }}
+    steps:
+      - name: Verify dedicated bot and bounded private group evidence
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const evidence={mode:'read-only; no offset, webhook changes or sends',secret_configured:Boolean(process.env.ESCALATION_TELEGRAM_BOT_TOKEN),status:'FAILED'};
+          const call=async(method,body={})=>{
+            const r=await fetch(`https://api.telegram.org/bot${process.env.ESCALATION_TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(12000)});
+            const d=await r.json();if(!r.ok||!d.ok)throw Error('PREFLIGHT_'+method+'_FAILED');return d.result;
+          };
+          try {
+            if(!evidence.secret_configured)throw Error('STAGING_SECRET_MISSING');
+            const me=await call('getMe');if(!me.is_bot||String(me.id)==='8673054837'||!me.username)throw Error('DEDICATED_BOT_REQUIRED');
+            evidence.bot={id:String(me.id),username:me.username};
+            const webhook=await call('getWebhookInfo');evidence.webhook_configured=Boolean(webhook.url);evidence.pending_updates=webhook.pending_update_count;
+            if(webhook.url){evidence.status='EXISTING_WEBHOOK';throw Error('USE_EXISTING_WEBHOOK_EVENT_PATH');}
+            // New owner-created token has no consumer in this repository. Workflow concurrency excludes another discovery run.
+            const updates=await call('getUpdates',{limit:20,timeout:0});evidence.updates_inspected=updates.length;
+            const candidates=new Map();
+            for(const u of updates){const m=u.message;const membership=u.my_chat_member;
+              const chat=m?.chat??membership?.chat;
+              if(!chat||!['group','supergroup'].includes(chat.type)||String(chat.id)==='-1003944824067'||chat.username)continue;
+              const text=m?.text?.trim();
+              if(text==='Phase 12 admin bildirim testi'||text?.split(/\s/u)[0]?.toLowerCase()==='/chatid@'+me.username.toLowerCase()||membership?.new_chat_member?.user?.id===me.id)candidates.set(String(chat.id),chat);
+            }
+            if(candidates.size!==1){evidence.status=candidates.size?'AMBIGUOUS_GROUP':'COMMAND_REQUIRED';throw Error(candidates.size?'UNIQUE_PRIVATE_GROUP_REQUIRED':'SEND_ONE_ADDRESSED_COMMAND');}
+            const id=[...candidates.keys()][0],chat=await call('getChat',{chat_id:id}),member=await call('getChatMember',{chat_id:id,user_id:me.id});
+            if(String(chat.id)!==id||!['group','supergroup'].includes(chat.type)||chat.username)throw Error('PRIVATE_GROUP_REQUIRED');
+            const canSend=['creator','administrator'].includes(member.status)||(member.status==='member'&&chat.permissions?.can_send_messages!==false)||(member.status==='restricted'&&member.is_member&&member.can_send_messages);
+            evidence.destination={chat_id:id,type:chat.type,title:chat.title,bot_membership:member.status,can_send_messages:Boolean(canSend),separate_from_vip:true};
+            if(!canSend)throw Error('BOT_SEND_PERMISSION_REQUIRED');evidence.status='VERIFIED';
+          }catch(error){evidence.reason=error instanceof Error&&/^[A-Z0-9_]+$/u.test(error.message)?error.message:'PREFLIGHT_UNAVAILABLE';}
+          writeFileSync(process.env.RUNNER_TEMP+'/phase12-admin-discovery.json',JSON.stringify(evidence,null,2),{mode:0o600});
+          console.log(JSON.stringify(evidence));
+          if(evidence.status!=='VERIFIED'&&evidence.status!=='COMMAND_REQUIRED')process.exitCode=1;
+          NODE
+      - name: Preserve sanitized discovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase12-admin-discovery
+          path: ${{ runner.temp }}/phase12-admin-discovery.json
+          retention-days: 14
+
   staging_supabase:
     name: Supabase staging validation
+    if: ${{ inputs.discover_phase12_admin != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: staging
