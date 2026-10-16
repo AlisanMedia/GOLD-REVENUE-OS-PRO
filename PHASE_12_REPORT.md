@@ -35,3 +35,9 @@ Local Supabase startup attempted with pinned CLI 2.117.0 and the managed Docker 
 4. Final accurate owner report and explicit owner closure. Merge alone cannot close Phase 12.
 
 No Phase 7–11 real Telegram acceptance is repeated. Payment/access authority and the seven-tool agent whitelist remain unchanged. **PHASE 12 REMAINS OPEN.**
+
+## Controlled staging finding and focused correction
+
+Implementation PR #90 merged at `e5566a0b2820e8040f019d14af7536e6a8d6f497`; PR CI 38898602679 and main CI 38899130737 both PASS (523 unit, 100 integration, 68 new Phase 12 pgTAP; 26 HTTP/Admin controls). Controlled staging run [38899607124](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38899607124) deployed that exact SHA and passed Supabase/health/Admin/takeover steps, but FAILED at the stale-revision assertion. PostgreSQL logs show 11,856 SQLSTATE 40001 retries; edge logs show a 125,210ms HTTP 504. Revision stayed 4; unauthorized state mutation did not occur. Synthetic tenants/memberships were disabled and failure evidence retained.
+
+A focused additive migration changes only the intentional revision-conflict error to `PT409` (HTTP 409), preserving existing control logic. The server action and acceptance contract now expect the nonretryable conflict, require unchanged revision and cap the test request at eight seconds. No old migration is rewritten. This requires final correction PR/main CI and a necessary Phase 12 staging rerun; no previous real Telegram acceptance is repeated. Real manager delivery remains NOT RUN: protected discovery 38899496336 verified the new bot, no webhook and empty updates. One addressed command in the dedicated group remains pending.

@@ -6,7 +6,7 @@ import { writeFileSync } from 'node:fs';
 import { execFileSync,spawn } from 'node:child_process';
 const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,secret=process.env.SUPABASE_SECRET_KEY,out=process.env.PHASE12_EVIDENCE_FILE;
 if(!url||!key||!secret||!out)throw Error('PHASE12_ENV_REQUIRED');
-const tenant=process.env.PHASE12_TENANT_ID||randomUUID(),other=randomUUID(),run=randomUUID(),users=[],sessions=[],checks=[];
+const tenant=process.env.PHASE12_TENANT_ID||randomUUID(),other=randomUUID(),run=randomUUID(),users=[],sessions=[],checks=[],diagnostics=[];
 if(!/^[a-f0-9-]{36}$/u.test(tenant))throw Error('SANDBOX_TENANT_INVALID');
 const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
 const check=(name,ok)=>{if(!ok)throw Error('ACCEPTANCE_FAILED:'+name);checks.push({name,status:'PASS'});};
@@ -60,7 +60,7 @@ try{
  }
  const action=async(action,assignee=null,note=null)=>{const current=(await list(manager.client)).cases[0];return rpc(manager.client,'admin_escalation_action',{target_tenant_id:tenant,target_case_id:current.id,expected_revision:current.revision,action_value:action,assignee_value:assignee,note_value:note});};
  await action('assign',manager.id);await action('acknowledge');await action('takeover');d=await list(manager.client);check('assignment-acknowledgment-takeover',d.cases[0].assigned_to===manager.id&&d.cases[0].status==='IN_PROGRESS'&&d.cases[0].acknowledged_at);
- const stale=await manager.client.rpc('admin_escalation_action',{target_tenant_id:tenant,target_case_id:c.id,expected_revision:c.revision,action_value:'takeover'});check('stale-control-denied',stale.error?.code==='40001');
+ const staleStarted=Date.now();const stale=await manager.client.rpc('admin_escalation_action',{target_tenant_id:tenant,target_case_id:c.id,expected_revision:c.revision,action_value:'takeover'}).abortSignal(AbortSignal.timeout(8000)).retry(false);const staleElapsed=Date.now()-staleStarted;const currentRevision=(await list(manager.client)).cases[0].revision;diagnostics.push({name:'stale-control',http_status:stale.status,code:/^[A-Z0-9]{1,10}$/u.test(stale.error?.code??'')?stale.error.code:'UNAVAILABLE',elapsed_ms:staleElapsed,revision_preserved:currentRevision===d.cases[0].revision});check('stale-control-denied',stale.error?.code==='PT409'&&stale.status===409&&staleElapsed<8000&&currentRevision===d.cases[0].revision);
  const manual=await manager.client.rpc('queue_outbound_message',{target_tenant_id:tenant,target_conversation_id:cid,content_value:'TEST ONLY manual reply; no provider send.',idempotency_key_value:'p12-manual:'+run,correlation_id_value:randomUUID()});check('manual-send-retains-kill-switch',manual.error?.code==='42501');
  await action('resolve',null,'Synthetic case reviewed. No refund, payment or access operation performed.');await action('return');d=await list(manager.client,{target_case_id:c.id});check('resolution-and-return-audited',d.cases[0].status==='RESOLVED'&&d.cases[0].returned_to_ai_at&&d.history.some(h=>h.action==='return'));
  const old=sql(`select jsonb_build_object('held',private.escalation_open('${tenant}',${q(parallel[0].message_id)},'payment_dispute','HIGH','en','inbound',${q(parallel[0].message_id)}) is null,'boundary',escalation_return_boundary is not null) as snapshot from public.conversations where id='${cid}';`);check('historical-source-not-reopened',old.held&&old.boundary);
@@ -72,6 +72,6 @@ try{
  let cleanup=true;
  for(const client of sessions){try{await client.auth.signOut();}catch{cleanup=false;}}
  try{if(manager){const members=await admin.from('tenant_members').update({status:'disabled'}).eq('tenant_id',tenant);if(members.error)throw Error('MEMBER_CLEANUP_FAILED');await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:false,approval_value:'Phase12 acceptance cleanup'});}const tenants=await admin.from('tenants').update({status:'suspended'}).in('id',[tenant,other]);if(tenants.error)throw Error('TENANT_CLEANUP_FAILED');}catch{cleanup=false;}
- writeFileSync(out,JSON.stringify({phase:12,sha:process.env.VALIDATED_SHA??'local',status:done&&cleanup?'PASS':'FAILED',checks,mode:'synthetic isolated sandbox',actual_manager_notification:provider,cleanup_verified:cleanup,live_payments:false,production_vip:false,historical_import:'LOCKED',phase13:false},null,2),{mode:0o600});
+ writeFileSync(out,JSON.stringify({phase:12,sha:process.env.VALIDATED_SHA??'local',status:done&&cleanup?'PASS':'FAILED',checks,diagnostics,mode:'synthetic isolated sandbox',actual_manager_notification:provider,cleanup_verified:cleanup,live_payments:false,production_vip:false,historical_import:'LOCKED',phase13:false},null,2),{mode:0o600});
  if(!cleanup)throw Error('ACCEPTANCE_CLEANUP_FAILED');
 }
