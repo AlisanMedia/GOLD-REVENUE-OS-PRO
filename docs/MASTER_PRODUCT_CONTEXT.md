@@ -193,7 +193,7 @@ Financial, entitlement and customer lifecycle records are separate authorities; 
 - Model output and published KB text are untrusted input. Opaque backend evidence, source/time scope, schema/allowlists and database revalidation protect facts and completed-action claims. Raw invitations, credentials and financial control inputs do not enter AI context.
 - Live payment receipt tables/enable controls cannot be written by runtime roles. Real Telegram adapter remains dormant. Historical import RPC execution was revoked from `authenticated` by the [Phase 4 migration](../supabase/migrations/20260917055834_phase4_admin_control_plane.sql).
 - Historical import remains **LOCKED**: lawful permitted use, canonical file/hash, all **225** review records, reconciliation of **1,133–1,152** versus historical approximately **1,161**, second dry-run/final review report and new owner approval are prerequisites. Do not reopen supplied raw data during this handoff.
-- Production activation, live payments, real-customer subscriptions/access changes, broad outbound, permissions changes, new invitations, historical replay and Phase 12+ implementation remain unauthorized. Discovery performed none of them.
+- Production activation, live payments, real-customer subscriptions/access changes, broad outbound, existing channel permission changes, new VIP invitations, historical replay and Phase 13+ remain unauthorized. The later owner instruction permits only Phase 12 isolated-staging implementation, controlled deployment and explicitly scoped sandbox/manager-notification acceptance. Discovery performed none of those runtime actions.
 
 Accepted private staging identity scope: channel `-1003944824067`; bot `@gold_revenue_os_staging_bot` / `8673054837`; owner `@alisangul` / `6890052501`; representative `@polatfx` / `8327046095` (formerly `@tahirdonzfx`, same numeric user). These identify past acceptance, not permission for new operations. Do not change their roles automatically.
 
@@ -256,7 +256,7 @@ Decisions requiring explicit owner scope:
 
 1. Safe PR publication mechanism: non-main Git previews currently default enabled. The owner explicitly approved adding only `docs/master-product-context-20261016: false` while preserving `main: false`; the first push must include this rule. No global settings or other branches may change in the documentation PR.
 2. Main-branch protection/review policy, dependency PR handling, historical PR cleanup and repository visibility.
-3. Exact Phase 12 design/implementation scope, operator destinations, primary/backup staff, response windows and notification secrets. A separate admin bot is forecast; do not create it yet.
+3. Phase 12 implementation is now authorized. Actual operator destinations, primary/backup staff, response windows and notification secrets still require owner-supplied setup; never assume the VIP channel or brand administrator is the notification recipient.
 4. Scoped reliability/code changes listed in backlog, particularly access event/scheduler wiring and permission projection before live activation.
 5. Legal suppliers/resale rights, jurisdictions, actual commercial facts/prices/terms, tax/refund/privacy/retention and permitted customer acquisition.
 6. Live provider/merchant/asset/network/finality/custody/settlement, genuine receipt writer, refund workflow and controlled real-payment tests.
