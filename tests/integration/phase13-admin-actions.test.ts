@@ -1,0 +1,24 @@
+import { beforeEach,describe,it,expect,vi } from "vitest";
+const mocks=vi.hoisted(()=>({require:vi.fn(),rpc:vi.fn(),upsert:vi.fn(),revalidate:vi.fn(),requireUser:vi.fn()}));
+vi.mock("@/lib/admin/server",()=>({requireAdminCapability:mocks.require}));
+vi.mock("@/lib/auth/context",()=>({requireUserContext:mocks.requireUser}));
+vi.mock("@/lib/supabase/server",()=>({createSupabaseServerClient:async()=>({rpc:mocks.rpc,from:()=>({upsert:mocks.upsert})})}));
+vi.mock("next/cache",()=>({revalidatePath:mocks.revalidate}));
+import { successAction,saveContactPolicy,refreshSuccess } from "../../apps/web/src/app/admin/customer-success/actions";
+import { changeAdminLocale } from "../../apps/web/src/app/admin/preferences/actions";
+const id="13000000-0000-4000-8000-000000000001",initial={status:"idle" as const,code:""};
+const form=(entries:Record<string,string>)=>{const f=new FormData();for(const[k,v]of Object.entries(entries))f.set(k,v);return f;};
+beforeEach(()=>{vi.clearAllMocks();mocks.require.mockResolvedValue({tenantId:"server-tenant",userId:id});mocks.requireUser.mockResolvedValue({user:{id}});mocks.rpc.mockResolvedValue({data:null,error:null});mocks.upsert.mockResolvedValue({error:null});});
+describe("Phase13 server-owned writes",()=>{
+ it("persists only the authenticated administrator's locale",async()=>{expect(await changeAdminLocale("",form({locale:"en-US",user_id:"attacker-user"}))).toBe("SAVED");expect(mocks.upsert).toHaveBeenCalledWith({user_id:id,locale:"en-US"},{onConflict:"user_id"});expect(mocks.revalidate).toHaveBeenCalledWith("/admin","layout");});
+ it("rejects unsupported locales without a write",async()=>{expect(await changeAdminLocale("",form({locale:"fr-FR"}))).toBe("INVALID_LOCALE");expect(mocks.upsert).not.toHaveBeenCalled();});
+ it("reports persistence failures without claiming a saved preference",async()=>{mocks.upsert.mockResolvedValue({error:{code:"42501"}});expect(await changeAdminLocale("",form({locale:"tr-TR"}))).toBe("SAVE_FAILED");expect(mocks.revalidate).not.toHaveBeenCalled();});
+ it("uses fresh management capability and server tenant, ignoring browser authority",async()=>{await successAction(initial,form({task:id,revision:"3",action:"claim",tenant_id:"wrong-tenant"}));expect(mocks.require).toHaveBeenCalledWith("success.manage");expect(mocks.rpc).toHaveBeenCalledWith("admin_success_action",expect.objectContaining({target_tenant_id:"server-tenant",expected_revision:3}));});
+ it("retains expected revision for stale-control protection",async()=>{mocks.rpc.mockResolvedValue({data:null,error:{code:"PT409"}});expect(await successAction(initial,form({task:id,revision:"3",action:"claim"}))).toEqual({status:"error",code:"PT409"});expect(mocks.revalidate).not.toHaveBeenCalled();});
+ it("has no customer-send operation in preview action",async()=>{expect(await successAction(initial,form({task:id,revision:"3",action:"preview"}))).toEqual({status:"success",code:"PREVIEW_CREATED"});expect(mocks.rpc).toHaveBeenCalledWith("admin_success_preview",{target_tenant_id:"server-tenant",task_value:id,expected_revision:3});expect(mocks.rpc).toHaveBeenCalledTimes(1);});
+ it.each(["send","charge","renew","grant_access","enable_campaign"])("rejects unauthorized %s action",async action=>{expect((await successAction(initial,form({task:id,revision:"3",action}))).code).toBe("INVALID_INPUT");expect(mocks.rpc).not.toHaveBeenCalled();});
+ it("validates contact policy and defaults customer language explicitly, never from admin locale",async()=>{await saveContactPolicy(initial,form({customer:id,revision:"0",consent:"GRANTED",opted_out:"false",language:"en",timezone:"UTC",window_start:"9",window_end:"18",evidence:"Synthetic customer request reference"}));expect(mocks.rpc).toHaveBeenCalledWith("admin_success_contact_policy",expect.objectContaining({language_value:"en",target_tenant_id:"server-tenant",expected_revision:0}));});
+ it("rejects invalid contact windows before RPC",async()=>{expect((await saveContactPolicy(initial,form({customer:id,revision:"0",consent:"GRANTED",opted_out:"false",language:"en",timezone:"UTC",window_start:"20",window_end:"9",evidence:"Synthetic reference"}))).code).toBe("INVALID_INPUT");expect(mocks.rpc).not.toHaveBeenCalled();});
+ it("retains a bounded cursor when more customers require review",async()=>{mocks.rpc.mockResolvedValue({data:{next_cursor:id},error:null});expect((await refreshSuccess(initial,form({request:id}))).nextCursor).toBe(id);expect(mocks.rpc).toHaveBeenCalledWith("admin_success_refresh",expect.objectContaining({request_id_value:id,after_value:null}));});
+ it("does not bypass an authorization rejection",async()=>{mocks.require.mockRejectedValue(Error("ROLE_DENIED"));await expect(successAction(initial,form({task:id,revision:"1",action:"claim"}))).rejects.toThrow("ROLE_DENIED");expect(mocks.rpc).not.toHaveBeenCalled();});
+});

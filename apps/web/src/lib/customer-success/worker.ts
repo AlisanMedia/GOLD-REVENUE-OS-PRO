@@ -1,0 +1,10 @@
+import "server-only";
+import { z } from "zod";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+const resultSchema=z.object({processed:z.number().int().min(0).max(125),tenants:z.number().int().min(0).max(5),mode:z.literal("PREVIEW_ONLY")});
+export async function drainCustomerSuccess() {
+ const db=createSupabaseAdminClient();
+ const {data,error}=await db.rpc("process_customer_success_due");
+ if(error)throw Error("CUSTOMER_SUCCESS_WORKER_FAILED");
+ return resultSchema.parse(data);
+}

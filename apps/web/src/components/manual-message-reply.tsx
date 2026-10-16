@@ -1,4 +1,5 @@
 "use client";
+import { T, OperatorText } from "./admin-i18n";
 
 import { useRef, useState } from "react";
 import { manualReplyResult } from "../lib/escalations/manual-reply";
@@ -33,9 +34,9 @@ export function ManualMessageReply({ conversationId }: { conversationId: string 
   }
 
   return <form className="transition-form" onSubmit={submit}>
-    <label>Müşteriye yanıt · Varsayılan dil: İngilizce<textarea lang="en" placeholder="Write a short, professional reply in English…" value={content} onChange={(event) => setContent(event.target.value)} maxLength={4096} rows={4} required disabled={sending} aria-describedby={`reply-language-${conversationId}`}/></label>
-    <p className="muted" id={`reply-language-${conversationId}`}>Bu metin müşteriye gönderilir. Panelin Türkçe olması yanıt dilini değiştirmez. Müşterinin açık dil tercihi varsa ona uyun; metin otomatik çevrilmez.</p>
-    <button className="primary-button" disabled={sending || content.trim().length === 0} type="submit">{sending ? "Gönderiliyor…" : "Müşteriye Gönder"}</button>
-    {status ? <p className="form-message" role="status">{status}</p> : null}
+    <label><T k="Müşteriye yanıt · Varsayılan dil: İngilizce"/><textarea lang="en" placeholder="Write a short, professional reply in English…" value={content} onChange={(event) => setContent(event.target.value)} maxLength={4096} rows={4} required disabled={sending} aria-describedby={`reply-language-${conversationId}`}/></label>
+    <p className="muted" id={`reply-language-${conversationId}`}><T k="Bu metin müşteriye gönderilir. Panelin Türkçe olması yanıt dilini değiştirmez. Müşterinin açık dil tercihi varsa ona uyun; metin otomatik çevrilmez."/></p>
+    <button className="primary-button" disabled={sending || content.trim().length === 0} type="submit">{sending ? <T k="Gönderiliyor…"/> : <T k="Müşteriye Gönder"/>}</button>
+    {status ? <p className="form-message" role="status">{<OperatorText value={status}/>}</p> : null}
   </form>;
 }

@@ -145,9 +145,22 @@ function latestInboundText(messages: ReadonlyArray<{ direction: string; content:
   return [...messages].reverse().find((message) => message.direction === "inbound")?.content.trim() ?? "";
 }
 
+function explicitlyRequestedLanguage(text: string): string | undefined {
+  const folded=text.normalize("NFKC").toLocaleLowerCase("tr").replaceAll("ı","i");
+  const names:Record<string,string>={english:"en",ingilizce:"en",turkish:"tr",türkçe:"tr",arabic:"ar",arapça:"ar",russian:"ru",rusça:"ru"};
+  const forward=/(?:reply|respond|speak|answer|yanitla|konuş|cevap ver|أجب|تحدث|отвечай|говори)\s+(?:only\s+|in\s+)?(english|turkish|arabic|russian|ingilizce|türkçe|arapça|rusça)/iu.exec(folded)?.[1];
+  if(forward)return names[forward];
+  const reverse=/(ingilizce|türkçe|arapça|rusça|english|turkish|arabic|russian)\s+(?:olarak\s+)?(?:yanitla|konuş|cevap ver|reply|respond|speak|answer)/iu.exec(folded)?.[1];
+  if(reverse)return names[reverse];
+  const arabic=/(?:أجب|اجب|تحدث|رد).{0,24}(إنجليزي|انجليزي|عربي|تركي|روسي)/u.exec(folded)?.[1];
+  if(arabic)return ({إنجليزي:"en",انجليزي:"en",عربي:"ar",تركي:"tr",روسي:"ru"} as Record<string,string>)[arabic];
+  const russian=/(?:ответь|отвечай|говори|пиши).{0,24}(английск|русск|турецк|арабск)/u.exec(folded)?.[1];
+  return russian?({английск:"en",русск:"ru",турецк:"tr",арабск:"ar"} as Record<string,string>)[russian]:undefined;
+}
+
 export function inferConversationLanguage(text: string): string {
-  const requested = /(?:reply|respond|speak|answer|yanıtla|konuş|cevap ver|أجب|تحدث|отвечай|говори)\s+(?:only\s+|in\s+)?(english|turkish|arabic|russian|ingilizce|türkçe|arapça|rusça)/iu.exec(text)?.[1]?.toLowerCase();
-  if (requested) return ({ english: "en", ingilizce: "en", turkish: "tr", türkçe: "tr", arabic: "ar", arapça: "ar", russian: "ru", rusça: "ru" } as Record<string, string>)[requested] ?? "en";
+  const requested=explicitlyRequestedLanguage(text);
+  if(requested)return requested;
   if (/\p{Script=Arabic}/u.test(text)) return "ar";
   if (/\p{Script=Cyrillic}/u.test(text)) return "ru";
   const words = text.normalize("NFKC").toLocaleLowerCase("tr").split(/[^\p{L}\p{M}]+/u);
@@ -158,7 +171,7 @@ export function inferConversationLanguage(text: string): string {
   return "en";
 }
 
-export function inferStyleProfile(messages: ReadonlyArray<{ direction: string; content: string }>): StyleProfile {
+export function inferStyleProfile(messages: ReadonlyArray<{ direction: string; content: string }>, verifiedCustomerLanguage?: string): StyleProfile {
   const text = latestInboundText(messages);
   const noEmoji = /no emojis?|without emojis?|emoji (?:kullanma|istemiyorum)|بدون (?:رموز|إيموجي)|без (?:эмодзи|смайл)/iu.test(text);
   const hasEmoji = !noEmoji && /\p{Extended_Pictographic}/u.test(text);
@@ -166,7 +179,8 @@ export function inferStyleProfile(messages: ReadonlyArray<{ direction: string; c
   const casual = veryCasual || /(?<!\p{L})(selam|sa|hey|tamamdır|eyvallah|okey)(?!\p{L})/iu.test(text) || hasEmoji;
   const formal = !casual && /(?<!\p{L})(sayın|rica ederim|bilgi verebilir misiniz|yardımcı olur musunuz|dear|could you please|уважаемый|пожалуйста|يرجى|حضرتك)(?!\p{L})/iu.test(text);
   const formality: StyleProfile["formality"] = veryCasual ? "very_casual" : casual ? "casual" : formal ? "formal" : "neutral";
-  const language = inferConversationLanguage(text);
+  const explicitLanguage = explicitlyRequestedLanguage(text);
+  const language = explicitLanguage ?? (["en","tr","ar","ru"].includes(verifiedCustomerLanguage ?? "") ? verifiedCustomerLanguage! : inferConversationLanguage(text));
   return styleProfileSchema.parse({
     formality,
     preferred_message_length: text.length <= 120 ? "short" : "medium",

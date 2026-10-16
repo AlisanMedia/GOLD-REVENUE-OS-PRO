@@ -1,4 +1,5 @@
 "use client";
+import { T, OperatorText } from "./admin-i18n";
 
 import { useState } from "react";
 
@@ -10,6 +11,7 @@ export function OutboundKillSwitch({ initialEnabled }: { initialEnabled: boolean
   async function update(next: boolean) {
     setBusy(true);
     setMessage(null);
+    try {
     const response = await fetch("/api/v1/messaging/kill-switch", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -20,17 +22,17 @@ export function OutboundKillSwitch({ initialEnabled }: { initialEnabled: boolean
       setEnabled(data.outbound_messaging_enabled === true);
       setMessage(data.outbound_messaging_enabled ? "Outbound messaging enabled." : "Outbound messaging disabled.");
     } else {
-      setMessage(`Change denied: ${data.error ?? "unknown"}`);
+      setMessage("Change denied. Check permissions and current settings.");
     }
-    setBusy(false);
+    } catch { setMessage("The operation could not be confirmed. Check the latest state."); } finally { setBusy(false); }
   }
 
   return <div className="warning-box">
-    <strong>Outbound kill switch: {enabled ? "ENABLED" : "DISABLED"}</strong>
-    <p>Inbound remains available. Disabling this switch prevents every provider send at the database boundary.</p>
+    <strong><T k="Outbound kill switch:"/> {enabled ? <T k="ENABLED"/> : <T k="DISABLED"/>}</strong>
+    <p><T k="Inbound remains available. Disabling this switch prevents every provider send at the database boundary."/></p>
     <button className="secondary-button" type="button" disabled={busy} onClick={() => update(!enabled)}>
-      {busy ? "Updating…" : enabled ? "Disable outbound" : "Enable outbound"}
+      {busy ? <T k="Updating…"/> : enabled ? <T k="Disable outbound"/> : <T k="Enable outbound"/>}
     </button>
-    {message ? <p className="form-message" role="status">{message}</p> : null}
+    {message ? <p className="form-message" role="status"><OperatorText value={message}/></p> : null}
   </div>;
 }

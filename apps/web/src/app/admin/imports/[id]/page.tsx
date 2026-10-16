@@ -1,3 +1,4 @@
+import { T, AdminEnum, OperatorText, AdminNumber } from "../../../../components/admin-i18n";
 import ImportRowReview from "@/components/import-row-review";
 import { requireCustomerTenant } from "@/lib/customer-os/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -30,32 +31,32 @@ export default async function ImportDetailPage({ params, searchParams }: { param
 
   return (
     <main className="admin-main">
-      <Link className="back-link" href="/admin/imports">← Import batches</Link>
-      <p className="eyebrow">RECONCILIATION REPORT</p>
+      <Link className="back-link" href="/admin/imports"><T k="← Import batches"/></Link>
+      <p className="eyebrow"><T k="RECONCILIATION REPORT"/></p>
       <h1>{batch.source_name}</h1>
-      <p className="lede">{batch.file_name ?? "Uploaded file"} · status: {batch.status}</p>
+      <p className="lede">{batch.file_name ?? <T k="Uploaded file"/>} <T k="· status:"/> {<AdminEnum value={batch.status}/>}</p>
       <section className="metric-grid">
-        {[["Total", batch.total_rows], ["Exact", batch.exact_match_count], ["Probable", batch.probable_match_count], ["Ambiguous", batch.ambiguous_count], ["New", batch.new_customer_count], ["Rejected", batch.rejected_count], ["Errors", batch.validation_error_count], ["Planned", batch.planned_mutation_count]].map(([label, value]) => <div className="metric" key={label}><span>{label}</span><strong>{value}</strong></div>)}
+        {[["Total", batch.total_rows], ["Exact", batch.exact_match_count], ["Probable", batch.probable_match_count], ["Ambiguous", batch.ambiguous_count], ["New", batch.new_customer_count], ["Rejected", batch.rejected_count], ["Errors", batch.validation_error_count], ["Planned", batch.planned_mutation_count]].map(([label, value]) => <div className="metric" key={label}><span>{<OperatorText value={String(label)}/>}</span><strong>{value}</strong></div>)}
       </section>
       <form className="inline-filter" method="get">
-        <label>Classification<select name="classification" defaultValue={classificationValue ?? ""}><option value="">All</option>{["exact_match", "probable_match", "ambiguous", "new_customer"].map((value) => <option key={value}>{value}</option>)}</select></label>
-        <button className="secondary-button" type="submit">Filter</button>
+        <label><T k="Classification"/><select name="classification" defaultValue={classificationValue ?? ""}><option value=""><T k="All"/></option>{["exact_match", "probable_match", "ambiguous", "new_customer"].map((value) => <option key={value}>{value}</option>)}</select></label>
+        <button className="secondary-button" type="submit"><T k="Filter"/></button>
       </form>
       <section className="detail-card">
-        <h2>Deduplication review</h2>
+        <h2><T k="Deduplication review"/></h2>
         {importRows.map((row) => <ImportRowReview key={row.id} batchId={batchId} rowId={row.id} classification={row.classification} candidateId={row.candidate_customer_id} normalized={row.normalized_payload} reviewStatus={row.review_status} />)}
-        {importRows.length === 0 ? <p className="muted">No rows match this filter.</p> : null}
+        {importRows.length === 0 ? <p className="muted"><T k="No rows match this filter."/></p> : null}
       </section>
       <nav className="pagination">
-        <Link href={`?classification=${classificationValue ?? ""}&page=${Math.max(page - 1, 1)}`}>Previous</Link>
-        <span>Page {page} of {pages}</span>
-        <Link href={`?classification=${classificationValue ?? ""}&page=${Math.min(page + 1, pages)}`}>Next</Link>
+        <Link href={`?classification=${classificationValue ?? ""}&page=${Math.max(page - 1, 1)}`}><T k="Previous"/></Link>
+        <span><T k="Page"/> {<AdminNumber value={page}/>} <T k="of"/> {pages}</span>
+        <Link href={`?classification=${classificationValue ?? ""}&page=${Math.min(page + 1, pages)}`}><T k="Next"/></Link>
       </nav>
       <section className="detail-card">
-        <h2>Validation errors · first 100</h2>
-        {importErrors.length ? <ul>{importErrors.map((error) => <li key={error.id}><strong>Row {error.row_number} · {error.field_name ?? "row"}</strong><span>{error.error_code}: {error.message}</span></li>)}</ul> : <p className="muted">No validation errors.</p>}
+        <h2><T k="Validation errors · first 100"/></h2>
+        {importErrors.length ? <ul>{importErrors.map((error) => <li key={error.id}><strong><T k="Row"/> {error.row_number} · {error.field_name ?? "row"}</strong><span>{error.error_code}: {error.message}</span></li>)}</ul> : <p className="muted"><T k="No validation errors."/></p>}
       </section>
-      <p className="warning-box">No real import can be executed from this screen. The API and database execution permission are locked.</p>
+      <p className="warning-box"><T k="No real import can be executed from this screen. The API and database execution permission are locked."/></p>
     </main>
   );
 }
