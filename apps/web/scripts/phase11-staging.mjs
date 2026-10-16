@@ -70,10 +70,10 @@ try {
  await rpc(admin,'entitlement_join_request',{target_tenant_id:tenant,target_access_id:a.id,user_id_value:'test:12345',invite_value:d.access[0].invite_reference});
  await processJob({ok:true,membership:'member'});d=await ledger();check('test-membership-confirmed',d.access[0].status==='MEMBER');
  const managerUi=await http('/admin/subscriptions',{cookie:manager.cookie()}),accessUi=await http('/admin/channel-access',{cookie:manager.cookie()}),detailUi=await http('/admin/subscriptions/'+sub,{cookie:manager.cookie()}),customerUi=await http('/admin/customers/'+customer,{cookie:manager.cookie()});
- check('authenticated-subscriptions-admin',managerUi.status===200&&managerUi.body.includes('TEST ONLY acceptance'));
+ check('authenticated-subscriptions-admin',managerUi.status===200&&managerUi.body.includes('YALNIZCA TEST kabulü'));
  check('authenticated-access-admin',accessUi.status===200&&accessUi.body.includes('test:12345'));
- check('customer360-entitlement-evidence',customerUi.status===200&&customerUi.body.includes('Payments, subscriptions and VIP'));
- check('customer-journey-preview-truthful',detailUi.status===200&&detailUi.body.includes('TEST ONLY')&&!detailUi.body.includes('href="https://t.me/'));
+ check('customer360-entitlement-evidence',customerUi.status===200&&customerUi.body.includes('Ödemeler, abonelikler ve VIP'));
+ check('customer-journey-preview-truthful',detailUi.status===200&&detailUi.body.includes('YALNIZCA TEST')&&!detailUi.body.includes('href="https://t.me/'));
  const supportUi=await http('/admin/subscriptions',{cookie:support.cookie()}),readonlyUi=await http('/admin/subscriptions',{cookie:readonly.cookie()});
  check('support-read-only-ui',supportUi.status===200&&!supportUi.body.includes('name="invoice_id"'));check('readonly-entitlement-ui-denied',[302,303,307].includes(readonlyUi.status));
  const supportWrite=await support.client.rpc('admin_subscription_control',{target_tenant_id:tenant,target_subscription_id:sub,action_value:'hold',request_id_value:randomUUID()});check('support-control-denied',supportWrite.error?.code==='42501');
