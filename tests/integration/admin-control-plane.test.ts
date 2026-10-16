@@ -40,7 +40,9 @@ describe("Phase 4 application security contracts", () => {
   });
 
   it("guards routes and mutations with backend capabilities or role checks", () => {
-    expect(read("apps/web/src/app/admin/layout.tsx")).toContain("hasAdminCapability");
+    expect(read("apps/web/src/app/admin/layout.tsx")).toContain("AdminWorkspaceFrame");
+    expect(read("apps/web/src/components/admin-workspace-frame.tsx")).toContain("NavigationItems");
+    expect(read("apps/web/src/components/admin-navigation.tsx")).toContain("hasAdminCapability");
     expect(read("apps/web/src/app/api/v1/customers/[id]/state/route.ts")).toContain('requireCustomerTenant(["super_admin", "manager"])');
     expect(read("apps/web/src/app/api/v1/imports/[id]/commit/route.ts")).toContain("IMPORT_EXECUTION_LOCKED");
     expect(read("apps/web/src/app/api/v1/imports/[id]/commit/route.ts")).toContain("status: 423");
@@ -48,7 +50,8 @@ describe("Phase 4 application security contracts", () => {
 
   it("does not ship fake revenue metrics or privileged browser credentials", () => {
     const dashboard = read("apps/web/src/app/admin/page.tsx");
-    expect(dashboard).toContain("Henüz kullanılamıyor");
+    expect(dashboard).toContain("operationalDashboard");
+    expect(read("apps/web/src/components/operational-dashboard.tsx")).toContain("No collected revenue, MRR or profit");
     expect(dashboard).not.toMatch(/hardcoded|demo revenue|fake/i);
     for (const path of [
       "apps/web/src/app/admin/page.tsx",

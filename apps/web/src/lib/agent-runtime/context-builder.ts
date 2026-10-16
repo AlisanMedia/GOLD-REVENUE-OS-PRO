@@ -150,7 +150,10 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
     target_tenant_id:task.tenant_id,target_event_id:task.source_event_id,
   });
   if(commercialError)throw new Error("COMMERCIAL_CONTEXT_FAILED");
-  const detectedLanguage=inferStyleProfile(messages).language;
+  const languagePreference=await supabase.rpc("customer_success_language_for_source",{target_tenant_id:task.tenant_id,target_event_id:task.source_event_id});
+  if(languagePreference.error)throw new Error("CUSTOMER_LANGUAGE_EVIDENCE_UNAVAILABLE");
+  if(typeof languagePreference.data==="string"&&["en","tr","ar","ru"].includes(languagePreference.data))context.verifiedCustomerLanguage=languagePreference.data;
+  const detectedLanguage=inferStyleProfile(messages,context.verifiedCustomerLanguage).language;
   const commercialLocale=(["en","tr","ar","ru"].includes(detectedLanguage)?detectedLanguage:"en") as "en"|"tr"|"ar"|"ru";
   if(commercialRaw){
     context.commercial=commercialRaw as CommercialContext;

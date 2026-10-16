@@ -66,10 +66,10 @@ try {
  }
  const list=await rpc(manager.client,'admin_payment_list',{target_tenant_id:tenant});check('unified-payments-admin',list.length===3);
  const managerUi=await http('/admin/payments',{cookie:manager.cookie()}),supportUi=await http('/admin/payments',{cookie:support.cookie()}),readonlyUi=await http('/admin/payments',{cookie:readonly.cookie()});
- check('manager-payments-ui',managerUi.status===200&&managerUi.body.includes('Create a test invoice')&&managerUi.body.includes('TEST ONLY'));
+ check('manager-payments-ui',managerUi.status===200&&managerUi.body.includes('Test faturası oluştur')&&managerUi.body.includes('YALNIZCA TEST'));
  check('support-ui-read-only',supportUi.status===200&&!supportUi.body.includes('name="offer_id"'));
  check('readonly-ui-denied',[302,303,307].includes(readonlyUi.status));
- const detailUi=await http('/admin/payments/'+invoiceIds[0].id,{cookie:manager.cookie()});check('invoice-detail-ui-evidence',detailUi.status===200&&detailUi.body.includes('Provider evidence')&&detailUi.body.includes('Immutable quote snapshot'));
+ const detailUi=await http('/admin/payments/'+invoiceIds[0].id,{cookie:manager.cookie()});check('invoice-detail-ui-evidence',detailUi.status===200&&detailUi.body.includes('Sağlayıcı kanıtı')&&detailUi.body.includes('Değiştirilemez fiyat özeti'));
  const cross=await manager.client.rpc('admin_payment_list',{target_tenant_id:otherTenant});check('cross-tenant-rpc-denied',cross.error?.code==='42501');
  const noWrite=await support.client.rpc('admin_simulate_test_payment',{target_tenant_id:tenant,target_invoice_id:invoiceIds[0].id,scenario_value:'settled',request_key_value:randomUUID()});check('support-privileged-write-denied',noWrite.error?.code==='42501');
  const rejectedAsset=await manager.client.rpc('admin_create_test_payment_invoice',{target_tenant_id:tenant,target_offer_id:offer,channel_value:'telegram_stars',asset_value:'USDT',amount_units_value:'100',idempotency_key_value:randomUUID()});check('crypto-on-telegram-denied',rejectedAsset.error?.code==='22023');

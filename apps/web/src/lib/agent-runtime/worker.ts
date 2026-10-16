@@ -185,7 +185,7 @@ async function processTask(task: ClaimedTask, workerId: string): Promise<boolean
       worker_id_value: workerId,
       context_manifest_value: built.manifest,
     });
-    const styleProfile = inferStyleProfile(built.context.recentMessages);
+    const styleProfile = inferStyleProfile(built.context.recentMessages,built.context.verifiedCustomerLanguage);
     const sourceText = built.context.recentMessages.at(-1)?.content ?? "";
     const conversion = conversionResultSchema.safeParse(built.context.conversion?.result);
     const selectedPlanVersionId = conversion.success ? conversion.data.plan_version_id : null;

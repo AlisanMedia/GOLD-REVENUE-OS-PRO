@@ -43,6 +43,12 @@ on:
         default: false
         type: boolean
 
+      run_phase13_sandbox:
+        description: Validate isolated synthetic Customer Success, Admin and locale workflows; no customer/provider send
+        required: false
+        default: false
+        type: boolean
+
       run_phase12_sandbox:
         description: Validate isolated Phase 12 escalation and Admin acceptance
         required: false
@@ -312,6 +318,23 @@ jobs:
           done
           test "${#OPENAI_API_KEY}" -ge 20
           [[ "$OPENAI_MODEL" =~ ^[A-Za-z0-9._:-]{2,120}$ ]]
+      - name: Validate isolated Phase 13 acceptance boundaries
+        if: ${{ inputs.run_phase13_sandbox == true }}
+        env:
+          PHASE13_REQUESTED_ADMIN_CHAT: ${{ inputs.phase12_admin_chat_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "${{ inputs.run_agent_worker }}" = "true"
+          test "${{ inputs.run_telegram_live }}" = "false"
+          test "${{ inputs.run_phase10_sandbox }}" = "false"
+          test "${{ inputs.run_phase11_sandbox }}" = "false"
+          test "${{ inputs.run_phase12_sandbox }}" = "false"
+          test "${{ inputs.configure_openai_shadow }}" = "false"
+          test "${{ inputs.verify_openai_evidence }}" = "false"
+          test "${{ inputs.retry_resolved_openai_quota_tasks }}" = "false"
+          test "${{ inputs.enable_phase8_orchestration }}" = "false"
+          test -z "$PHASE13_REQUESTED_ADMIN_CHAT"
       - name: Prepare exact Phase 12 notification acceptance scope
         if: ${{ inputs.run_phase12_sandbox == true }}
         env:
@@ -394,7 +417,7 @@ jobs:
         env:
           CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
           RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox || inputs.run_phase11_sandbox }}
-          RUN_PHASE12_SANDBOX: ${{ inputs.run_phase12_sandbox }}
+          RUN_PHASE12_SANDBOX: ${{ inputs.run_phase12_sandbox || inputs.run_phase13_sandbox }}
         shell: bash
         run: |
           set -euo pipefail
@@ -447,7 +470,7 @@ jobs:
           RUN_AGENT_WORKER: ${{ inputs.run_agent_worker }}
           CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
           RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox || inputs.run_phase11_sandbox }}
-          RUN_PHASE12_SANDBOX: ${{ inputs.run_phase12_sandbox }}
+          RUN_PHASE12_SANDBOX: ${{ inputs.run_phase12_sandbox || inputs.run_phase13_sandbox }}
         run: |
           set -euo pipefail
 
@@ -568,7 +591,7 @@ jobs:
           jq -e '.requeued >= 0 and .requeued <= 25 and (.task_ids | type == "array")' "$recovery_file" >/dev/null
           jq '{requeued,correlation_id}' "$recovery_file" >>"$GITHUB_STEP_SUMMARY"
       - name: Drain and validate Phase 6 worker backlog without outbound messaging
-        if: ${{ inputs.run_agent_worker == true && inputs.run_phase10_sandbox != true && inputs.run_phase11_sandbox != true && inputs.run_phase12_sandbox != true }}
+        if: ${{ inputs.run_agent_worker == true && inputs.run_phase10_sandbox != true && inputs.run_phase11_sandbox != true && inputs.run_phase12_sandbox != true && inputs.run_phase13_sandbox != true }}
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         shell: bash
@@ -792,6 +815,25 @@ jobs:
         with:
           name: phase12-owner-acceptance
           path: ${{ runner.temp }}/phase12-owner-acceptance.json
+          retention-days: 14
+      - name: Run isolated Phase 13 Customer Success and localized Admin acceptance
+        if: ${{ inputs.run_phase13_sandbox == true }}
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+          VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+          PHASE13_EVIDENCE_FILE: ${{ runner.temp }}/phase13-owner-acceptance.json
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+          STAGING_SUPABASE_PROJECT_ID: ${{ secrets.STAGING_SUPABASE_PROJECT_ID }}
+        run: |
+          supabase link --project-ref "$STAGING_SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+          node apps/web/scripts/phase13-staging.mjs
+      - name: Upload sanitized Phase 13 evidence
+        if: ${{ always() && inputs.run_phase13_sandbox == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase13-owner-acceptance
+          path: ${{ runner.temp }}/phase13-owner-acceptance.json
           retention-days: 14
       - name: Write Vercel validation evidence
         if: always()

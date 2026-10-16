@@ -26,6 +26,8 @@ export const ADMIN_CAPABILITIES = [
   "entitlements.manage",
   "escalations.read",
   "escalations.manage",
+  "success.read",
+  "success.manage",
 ] as const;
 
 export type AdminCapability = (typeof ADMIN_CAPABILITIES)[number];
@@ -37,13 +39,13 @@ const ROLE_CAPABILITIES: Readonly<Record<AppRole, ReadonlySet<AdminCapability>>>
     "dashboard.read", "customers.list", "customers.detail",
     "customers.identities", "attention.read", "messaging.read", "messaging.send",
     "agents.read", "agents.review",
-    "commercial.read", "payments.read", "entitlements.read", "escalations.read",
+    "commercial.read", "payments.read", "entitlements.read", "escalations.read", "success.read",
   ]),
   analyst: new Set([
     "dashboard.read", "customers.list", "customers.detail",
     "events.read", "attention.read", "health.read",
     "agents.read",
-    "commercial.read", "payments.read", "entitlements.read", "escalations.read",
+    "commercial.read", "payments.read", "entitlements.read", "escalations.read", "success.read",
   ]),
   readonly: new Set(["dashboard.read", "customers.list", "customers.detail"]),
 };

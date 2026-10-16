@@ -351,3 +351,9 @@ export async function getAgentVersionDetail(versionId: string): Promise<Record<s
   const value = await rpc("admin_agent_version_detail", { target_tenant_id: tenantId, target_version_id: versionId });
   return value ? record(value) : null;
 }
+
+export async function getCustomerDisplayNames(ids:readonly string[]):Promise<Record<string,string|null>> {
+ const {tenantId}=await requireAdminCapability("customers.list");const unique=[...new Set(ids)].slice(0,100);if(!unique.length)return {};
+ const db=await createSupabaseServerClient();const {data,error}=await db.from("customers").select("id,display_name").eq("tenant_id",tenantId).in("id",unique);
+ if(error)throw new Error("CUSTOMER_NAMES_UNAVAILABLE");return Object.fromEntries((data??[]).map(r=>[r.id,r.display_name]));
+}
