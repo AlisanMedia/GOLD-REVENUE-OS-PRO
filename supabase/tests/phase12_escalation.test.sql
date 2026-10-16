@@ -44,6 +44,15 @@ select is((select severity from public.escalation_cases where id=(select id from
 select is((select status from public.escalation_notifications where case_id=(select id from p12_scope)),'BLOCKED','missing destination visible and never notified');
 select is(public.escalation_claim_notification('c1210000-0000-4000-8000-000000000001'),null::jsonb,'missing destination cannot claim/send');
 select is(public.escalation_queue_safe_response('c1210000-0000-4000-8000-000000000001',(select id from p12_scope)),null::uuid,'tenant outbound kill switch suppresses safe response');
+update public.tenants set outbound_messaging_enabled=true where id='c1210000-0000-4000-8000-000000000001';
+create temporary table p12_ack as select public.escalation_queue_safe_response('c1210000-0000-4000-8000-000000000001',(select id from p12_scope)) id;
+select ok((select id is not null from p12_ack),'one canonical safe response can queue while AI is paused');
+select is((select content from public.messages where id=(select id from p12_ack)),'I cannot verify this here. This needs human review.','safe acknowledgment makes no completed-action claim');
+select is(public.escalation_queue_safe_response('c1210000-0000-4000-8000-000000000001',(select id from p12_scope)),null::uuid,'duplicate safe acknowledgment cannot queue');
+select ok(public.escalation_claim_safe_response('c1210000-0000-4000-8000-000000000001',(select id from p12_ack)),'safe delivery uses exclusive claim');
+select ok(not public.escalation_claim_safe_response('c1210000-0000-4000-8000-000000000001',(select id from p12_ack)),'second sender cannot claim safe acknowledgment');
+select public.record_outbound_message_result('c1210000-0000-4000-8000-000000000001',(select id from p12_ack),'failed',null,0,'SYNTHETIC_DELIVERY_UNCERTAIN',null);
+update public.tenants set outbound_messaging_enabled=false where id='c1210000-0000-4000-8000-000000000001';
 select public.configure_phase12_escalation('c1210000-0000-4000-8000-000000000001',true,'synthetic-test-approval','12345','99999');
 create temporary table p12_job as select public.escalation_claim_notification('c1210000-0000-4000-8000-000000000001') value;
 select ok((select value is not null from p12_job),'configured approved destination can claim');
