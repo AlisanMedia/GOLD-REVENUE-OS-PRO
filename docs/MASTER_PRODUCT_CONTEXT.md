@@ -1,6 +1,6 @@
 # GOLD REVENUE OS PRO — Master Product Context
 
-Living continuation index, based on repository discovery on **2026-10-16 UTC**. Owner: **Muhammed Alişan Gül**. Repository: [AlisanMedia/GOLD-REVENUE-OS-PRO](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO).
+Living continuation index, based on repository discovery on **2026-10-16 UTC**. Subsequent explicit owner authorization permits documentation publication/merge with exact-branch Preview suppression, then Phase 12 implementation and controlled isolated-staging acceptance. Phase 13+ and live production operations remain unauthorized. Owner: **Muhammed Alişan Gül**. Repository: [AlisanMedia/GOLD-REVENUE-OS-PRO](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO).
 
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
 
@@ -63,7 +63,7 @@ The staging artifact originally says real Telegram testing was not yet run; the 
 | 9 | Products/plans/pricing, versioned KB, eligible recommendations and reviewed offers | **CLOSED**, 2026-10-12; app `ee6d25ba86934a6d889926c02d9f8cf56a0441b8`; [report](../PHASE_9_REPORT.md) |
 | 10 | Provider-neutral Stars/independent-web crypto test payments | **CLOSED sandbox only**, 2026-10-13; app `031509dc3d447703954f9c76396a7ae8504a9213`; [report](../PHASE_10_REPORT.md) |
 | 11 | Deterministic subscriptions, immutable paid periods, fenced access, isolated real Telegram staging proof | **CLOSED scoped staging**, 2026-10-16; acceptance ledger above |
-| 12 | Human escalation cases, critical queue, operator notification and response ownership | Planned, **NOT AUTHORIZED / NOT STARTED** |
+| 12 | Human escalation cases, critical queue, operator notification and response ownership | **OWNER-AUTHORIZED** for isolated-staging implementation/acceptance; not yet implemented at this documentation checkpoint |
 | 13 | Onboarding, support lifecycle, inactivity, renewal/churn/win-back messaging | Planned, **NOT AUTHORIZED / NOT STARTED** |
 | 14 | Surveys, feedback taxonomy, insights and recommendation queue | Planned, **NOT AUTHORIZED / NOT STARTED** |
 | 15 | Funnel/cohort/MRR/churn/cost and agent analytics | Planned, **NOT AUTHORIZED / NOT STARTED** |
@@ -250,11 +250,11 @@ Sequence: release/authorization safeguards and launch policy gates → separatel
 
 ## 14. Owner authorization requirements and next execution gate
 
-This handoff authorizes discovery, assessment and documentation only. Safe work includes code/document reads, sanitized evidence inspection, local documentation branch/edit/link checks and a documentation PR **only if it cannot deploy**. No paid model calls, Telegram operations, hosted business-data changes or phase implementation are needed for this handoff.
+The initial handoff authorized discovery, assessment and documentation only. The subsequent owner instruction additionally authorizes publication/merge with exact-branch Preview suppression and Phase 12 isolated-staging implementation/acceptance. Safe work includes code/document reads, sanitized evidence inspection, local documentation branch/edit/link checks and a documentation PR **only if it cannot deploy**. No paid model calls, Telegram operations, hosted business-data changes or phase implementation are needed for this handoff.
 
 Decisions requiring explicit owner scope:
 
-1. Safe PR publication mechanism: non-main Git previews currently default enabled. Any deployment configuration exception requires approval; do not silently include it in a docs-only PR.
+1. Safe PR publication mechanism: non-main Git previews currently default enabled. The owner explicitly approved adding only `docs/master-product-context-20261016: false` while preserving `main: false`; the first push must include this rule. No global settings or other branches may change in the documentation PR.
 2. Main-branch protection/review policy, dependency PR handling, historical PR cleanup and repository visibility.
 3. Exact Phase 12 design/implementation scope, operator destinations, primary/backup staff, response windows and notification secrets. A separate admin bot is forecast; do not create it yet.
 4. Scoped reliability/code changes listed in backlog, particularly access event/scheduler wiring and permission projection before live activation.
@@ -263,7 +263,7 @@ Decisions requiring explicit owner scope:
 7. Production infrastructure/spend, credentials, backups/RPO/RTO/restore evidence, access channels/users/bot permissions and pilot scale.
 8. Historical dataset lawful-use scope and final review; further Telegram acceptance/permissions changes or broad outbound/historical replay.
 
-The next engineering phase is **not started**. First review this documentation and resolve publication suppression; then explicitly authorize a bounded Phase 12 design/implementation gate with acceptance criteria. A new session must verify current main again before acting.
+The next engineering phase is **authorized but not started at this documentation checkpoint**. Complete this documentation PR/CI/merge with approved publication suppression, then implement bounded Phase 12 with acceptance criteria. Phase 13+ remains unauthorized. A new session must verify current main again before acting.
 
 ## 15. Canonical sources, conflicts and maintenance
 
@@ -274,6 +274,6 @@ The next engineering phase is **not started**. First review this documentation a
 - [Root AGENTS](../AGENTS.md): concise session rules; [web AGENTS](../apps/web/AGENTS.md): Next.js-specific nested instructions; original build-pack AGENTS describes product agents, not implementation authorization or permission to spawn agents.
 - [Bootstrap](../infra/runbooks/bootstrap.md), [rollback](../infra/runbooks/rollback.md), [secrets](../infra/runbooks/secrets.md) are Phase 1-scoped runbooks. They do not constitute current production DR/key-rotation procedures. README's root `.env.example` copy instruction points to no tracked root file; the retained template is inside the build pack.
 
-Handoff validation: 108 local Markdown links resolve, code fences are balanced, all 18 retained build-pack checksums match, and `git diff --check` passes. Only the root AGENTS and the two living documents change. No new application/database test execution is claimed for these prose changes. The local documentation branch is prepared; remote publication/PR-head CI is pending the owner decision on safe Preview suppression (B00). Main was rechecked and remained at the stated baseline.
+Handoff validation: 108 local Markdown links resolve, code fences are balanced, all 18 retained build-pack checksums match, and `git diff --check` passes. The original reviewed commit changes only root AGENTS and the two living documents; this authorized publication increment additionally changes the exact documentation-branch suppression in `vercel.json`. No new application/database test execution is claimed for these prose changes. The local documentation branch is prepared; remote publication/PR-head CI is pending execution of the now owner-approved safe Preview suppression (B00). Main was rechecked and remained at the stated baseline.
 
 Maintain this index and the backlog when separately approved work changes behavior or scope. Link detailed phase evidence instead of copying histories. Keep actual outcomes, failures, unknowns and owner authorizations distinct. Never mark a phase closed solely because a PR merged.
