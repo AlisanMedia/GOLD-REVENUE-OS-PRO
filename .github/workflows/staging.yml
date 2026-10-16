@@ -151,7 +151,6 @@ jobs:
       VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
       APPROVED_ADMIN_CHAT: ${{ inputs.phase12_admin_chat_id }}
       PHASE12_REAL_TELEGRAM_ACCEPTANCE: owner-single-alert
-      PHASE12_EVIDENCE_FILE: ${{ runner.temp }}/phase12-real-notification.json
       ESCALATION_TELEGRAM_BOT_TOKEN: ${{ secrets.ESCALATION_TELEGRAM_BOT_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
@@ -200,6 +199,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - name: Run only the owner-authorized real notification acceptance
+        env:
+          PHASE12_EVIDENCE_FILE: ${{ runner.temp }}/phase12-real-notification.json
         shell: bash
         run: |
           set -euo pipefail
