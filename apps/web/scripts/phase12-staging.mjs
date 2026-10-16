@@ -42,9 +42,9 @@ try{
  const cross=await manager.client.rpc('admin_escalation_list',{target_tenant_id:other});check('cross-tenant-denied',cross.error?.code==='42501');
  const browserDestination=await manager.client.rpc('configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:true,approval_value:'forged'});check('browser-destination-denied',Boolean(browserDestination.error));
  const attention=await http('/admin/attention',manager.cookie()),detail=await http('/admin/attention/'+c.id,manager.cookie()),conv=await http('/admin/conversations/'+cid,manager.cookie()),supportUi=await http('/admin/attention/'+c.id,support.cookie()),readonlyUi=await http('/admin/attention',readonly.cookie());
- check('manager-critical-queue',attention.status===200&&attention.text.includes('Critical and human escalation'));
- check('case-evidence-notification-ui',detail.status===200&&detail.text.includes('Source evidence')&&detail.text.includes('BLOCKED'));
- check('conversation-case-link',conv.status===200&&conv.text.includes(c.id));check('support-read-only-ui',supportUi.status===200&&!supportUi.text.includes('Apply control'));check('readonly-ui-denied',[302,303,307].includes(readonlyUi.status));
+ check('manager-critical-queue',attention.status===200&&attention.text.includes('Yönetici incelemesi'));
+ check('case-evidence-notification-ui',detail.status===200&&detail.text.includes('Kaynak kanıtları')&&detail.text.includes('BLOCKED'));
+ check('conversation-case-link',conv.status===200&&conv.text.includes(c.id));check('support-read-only-ui',supportUi.status===200&&!supportUi.text.includes('Vaka işlemleri'));check('readonly-ui-denied',[302,303,307].includes(readonlyUi.status));
  // Actual provider proof is optional and separately labeled, never simulated as success.
  if(process.env.ESCALATION_TELEGRAM_BOT_TOKEN&&process.env.ESCALATION_TELEGRAM_CHAT_ID&&process.env.ESCALATION_TELEGRAM_BOT_ID){
   await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:true,approval_value:'Owner-approved exact private Phase 12 manager notification acceptance',chat_value:process.env.ESCALATION_TELEGRAM_CHAT_ID,bot_value:process.env.ESCALATION_TELEGRAM_BOT_ID});

@@ -24,3 +24,11 @@ Read `docs/source-of-truth/v1.0.0/` and accepted ADRs before changing architectu
 - Keep changes minimal on a dedicated branch from current main. Use the pinned pnpm toolchain and targeted tests; require both CI jobs before recommending merge. Merge only when explicitly owner-authorized and both required CI jobs pass.
 - Documentation-only changes need link/consistency checks and `git diff --check`; do not redeploy or rerun provider acceptance. `vercel.json` disables Git deployments for `main` and the documentation branch: verify exact-branch suppression before the first push of any implementation branch. Do not change deployment configuration without authorization.
 - Deployments, production operations, paid-service provisioning, real-customer changes and each later phase need explicit owner scope. Follow DISCOVER → DESIGN → IMPLEMENT → TEST → VERIFY → REVIEW → CLOSE; merge alone does not close a phase.
+
+## OWNER & CUSTOMER UX STANDARD
+
+- From Phase 12 onward (including future Phases 13–18), customer communication defaults to professional English; honor a verified customer language preference/current explicit language request. Preserve EN/TR/AR/RU and grounding. Operator/owner language never selects customer language.
+- Operator UI, manager alerts, validation, progress and owner reports default to Turkish. Internal enums/identifiers stay unchanged; present readable labels, status vocabulary and durations.
+- Acceptance covers correctness, security/reliability, ease of use, visual clarity, customer/operator experience and speed. Include functional and UX criteria; verify mobile/keyboard use and show safe previews without unnecessary provider sends.
+- Use consistent components, obvious next actions and minimal clicks/questions. Keep technical IDs/configuration secondary; label manual customer replies as English by default. Never present inferred delivery, takeover, assignment or financial actions as completed.
+- Explain what changed, how the owner uses it and remaining decisions in Turkish. This standard is guidance only: Phase 13+ still requires explicit authorization. Detailed criteria: `docs/MASTER_PRODUCT_CONTEXT.md`.

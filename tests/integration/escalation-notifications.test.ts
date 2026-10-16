@@ -19,6 +19,8 @@ describe("Manager notification provider boundary (synthetic, not Telegram accept
     expect(fetcher).toHaveBeenCalledTimes(3);
     const payload = JSON.parse(String(fetcher.mock.calls[2]![1]!.body));
     expect(payload.protect_content).toBe(true); expect(payload.text).not.toContain(binding.botToken);
+    expect(payload.text).toContain("Öncelik: Yüksek"); expect(payload.text).toContain("Konu: Ödeme itirazı");
+    expect(payload.parse_mode).toBeUndefined(); expect(payload.text.length).toBeLessThan(1000);
   });
   it("holds malformed or wrong-chat success as uncertain", async () => {
     for (const body of [{ ok: true }, { ok: true, result: { message_id: 41, chat: { id: 88888 } } }]) expect((await new ManagerTelegramNotifier(binding, transport(Response.json(body))).send(job)).result).toBe("UNCERTAIN");

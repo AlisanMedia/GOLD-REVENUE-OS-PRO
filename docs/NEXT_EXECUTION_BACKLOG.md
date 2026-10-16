@@ -57,3 +57,15 @@ These are **hypotheses/unverified scenarios**, not newly proven defects: provide
 - For documentation: file/link/consistency checks and `git diff --check`; existing CI remains the repository merge gate. For implementation: targeted meaningful domain/integration/pgTAP/concurrency/HTTP checks appropriate to the change, lint/typecheck/build and both exact-commit CI jobs.
 - New staging deployment, provider test, customer action, permission change, payment/live activation and phase closure each need their actual authorization. Synthetic tests do not prove provider acceptance; merge does not prove closure.
 - Report failed/blocked attempts and remaining unknowns. Keep raw customer data, secrets and invitations out of PRs/logs/artifacts. The subsequent explicit owner instruction permits documentation/Phase 12 PR merges after required CI and one controlled Phase 12 staging acceptance path. It does not authorize old Telegram retests, global deployment changes, Phase 13+ or live payment/VIP operations.
+
+## OWNER & CUSTOMER UX STANDARD — acceptance dependency for all future work
+
+Phase 12 UX/localization is authorized; Phases 13–18 are not. Use the permanent [Master Context standard](MASTER_PRODUCT_CONTEXT.md) and root [AGENTS.md](../AGENTS.md). Customer default English and operator default Turkish are independent. Require correctness, security/reliability, intuitive workflow, clear visuals, customer/operator experience and efficient execution in every future acceptance plan.
+
+| Item | Business value / dependency | Verification | Complexity / owner gate |
+| --- | --- | --- | --- |
+| Phase 12 Turkish alerts and case workflow | Faster manager response, less confusion; existing case/receipt/RBAC only | Complete severity/category labels, short synthetic plaintext alert <1000 chars, one safe link, no PII/false action claims; all state/role control variants; English manual composer; 320/390px and desktop keyboard/readability preview; Application + Database CI | S–M; authorized UX increment only; Phase 12 remains OPEN |
+| Team display names | More intuitive assignment when several managers exist; current RPC exposes IDs/roles and app_users RLS permits self only | Show truthful “Siz” / short manager references now; later separately scope a tenant-authorized display-name directory without exposing emails or expanding privileges | S; proposed, not implemented in this UX increment |
+| Future phase UX gate | Reduce training/support cost and language mistakes | Add English customer + Turkish operator acceptance examples, state/receipt evidence, accessible mobile controls, minimal clicks, Turkish owner instructions and explicit limitations | Per-phase; new phase authorization required |
+
+Base Phase 12 engineering, staging and one real provider notification passed (runs 38901188352 / 38901679487 / 38907164142); these supersede earlier pending-evidence checkpoint wording. Final closure still requires owner approval. No provider resend is part of UX acceptance.

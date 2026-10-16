@@ -1,6 +1,6 @@
 # Phase 12 — Human Escalation implementation and acceptance
 
-**Status: OPEN — implementation and validation in progress; final owner approval not yet requested.**
+**Status: OPEN — base engineering/staging/provider acceptance complete; owner-authorized UX refinement before final owner approval.**
 
 Owner explicitly authorizes Phase 12 implementation, required CI/merge and controlled isolated-staging deployment/acceptance. Phase 13+, live payments, real-money operations, production subscriptions/VIP access, historical imports and unrestricted outbound remain prohibited.
 
@@ -27,7 +27,7 @@ Local strict typecheck and production build PASS. Unit tests: 523 PASS; integrat
 
 Local Supabase startup attempted with pinned CLI 2.117.0 and the managed Docker daemon. The Postgres image failed to register a layer due to daemon disk exhaustion; retries were stopped. No local pgTAP/stack result is claimed. Mandatory real Supabase migration/pgTAP/concurrency/HTTP evidence will come from the existing GitHub Database job. The CLI home was redirected with its supported `SUPABASE_HOME` option because the managed home is read-only; no credentials were printed.
 
-## Remaining acceptance gates
+## Historical remaining acceptance gates (superseded by latest evidence below)
 
 1. Final PR Application + Database CI, including Phase 12 SQL/concurrency and authenticated HTTP/Admin acceptance.
 2. Authorized merge, exact main CI and one controlled Phase 12 isolated-staging publication/acceptance, with unsuccessful evidence retained.
@@ -41,3 +41,11 @@ No Phase 7–11 real Telegram acceptance is repeated. Payment/access authority a
 Implementation PR #90 merged at `e5566a0b2820e8040f019d14af7536e6a8d6f497`; PR CI 38898602679 and main CI 38899130737 both PASS (523 unit, 100 integration, 68 new Phase 12 pgTAP; 26 HTTP/Admin controls). Controlled staging run [38899607124](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38899607124) deployed that exact SHA and passed Supabase/health/Admin/takeover steps, but FAILED at the stale-revision assertion. PostgreSQL logs show 11,856 SQLSTATE 40001 retries; edge logs show a 125,210ms HTTP 504. Revision stayed 4; unauthorized state mutation did not occur. Synthetic tenants/memberships were disabled and failure evidence retained.
 
 A focused additive migration changes only the intentional revision-conflict error to `PT409` (HTTP 409), preserving existing control logic. The server action and acceptance contract now expect the nonretryable conflict, require unchanged revision and cap the test request at eight seconds. No old migration is rewritten. This requires final correction PR/main CI and a necessary Phase 12 staging rerun; no previous real Telegram acceptance is repeated. Real manager delivery remains NOT RUN: protected discovery 38899496336 verified the new bot, no webhook and empty updates. One addressed command in the dedicated group remains pending.
+
+## Latest accepted base and authorized UX refinement
+
+The earlier sections are historical checkpoints, including retained failures. PR #91 merged at `d8917ead53be35ac4e5beb60fdd7b8b6fa9f9e00`; main CI [38901188352](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38901188352) PASS, controlled staging [38901679487](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38901679487) 26/26 PASS. Real notification [38907164142](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38907164142) PASS: operations bot `8915334711`, private group `-5537216841`, HTTP 200, message `8`, case/receipt/audit linked, exactly one send. Provider acceptance is not human-read confirmation. The verified staging allowlist is retained disabled after cleanup. No old real provider cycle is repeated.
+
+The owner authorizes focused Phase 12 UX/localization: Turkish manager alerts and operator case workflow, English-labelled customer replies, readable priority/status/time and secondary technical details. The permanent OWNER & CUSTOMER UX STANDARD is recorded in root AGENTS, Master Context and backlog for future separately authorized phases. Backend enums, RPC authority, migrations, RLS, receipt/idempotency and commercial gates stay unchanged. Validation/PR evidence for this UX increment is recorded below after execution; do not infer it from the base acceptance. Phase 12 is not formally CLOSED.
+
+UX local checkpoint: 47 focused domain/integration checks PASS; scoped strict TypeScript and lint PASS. Actual-component synthetic browser previews pass 15 layout/state/keyboard checks across 320/390/1440px, plus seven real-client composer checks with simulated HTTP (zero Telegram calls), including stable idempotency after uncertain network outcome. Final exact-head Application + Database CI remains required and is recorded in the focused PR and Turkish owner report. No new hosted staging or real provider result is implied by these local previews.

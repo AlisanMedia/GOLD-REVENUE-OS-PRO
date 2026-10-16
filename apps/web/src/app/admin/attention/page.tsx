@@ -1,9 +1,20 @@
 import { getAttentionItems } from "@/lib/admin/server";
 import Link from "next/link";
 import { escalationList } from "@/lib/escalations/admin";
+import { EscalationQueue, CasePriority } from "@/components/escalation-views";
+import { operatorDate } from "@/lib/escalations/presentation";
 
+const operatingLabels: Record<string, string> = { dead_letter_event: "İşlem müdahale bekliyor", failed_processing: "İşlem tamamlanamadı", import_review: "İçe aktarma incelemesi", import_error: "İçe aktarma sorunu" };
 export default async function NeedsAttentionPage() {
-  const items = await getAttentionItems();
-  const escalations = await escalationList();
-  return <main className="admin-main"><p className="eyebrow">OPERATIONS QUEUE</p><h1>Needs attention</h1><p className="lede">Only actionable evidence already present in the system. No synthetic escalations are generated.</p><section className="table-card table-scroll"><h2>Critical and human escalation cases</h2><table><thead><tr><th>Priority / category</th><th>Status / owner</th><th>Waiting</th><th>Manager notification</th></tr></thead><tbody>{escalations.cases.map(c => <tr key={c.id}><td><Link href={`/admin/attention/${c.id}`}>{c.severity} · {c.category}</Link></td><td>{c.status} · {c.assigned_to ?? "Unassigned"}</td><td>{c.waiting_seconds}s</td><td>{c.notification?.status ?? "Not required"}</td></tr>)}{!escalations.cases.length && <tr><td colSpan={4}>No escalation cases.</td></tr>}</tbody></table></section><section className="table-card table-scroll"><table><thead><tr><th>Severity</th><th>Category</th><th>Issue</th><th>Customer</th><th>Observed</th></tr></thead><tbody>{items.map((item) => <tr key={`${item.category}:${item.entity_id}`}><td><span className={`severity severity-${item.severity}`}>{item.severity}</span></td><td>{item.category.replaceAll("_", " ")}</td><td className="bounded-cell">{item.summary ?? "Action required"}<small>{item.entity_id}</small></td><td>{item.customer_id ? <Link className="table-link" href={`/admin/customers/${item.customer_id}`}>Open customer</Link> : "—"}</td><td>{new Date(item.created_at).toLocaleString("en-GB")}</td></tr>)}{items.length === 0 ? <tr><td className="empty-state" colSpan={5}>No unresolved operational items.</td></tr> : null}</tbody></table></section></main>;
+  const [items, escalations] = await Promise.all([getAttentionItems(), escalationList()]);
+  return <main className="admin-main case-workspace" lang="tr"><p className="eyebrow">OPERASYON MERKEZİ</p><h1>İnceleme Merkezi</h1>
+    <p className="lede">Müşteri sorunlarını önceliğine göre inceleyin, görüşmeyi üstlenin ve çözümü kaydedin.</p>
+    <EscalationQueue cases={escalations.cases} userId={escalations.context.userId}/>
+    <section className="case-section" aria-labelledby="operating-items-heading"><h2 id="operating-items-heading">Diğer operasyon kayıtları</h2>
+      <div className="case-list">{items.map(item => <article className="case-card" key={`${item.category}:${item.entity_id}`}><CasePriority value={item.severity}/>
+        <h3>{operatingLabels[item.category] ?? "Operasyon incelemesi"}</h3><p className="muted">{operatorDate(item.created_at)}</p>
+        {item.customer_id ? <Link className="table-link" href={`/admin/customers/${item.customer_id}`}>Müşteri Kaydını Aç</Link> : null}
+        <details className="case-technical"><summary>Teknik kayıt</summary><p>{item.summary ?? "Ek ayrıntı yok"}</p><code>{item.entity_id}</code></details>
+      </article>)}</div>{!items.length ? <p className="muted">İnceleme bekleyen başka operasyon kaydı yok.</p> : null}
+    </section></main>;
 }
