@@ -59,6 +59,12 @@ on:
         default: false
         type: boolean
 
+      accept_phase12_notification_only:
+        description: Send exactly one owner-approved real manager alert without deployment, migrations or historical tests
+        required: false
+        default: false
+        type: boolean
+
       run_phase11_sandbox:
         description: Validate isolated Phase 11 subscriptions and access without real Telegram calls
         required: false
@@ -135,9 +141,91 @@ jobs:
           path: ${{ runner.temp }}/phase12-admin-discovery.json
           retention-days: 14
 
+  accept_phase12_notification_only:
+    name: Phase 12 single real manager notification acceptance
+    if: ${{ inputs.accept_phase12_notification_only == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    environment: staging
+    env:
+      VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+      APPROVED_ADMIN_CHAT: ${{ inputs.phase12_admin_chat_id }}
+      PHASE12_REAL_TELEGRAM_ACCEPTANCE: owner-single-alert
+      PHASE12_EVIDENCE_FILE: ${{ runner.temp }}/phase12-real-notification.json
+      ESCALATION_TELEGRAM_BOT_TOKEN: ${{ secrets.ESCALATION_TELEGRAM_BOT_TOKEN }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+      NEXT_PUBLIC_APP_URL: https://gold-revenue-os-staging.vercel.app
+    steps:
+      - name: Require accepted main and notification-only scope
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OTHER_OPERATIONS: ${{ inputs.run_vercel || inputs.run_telegram_live || inputs.run_agent_worker || inputs.configure_openai_shadow || inputs.verify_openai_evidence || inputs.retry_resolved_openai_quota_tasks || inputs.enable_phase8_orchestration || inputs.run_phase12_sandbox || inputs.run_phase11_sandbox || inputs.run_phase10_sandbox || inputs.discover_phase12_admin }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$VALIDATED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$APPROVED_ADMIN_CHAT" = '-5537216841'
+          test "$OTHER_OPERATIONS" = 'false'
+          main_sha=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq '.sha')
+          test "$VALIDATED_SHA" = "$main_sha"
+          for job in Application Database; do
+            result=$(gh api "repos/$GITHUB_REPOSITORY/commits/$VALIDATED_SHA/check-runs" --jq ".check_runs[] | select(.name == \"$job\") | .conclusion" | head -n 1)
+            test "$result" = success
+          done
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 2
+      - name: Require byte-identical accepted application and existing branch deployment suppression
+        shell: bash
+        run: |
+          set -euo pipefail
+          git merge-base --is-ancestor "$VALIDATED_SHA" HEAD
+          git diff --name-only "$VALIDATED_SHA" HEAD > "$RUNNER_TEMP/phase12-acceptance-paths.txt"
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/staging.yml|tests/acceptance/phase12-real-notification.acceptance.test.ts) ;;
+              *) echo 'Unapproved application/configuration change'; exit 1 ;;
+            esac
+          done < "$RUNNER_TEMP/phase12-acceptance-paths.txt"
+          node -e 'const c=require("./vercel.json"); if(c.git.deploymentEnabled[process.env.GITHUB_REF_NAME]!==false || c.git.deploymentEnabled.main!==false) process.exit(1)'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Run only the owner-authorized real notification acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          config="vitest.phase12-acceptance.config.mjs"
+          trap 'rm -f "$config"' EXIT
+          cat > "$config" <<'CONFIG'
+          import { defineConfig } from 'vitest/config';
+          import { fileURLToPath } from 'node:url';
+          export default defineConfig({
+            resolve: { alias: { '@': fileURLToPath(new URL('./apps/web/src', import.meta.url)) } },
+            test: { include: ['tests/acceptance/phase12-real-notification.acceptance.test.ts'], retry: 0, maxWorkers: 1, fileParallelism: false }
+          });
+          CONFIG
+          pnpm exec vitest run --config "$config"
+      - name: Preserve sanitized real provider and audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase12-real-manager-notification
+          path: ${{ runner.temp }}/phase12-real-notification.json
+          if-no-files-found: warn
+          retention-days: 14
+
   staging_supabase:
     name: Supabase staging validation
-    if: ${{ inputs.discover_phase12_admin != true }}
+    if: ${{ inputs.discover_phase12_admin != true && inputs.accept_phase12_notification_only != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: staging
