@@ -9,7 +9,7 @@ import { ManagerTelegramNotifier } from "../../apps/web/src/lib/escalations/noti
 
 const enabled = process.env.PHASE12_REAL_TELEGRAM_ACCEPTANCE === "owner-single-alert";
 (enabled ? test : test.skip)("one real private manager alert with case/receipt/audit reconciliation", async () => {
-  const tenant = "24760616-5e9c-4f36-8790-5a48a8ab1212";
+  const tenant = "24760616-5e9c-4f36-8790-5a48a8ab1213";
   const chatId = "-5537216841", botId = "8915334711", ownerId = 6890052501;
   const checks: string[] = [];
   const evidence: Record<string, unknown> = {
@@ -103,9 +103,13 @@ const enabled = process.env.PHASE12_REAL_TELEGRAM_ACCEPTANCE === "owner-single-a
       evidence.diagnostic_trace = trace; evidence.status = "READ_ONLY_DIAGNOSTIC"; return;
     }
     evidence.safety_before = await snapshot();
+    const prior = await db.from("escalation_notification_attempts").select("result,provider_status,provider_message_id")
+      .eq("tenant_id", "24760616-5e9c-4f36-8790-5a48a8ab1212");
+    check("PRIOR_ATTEMPT_FAILED_BEFORE_SEND_CONFIRMED_BY_ARTIFACT_12048696925", !prior.error && prior.data.length === 1 &&
+      prior.data[0]!.result === "FAILED" && prior.data[0]!.provider_status === 0 && prior.data[0]!.provider_message_id === null);
     const exists = await db.from("tenants").select("id").eq("id", tenant).maybeSingle();
     check("FIXTURE_HAS_NEVER_BEEN_USED_NO_RESEND", !exists.error && !exists.data);
-    const inserted = await db.from("tenants").insert({ id: tenant, name: "TEST ONLY Phase 12 final provider acceptance", slug: "phase12-sandbox-final-notification-20261016" });
+    const inserted = await db.from("tenants").insert({ id: tenant, name: "TEST ONLY Phase 12 final provider acceptance", slug: "phase12-sandbox-final-notification-20261016-recovery" });
     check("ISOLATED_FIXTURE_CREATED", !inserted.error); created = true;
     await rpc(db, "configure_phase12_escalation", { target_tenant_id: tenant, enabled_value: true, approval_value: "Owner single synthetic alert; discovery 38904943774; staging only" });
     const source = await rpc(db, "ingest_telegram_message", { target_tenant_id: tenant,
@@ -125,9 +129,21 @@ const enabled = process.env.PHASE12_REAL_TELEGRAM_ACCEPTANCE === "owner-single-a
     process.env.ESCALATION_NOTIFICATION_TENANT_ID = tenant;
     process.env.ESCALATION_TELEGRAM_CHAT_ID = chatId; process.env.ESCALATION_TELEGRAM_BOT_ID = botId;
     // Observe real provider responses without replacing transport or fabricating receipts. Second sends are denied before network.
+    const providerTrace: unknown[] = []; evidence.provider_trace = providerTrace;
     globalThis.fetch = async (input, init) => {
       const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
-      if (url.hostname !== "api.telegram.org" || !url.pathname.endsWith("/sendMessage")) return transport(input, init);
+      if (url.hostname !== "api.telegram.org") return transport(input, init);
+      if (!url.pathname.endsWith("/sendMessage")) {
+        const method = url.pathname.split("/").at(-1);
+        try {
+          const r = await transport(input, init), d = await r.clone().json();
+          providerTrace.push({ method, http_status: r.status, ok: d.ok, result_id: d.result?.id });
+          return r;
+        } catch (error) {
+          providerTrace.push({ method, failure_name: error instanceof Error ? error.name : "unknown" });
+          throw Error("PROVIDER_PREFLIGHT_UNAVAILABLE");
+        }
+      }
       const body = JSON.parse(String(init?.body));
       check("SINGLE_SEND_EXACT_ALLOWLIST_AND_SYNTHETIC_PAYLOAD", sends === 0 && String(body.chat_id) === chatId &&
         body.text.startsWith("PHASE 12 STAGING TEST\nHIGH · refund_request\n") &&
