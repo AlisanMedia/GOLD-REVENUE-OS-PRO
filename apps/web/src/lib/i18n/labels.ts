@@ -1,5 +1,6 @@
 import type { AdminLocale } from "./core";
 const labels:Record<string,readonly[string,string]>={
+ WAIT:["Bekle","Wait"],REVIEW_ONE_FOLLOW_UP:["Takip önerisini incele","Review follow-up"],none:["Gönderim yok","No delivery"],
  inbound:["Gelen","Inbound"],outbound:["Giden","Outbound"],connected:["Bağlantı kuruldu","Connected"],reachable:["Erişilebilir","Reachable"],ok:["Çalışıyor","OK"],healthy:["Çalışıyor","Healthy"],
  FAILED:["Başarısız","Failed"],REFUNDED:["İade edildi","Refunded"],revoked:["İletişim izni kaldırıldı","Contact revoked"],telegram_stars:["Telegram Stars","Telegram Stars"],external_crypto:["Harici kripto","External crypto"],product:["Ürün","Product"],plan:["Üyelik planı","Membership plan"],knowledge:["Bilgi kaydı","Knowledge entry"],pricing:["Fiyatlandırma","Pricing"],QUEUED:["Sırada","Queued"],RUNNING:["Çalışıyor","Running"],WAITING_FOR_APPROVAL:["Onay bekliyor","Waiting approval"],SUCCEEDED:["Tamamlandı","Succeeded"],DEAD_LETTER:["İnceleme gerekiyor","Review required"],SHADOW:["Gölge modu","Shadow mode"],HUMAN_APPROVAL:["İnsan onayı","Human approval"],ACKNOWLEDGED:["İncelemeye alındı","Acknowledged"],received:["Alındı","Received"],
 
