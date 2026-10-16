@@ -1,5 +1,11 @@
 # Gold Revenue OS engineering rules
 
+Gold Revenue OS PRO is an existing modular-monolith revenue platform, initially for Telegram subscription businesses. Continue working modules; do not rebuild accepted phases.
+
+Start with `docs/MASTER_PRODUCT_CONTEXT.md` for the current system/evidence map and `docs/NEXT_EXECUTION_BACKLOG.md` for proposed work. Verify remote `main`, exact-commit Application **and** Database check runs, latest accepted phase report and owner scope before implementation; empty combined status is not CI success.
+
+Phases 7–11 are CLOSED only within their documented acceptance boundaries. Phases 1–6 retain their reports' implementation/validation scope. Phase 12+ requires separate explicit owner authorization. Historical imports, live payments, production subscriptions/VIP access and broader outbound messaging remain locked/unauthorized. Do not repeat accepted real Telegram tests or change channel permissions without a specific reason and separate authorization.
+
 Read `docs/source-of-truth/v1.0.0/` and accepted ADRs before changing architecture. ADR-002 controls the approved Phase 1 amendments.
 
 - TypeScript is strict. Avoid `any`.
@@ -14,3 +20,7 @@ Read `docs/source-of-truth/v1.0.0/` and accepted ADRs before changing architectu
 - Do not create customer, messaging, agent, payment, Telegram, subscription or access logic in Phase 1.
 - Run lint, typecheck, tests and build before closing a phase.
 - Stop after each phase report and wait for explicit approval.
+- Preserve the immutable build-pack snapshot and unsuccessful evidence. Later accepted reports/ADRs supersede historical phase-entry restrictions; a roadmap is never implementation authority.
+- Keep changes minimal on a dedicated branch from current main. Use the pinned pnpm toolchain and targeted tests; require both CI jobs before recommending merge. Do not auto-merge.
+- Documentation-only changes need link/consistency checks and `git diff --check`; do not redeploy or rerun provider acceptance. `vercel.json` disables Git deployments only for `main`: verify safe suppression before publishing another branch/PR. Do not change deployment configuration without authorization.
+- Deployments, production operations, paid-service provisioning, real-customer changes and each later phase need explicit owner scope. Follow DISCOVER → DESIGN → IMPLEMENT → TEST → VERIFY → REVIEW → CLOSE; merge alone does not close a phase.
