@@ -151,6 +151,12 @@ jobs:
         run: |
           set -o pipefail
           supabase test db supabase/tests/phase12_escalation.test.sql | tee "$RUNNER_TEMP/phase12-pgtap.log"
+      - name: Run Phase 13 Customer Success security and lifecycle assertions
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/phase13_customer_success.test.sql | tee "$RUNNER_TEMP/phase13-pgtap.log"
+          bash supabase/tests/phase13_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" | tee "$RUNNER_TEMP/phase13-concurrency.log"
       - name: Prove concurrent escalation ingestion and notification leasing
         shell: bash
         run: |
@@ -192,12 +198,6 @@ jobs:
           echo "SUPABASE_URL=$api_url" >>"$GITHUB_ENV"
           echo "SUPABASE_PUBLISHABLE_KEY=$publishable_key" >>"$GITHUB_ENV"
           echo "SUPABASE_SECRET_KEY=$secret_key" >>"$GITHUB_ENV"
-      - name: Run Phase 13 Customer Success security and lifecycle assertions
-        shell: bash
-        run: |
-          set -o pipefail
-          supabase test db supabase/tests/phase13_customer_success.test.sql | tee "$RUNNER_TEMP/phase13-pgtap.log"
-          bash supabase/tests/phase13_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" | tee "$RUNNER_TEMP/phase13-concurrency.log"
       - name: Run authentication smoke test
         run: pnpm --filter @gold-revenue-os/web auth:smoke
       - name: Run real sandbox webhook and Admin Payments HTTP acceptance
