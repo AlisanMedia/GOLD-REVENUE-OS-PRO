@@ -78,7 +78,7 @@ select throws_ok($$select public.admin_escalation_action('c1210000-0000-4000-800
 select set_config('request.jwt.claim.sub','c1200000-0000-4000-8000-000000000001',true);
 select throws_ok($$select public.admin_escalation_list('c1210000-0000-4000-8000-000000000002')$$,'42501','escalation read denied','wrong-tenant read denied');
 select throws_ok($$select public.set_conversation_automatic_replies('c1210000-0000-4000-8000-000000000001',(select conversation_id from p12_scope),true,gen_random_uuid())$$,'42501','resolve and return through escalation control','existing enable action cannot bypass case');
-select throws_ok($$select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),1,'takeover')$$,'40001','case revision conflict','stale case control denied');
+select throws_ok($$select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),1,'takeover')$$,'PT409','case revision conflict','stale case control denied');
 select throws_ok($$select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),2,'assign','c1200000-0000-4000-8000-000000000002')$$,'42501','active tenant manager required','cannot assign unsupported role');
 select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),2,'assign','c1200000-0000-4000-8000-000000000001');
 select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),3,'acknowledge');
