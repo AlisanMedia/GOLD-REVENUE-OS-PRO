@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "git": { "deploymentEnabled": { "main": false, "docs/master-product-context-20261016": false, "codex/phase12-human-escalation-20261016": false, "codex/phase12-stale-conflict-fix-20261016": false } },
+  "git": { "deploymentEnabled": { "main": false, "codex/phase12-ux-tr-20261016": false, "docs/master-product-context-20261016": false, "codex/phase12-human-escalation-20261016": false, "codex/phase12-stale-conflict-fix-20261016": false } },
   "framework": "nextjs",
   "installCommand": "pnpm install --frozen-lockfile",
   "buildCommand": "pnpm --filter @gold-revenue-os/web build",

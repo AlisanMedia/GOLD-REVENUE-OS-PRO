@@ -48,7 +48,7 @@ describe("Phase 4 application security contracts", () => {
 
   it("does not ship fake revenue metrics or privileged browser credentials", () => {
     const dashboard = read("apps/web/src/app/admin/page.tsx");
-    expect(dashboard).toContain("Not available yet");
+    expect(dashboard).toContain("Henüz kullanılamıyor");
     expect(dashboard).not.toMatch(/hardcoded|demo revenue|fake/i);
     for (const path of [
       "apps/web/src/app/admin/page.tsx",
