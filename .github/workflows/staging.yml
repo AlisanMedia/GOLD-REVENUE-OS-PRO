@@ -43,6 +43,22 @@ on:
         default: false
         type: boolean
 
+      run_phase12_sandbox:
+        description: Validate isolated Phase 12 escalation and Admin acceptance
+        required: false
+        default: false
+        type: boolean
+      phase12_admin_chat_id:
+        description: Optional exact owner-approved private manager chat ID; empty means synthetic acceptance only
+        required: false
+        default: ""
+        type: string
+      discover_phase12_admin:
+        description: Read-only dedicated notification bot and private admin group preflight; no deployment or message
+        required: false
+        default: false
+        type: boolean
+
       run_phase11_sandbox:
         description: Validate isolated Phase 11 subscriptions and access without real Telegram calls
         required: false
@@ -64,8 +80,64 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  discover_phase12_admin:
+    name: Phase 12 private admin destination discovery
+    if: ${{ inputs.discover_phase12_admin == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    environment: staging
+    env:
+      ESCALATION_TELEGRAM_BOT_TOKEN: ${{ secrets.ESCALATION_TELEGRAM_BOT_TOKEN }}
+    steps:
+      - name: Verify dedicated bot and bounded private group evidence
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const evidence={mode:'read-only; no offset, webhook changes or sends',secret_configured:Boolean(process.env.ESCALATION_TELEGRAM_BOT_TOKEN),status:'FAILED'};
+          const call=async(method,body={})=>{
+            const r=await fetch(`https://api.telegram.org/bot${process.env.ESCALATION_TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(12000)});
+            const d=await r.json();if(!r.ok||!d.ok)throw Error('PREFLIGHT_'+method+'_FAILED');return d.result;
+          };
+          try {
+            if(!evidence.secret_configured)throw Error('STAGING_SECRET_MISSING');
+            const me=await call('getMe');if(!me.is_bot||String(me.id)==='8673054837'||!me.username)throw Error('DEDICATED_BOT_REQUIRED');
+            evidence.bot={id:String(me.id),username:me.username};
+            const webhook=await call('getWebhookInfo');evidence.webhook_configured=Boolean(webhook.url);evidence.pending_updates=webhook.pending_update_count;
+            if(webhook.url){evidence.status='EXISTING_WEBHOOK';throw Error('USE_EXISTING_WEBHOOK_EVENT_PATH');}
+            // New owner-created token has no consumer in this repository. Workflow concurrency excludes another discovery run.
+            const updates=await call('getUpdates',{limit:20,timeout:0});evidence.updates_inspected=updates.length;
+            const candidates=new Map();
+            for(const u of updates){const m=u.message;const membership=u.my_chat_member;
+              const chat=m?.chat??membership?.chat;
+              if(!chat||!['group','supergroup'].includes(chat.type)||String(chat.id)==='-1003944824067'||chat.username)continue;
+              // Bind discovery to the owner's previously verified Telegram identity; another chat cannot self-approve by copying the test text.
+              if((m?.from?.id??membership?.from?.id)!==6890052501)continue;
+              const text=m?.text?.trim();
+              if(text==='Phase 12 admin bildirim testi'||text?.split(/\s/u)[0]?.toLowerCase()==='/chatid@'+me.username.toLowerCase()||membership?.new_chat_member?.user?.id===me.id)candidates.set(String(chat.id),chat);
+            }
+            if(candidates.size!==1){evidence.status=candidates.size?'AMBIGUOUS_GROUP':'COMMAND_REQUIRED';throw Error(candidates.size?'UNIQUE_PRIVATE_GROUP_REQUIRED':'SEND_ONE_ADDRESSED_COMMAND');}
+            const id=[...candidates.keys()][0],chat=await call('getChat',{chat_id:id}),member=await call('getChatMember',{chat_id:id,user_id:me.id});
+            if(String(chat.id)!==id||!['group','supergroup'].includes(chat.type)||chat.username)throw Error('PRIVATE_GROUP_REQUIRED');
+            const canSend=['creator','administrator'].includes(member.status)||(member.status==='member'&&chat.permissions?.can_send_messages!==false)||(member.status==='restricted'&&member.is_member&&member.can_send_messages);
+            evidence.destination={chat_id:id,type:chat.type,title:chat.title,bot_membership:member.status,can_send_messages:Boolean(canSend),owner_source_verified:true,separate_from_vip:true};
+            if(!canSend)throw Error('BOT_SEND_PERMISSION_REQUIRED');evidence.status='VERIFIED';
+          }catch(error){evidence.reason=error instanceof Error&&/^[A-Z0-9_]+$/u.test(error.message)?error.message:'PREFLIGHT_UNAVAILABLE';}
+          writeFileSync(process.env.RUNNER_TEMP+'/phase12-admin-discovery.json',JSON.stringify(evidence,null,2),{mode:0o600});
+          console.log(JSON.stringify(evidence));
+          if(evidence.status!=='VERIFIED'&&evidence.status!=='COMMAND_REQUIRED')process.exitCode=1;
+          NODE
+      - name: Preserve sanitized discovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase12-admin-discovery
+          path: ${{ runner.temp }}/phase12-admin-discovery.json
+          retention-days: 14
+
   staging_supabase:
     name: Supabase staging validation
+    if: ${{ inputs.discover_phase12_admin != true }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: staging
@@ -168,6 +240,7 @@ jobs:
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       OPENAI_MODEL: ${{ secrets.OPENAI_MODEL }}
+      ESCALATION_TELEGRAM_BOT_TOKEN: ${{ secrets.ESCALATION_TELEGRAM_BOT_TOKEN }}
     steps:
       - name: Enforce successful CI gate
         env:
@@ -239,6 +312,26 @@ jobs:
           done
           test "${#OPENAI_API_KEY}" -ge 20
           [[ "$OPENAI_MODEL" =~ ^[A-Za-z0-9._:-]{2,120}$ ]]
+      - name: Prepare exact Phase 12 notification acceptance scope
+        if: ${{ inputs.run_phase12_sandbox == true }}
+        env:
+          APPROVED_ADMIN_CHAT: ${{ inputs.phase12_admin_chat_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          import {randomUUID} from 'node:crypto';
+          import {appendFileSync} from 'node:fs';
+          appendFileSync(process.env.GITHUB_ENV,`PHASE12_TENANT_ID=${randomUUID()}\n`);
+          const chat=process.env.APPROVED_ADMIN_CHAT;
+          if(chat){
+            if(!/^-?[1-9][0-9]{0,15}$/.test(chat)||chat==='-1003944824067'||!process.env.ESCALATION_TELEGRAM_BOT_TOKEN)throw Error('APPROVED_SEPARATE_ADMIN_BOT_REQUIRED');
+            const call=async(method,body)=>{const r=await fetch(`https://api.telegram.org/bot${process.env.ESCALATION_TELEGRAM_BOT_TOKEN}/${method}`,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),signal:AbortSignal.timeout(10000)});const d=await r.json();if(!r.ok||!d.ok)throw Error('ADMIN_BOT_PREFLIGHT_FAILED');return d.result;};
+            const me=await call('getMe',{}),dest=await call('getChat',{chat_id:chat});
+            if(!me.is_bot||String(me.id)==='8673054837'||String(dest.id)!==chat||!['private','group','supergroup'].includes(dest.type)||(dest.type!=='private'&&dest.username))throw Error('ADMIN_DESTINATION_DENIED');
+            appendFileSync(process.env.GITHUB_ENV,`ESCALATION_TELEGRAM_CHAT_ID=${chat}\nESCALATION_TELEGRAM_BOT_ID=${me.id}\n`);
+          }
+          NODE
       - name: Verify Vercel project identity
         shell: bash
         run: |
@@ -301,6 +394,7 @@ jobs:
         env:
           CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
           RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox || inputs.run_phase11_sandbox }}
+          RUN_PHASE12_SANDBOX: ${{ inputs.run_phase12_sandbox }}
         shell: bash
         run: |
           set -euo pipefail
@@ -318,7 +412,7 @@ jobs:
             "TELEGRAM_STAGING_TENANT_ID",
             "CRON_SECRET",
           ];
-          if (process.env.CONFIGURE_OPENAI_SHADOW === "true" || process.env.RUN_PHASE10_SANDBOX === "true") {
+          if (process.env.CONFIGURE_OPENAI_SHADOW === "true" || process.env.RUN_PHASE10_SANDBOX === "true" || process.env.RUN_PHASE12_SANDBOX === "true") {
             names.push("OPENAI_API_KEY", "OPENAI_MODEL");
           }
           const content = names
@@ -353,6 +447,7 @@ jobs:
           RUN_AGENT_WORKER: ${{ inputs.run_agent_worker }}
           CONFIGURE_OPENAI_SHADOW: ${{ inputs.configure_openai_shadow }}
           RUN_PHASE10_SANDBOX: ${{ inputs.run_phase10_sandbox || inputs.run_phase11_sandbox }}
+          RUN_PHASE12_SANDBOX: ${{ inputs.run_phase12_sandbox }}
         run: |
           set -euo pipefail
 
@@ -379,7 +474,7 @@ jobs:
             )
           fi
 
-          if test "$CONFIGURE_OPENAI_SHADOW" = "true" -o "$RUN_PHASE10_SANDBOX" = "true"; then
+          if test "$CONFIGURE_OPENAI_SHADOW" = "true" -o "$RUN_PHASE10_SANDBOX" = "true" -o "$RUN_PHASE12_SANDBOX" = "true"; then
             deploy_args+=(
               --env "OPENAI_API_KEY=$OPENAI_API_KEY"
               --env "OPENAI_MODEL=$OPENAI_MODEL"
@@ -392,6 +487,21 @@ jobs:
               --env "TELEGRAM_WEBHOOK_SECRET=$TELEGRAM_WEBHOOK_SECRET"
               --env "PAYMENT_TEST_WEBHOOK_SECRET=$PAYMENT_TEST_WEBHOOK_SECRET"
               --env "PAYMENT_TEST_WEBHOOKS_ENABLED=true"
+            )
+          fi
+          if test "$RUN_PHASE12_SANDBOX" = "true"; then
+            deploy_args+=(
+              --env "TELEGRAM_BOT_TOKEN=$TELEGRAM_BOT_TOKEN"
+              --env "TELEGRAM_WEBHOOK_SECRET=$TELEGRAM_WEBHOOK_SECRET"
+              --env "PAYMENT_TEST_WEBHOOKS_ENABLED=false"
+            )
+          fi
+          if test "${{ inputs.run_phase12_sandbox }}" = "true" && test -n "${ESCALATION_TELEGRAM_CHAT_ID:-}"; then
+            deploy_args+=(
+              --env "ESCALATION_NOTIFICATION_TENANT_ID=$PHASE12_TENANT_ID"
+              --env "ESCALATION_TELEGRAM_CHAT_ID=$ESCALATION_TELEGRAM_CHAT_ID"
+              --env "ESCALATION_TELEGRAM_BOT_ID=$ESCALATION_TELEGRAM_BOT_ID"
+              --env "ESCALATION_TELEGRAM_BOT_TOKEN=$ESCALATION_TELEGRAM_BOT_TOKEN"
             )
           fi
           deployment_url=$(pnpm dlx vercel@59.16.0 deploy "${deploy_args[@]}")
@@ -458,7 +568,7 @@ jobs:
           jq -e '.requeued >= 0 and .requeued <= 25 and (.task_ids | type == "array")' "$recovery_file" >/dev/null
           jq '{requeued,correlation_id}' "$recovery_file" >>"$GITHUB_STEP_SUMMARY"
       - name: Drain and validate Phase 6 worker backlog without outbound messaging
-        if: ${{ inputs.run_agent_worker == true && inputs.run_phase10_sandbox != true && inputs.run_phase11_sandbox != true }}
+        if: ${{ inputs.run_agent_worker == true && inputs.run_phase10_sandbox != true && inputs.run_phase11_sandbox != true && inputs.run_phase12_sandbox != true }}
         env:
           DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         shell: bash
@@ -622,7 +732,7 @@ jobs:
 
           echo "Telegram staging webhook registered at the canonical HTTPS endpoint." >>"$GITHUB_STEP_SUMMARY"
       - name: Install Supabase CLI in the Vercel sandbox validation job
-        if: ${{ inputs.run_phase10_sandbox == true || inputs.run_phase11_sandbox == true }}
+        if: ${{ inputs.run_phase10_sandbox == true || inputs.run_phase11_sandbox == true || inputs.run_phase12_sandbox == true }}
         uses: supabase/setup-cli@v1
         with:
           version: 2.117.0
@@ -663,6 +773,25 @@ jobs:
         with:
           name: phase11-owner-acceptance
           path: ${{ runner.temp }}/phase11-owner-acceptance.json
+          retention-days: 14
+      - name: Run isolated Phase 12 escalation and authenticated Admin acceptance
+        if: ${{ inputs.run_phase12_sandbox == true }}
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+          VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+          PHASE12_EVIDENCE_FILE: ${{ runner.temp }}/phase12-owner-acceptance.json
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+          STAGING_SUPABASE_PROJECT_ID: ${{ secrets.STAGING_SUPABASE_PROJECT_ID }}
+        run: |
+          supabase link --project-ref "$STAGING_SUPABASE_PROJECT_ID" --password "$SUPABASE_DB_PASSWORD"
+          node apps/web/scripts/phase12-staging.mjs
+      - name: Upload sanitized Phase 12 evidence
+        if: ${{ always() && inputs.run_phase12_sandbox == true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase12-owner-acceptance
+          path: ${{ runner.temp }}/phase12-owner-acceptance.json
           retention-days: 14
       - name: Write Vercel validation evidence
         if: always()

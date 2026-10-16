@@ -4,6 +4,8 @@ Living continuation index, based on repository discovery on **2026-10-16 UTC**. 
 
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
 
+**Phase 12 continuation checkpoint:** Documentation PR [#89](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/89) merged at `10a79955be84b6bbb1ecd3463a35a183b27be07d`; PR CI `38893733408` and main CI `38894252599` both passed Application + Database. Exact documentation/implementation-branch Vercel suppression is present; branch deployment queries returned none. Phase 12 is implemented in [#90](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/90), with mandatory CI and controlled staging acceptance pending. [PHASE_12_REPORT.md](../PHASE_12_REPORT.md) and [design](phases/PHASE_12_DESIGN.md) supersede the original discovery-only Phase 12 inventory below. The owner supplied a dedicated operations bot: authenticated protected-environment discovery `38896964075` verified `@gold_revenue_os_ops_bot` / `8915334711`, no webhook, empty update queue. Private group identification requires one addressed command; no notification has been sent at this checkpoint. Final owner closure is still required.
+
 ## 1. Product identity and commercial purpose
 
 Gold Revenue OS is a centrally controlled, provider-neutral revenue operating system. Its first use case is multilingual sales/support for Telegram trading communities and membership subscriptions. The longer-term platform should support multiple authorized brands, suppliers, products and subscription businesses beyond trading.
@@ -63,13 +65,13 @@ The staging artifact originally says real Telegram testing was not yet run; the 
 | 9 | Products/plans/pricing, versioned KB, eligible recommendations and reviewed offers | **CLOSED**, 2026-10-12; app `ee6d25ba86934a6d889926c02d9f8cf56a0441b8`; [report](../PHASE_9_REPORT.md) |
 | 10 | Provider-neutral Stars/independent-web crypto test payments | **CLOSED sandbox only**, 2026-10-13; app `031509dc3d447703954f9c76396a7ae8504a9213`; [report](../PHASE_10_REPORT.md) |
 | 11 | Deterministic subscriptions, immutable paid periods, fenced access, isolated real Telegram staging proof | **CLOSED scoped staging**, 2026-10-16; acceptance ledger above |
-| 12 | Human escalation cases, critical queue, operator notification and response ownership | **OWNER-AUTHORIZED** for isolated-staging implementation/acceptance; not yet implemented at this documentation checkpoint |
+| 12 | Human escalation cases, critical queue, operator notification and response ownership | **IMPLEMENTED IN PR #90; OPEN**, mandatory CI/staging/real notification and final owner acceptance pending |
 | 13 | Onboarding, support lifecycle, inactivity, renewal/churn/win-back messaging | Planned, **NOT AUTHORIZED / NOT STARTED** |
 | 14 | Surveys, feedback taxonomy, insights and recommendation queue | Planned, **NOT AUTHORIZED / NOT STARTED** |
 | 15 | Funnel/cohort/MRR/churn/cost and agent analytics | Planned, **NOT AUTHORIZED / NOT STARTED** |
 | 16 | Controlled pilot, 10 → 25 → 50 → 100, each scale gate owner-approved | Planned, **NOT AUTHORIZED / NOT STARTED** |
 
-The original [roadmap](source-of-truth/v1.0.0/IMPLEMENTATION_ROADMAP.md) also places hardening in Phase 17 and white-label in Phase 18. Critical production controls cannot be postponed merely because the roadmap labels hardening later. No standalone Phase 12–16 implementation/acceptance reports exist in the inspected tree; their scope comes from that roadmap and [manual dependencies](../MANUAL_ACTIONS_ROADMAP.md).
+The original [roadmap](source-of-truth/v1.0.0/IMPLEMENTATION_ROADMAP.md) also places hardening in Phase 17 and white-label in Phase 18. Critical production controls cannot be postponed merely because the roadmap labels hardening later. At the original discovery checkpoint no standalone Phase 12–16 implementation/acceptance reports existed; their scope comes from that roadmap and [manual dependencies](../MANUAL_ACTIONS_ROADMAP.md).
 
 Phases 1–6 are reconstructed using their own implementation/validation wording. Some reports still end with the next phase blocked; those are historical checkpoints, not a reason to undo subsequent accepted work. This index does not invent separate formal owner-closeout evidence for every early phase or independently revalidate their old run artifacts. The owner's continuation scope accepts their documented boundaries.
 
@@ -263,7 +265,7 @@ Decisions requiring explicit owner scope:
 7. Production infrastructure/spend, credentials, backups/RPO/RTO/restore evidence, access channels/users/bot permissions and pilot scale.
 8. Historical dataset lawful-use scope and final review; further Telegram acceptance/permissions changes or broad outbound/historical replay.
 
-The next engineering phase is **authorized but not started at this documentation checkpoint**. Complete this documentation PR/CI/merge with approved publication suppression, then implement bounded Phase 12 with acceptance criteria. Phase 13+ remains unauthorized. A new session must verify current main again before acting.
+Phase 12 is **authorized and implemented in PR #90, with acceptance still OPEN**. Documentation prerequisite #89 is merged. Complete mandatory CI, authorized merge, exact-main CI and controlled isolated-staging acceptance; preserve failure evidence and seek explicit final owner closure. Phase 13+ remains unauthorized. A new session must verify current main again before acting.
 
 ## 15. Canonical sources, conflicts and maintenance
 

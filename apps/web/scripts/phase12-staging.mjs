@@ -1,0 +1,77 @@
+// Synthetic tenant acceptance; optional one owner-approved private manager notification.
+import { createClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { randomUUID,randomBytes } from 'node:crypto';
+import { writeFileSync } from 'node:fs';
+import { execFileSync,spawn } from 'node:child_process';
+const url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,secret=process.env.SUPABASE_SECRET_KEY,out=process.env.PHASE12_EVIDENCE_FILE;
+if(!url||!key||!secret||!out)throw Error('PHASE12_ENV_REQUIRED');
+const tenant=process.env.PHASE12_TENANT_ID||randomUUID(),other=randomUUID(),run=randomUUID(),users=[],sessions=[],checks=[];
+if(!/^[a-f0-9-]{36}$/u.test(tenant))throw Error('SANDBOX_TENANT_INVALID');
+const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}});
+const check=(name,ok)=>{if(!ok)throw Error('ACCEPTANCE_FAILED:'+name);checks.push({name,status:'PASS'});};
+const rpc=async(client,name,args)=>{const {data,error}=await client.rpc(name,args);if(error)throw Error(name+':'+error.code);return data;};
+const q=s=>"'"+s.replaceAll("'","''")+"'";
+function sql(text){const file=(process.env.RUNNER_TEMP||'/tmp')+'/phase12-query.sql';writeFileSync(file,text,{mode:0o600});if(process.env.PHASE12_LOCAL_DB_URL){const s=execFileSync('psql',[process.env.PHASE12_LOCAL_DB_URL,'-v','ON_ERROR_STOP=1','-Atq','-f',file],{encoding:'utf8'}).trim();return s?JSON.parse(s):null;}const r=JSON.parse(execFileSync('supabase',['db','query','--linked','--file',file,'-o','json'],{encoding:'utf8'}));const rows=Array.isArray(r)?r:r.result||r.rows||r.data;return rows[0]?.snapshot??rows[0];}
+function snapshot(){return sql(`select jsonb_build_object('payment_events',(select count(*) from public.domain_events where event_type='payment.confirmed'),'paid',(select count(*) from public.customers where state='PAID'),'live_subscriptions',(select count(*) from public.subscriptions where mode='live'),'live_access',(select count(*) from public.channel_access where mode='live'),'imports',(select count(*) from public.import_batches),'outbound',(select count(*) from public.messages where direction='outbound' and tenant_id not in ('${tenant}','${other}')),'controls',(select coalesce(jsonb_agg(jsonb_build_object('id',id,'outbound',outbound_messaging_enabled,'status',status) order by id),'[]') from public.tenants where id not in ('${tenant}','${other}')),'conversations',(select coalesce(jsonb_agg(jsonb_build_object('id',id,'mode',runtime_mode,'takeover',human_takeover,'automatic',automatic_replies_enabled) order by id),'[]') from public.conversations where tenant_id not in ('${tenant}','${other}'))) as snapshot;`);}
+async function identity(role){const {data,error}=await admin.auth.admin.createUser({email:`phase12-${role}-${run}@example.test`,password:randomBytes(30).toString('base64url')+'Aa1!',email_confirm:true});if(error)throw Error('FIXTURE_AUTH_FAILED');users.push(data.user.id);const user=data.user;const {error:memberError}=await admin.from('tenant_members').insert({tenant_id:tenant,user_id:user.id,role,status:'active'});if(memberError)throw Error('FIXTURE_MEMBER_FAILED');let cookies=[];const client=createServerClient(url,key,{cookies:{getAll:()=>cookies,setAll:values=>{for(const v of values){cookies=cookies.filter(c=>c.name!==v.name);cookies.push(v);}}}});const password=randomBytes(30).toString('base64url')+'Bb2!';const update=await admin.auth.admin.updateUserById(user.id,{password});if(update.error)throw Error('FIXTURE_PASSWORD_FAILED');const signed=await client.auth.signInWithPassword({email:user.email,password});if(signed.error)throw Error('FIXTURE_LOGIN_FAILED');sessions.push(client);return {id:user.id,client,cookie:()=>cookies.map(c=>`${c.name}=${c.value}`).join('; ')};}
+async function http(path,cookie,bearer){if(process.env.PHASE12_LOCAL_APP_URL){const headers={};if(cookie)headers.cookie=cookie;if(bearer)headers.authorization='Bearer '+bearer;const r=await fetch(new URL(path,process.env.PHASE12_LOCAL_APP_URL),{headers,redirect:'manual',signal:AbortSignal.timeout(25000)});return {status:r.status,text:await r.text()};}
+const config=['silent','show-error','max-time = 25','write-out = "\\n%{http_code}"'];if(cookie)config.push('header = '+JSON.stringify('Cookie: '+cookie));if(bearer)config.push('header = '+JSON.stringify('Authorization: Bearer '+bearer));const text=await new Promise((resolve,reject)=>{const child=spawn('pnpm',['dlx','vercel@59.16.0','curl',path,'--deployment',process.env.DEPLOYMENT_URL,'--scope',process.env.VERCEL_TEAM_SLUG,'--','--config','-'],{env:process.env,stdio:['pipe','pipe','pipe']});let result='';child.stdout.on('data',b=>result+=b);child.stderr.on('data',()=>{});child.on('error',()=>reject(Error('HTTP_START_FAILED')));child.on('close',code=>code===0?resolve(result):reject(Error('HTTP_FAILED')));child.stdin.end(config.join('\n')+'\n');});const i=text.lastIndexOf('\n');return {status:Number(text.slice(i+1)),text:text.slice(0,i)};}
+const list=async(client,args={})=>rpc(client,'admin_escalation_list',{target_tenant_id:tenant,...args});
+let baseline,done=false,provider={status:'NOT_RUN',reason:'owner-approved separate bot/private admin destination unavailable'},cid,manager;
+try{
+ baseline=snapshot();
+ const insert=await admin.from('tenants').insert([{id:tenant,name:'Phase 12 isolated acceptance',slug:'phase12-sandbox-'+run},{id:other,name:'Phase 12 denial',slug:'phase12-sandbox-denial-'+run}]);if(insert.error)throw Error('FIXTURE_TENANT_FAILED');
+ manager=await identity('manager');const support=await identity('support'),readonly=await identity('readonly');
+ check('notification-worker-auth-required',(await http('/api/internal/escalation-worker')).status===401);
+ await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:true,approval_value:'Owner-authorized Phase 12 synthetic staging acceptance'});
+ const ingest=async(id,text)=>rpc(admin,'ingest_telegram_message',{target_tenant_id:tenant,provider_update_id_value:'phase12:'+run+':'+id,provider_message_id_value:'test:'+id,provider_chat_id_value:'test:phase12:'+run,provider_user_id_value:'test:phase12:'+run,username_value:null,first_name_value:'TEST ONLY',last_name_value:null,content_value:text,reply_to_provider_message_id_value:null,occurred_at_value:new Date().toISOString()});
+ const ordinary=await ingest('ordinary','What is your refund policy?');cid=ordinary.conversation_id;
+ check('ordinary-question-no-case',(await list(manager.client)).cases.length===0);
+ // Only synthetic conversations change control mode; tenant outbound remains disabled.
+ sql(`update public.conversations set runtime_mode='AI_ACTIVE',human_takeover=false,automatic_replies_enabled=true,automatic_replies_enabled_at=now() where tenant_id='${tenant}' and id='${cid}';`);
+ const parallel=await Promise.all([ingest('dispute-a','I paid but no access'),ingest('dispute-b','I want a refund')]);
+ let d=await list(manager.client);check('concurrent-one-active-case',d.cases.length===1);let c=d.cases[0];
+ const read=await admin.from('conversations').select('runtime_mode,human_takeover,automatic_replies_enabled').eq('id',cid).single();check('high-pauses-before-reply',read.data?.runtime_mode==='HUMAN_TAKEOVER'&&read.data.human_takeover&&!read.data.automatic_replies_enabled);
+ await ingest('dispute-a','I paid but no access');d=await list(manager.client,{target_case_id:c.id});check('source-evidence-deduplicated',d.evidence.length===2);
+ check('missing-destination-blocked',d.cases[0].notification.status==='BLOCKED');
+ check('missing-destination-no-claim',await rpc(admin,'escalation_claim_notification',{target_tenant_id:tenant})===null);
+ check('kill-switch-suppresses-safe-reply',await rpc(admin,'escalation_queue_safe_response',{target_tenant_id:tenant,target_case_id:c.id})===null);
+ const enable=await manager.client.rpc('set_conversation_automatic_replies',{target_tenant_id:tenant,target_conversation_id:cid,enabled_value:true,correlation_id_value:randomUUID()});check('existing-enable-cannot-bypass-case',enable.error?.code==='42501');
+ const deny=await support.client.rpc('admin_escalation_action',{target_tenant_id:tenant,target_case_id:c.id,expected_revision:c.revision,action_value:'takeover'});check('support-control-denied',deny.error?.code==='42501');
+ const cross=await manager.client.rpc('admin_escalation_list',{target_tenant_id:other});check('cross-tenant-denied',cross.error?.code==='42501');
+ const browserDestination=await manager.client.rpc('configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:true,approval_value:'forged'});check('browser-destination-denied',Boolean(browserDestination.error));
+ const attention=await http('/admin/attention',manager.cookie()),detail=await http('/admin/attention/'+c.id,manager.cookie()),conv=await http('/admin/conversations/'+cid,manager.cookie()),supportUi=await http('/admin/attention/'+c.id,support.cookie()),readonlyUi=await http('/admin/attention',readonly.cookie());
+ check('manager-critical-queue',attention.status===200&&attention.text.includes('Critical and human escalation'));
+ check('case-evidence-notification-ui',detail.status===200&&detail.text.includes('Source evidence')&&detail.text.includes('BLOCKED'));
+ check('conversation-case-link',conv.status===200&&conv.text.includes(c.id));check('support-read-only-ui',supportUi.status===200&&!supportUi.text.includes('Apply control'));check('readonly-ui-denied',[302,303,307].includes(readonlyUi.status));
+ // Actual provider proof is optional and separately labeled, never simulated as success.
+ if(process.env.ESCALATION_TELEGRAM_BOT_TOKEN&&process.env.ESCALATION_TELEGRAM_CHAT_ID&&process.env.ESCALATION_TELEGRAM_BOT_ID){
+  await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:true,approval_value:'Owner-approved exact private Phase 12 manager notification acceptance',chat_value:process.env.ESCALATION_TELEGRAM_CHAT_ID,bot_value:process.env.ESCALATION_TELEGRAM_BOT_ID});
+  const worker=await http('/api/internal/escalation-worker',null,process.env.CRON_SECRET);check('scoped-notification-worker',worker.status===200);
+  d=await list(manager.client);let n=d.cases[0].notification;
+  // A scheduled worker may own the same exclusive lease. Read receipts; never send a second alert.
+  for(let i=0;i<10&&n.status==='RUNNING';i++){await new Promise(resolve=>setTimeout(resolve,1000));d=await list(manager.client);n=d.cases[0].notification;}
+  check('genuine-manager-notification',n.status==='SENT'&&/^[1-9][0-9]*$/u.test(n.provider_message_id));
+  check('sent-manager-notification-cannot-reclaim',await rpc(admin,'escalation_claim_notification',{target_tenant_id:tenant})===null);
+  const recorded=sql(`select jsonb_build_object('attempts',(select count(*) from public.escalation_notification_attempts where notification_id='${n.id}' and result='SENT' and provider_message_id=${q(n.provider_message_id)} and destination_chat_id=${q(process.env.ESCALATION_TELEGRAM_CHAT_ID)} and destination_bot_id=${q(process.env.ESCALATION_TELEGRAM_BOT_ID)}),'audit',(select count(*) from public.escalation_history where case_id='${c.id}' and action='notification_sent')) as snapshot;`);
+  check('provider-receipt-case-audit-linked',recorded.attempts===1&&recorded.audit===1);
+  provider={status:'PASS',case_id:c.id,notification_id:n.id,provider_message_id:n.provider_message_id,sent_at:n.sent_at,chat_id:process.env.ESCALATION_TELEGRAM_CHAT_ID,bot_id:process.env.ESCALATION_TELEGRAM_BOT_ID,provider_acknowledged:true,human_read_confirmed:false,sent_receipts:recorded.attempts};
+ }
+ const action=async(action,assignee=null,note=null)=>{const current=(await list(manager.client)).cases[0];return rpc(manager.client,'admin_escalation_action',{target_tenant_id:tenant,target_case_id:current.id,expected_revision:current.revision,action_value:action,assignee_value:assignee,note_value:note});};
+ await action('assign',manager.id);await action('acknowledge');await action('takeover');d=await list(manager.client);check('assignment-acknowledgment-takeover',d.cases[0].assigned_to===manager.id&&d.cases[0].status==='IN_PROGRESS'&&d.cases[0].acknowledged_at);
+ const stale=await manager.client.rpc('admin_escalation_action',{target_tenant_id:tenant,target_case_id:c.id,expected_revision:c.revision,action_value:'takeover'});check('stale-control-denied',stale.error?.code==='40001');
+ const manual=await manager.client.rpc('queue_outbound_message',{target_tenant_id:tenant,target_conversation_id:cid,content_value:'TEST ONLY manual reply; no provider send.',idempotency_key_value:'p12-manual:'+run,correlation_id_value:randomUUID()});check('manual-send-retains-kill-switch',manual.error?.code==='42501');
+ await action('resolve',null,'Synthetic case reviewed. No refund, payment or access operation performed.');await action('return');d=await list(manager.client,{target_case_id:c.id});check('resolution-and-return-audited',d.cases[0].status==='RESOLVED'&&d.cases[0].returned_to_ai_at&&d.history.some(h=>h.action==='return'));
+ const old=sql(`select jsonb_build_object('held',private.escalation_open('${tenant}',${q(parallel[0].message_id)},'payment_dispute','HIGH','en','inbound',${q(parallel[0].message_id)}) is null,'boundary',escalation_return_boundary is not null) as snapshot from public.conversations where id='${cid}';`);check('historical-source-not-reopened',old.held&&old.boundary);
+ const after=snapshot();check('financial-access-import-invariants',after.payment_events===baseline.payment_events&&after.paid===baseline.paid&&after.live_subscriptions===baseline.live_subscriptions&&after.live_access===baseline.live_access&&after.imports===baseline.imports);
+ check('unrelated-outbound-unchanged',after.outbound===baseline.outbound);check('operating-flags-conversations-preserved',JSON.stringify(after.controls)===JSON.stringify(baseline.controls)&&JSON.stringify(after.conversations)===JSON.stringify(baseline.conversations));
+ check('synthetic-outbound-disabled',(await admin.from('tenants').select('outbound_messaging_enabled').eq('id',tenant).single()).data?.outbound_messaging_enabled===false);
+ done=true;
+}finally{
+ let cleanup=true;
+ for(const client of sessions){try{await client.auth.signOut();}catch{cleanup=false;}}
+ try{if(manager){const members=await admin.from('tenant_members').update({status:'disabled'}).eq('tenant_id',tenant);if(members.error)throw Error('MEMBER_CLEANUP_FAILED');await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:false,approval_value:'Phase12 acceptance cleanup'});}const tenants=await admin.from('tenants').update({status:'suspended'}).in('id',[tenant,other]);if(tenants.error)throw Error('TENANT_CLEANUP_FAILED');}catch{cleanup=false;}
+ writeFileSync(out,JSON.stringify({phase:12,sha:process.env.VALIDATED_SHA??'local',status:done&&cleanup?'PASS':'FAILED',checks,mode:'synthetic isolated sandbox',actual_manager_notification:provider,cleanup_verified:cleanup,live_payments:false,production_vip:false,historical_import:'LOCKED',phase13:false},null,2),{mode:0o600});
+ if(!cleanup)throw Error('ACCEPTANCE_CLEANUP_FAILED');
+}

@@ -1,6 +1,7 @@
 import { drainAutomaticReplies } from "@/lib/messaging/automatic-replies";
 import { timingSafeEqual } from "node:crypto";
 import { runDeterministicWorker } from "@/lib/agent-runtime/worker";
+import { drainEscalations } from "@/lib/escalations/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,6 +19,7 @@ function authorized(request: Request): boolean {
 export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   try {
+    await drainEscalations();
     const result = await runDeterministicWorker({
       deploymentRef: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
     });

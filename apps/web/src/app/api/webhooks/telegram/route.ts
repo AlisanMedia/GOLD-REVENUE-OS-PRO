@@ -7,6 +7,7 @@ import {
   type TelegramUpdate,
 } from "@gold-revenue-os/domain";
 import { runImmediateConversationReplies } from "@/lib/agent-runtime/immediate-replies";
+import { drainEscalations } from "@/lib/escalations/service";
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
 
 export const runtime = "nodejs";
@@ -87,6 +88,7 @@ export async function POST(request: Request) {
   if (result.duplicate !== true && typeof result.conversation_id === "string") {
     const conversationId = result.conversation_id;
     after(async () => {
+      await drainEscalations({ tenantId: env.tenantId, conversationId }).catch(() => undefined);
       await runImmediateConversationReplies({
         deploymentRef: process.env.VERCEL_GIT_COMMIT_SHA ?? "unknown",
         conversation: { tenantId: env.tenantId, conversationId },

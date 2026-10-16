@@ -6,6 +6,7 @@ import { hasAdminCapability } from "@/lib/admin/permissions";
 import { requireAdminCapability } from "@/lib/admin/server";
 import { getConversationDetail, getConversationMessages } from "@/lib/messaging/server";
 import { getLeadIntelligence } from "@/lib/agent-runtime/lead-admin";
+import { escalationList } from "@/lib/escalations/admin";
 import {conversationCommercial} from "@/lib/commercial/admin";
 
 export default async function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -17,6 +18,7 @@ export default async function ConversationDetailPage({ params }: { params: Promi
   ]);
   if (!conversation) notFound();
   const contact = conversation.messaging_contacts;
+  const escalations = await escalationList(undefined, id);
   const lead = hasAdminCapability(context.role,"agents.read") ? await getLeadIntelligence(id) : null;
   const commercial=hasAdminCapability(context.role,"commercial.read")?await conversationCommercial(id):null;
 
@@ -42,6 +44,7 @@ export default async function ConversationDetailPage({ params }: { params: Promi
         <div><dt>Last message</dt><dd>{conversation.last_message_at ? new Date(conversation.last_message_at).toLocaleString("en-GB") : "—"}</dd></div>
       </dl></section>
     </div>
+    <section className="detail-card"><h2>Human escalation</h2>{escalations.cases.map(c => <p key={c.id}><Link href={`/admin/attention/${c.id}`}>{c.severity} · {c.category} · {c.status}</Link> · Notification: {c.notification?.status ?? "Not required"}</p>)}{!escalations.cases.length && <p>No escalation cases.</p>}</section>
     <section className="detail-card full-width-card"><h2>Messages</h2>
       <ul>{messages.map((message) => <li key={message.id}>
         <strong>{message.direction} · {message.status}</strong>
