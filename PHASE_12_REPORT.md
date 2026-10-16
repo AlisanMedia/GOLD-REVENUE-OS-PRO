@@ -21,6 +21,8 @@ Design and acceptance boundary: [PHASE_12_DESIGN.md](docs/phases/PHASE_12_DESIGN
 
 ## Validation evidence at implementation checkpoint
 
+Implementation PR [#90](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/90) is OPEN. Application CI on `cb3cb1b6f123799a997b6ce2ccfac49b44edb913` passed; Database run [38896221657](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38896221657) failed one of 60 Phase 12 assertions: Turkish uppercase İ normalization. The classifier was corrected; the failed evidence remains retained. Later required-head CI is still pending.
+
 Local strict typecheck and production build PASS. Unit tests: 523 PASS; integration tests: 100 PASS, including seven synthetic manager-adapter cases. Workspace lint PASS before final staging-script additions; final lint and mandatory GitHub checks are required on the final PR head. These results do not establish real Telegram acceptance.
 
 Local Supabase startup attempted with pinned CLI 2.117.0 and the managed Docker daemon. The Postgres image failed to register a layer due to daemon disk exhaustion; retries were stopped. No local pgTAP/stack result is claimed. Mandatory real Supabase migration/pgTAP/concurrency/HTTP evidence will come from the existing GitHub Database job. The CLI home was redirected with its supported `SUPABASE_HOME` option because the managed home is read-only; no credentials were printed.
@@ -29,7 +31,7 @@ Local Supabase startup attempted with pinned CLI 2.117.0 and the managed Docker 
 
 1. Final PR Application + Database CI, including Phase 12 SQL/concurrency and authenticated HTTP/Admin acceptance.
 2. Authorized merge, exact main CI and one controlled Phase 12 isolated-staging publication/acceptance, with unsuccessful evidence retained.
-3. Genuine manager notification acceptance requires the owner-provided separate admin bot secret and explicitly approved private chat. No recipient is inferred from brand administration. Synthetic receipts are never relabeled real provider proof.
+3. The owner supplied `ESCALATION_TELEGRAM_BOT_TOKEN` to the protected staging environment. Read-only discovery [38896964075](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38896964075) verified `@gold_revenue_os_ops_bot` / `8915334711`, no webhook and zero queued updates; no message was sent. One addressed command in the dedicated private admin group is pending before exact numeric destination verification. Genuine acceptance will send exactly one synthetic alert through the durable queue, preserving exact bot/chat, case, attempt, provider message ID and audit; provider acceptance is not human-read confirmation. No recipient is inferred from brand administration. Synthetic receipts are never relabeled real provider proof.
 4. Final accurate owner report and explicit owner closure. Merge alone cannot close Phase 12.
 
 No Phase 7–11 real Telegram acceptance is repeated. Payment/access authority and the seven-tool agent whitelist remain unchanged. **PHASE 12 REMAINS OPEN.**

@@ -39,14 +39,14 @@ create table public.escalation_notifications (
  id uuid primary key default gen_random_uuid(),tenant_id uuid not null,case_id uuid not null,
  status text not null default 'BLOCKED' check(status in ('BLOCKED','PENDING','RUNNING','SENT','FAILED','UNCERTAIN','CANCELLED')),
  attempts int not null default 0,available_at timestamptz not null default now(),lease_token uuid,lease_until timestamptz,
- provider_message_id text,last_error text,sent_at timestamptz,unique(case_id),unique(tenant_id,id),
+ provider_message_id text,destination_chat_id text,destination_bot_id text,last_error text,sent_at timestamptz,unique(case_id),unique(tenant_id,id),
  foreign key(tenant_id,case_id) references public.escalation_cases(tenant_id,id)
 );
 create index escalation_notification_ready on public.escalation_notifications(available_at) where status in ('PENDING','RUNNING');
 create table public.escalation_notification_attempts (
  id bigint generated always as identity primary key,tenant_id uuid not null,notification_id uuid not null,attempt int not null,
  result text not null check(result in ('SENT','RETRY','FAILED','UNCERTAIN')),provider_status int not null,
- provider_message_id text,created_at timestamptz not null default now(),unique(notification_id,attempt),
+ provider_message_id text,destination_chat_id text not null,destination_bot_id text not null,created_at timestamptz not null default now(),unique(notification_id,attempt),
  foreign key(tenant_id,notification_id) references public.escalation_notifications(tenant_id,id)
 );
 alter table public.conversations add column escalation_return_boundary timestamptz;
@@ -113,7 +113,7 @@ declare m public.messages%rowtype;c public.conversations%rowtype;e public.escala
  update public.conversations set attention_required=true where id=c.id;
  if private.escalation_rank(e.severity)>=3 then
   update public.conversations set runtime_mode='HUMAN_TAKEOVER',human_takeover=true,automatic_replies_enabled=false,automatic_replies_enabled_at=null where id=c.id;
-  update public.messages set status='failed',failure_code='ESCALATION_HOLD' where tenant_id=t and conversation_id=c.id and direction='outbound' and actor_id='quality-approved-reply' and status in ('pending','retry_scheduled');
+  update public.messages set status='failed',failure_code='ESCALATION_HOLD' where id in (select id from public.messages where tenant_id=t and conversation_id=c.id and direction='outbound' and actor_id='quality-approved-reply' and status in ('pending','retry_scheduled') for update skip locked);
   insert into public.escalation_notifications(tenant_id,case_id,status,last_error) select t,e.id,case when chat_id is null then 'BLOCKED' else 'PENDING' end,case when chat_id is null then 'DESTINATION_NOT_CONFIGURED' end from private.escalation_controls where tenant_id=t on conflict(case_id) do nothing;
  end if;return e.id;end;$$;
 create function private.escalation_on_inbound() returns trigger language plpgsql security definer set search_path=pg_catalog as $$declare v jsonb;begin
@@ -166,7 +166,7 @@ declare e public.escalation_cases%rowtype;conv uuid;b timestamptz:=clock_timesta
   if exists(select 1 from public.escalation_cases where tenant_id=target_tenant_id and conversation_id=conv and status<>'RESOLVED' and private.escalation_rank(severity)>=3) or exists(select 1 from public.messages where tenant_id=target_tenant_id and conversation_id=conv and direction='outbound' and status in ('pending','retry_scheduled','sending') and actor_type='HUMAN') or exists(select 1 from public.messages where tenant_id=target_tenant_id and conversation_id=conv and status='sending') then raise exception 'conversation still requires human control' using errcode='55000';end if;
   update public.escalation_cases set returned_to_ai_at=b where id=e.id;
   update public.agent_tasks set status='CANCELLED',cancellation_reason='ESCALATION_RETURN_BOUNDARY',completed_at=b where id in (select id from public.agent_tasks where tenant_id=target_tenant_id and conversation_id=conv and created_at<=b and status in ('QUEUED','WAITING_FOR_APPROVAL') for update skip locked);
-  update public.messages set status='failed',failure_code='ESCALATION_RETURN_BOUNDARY' where tenant_id=target_tenant_id and conversation_id=conv and direction='outbound' and actor_type<>'HUMAN' and status in ('pending','retry_scheduled');
+  update public.messages set status='failed',failure_code='ESCALATION_RETURN_BOUNDARY' where id in (select id from public.messages where tenant_id=target_tenant_id and conversation_id=conv and direction='outbound' and actor_type<>'HUMAN' and status in ('pending','retry_scheduled') for update skip locked);
   update public.conversations set runtime_mode='AI_ACTIVE',human_takeover=false,automatic_replies_enabled=true,automatic_replies_enabled_at=b,escalation_return_boundary=b,attention_required=false where id=conv;
  end if;
  if action_value in ('takeover','resolve','assign','acknowledge') then update public.messages set status='failed',failure_code='HUMAN_OWNS_CASE' where id=e.safe_reply_id and status in ('pending','retry_scheduled');end if;
@@ -224,18 +224,18 @@ declare n public.escalation_notifications%rowtype;e public.escalation_cases%rowt
  select * into e from public.escalation_cases where tenant_id=n.tenant_id and id=n.case_id;
  if cfg.chat_id is null then update public.escalation_notifications set status='BLOCKED',last_error='DESTINATION_NOT_CONFIGURED' where id=n.id;return null;end if;
  if e.status='RESOLVED' then update public.escalation_notifications set status='CANCELLED' where id=n.id;return null;end if;
- update public.escalation_notifications set status='RUNNING',attempts=attempts+1,lease_token=gen_random_uuid(),lease_until=now()+interval '60 seconds' where id=n.id returning * into n;
+ update public.escalation_notifications set status='RUNNING',attempts=attempts+1,lease_token=gen_random_uuid(),lease_until=now()+interval '60 seconds',destination_chat_id=cfg.chat_id,destination_bot_id=cfg.bot_id where id=n.id returning * into n;
  return jsonb_build_object('id',n.id,'tenant_id',n.tenant_id,'case_id',e.id,'lease_token',n.lease_token,'attempt',n.attempts,'chat_id',cfg.chat_id,'bot_id',cfg.bot_id,'severity',e.severity,'category',e.category,'customer_id',e.customer_id,'waiting_seconds',greatest(0,extract(epoch from now()-e.created_at)::int));end;$$;
 create function public.escalation_complete_notification(target_tenant_id uuid,target_job_id uuid,lease_value uuid,result_value jsonb) returns boolean language plpgsql security definer set search_path=pg_catalog as $$
 declare n public.escalation_notifications%rowtype;v text:=result_value->>'result';pid text:=result_value->>'provider_message_id';http int:=coalesce((result_value->>'provider_status')::int,0);begin
  select * into n from public.escalation_notifications where tenant_id=target_tenant_id and id=target_job_id for update;
  if n.id is null or n.status<>'RUNNING' or n.lease_token is distinct from lease_value or n.lease_until<=now() then raise exception 'notification lease denied' using errcode='42501';end if;
  if v not in ('SENT','RETRY','FAILED','UNCERTAIN') or v is null or (v='SENT' and (http<>200 or pid is null or pid!~'^[1-9][0-9]*$')) or (v='RETRY' and http<>429) then raise exception 'notification receipt invalid' using errcode='22023';end if;
- insert into public.escalation_notification_attempts(tenant_id,notification_id,attempt,result,provider_status,provider_message_id) values(n.tenant_id,n.id,n.attempts,v,http,case when v='SENT' then pid end);
+ insert into public.escalation_notification_attempts(tenant_id,notification_id,attempt,result,provider_status,provider_message_id,destination_chat_id,destination_bot_id) values(n.tenant_id,n.id,n.attempts,v,http,case when v='SENT' then pid end,n.destination_chat_id,n.destination_bot_id);
  update public.escalation_notifications set status=case when v='RETRY' and attempts<5 then 'PENDING' when v='RETRY' then 'FAILED' else v end,
  available_at=now()+make_interval(secs=>least(300,greatest(1,coalesce((result_value->>'retry_after')::int,30)))),lease_token=null,lease_until=null,
  provider_message_id=case when v='SENT' then pid end,sent_at=case when v='SENT' then now() end,last_error=case when v='SENT' then null when v='RETRY' then 'RATE_LIMITED' else v end where id=n.id;
- perform private.escalation_audit(n.case_id,'notification_'||lower(v),jsonb_build_object('notification_id',n.id,'attempt',n.attempts,'provider_status',http,'provider_message_id',case when v='SENT' then pid end));return v='SENT';end;$$;
+ perform private.escalation_audit(n.case_id,'notification_'||lower(v),jsonb_build_object('notification_id',n.id,'attempt',n.attempts,'provider_status',http,'provider_message_id',case when v='SENT' then pid end,'destination_chat_id',n.destination_chat_id,'destination_bot_id',n.destination_bot_id));return v='SENT';end;$$;
 
 create function public.admin_escalation_list(target_tenant_id uuid,target_case_id uuid default null,target_conversation_id uuid default null) returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $$begin
  if not private.has_tenant_role(target_tenant_id,array['super_admin','manager','support','analyst']::public.app_role[]) then raise exception 'escalation read denied' using errcode='42501';end if;

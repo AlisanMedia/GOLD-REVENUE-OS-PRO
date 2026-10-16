@@ -65,6 +65,7 @@ truncate p12_job;insert into p12_job select public.escalation_claim_notification
 select public.escalation_complete_notification('c1210000-0000-4000-8000-000000000001',(select (value->>'id')::uuid from p12_job),(select (value->>'lease_token')::uuid from p12_job),'{"result":"SENT","provider_status":200,"provider_message_id":"42"}');
 select is((select status from public.escalation_notifications where case_id=(select id from p12_scope)),'SENT','only recorded provider receipt marks notification sent');
 select is((select count(*) from public.escalation_notification_attempts where notification_id=(select (value->>'id')::uuid from p12_job)),2::bigint,'retry and success evidence append-only');
+select ok((select bool_and(destination_chat_id='12345' and destination_bot_id='99999') from public.escalation_notification_attempts where notification_id=(select (value->>'id')::uuid from p12_job)),'immutable attempt preserves exact bot/destination after configuration cleanup');
 select is(public.escalation_claim_notification('c1210000-0000-4000-8000-000000000001'),null::jsonb,'sent notification cannot be replayed');
 -- The financial/access boundary remains untouched.
 select is((select count(*) from public.domain_events where tenant_id='c1210000-0000-4000-8000-000000000001' and event_type in ('payment.confirmed','access.granted','subscription.started')),0::bigint,'escalation has no financial or access authority');

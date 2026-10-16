@@ -50,7 +50,7 @@ try{
   const worker=await http('/api/internal/escalation-worker',null,process.env.CRON_SECRET);check('scoped-notification-worker',worker.status===200);
   d=await list(manager.client);const n=d.cases[0].notification;check('genuine-manager-notification',n.status==='SENT'&&/^[1-9][0-9]*$/u.test(n.provider_message_id));
   check('sent-manager-notification-cannot-reclaim',await rpc(admin,'escalation_claim_notification',{target_tenant_id:tenant})===null);
-  const recorded=sql(`select jsonb_build_object('attempts',(select count(*) from public.escalation_notification_attempts where notification_id='${n.id}' and result='SENT' and provider_message_id=${q(n.provider_message_id)}),'audit',(select count(*) from public.escalation_history where case_id='${c.id}' and action='notification_sent')) as snapshot;`);
+  const recorded=sql(`select jsonb_build_object('attempts',(select count(*) from public.escalation_notification_attempts where notification_id='${n.id}' and result='SENT' and provider_message_id=${q(n.provider_message_id)} and destination_chat_id=${q(process.env.ESCALATION_TELEGRAM_CHAT_ID)} and destination_bot_id=${q(process.env.ESCALATION_TELEGRAM_BOT_ID)}),'audit',(select count(*) from public.escalation_history where case_id='${c.id}' and action='notification_sent')) as snapshot;`);
   check('provider-receipt-case-audit-linked',recorded.attempts===1&&recorded.audit===1);
   provider={status:'PASS',case_id:c.id,notification_id:n.id,provider_message_id:n.provider_message_id,sent_at:n.sent_at,chat_id:process.env.ESCALATION_TELEGRAM_CHAT_ID,bot_id:process.env.ESCALATION_TELEGRAM_BOT_ID,provider_acknowledged:true,human_read_confirmed:false,sent_receipts:recorded.attempts};
  }
