@@ -755,7 +755,7 @@ jobs:
 
           echo "Telegram staging webhook registered at the canonical HTTPS endpoint." >>"$GITHUB_STEP_SUMMARY"
       - name: Install Supabase CLI in the Vercel sandbox validation job
-        if: ${{ inputs.run_phase10_sandbox == true || inputs.run_phase11_sandbox == true || inputs.run_phase12_sandbox == true }}
+        if: ${{ inputs.run_phase10_sandbox == true || inputs.run_phase11_sandbox == true || inputs.run_phase12_sandbox == true || inputs.run_phase13_sandbox == true }}
         uses: supabase/setup-cli@v1
         with:
           version: 2.117.0
