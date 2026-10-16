@@ -23,6 +23,7 @@ try{
  baseline=snapshot();
  const insert=await admin.from('tenants').insert([{id:tenant,name:'Phase 12 isolated acceptance',slug:'phase12-sandbox-'+run},{id:other,name:'Phase 12 denial',slug:'phase12-sandbox-denial-'+run}]);if(insert.error)throw Error('FIXTURE_TENANT_FAILED');
  manager=await identity('manager');const support=await identity('support'),readonly=await identity('readonly');
+ check('notification-worker-auth-required',(await http('/api/internal/escalation-worker')).status===401);
  await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:true,approval_value:'Owner-authorized Phase 12 synthetic staging acceptance'});
  const ingest=async(id,text)=>rpc(admin,'ingest_telegram_message',{target_tenant_id:tenant,provider_update_id_value:'phase12:'+run+':'+id,provider_message_id_value:'test:'+id,provider_chat_id_value:'test:phase12:'+run,provider_user_id_value:'test:phase12:'+run,username_value:null,first_name_value:'TEST ONLY',last_name_value:null,content_value:text,reply_to_provider_message_id_value:null,occurred_at_value:new Date().toISOString()});
  const ordinary=await ingest('ordinary','What is your refund policy?');cid=ordinary.conversation_id;
@@ -48,7 +49,10 @@ try{
  if(process.env.ESCALATION_TELEGRAM_BOT_TOKEN&&process.env.ESCALATION_TELEGRAM_CHAT_ID&&process.env.ESCALATION_TELEGRAM_BOT_ID){
   await rpc(admin,'configure_phase12_escalation',{target_tenant_id:tenant,enabled_value:true,approval_value:'Owner-approved exact private Phase 12 manager notification acceptance',chat_value:process.env.ESCALATION_TELEGRAM_CHAT_ID,bot_value:process.env.ESCALATION_TELEGRAM_BOT_ID});
   const worker=await http('/api/internal/escalation-worker',null,process.env.CRON_SECRET);check('scoped-notification-worker',worker.status===200);
-  d=await list(manager.client);const n=d.cases[0].notification;check('genuine-manager-notification',n.status==='SENT'&&/^[1-9][0-9]*$/u.test(n.provider_message_id));
+  d=await list(manager.client);let n=d.cases[0].notification;
+  // A scheduled worker may own the same exclusive lease. Read receipts; never send a second alert.
+  for(let i=0;i<10&&n.status==='RUNNING';i++){await new Promise(resolve=>setTimeout(resolve,1000));d=await list(manager.client);n=d.cases[0].notification;}
+  check('genuine-manager-notification',n.status==='SENT'&&/^[1-9][0-9]*$/u.test(n.provider_message_id));
   check('sent-manager-notification-cannot-reclaim',await rpc(admin,'escalation_claim_notification',{target_tenant_id:tenant})===null);
   const recorded=sql(`select jsonb_build_object('attempts',(select count(*) from public.escalation_notification_attempts where notification_id='${n.id}' and result='SENT' and provider_message_id=${q(n.provider_message_id)} and destination_chat_id=${q(process.env.ESCALATION_TELEGRAM_CHAT_ID)} and destination_bot_id=${q(process.env.ESCALATION_TELEGRAM_BOT_ID)}),'audit',(select count(*) from public.escalation_history where case_id='${c.id}' and action='notification_sent')) as snapshot;`);
   check('provider-receipt-case-audit-linked',recorded.attempts===1&&recorded.audit===1);

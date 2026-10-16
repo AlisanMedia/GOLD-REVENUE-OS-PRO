@@ -99,6 +99,8 @@ declare m public.messages%rowtype;c public.conversations%rowtype;e public.escala
  if m.id is null or m.created_at<(select activated_at from private.escalation_controls where tenant_id=t) or m.created_at<now()-interval '5 minutes' then return null;end if;
  select * into c from public.conversations where tenant_id=t and id=m.conversation_id for update;
  if c.escalation_return_boundary is not null and m.created_at<c.escalation_return_boundary then return null;end if;
+ -- Operator resolution is authoritative for that source, including a later/retried QA run.
+ if exists(select 1 from public.escalation_cases e join public.escalation_evidence v on v.case_id=e.id and v.tenant_id=e.tenant_id where e.tenant_id=t and e.status='RESOLVED' and v.message_id=mid) then return null;end if;
  select * into e from public.escalation_cases where tenant_id=t and conversation_id=c.id and status<>'RESOLVED' for update;
  if e.id is null then
   insert into public.escalation_cases(tenant_id,conversation_id,customer_id,category,severity,source_message_id,locale) values(t,c.id,c.customer_id,cat,sev,m.id,loc) returning * into e;
@@ -151,7 +153,7 @@ declare e public.escalation_cases%rowtype;conv uuid;b timestamptz:=clock_timesta
  if action_value='assign' then
   if not exists(select 1 from public.tenant_members where tenant_id=target_tenant_id and user_id=assignee_value and status='active' and role in ('manager','super_admin')) then raise exception 'active tenant manager required' using errcode='42501';end if;
   update public.escalation_cases set assigned_to=assignee_value where id=e.id;
- elsif action_value='acknowledge' then update public.escalation_cases set status='ACKNOWLEDGED',acknowledged_at=coalesce(acknowledged_at,b),assigned_to=coalesce(assigned_to,auth.uid()) where id=e.id;
+ elsif action_value='acknowledge' then update public.escalation_cases set status=case when status='IN_PROGRESS' then status else 'ACKNOWLEDGED' end,acknowledged_at=coalesce(acknowledged_at,b),assigned_to=coalesce(assigned_to,auth.uid()) where id=e.id;
  elsif action_value='takeover' then
   if exists(select 1 from public.messages where tenant_id=target_tenant_id and conversation_id=conv and direction='outbound' and status='sending') then raise exception 'delivery in flight; wait for evidence' using errcode='55000';end if;
   update public.escalation_cases set status='IN_PROGRESS',assigned_to=auth.uid(),acknowledged_at=coalesce(acknowledged_at,b) where id=e.id;
@@ -181,7 +183,7 @@ declare e public.escalation_cases%rowtype;c public.conversations%rowtype;begin
  select * into e from public.escalation_cases where tenant_id=new.tenant_id and conversation_id=c.id and status<>'RESOLVED' order by created_at desc limit 1;
  if new.actor_type='HUMAN' then
   if e.id is not null then
-   if e.status<>'IN_PROGRESS' or e.assigned_to is distinct from auth.uid() then raise exception 'case takeover required before manual reply' using errcode='42501';end if;
+   if e.status<>'IN_PROGRESS' or e.assigned_to is distinct from auth.uid() or not private.has_tenant_role(new.tenant_id,array['super_admin','manager']::public.app_role[]) then raise exception 'case takeover required before manual reply' using errcode='42501';end if;
    if exists(select 1 from public.messages where id=e.safe_reply_id and status='sending') then raise exception 'safe response in flight' using errcode='55000';end if;
    update public.messages set status='failed',failure_code='HUMAN_REPLY_SUPERSEDES_ACK' where id=e.safe_reply_id and status in ('pending','retry_scheduled');
   end if;return new;

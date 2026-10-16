@@ -87,6 +87,12 @@ select is((select status from public.escalation_cases where id=(select id from p
 -- A manual reply must retain tenant gating, ownership and provider evidence.
 reset role;
 update public.tenants set outbound_messaging_enabled=true where id='c1210000-0000-4000-8000-000000000001';
+update public.tenant_members set role='support' where tenant_id='c1210000-0000-4000-8000-000000000001' and user_id='c1200000-0000-4000-8000-000000000001';
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c1200000-0000-4000-8000-000000000001',true);
+select throws_ok($$select public.queue_outbound_message('c1210000-0000-4000-8000-000000000001',(select conversation_id from p12_scope),'Role downgrade must deny reply','phase12-demoted',gen_random_uuid())$$,'42501','case takeover required before manual reply','role downgrade revokes active case manual authority');
+reset role;
+update public.tenant_members set role='manager' where tenant_id='c1210000-0000-4000-8000-000000000001' and user_id='c1200000-0000-4000-8000-000000000001';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','c1200000-0000-4000-8000-000000000001',true);
 select lives_ok($$select public.queue_outbound_message('c1210000-0000-4000-8000-000000000001',(select conversation_id from p12_scope),'Synthetic manual review reply','phase12-manual',gen_random_uuid())$$,'assigned manager can queue manual reply');
@@ -98,6 +104,10 @@ set local role authenticated;
 select set_config('request.jwt.claim.sub','c1200000-0000-4000-8000-000000000001',true);
 select throws_ok($$select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),5,'resolve')$$,'22023','resolution note required','resolution evidence mandatory');
 select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),5,'resolve',null,'Reviewed; no payment or access action performed.');
+reset role;
+select is(private.escalation_open('c1210000-0000-4000-8000-000000000001',(select source_message_id from p12_scope),'missing_access','HIGH','en','quality',gen_random_uuid()),null::uuid,'late QA cannot reopen an already resolved source before return');
+set local role authenticated;
+select set_config('request.jwt.claim.sub','c1200000-0000-4000-8000-000000000001',true);
 select throws_ok($$select public.set_conversation_automatic_replies('c1210000-0000-4000-8000-000000000001',(select conversation_id from p12_scope),true,gen_random_uuid())$$,'42501','resolve and return through escalation control','resolution alone cannot bypass return boundary');
 select public.admin_escalation_action('c1210000-0000-4000-8000-000000000001',(select id from p12_scope),6,'return');
 select ok((select automatic_replies_enabled and runtime_mode='AI_ACTIVE' and not human_takeover and escalation_return_boundary is not null from public.conversations where id=(select conversation_id from p12_scope)),'safe return enables only future sources');
