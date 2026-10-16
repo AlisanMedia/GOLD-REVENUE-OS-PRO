@@ -146,6 +146,10 @@ jobs:
         run: supabase test db supabase/tests/phase10_payments.test.sql
       - name: Run Phase 11 subscription and access security assertions
         run: supabase test db supabase/tests/phase11_entitlements.test.sql
+      - name: Run Phase 12 escalation security and behavior assertions
+        run: supabase test db supabase/tests/phase12_escalation.test.sql
+      - name: Prove concurrent escalation ingestion and notification leasing
+        run: bash supabase/tests/phase12_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
       - name: Prove concurrent payment idempotency
         shell: bash
         run: |
@@ -213,6 +217,10 @@ jobs:
           node apps/web/scripts/phase10-staging.mjs
           export PHASE11_EVIDENCE_FILE="$RUNNER_TEMP/phase11-http-acceptance.json"
           node apps/web/scripts/phase11-staging.mjs
+          export PHASE12_LOCAL_DB_URL="$phase10_db_url"
+          export PHASE12_LOCAL_APP_URL=http://127.0.0.1:3100
+          export PHASE12_EVIDENCE_FILE="$RUNNER_TEMP/phase12-http-acceptance.json"
+          node apps/web/scripts/phase12-staging.mjs
       - name: Upload sandbox HTTP acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -226,6 +234,13 @@ jobs:
         with:
           name: phase11-http-acceptance
           path: ${{ runner.temp }}/phase11-http-acceptance.json
+          retention-days: 14
+      - name: Upload Phase 12 HTTP/Admin acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase12-http-acceptance
+          path: ${{ runner.temp }}/phase12-http-acceptance.json
           retention-days: 14
       - name: Upload database evidence
         if: always()

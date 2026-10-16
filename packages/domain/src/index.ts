@@ -36,3 +36,4 @@ export * from "./commercial";
 export * from "./payments";
 
 export * from "./subscriptions";
+export * from "./escalations";

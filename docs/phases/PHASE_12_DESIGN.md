@@ -1,0 +1,15 @@
+# Phase 12 — Human Escalation
+
+Owner explicitly authorizes implementation, PR/CI/merge and controlled isolated-staging acceptance. Phase 13+, live money, production entitlement/VIP access, historical import and unrestricted outbound remain prohibited.
+
+Reuse PostgreSQL transactions, existing conversations/messages, QA evidence, outbox/worker, RBAC and audit. No new paid service. Activation is service-only and restricted to `phase12-sandbox-*` tenants; existing staging conversations are unchanged. Fresh inbound detection runs inside ingestion before commit, so high-risk text cannot race ahead into automatic delivery. QA-derived low confidence/conflicts also create source-bound cases. Ordinary questions do not automatically become disputes.
+
+LOW/MEDIUM are logged without forcing takeover; HIGH/CRITICAL pause ordinary AI delivery. One unresolved case per tenant/conversation accumulates immutable deduplicated evidence and can increase severity. Cases have revision-checked assignment/acknowledgment/takeover/resolution/return, active-manager assignment, timestamps and append-only history. Returning requires a resolution note, no other high-risk case/in-flight send, a fresh automatic-reply boundary and cancellation of old pending tasks/deliveries. Existing enable actions cannot bypass unresolved cases.
+
+A separate deterministic safe acknowledgment uses only fixed EN/TR/AR/RU wording: the issue needs human review, with no claim that anyone was contacted or that money/access changed. It retains tenant/contact/provider/source gates, sends once, and is suppressed by human ownership/replies. Uncertain provider outcomes are held rather than blindly retried; a send already accepted by Telegram cannot be recalled.
+
+Manager notifications use a separate bot, exact server-owned tenant/chat/bot binding and recorded owner approval. The VIP staging channel is always denied. The recipient is never inferred from a brand role. Payloads contain case/category/severity/waiting/IDs and an approved app deep link, not customer text or secrets. Exclusive leases, durable job keys, provider message IDs, bounded explicit-429 retries and uncertain-delivery review prevent duplicate sends. Missing destinations are visibly BLOCKED. Successful provider evidence alone supports a notified statement.
+
+Admin extends Needs Attention and conversation detail using existing styling: priority/waiting queue, case/evidence/history, assignment, acknowledgment/takeover, manual reply, resolution/return and notification status. Mutations require tenant manager/super-admin; support/analyst read only. Every RPC and table boundary independently enforces scope.
+
+Acceptance: deterministic unit/integration tests, real PostgreSQL pgTAP and concurrent sessions, lint/typecheck/build/audit, Application+Database CI, then one controlled staging publication with synthetic HTTP/Admin acceptance. Genuine manager notification requires owner-provided separate bot secret and approved private admin chat. Synthetic acceptance cannot substitute for that provider proof; no old Phase 7–11 real Telegram cycle is repeated.
