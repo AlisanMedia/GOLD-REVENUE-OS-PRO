@@ -151,6 +151,7 @@ jobs:
       VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
       APPROVED_ADMIN_CHAT: ${{ inputs.phase12_admin_chat_id }}
       PHASE12_REAL_TELEGRAM_ACCEPTANCE: owner-single-alert
+      PHASE12_READ_ONLY_DIAGNOSTIC: "true"
       ESCALATION_TELEGRAM_BOT_TOKEN: ${{ secrets.ESCALATION_TELEGRAM_BOT_TOKEN }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}

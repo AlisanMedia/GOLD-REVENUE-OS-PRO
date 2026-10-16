@@ -5,6 +5,7 @@ import { test, vi } from "vitest";
 vi.mock("server-only", () => ({})); // Node harness boundary only; DB, worker and transport are real.
 import { createSupabaseAdminClient } from "../../apps/web/src/lib/supabase/admin";
 import { drainEscalations } from "../../apps/web/src/lib/escalations/service";
+import { ManagerTelegramNotifier } from "../../apps/web/src/lib/escalations/notification-adapter";
 
 const enabled = process.env.PHASE12_REAL_TELEGRAM_ACCEPTANCE === "owner-single-alert";
 (enabled ? test : test.skip)("one real private manager alert with case/receipt/audit reconciliation", async () => {
@@ -80,6 +81,27 @@ const enabled = process.env.PHASE12_REAL_TELEGRAM_ACCEPTANCE === "owner-single-a
       chat_title: chat.title, bot_membership: member.status, can_send_messages: true, owner_id: ownerId,
       command_message_id: command.message.message_id, update_id: command.update_id, webhook_configured: false,
       updates_inspected: updates.length, updates_acknowledged: false, separate_from_vip: true };
+    if (process.env.PHASE12_READ_ONLY_DIAGNOSTIC === "true") {
+      const trace: unknown[] = [];
+      const diagnostic = new ManagerTelegramNotifier({ tenantId: tenant, chatId, botId,
+        botToken: process.env.ESCALATION_TELEGRAM_BOT_TOKEN!, appOrigin: process.env.NEXT_PUBLIC_APP_URL! }, async (input, init) => {
+        const method = String(input).split("/").at(-1);
+        if (method === "sendMessage") { trace.push({ method, blocked_before_network: true }); throw Error("DIAGNOSTIC_NO_SEND"); }
+        try {
+          const r = await transport(input, init), d = await r.clone().json();
+          trace.push({ method, http_status: r.status, ok: d.ok, id_type: typeof d.result?.id,
+            id: d.result?.id, is_bot: d.result?.is_bot, chat_type: d.result?.type,
+            username_type: typeof d.result?.username, username_is_null: d.result?.username === null });
+          return r;
+        } catch (error) { trace.push({ method, failure_name: error instanceof Error ? error.name : "unknown" }); throw Error("DIAGNOSTIC_PREFLIGHT_FAILED"); }
+      });
+      try {
+        evidence.diagnostic_receipt = await diagnostic.send({ id: tenant, tenant_id: tenant, case_id: tenant, lease_token: tenant,
+          attempt: 1, chat_id: chatId, bot_id: botId, severity: "HIGH", category: "refund_request", customer_id: null, waiting_seconds: 0 });
+      } catch (error) { evidence.diagnostic_exception = { name: error instanceof Error ? error.name : "unknown",
+        code: error instanceof Error && /^[A-Z0-9_]+$/u.test(error.message) ? error.message : "VALIDATION_FAILED" }; }
+      evidence.diagnostic_trace = trace; evidence.status = "READ_ONLY_DIAGNOSTIC"; return;
+    }
     evidence.safety_before = await snapshot();
     const exists = await db.from("tenants").select("id").eq("id", tenant).maybeSingle();
     check("FIXTURE_HAS_NEVER_BEEN_USED_NO_RESEND", !exists.error && !exists.data);
