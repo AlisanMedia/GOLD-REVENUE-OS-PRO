@@ -25,7 +25,7 @@ This pre-merge engineering record describes the delivered scope and local verifi
 ## Verification record
 
 - Local full suite before the final small evidence-view addition: 592 unit + 168 integration tests PASS; final targeted survey/Phase 12 evidence view: 62/62 PASS. Mandatory exact-head CI must confirm final totals.
-- Phase 14 PostgreSQL: 84 pgTAP assertions PASS, including immutable versions, consent/source gates, both channels, current/closed-month privacy, serious complaint linkage, legal hold/retention and verified TEST trigger evidence.
+- Phase 14 PostgreSQL: 86 pgTAP assertions PASS, including immutable versions, consent/source gates, both channels, current/closed-month privacy, serious complaint linkage, legal hold/retention and verified TEST trigger evidence.
 - Concurrent version approval, anonymous completion/unlinked permit uniqueness, SKIP LOCKED processing and revision-fenced legal hold PASS.
 - All existing local pgTAP files passed on a clean migrated database. Local PL/pgSQL error lint passed after supplying the local equivalent of CLI-managed migration metadata. Actual Supabase CLI lint remains a CI/staging gate.
 - Full local lint/typecheck/build and dependency audit passed; the existing exact development-advisory exception was retained. Targeted final checks and remote CI remain release gates.
@@ -35,7 +35,7 @@ This pre-merge engineering record describes the delivered scope and local verifi
 
 ## Failed evidence and corrections
 
-Local failures were retained, not described as passes: package-tool cache/home permissions, restricted Turbopack local worker binding and Git stdin subprocess blocking; SQL aggregate/workspace variable ambiguity; compact insight DTO mismatch; callback replay metadata stripped by presentation parsing; test-fixture cohort movement after triage caused an extra legitimate draft; desktop screenshot selector matched both navigation and page headings. Corrections preserved mandatory checks. Visual acceptance also corrected metric-card readability and native browser month text to explicit locale-aware UTC month choices. No real provider retries or historical Telegram matrix were run.
+Local failures were retained, not described as passes: package-tool cache/home permissions, restricted Turbopack local worker binding and Git stdin subprocess blocking; SQL aggregate/workspace variable ambiguity; compact insight DTO mismatch; callback replay metadata stripped by presentation parsing; test-fixture cohort movement after triage caused an extra legitimate draft; desktop screenshot selector matched both navigation and page headings. Corrections preserved mandatory checks. Visual acceptance also corrected metric-card readability and native browser month text to explicit locale-aware UTC month choices. A final negative test also reproduced changed-payload request-ID reuse and oversized policy evidence acceptance; both were corrected in the same implementation PR and the expanded 86-assertion matrix passed. No real provider retries or historical Telegram matrix were run.
 
 ## Remaining gates and practical limits
 

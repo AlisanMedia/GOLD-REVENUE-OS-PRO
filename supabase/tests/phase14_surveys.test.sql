@@ -89,6 +89,7 @@ insert into p14 select 'v2',to_jsonb(public.admin_survey_save('e3200000-0000-400
 select is((select version from public.survey_versions where id=((select v from p14 where k='v2')#>>'{}')::uuid),2,'editing approved content creates immutable lineage');
 select public.admin_survey_state('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='v2')#>>'{}')::uuid,1,'approve');
 select public.admin_survey_state('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='v2')#>>'{}')::uuid,2,'publish');
+select throws_ok(format('select public.admin_survey_invitation(%L,%L,%L,%L,%L,true)','e3200000-0000-4000-8000-000000000001',(select v#>>'{}' from p14 where k='v2'),'e3300000-0000-4000-8000-000000000001',(select v#>>'{}' from p14 where k='conversation'),'e3900000-0000-4000-8000-000000000001'),'PT409','survey request replay conflict','reused request ID cannot change the survey source');
 insert into p14 select 'i2',public.admin_survey_invitation('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='v2')#>>'{}')::uuid,'e3300000-0000-4000-8000-000000000001',((select v from p14 where k='conversation')#>>'{}')::uuid,'e3900000-0000-4000-8000-000000000002',true);
 insert into p14 select 'session',public.admin_survey_telegram_start('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='i2')->>'id')::uuid);
 reset role;
@@ -115,6 +116,7 @@ insert into p14 select 'insight',to_jsonb(id) from public.survey_insights where 
 select is(public.admin_survey_review('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='insight')#>>'{}')::uuid,1,'review'),2,'manager reviews source-backed recommendation');
 select is(public.admin_survey_review('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='insight')#>>'{}')::uuid,2,'approve'),3,'manager approval records review only');
 select throws_ok(format('select public.admin_survey_review(%L,%L,2,%L)','e3200000-0000-4000-8000-000000000001',(select v#>>'{}' from p14 where k='insight'),'plan'),'PT409','review changed','stale manager review rejected');
+select throws_ok($$select public.admin_survey_policy('e3200000-0000-4000-8000-000000000001',jsonb_build_object('legal_hold',false,'legal_hold_reference',repeat('x',5000)),1)$$,'22023','invalid settings','manager RPC rejects oversized policy evidence before audit');
 select public.admin_survey_policy('e3200000-0000-4000-8000-000000000001','{"retention_days":1,"retention_approval":"SYNTHETIC retention test","legal_hold":true,"legal_hold_reference":"SYNTHETIC legal hold"}',1);
 select throws_ok($$select public.admin_survey_policy('e3200000-0000-4000-8000-000000000001','{"legal_hold":false}',1)$$,'PT409','survey policy changed','stale policy cannot release a concurrent legal hold');
 reset role;

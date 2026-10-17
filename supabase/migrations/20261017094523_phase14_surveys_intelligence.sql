@@ -144,7 +144,7 @@ create function public.admin_survey_policy(target_tenant_id uuid,settings_value 
  if not private.survey_enabled(target_tenant_id) then raise exception 'survey sandbox disabled' using errcode='42501';end if;
  perform 1 from private.survey_controls where tenant_id=target_tenant_id and revision=expected_revision for update;
  if not found then raise exception 'survey policy changed' using errcode='PT409';end if;
- if settings_value is null or jsonb_typeof(settings_value) is distinct from 'object' or exists(select 1 from jsonb_object_keys(settings_value) k where k not in ('cadence_days','cadence_approval','retention_days','retention_approval','legal_hold','legal_hold_reference')) then raise exception 'invalid settings' using errcode='22023';end if;
+ if settings_value is null or jsonb_typeof(settings_value) is distinct from 'object' or octet_length(settings_value::text)>4096 or coalesce(length(settings_value->>'legal_hold_reference'),0)>300 or exists(select 1 from jsonb_object_keys(settings_value) k where k not in ('cadence_days','cadence_approval','retention_days','retention_approval','legal_hold','legal_hold_reference')) then raise exception 'invalid settings' using errcode='22023';end if;
  update private.survey_controls set revision=revision+1,cadence_days=(settings_value->>'cadence_days')::integer,cadence_approval=nullif(settings_value->>'cadence_approval',''),retention_days=(settings_value->>'retention_days')::integer,retention_approval=nullif(settings_value->>'retention_approval',''),legal_hold=coalesce((settings_value->>'legal_hold')::boolean,false),legal_hold_reference=settings_value->>'legal_hold_reference' where tenant_id=target_tenant_id;
  perform private.survey_log(target_tenant_id,null,'policy_reviewed',jsonb_build_object('sandbox_only',true,'revision',expected_revision+1,'settings',settings_value));
 end;$$;
@@ -199,7 +199,7 @@ create function public.admin_survey_invitation(target_tenant_id uuid,version_val
  perform private.survey_require(target_tenant_id,true);
  perform 1 from public.customers where tenant_id=target_tenant_id and id=customer_value for update;if not found then raise exception 'customer unavailable' using errcode='42501';end if;
  select * into i from private.survey_invitations where tenant_id=target_tenant_id and request_id=request_id_value;
- if i.id is not null then return jsonb_build_object('id',i.id,'status',i.status,'replayed',true,'send_enabled',false);end if;
+ if i.id is not null then if i.version_id is distinct from version_value or i.customer_id is distinct from customer_value or i.conversation_id is distinct from conversation_value then raise exception 'survey request replay conflict' using errcode='PT409';end if;return jsonb_build_object('id',i.id,'status',i.status,'replayed',true,'send_enabled',false);end if;
  perform private.survey_lock_sources(target_tenant_id,customer_value,conversation_value);
  e:=private.survey_eligibility(target_tenant_id,version_value,customer_value,conversation_value,requested_value);
  if not (e->>'review_ready')::boolean then return e;end if;
