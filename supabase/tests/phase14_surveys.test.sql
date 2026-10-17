@@ -22,6 +22,7 @@ select ok(not private.survey_definition_valid(jsonb_set((select v from p14 where
 select ok(not private.survey_definition_valid((select v from p14 where k='definition')||'{"tenant_id":"fake"}'),'reject injected authority');
 select ok(not private.survey_definition_valid(jsonb_set((select v from p14 where k='definition'),'{title}','null')),'reject null title');
 select ok(not private.survey_definition_valid(null),'SQL null cannot become an approved definition');
+insert into public.conversations(id,tenant_id,provider_connection_id,messaging_contact_id,customer_id,provider_conversation_id,human_takeover,runtime_mode) select 'e1400000-0000-4000-8000-000000000099',tenant_id,provider_connection_id,messaging_contact_id,customer_id,'synthetic-empty-conversation',false,'AI_ACTIVE' from public.conversations where tenant_id='e3200000-0000-4000-8000-000000000001';
 set local role authenticated;select set_config('request.jwt.claim.sub','e3100000-0000-4000-8000-000000000001',true);
 insert into p14 select 'version',to_jsonb(public.admin_survey_save('e3200000-0000-4000-8000-000000000001',(select v from p14 where k='definition')));
 select is(public.admin_survey_state('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='version')#>>'{}')::uuid,1,'approve'),2,'approve draft');
@@ -32,6 +33,7 @@ select ok((select v->'blockers' ? 'SURVEY_CONSENT_REQUIRED' from p14 where k='el
 select is(public.admin_survey_consent('e3200000-0000-4000-8000-000000000001','e3300000-0000-4000-8000-000000000001',0,'GRANTED','SYNTHETIC explicit survey permission',now()+interval '1 day'),1,'review survey-scoped consent');
 update p14 set v=public.admin_survey_eligibility('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='version')#>>'{}')::uuid,'e3300000-0000-4000-8000-000000000001',((select v from p14 where k='conversation')#>>'{}')::uuid,true) where k='eligibility';
 select ok((select (v->>'review_ready')::boolean and not (v->>'invitation_eligible')::boolean and not (v->>'send_enabled')::boolean from p14 where k='eligibility'),'test review ready but no outbound authority');
+reset role;select ok(private.survey_eligibility('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='version')#>>'{}')::uuid,'e3300000-0000-4000-8000-000000000001','e1400000-0000-4000-8000-000000000099',true)->'blockers' ? 'CONVERSATION_EVIDENCE_REQUIRED','a contact/conversation without real message evidence cannot create test access');set local role authenticated;
 reset role;
 update public.customer_success_contact_policies set opted_out=true where tenant_id='e3200000-0000-4000-8000-000000000001';
 select ok(private.survey_eligibility('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='version')#>>'{}')::uuid,'e3300000-0000-4000-8000-000000000001',((select v from p14 where k='conversation')#>>'{}')::uuid,true)->'blockers' ? 'CONSENT_OR_OPT_OUT','opt-out fails closed');
@@ -90,6 +92,7 @@ select is((select version from public.survey_versions where id=((select v from p
 select public.admin_survey_state('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='v2')#>>'{}')::uuid,1,'approve');
 select public.admin_survey_state('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='v2')#>>'{}')::uuid,2,'publish');
 select throws_ok(format('select public.admin_survey_invitation(%L,%L,%L,%L,%L,true)','e3200000-0000-4000-8000-000000000001',(select v#>>'{}' from p14 where k='v2'),'e3300000-0000-4000-8000-000000000001',(select v#>>'{}' from p14 where k='conversation'),'e3900000-0000-4000-8000-000000000001'),'PT409','survey request replay conflict','reused request ID cannot change the survey source');
+reset role;update public.messages set created_at=now()-interval '2 days',occurred_at=now()-interval '2 days' where tenant_id='e3200000-0000-4000-8000-000000000001' and direction='inbound';set local role authenticated;
 insert into p14 select 'i2',public.admin_survey_invitation('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='v2')#>>'{}')::uuid,'e3300000-0000-4000-8000-000000000001',((select v from p14 where k='conversation')#>>'{}')::uuid,'e3900000-0000-4000-8000-000000000002',true);
 insert into p14 select 'session',public.admin_survey_telegram_start('e3200000-0000-4000-8000-000000000001',((select v from p14 where k='i2')->>'id')::uuid);
 reset role;
@@ -105,7 +108,7 @@ select ok((public.survey_telegram_text(5,'p10-user','p10-chat',5,'I have a secur
 select is((select count(*) from private.survey_identified_responses where tenant_id='e3200000-0000-4000-8000-000000000001' and channel='TELEGRAM'),1::bigint,'one normalized Telegram response');
 select is((select count(*) from public.escalation_cases where tenant_id='e3200000-0000-4000-8000-000000000001'),1::bigint,'identified complaint enters existing Phase12 authority');
 select is((select count(*) from public.escalation_evidence where tenant_id='e3200000-0000-4000-8000-000000000001' and source_kind='survey'),1::bigint,'case evidence links real survey response');
-select ok((select human_takeover and not automatic_replies_enabled from public.conversations where tenant_id='e3200000-0000-4000-8000-000000000001'),'critical survey complaint pauses AI');
+select ok((select human_takeover and not automatic_replies_enabled from public.conversations where tenant_id='e3200000-0000-4000-8000-000000000001' and id=((select v from p14 where k='conversation')#>>'{}')::uuid),'critical survey complaint pauses AI');
 select is((select count(*) from public.escalation_notifications where tenant_id='e3200000-0000-4000-8000-000000000001'),0::bigint,'Phase12 provider queue remains untouched');
 select is((select count(*) from private.survey_alert_drafts where tenant_id='e3200000-0000-4000-8000-000000000001'),2::bigint,'one identity-free and one linked alert draft');
 set local role authenticated;select set_config('request.jwt.claim.sub','e3100000-0000-4000-8000-000000000001',true);

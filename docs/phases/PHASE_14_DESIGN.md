@@ -36,3 +36,5 @@ Retention duration defaults to null. Explicit sandbox retention can be tested; l
 - One controlled isolated staging acceptance, synthetic evidence only. Read back financial, messaging, VIP and import invariants; safely disable fixtures while preserving permitted audit/failure records.
 
 Phase 14 remains OPEN until separate explicit owner approval. Phase 15+ is not authorized.
+
+Source authority clarification: a fresh, server-bound identified survey is current evidence even when the existing conversation message is older. The message remains a real conversation anchor, never a fabricated new Telegram inbound. Eligibility requires a real anchor; completion rolls back if its survey/return-boundary authority changes, rather than accepting an untriaged serious complaint. A two-day-old-anchor regression is part of synthetic staging.

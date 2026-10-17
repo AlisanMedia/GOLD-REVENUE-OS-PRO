@@ -1,5 +1,6 @@
 // Human-readable presentation only. Survey/customer text is never translated here.
 export const surveyCopy={
+ "Verified conversation evidence required":["Doğrulanmış görüşme kanıtı gerekiyor","Verified conversation evidence required"],
  "Review clarity and timing of service explanations.":["Hizmet açıklamalarının anlaşılabilirliğini ve paylaşım zamanlamasını inceleyin.","Review clarity and timing of service explanations."],
  "Clarify price and package explanations; price changes need separate approval.":["Fiyat ve paket açıklamasını netleştirin; fiyat değişikliği ayrıca onay gerektirir.","Clarify price and package explanations; price changes need separate approval."],
  "Review support guidance and the resolution workflow.":["Destek yönlendirmelerini ve çözüm sürecini inceleyin.","Review support guidance and the resolution workflow."],
