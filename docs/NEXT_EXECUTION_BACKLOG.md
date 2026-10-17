@@ -1,6 +1,6 @@
 # GOLD REVENUE OS PRO — Next Execution Backlog
 
-Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea7762790835`. Product/system/evidence map: [MASTER_PRODUCT_CONTEXT.md](MASTER_PRODUCT_CONTEXT.md). This is a proposed execution order, **not implementation authorization**. Phases 1–13 are CLOSED within their documented acceptance scopes; Phase 13 was formally owner-approved on 2026-10-17 Türkiye / 2026-10-16 UTC after main CI 38958730970 and 60/60 isolated staging. Phase 14+ remains unauthorized.
+Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea7762790835`. Product/system/evidence map: [MASTER_PRODUCT_CONTEXT.md](MASTER_PRODUCT_CONTEXT.md). This is a proposed execution order, **not implementation authorization**. Phases 1–13 are CLOSED within their documented acceptance scopes; Phase 13 was formally owner-approved on 2026-10-17 Türkiye / 2026-10-16 UTC after main CI 38958730970 and 60/60 isolated staging. Phase 14 implementation/synthetic staging is now separately owner-authorized and OPEN; Phase 15+ remains unauthorized.
 
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
@@ -56,11 +56,11 @@ These are **hypotheses/unverified scenarios**, not newly proven defects: provide
 - Use strict TypeScript, existing contracts/adapters and transactional DB boundaries. No unrelated refactor or new service without evidence/value and authorization.
 - For documentation: file/link/consistency checks and `git diff --check`; existing CI remains the repository merge gate. For implementation: targeted meaningful domain/integration/pgTAP/concurrency/HTTP checks appropriate to the change, lint/typecheck/build and both exact-commit CI jobs.
 - New staging deployment, provider test, customer action, permission change, payment/live activation and phase closure each need their actual authorization. Synthetic tests do not prove provider acceptance; merge does not prove closure.
-- Report failed/blocked attempts and remaining unknowns. Keep raw customer data, secrets and invitations out of PRs/logs/artifacts. The subsequent explicit owner instruction permits documentation/Phase 12 PR merges after required CI and one controlled Phase 12 staging acceptance path. It does not authorize old Telegram retests, global deployment changes, Phase 14+ or live payment/VIP operations.
+- Report failed/blocked attempts and remaining unknowns. Keep raw customer data, secrets and invitations out of PRs/logs/artifacts. The subsequent explicit owner instruction permits documentation/Phase 12 PR merges after required CI and one controlled Phase 12 staging acceptance path. It does not authorize old Telegram retests, global deployment changes, Phase 15+ or live payment/VIP operations.
 
 ## OWNER & CUSTOMER UX STANDARD — acceptance dependency for all future work
 
-Phase 12 and Phase 13 UX/localization are CLOSED with explicit owner approvals for accepted staging/test scope; Phases 14–18 remain unauthorized. Use the permanent [Master Context standard](MASTER_PRODUCT_CONTEXT.md) and root [AGENTS.md](../AGENTS.md). Customer default English and operator default Turkish are independent. Require correctness, security/reliability, intuitive workflow, clear visuals, customer/operator experience and efficient execution in every future acceptance plan.
+Phase 12 and Phase 13 UX/localization are CLOSED with explicit owner approvals for accepted staging/test scope; Phase 14 is authorized and OPEN for synthetic acceptance; Phases 15–18 remain unauthorized. Use the permanent [Master Context standard](MASTER_PRODUCT_CONTEXT.md) and root [AGENTS.md](../AGENTS.md). Customer default English and operator default Turkish are independent. Require correctness, security/reliability, intuitive workflow, clear visuals, customer/operator experience and efficient execution in every future acceptance plan.
 
 | Item | Business value / dependency | Verification | Complexity / owner gate |
 | --- | --- | --- | --- |
@@ -68,7 +68,7 @@ Phase 12 and Phase 13 UX/localization are CLOSED with explicit owner approvals f
 | Team display names | Phase 13 CS assignment now projects current-tenant manager display names without emails; the accepted Phase 12 directory still exposes IDs/roles | Preserve “Siz” / short references in legacy cases; a later focused case-directory extension can reuse the same tenant-scoped projection policy | S; CS implemented in Phase 13, legacy case-directory extension remains proposed |
 | Future phase UX gate | Reduce training/support cost and language mistakes | Add English customer + Turkish operator acceptance examples, state/receipt evidence, accessible mobile controls, minimal clicks, Turkish owner instructions and explicit limitations | Per-phase; new phase authorization required |
 
-Base Phase 12 engineering, staging and one real provider notification passed (runs 38901188352 / 38901679487 / 38907164142), and the final UX increment passed PR #92/main CI 38931597256 and staging 38932231373. The owner explicitly APPROVED final Phase 12 closure on 2026-10-16. No new Telegram send is part of UX or this documentation closeout; Phase 14+ remains unauthorized.
+Base Phase 12 engineering, staging and one real provider notification passed (runs 38901188352 / 38901679487 / 38907164142), and the final UX increment passed PR #92/main CI 38931597256 and staging 38932231373. The owner explicitly APPROVED final Phase 12 closure on 2026-10-16. No new Telegram send is part of UX or this documentation closeout; Phase 14 implementation/synthetic staging is now separately owner-authorized and OPEN; Phase 15+ remains unauthorized.
 
 ## Phase 13 authorized execution update — 2026-10-16
 
@@ -84,4 +84,19 @@ The owner separately authorized and then formally CLOSED the Customer Success im
 
 B01–B04, B06–B09, B12–B16 remain independently gated. No claim of measured retention uplift, revenue gain, churn prediction accuracy, supplier rights or production readiness follows from this implementation.
 
-**Phase 13 owner-closeout (2026-10-17 Türkiye):** [Report](../PHASE_13_REPORT.md); [PR #94](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/94) + [PR #95](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/95); exact main `ee64bdaa835a887e0e5782f2217f9a8190a0f117`; [CI 38958730970](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38958730970) PASS; [controlled staging 38959222566](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38959222566) **60/60 PASS**. Historical failures remain in the report. All real customer contact/purchase/entitlement activation and Phase 14+ require new owner approval.
+**Phase 13 owner-closeout (2026-10-17 Türkiye):** [Report](../PHASE_13_REPORT.md); [PR #94](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/94) + [PR #95](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/95); exact main `ee64bdaa835a887e0e5782f2217f9a8190a0f117`; [CI 38958730970](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38958730970) PASS; [controlled staging 38959222566](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/38959222566) **60/60 PASS**. Historical failures remain in the report. All real customer contact/purchase/entitlement activation and Phase 15+ require new owner approval.
+
+
+## Active Phase 14 execution gate (owner authorized, 2026-10-17)
+
+[B12 design](phases/PHASE_14_DESIGN.md) is now explicitly authorized for implementation and controlled synthetic staging. The seven owner product decisions are final; do not ask them again. Do not infer live authorization from a published test questionnaire.
+
+| Priority | Work / business value | Verification / owner gate |
+|---|---|---|
+| P0 | Separate anonymous storage and closed-month k≥5 reporting; no identity enrichment/export; one-time unlinked admission and bounded abuse controls | Schema/privilege/API/log projections, low-count/complement suppression, replay/concurrency and legal-hold tests. No production retention duration selected. |
+| P0 | Consent, contactability, source revisions, current takeover and trigger authority | Explicit survey-scope evidence in addition to contact policy; unverified VIP/payment fails closed; no actual invitation or alert transport. |
+| P1 | Survey builder, response channels, deterministic insights and manager review | Four editable templates, immutable approved versions, 4–5 questions, normalized Telegram/web, source-backed queue, existing Phase 12 linkage and identity-free anonymous triage. |
+| P1 | Premium TR/EN Admin and independent customer language | Authenticated routes, keyboard and actual 320/390/768/1440px previews, truthful counts, errors and empty states. |
+| P1 | Phase 14 acceptance and separate owner sign-off | Exact-head Application + Database CI, focused pgTAP/concurrency/HTTP and one isolated synthetic staging publication. Preserve failures and permitted audits; disable synthetic fixtures after acceptance. Merge does not close Phase 14. |
+| P0 before live | Cadence, live cohort/consent, retention/deletion, privacy notice/jurisdictions, invitation rollout and real operations alerts | Separate explicit owner decisions; all live settings remain unapproved. Financial/VIP/import gates are independent. |
+| P2 before scale | Revisit bounded admin projections, aggregate/source-ID pagination and multi-tenant worker fairness from measured demand | No new warehouse/provider/microservice; preserve anonymity and query bounds. No Phase 15 implementation authority. |

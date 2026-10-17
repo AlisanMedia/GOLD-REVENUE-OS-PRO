@@ -1,0 +1,6 @@
+import { SurveyMonthFilter } from "@/components/surveys/month-filter";
+import { z } from "zod";
+import { surveyWorkspace } from "@/lib/surveys/server";
+import { SurveyAnalytics,SurveyBoundary,SurveyResponses,SurveyTabs,SurveyAlertPreviews } from "@/components/surveys/admin";
+import { getAdminI18n } from "@/lib/i18n/server";
+export default async function FeedbackPage({searchParams}:{searchParams:Promise<Record<string,string|string[]|undefined>>}){const raw=await searchParams,month=typeof raw.month==="string"&&/^\d{4}-\d{2}$/.test(raw.month)?raw.month+"-01":undefined,customer=typeof raw.customer==="string"&&z.uuid().safeParse(raw.customer).success?raw.customer:undefined;const [{data},{t}]=await Promise.all([surveyWorkspace(undefined,month,customer),getAdminI18n()]);return <main className="admin-main"><p className="eyebrow">GOLD REVENUE OS</p><h1>{t("Feedback intelligence")}</h1><p className="lede">{t("Listen clearly. Improve deliberately.")}</p><SurveyBoundary enabled={data.sandbox_enabled}/><SurveyTabs active="feedback"/><SurveyMonthFilter month={data.month} customer={customer}/>{!customer&&<SurveyAnalytics data={data}/>}<SurveyResponses data={data}/>{!customer&&<SurveyAlertPreviews drafts={data.drafts}/>}</main>;}

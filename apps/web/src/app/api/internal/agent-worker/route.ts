@@ -1,4 +1,5 @@
 import { drainCustomerSuccess } from "@/lib/customer-success/worker";
+import { drainSurveys } from "@/lib/surveys/worker";
 import { drainAutomaticReplies } from "@/lib/messaging/automatic-replies";
 import { timingSafeEqual } from "node:crypto";
 import { runDeterministicWorker } from "@/lib/agent-runtime/worker";
@@ -21,14 +22,15 @@ export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   try {
     const workload = new URL(request.url).searchParams.get("workload");
-    if (workload && workload !== "customer-success") return Response.json({ error: "INVALID_WORKLOAD" }, { status: 400 });
+    if (workload && workload !== "customer-success" && workload !== "surveys") return Response.json({ error: "INVALID_WORKLOAD" }, { status: 400 });
+    if (workload === "surveys") return Response.json({ status: "ok", surveys: await drainSurveys() });
     if (workload === "customer-success") return Response.json({ status: "ok", customer_success: await drainCustomerSuccess() });
     await drainEscalations();
     const result = await runDeterministicWorker({
       deploymentRef: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
     });
     await drainAutomaticReplies();
-    return Response.json({ status: "ok", ...result, customer_success: await drainCustomerSuccess() });
+    return Response.json({ status: "ok", ...result, customer_success: await drainCustomerSuccess(), surveys: await drainSurveys() });
   } catch {
     return Response.json({ error: "WORKER_EXECUTION_FAILED" }, { status: 500 });
   }

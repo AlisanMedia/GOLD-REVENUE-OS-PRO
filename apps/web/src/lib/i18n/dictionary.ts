@@ -1,5 +1,7 @@
+import { surveyCopy } from "./surveys";
 // Typed UI copy only. Never pass customer/provider content as a translation key.
 export const copy = {
+  ...surveyCopy,
   "Panel language": [
     "Panel dili",
     "Panel language"

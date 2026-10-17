@@ -36,6 +36,8 @@ const render = (overrides: Partial<EscalationCase> = {}, canManage = true) => re
 beforeEach(() => { vi.clearAllMocks(); mocks.requireCapability.mockResolvedValue({ tenantId: "server-owned-tenant", userId }); mocks.rpc.mockResolvedValue({ data: 2, error: null }); });
 
 describe("Turkish Phase 12 operator workflow", () => {
+  it("labels Phase14 survey evidence and links identified feedback without changing takeover controls",()=>{const model=data({customer_id:userId});model.evidence=model.evidence.map(e=>({...e,source_kind:"survey"}));const html=renderToStaticMarkup(createElement(EscalationCaseView,{data:model,userId,canManage:true,conversation:{runtime_mode:"HUMAN_TAKEOVER",automatic_replies_enabled:false}}));expect(html).toContain("Anket geri bildirimi");expect(html).toContain(`/admin/feedback?customer=${userId}`);expect(html).not.toContain("Yanıt kalite değerlendirmesi");});
+
   it.each(["super_admin", "manager", "support", "analyst", "readonly"] as const)("shows only %s role actions", role => {
     const allowed = hasAdminCapability(role, "escalations.manage");
     const html = render({}, allowed);
