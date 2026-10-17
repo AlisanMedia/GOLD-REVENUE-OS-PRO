@@ -1,8 +1,66 @@
-# Phase 14 — Survey and Customer Intelligence (OPEN)
+# Phase 14 — Survey and Customer Intelligence (CLOSED — scoped synthetic acceptance)
 
-Engineering continuation from `50ca8d8d61defa131757605405762905462df00b`, explicitly authorized by the owner on 2026-10-17. Phases 1–13 remain CLOSED within their accepted boundaries. Phase 14 requires separate owner acceptance; Phase 15+ and all live activation remain unauthorized.
+Original engineering baseline: `50ca8d8d61defa131757605405762905462df00b`. Phase 14 was separately authorized for implementation and subsequently **formally CLOSED by explicit owner approval on 2026-10-17**, strictly within the accepted synthetic/staging scope. Phases 1–13 retain their accepted boundaries; Phase 15+ and all live commercial activation remain unauthorized.
 
-This pre-merge engineering record describes the delivered scope and local verification. Exact remote Application/Database and controlled staging results must be read from the implementation PR's final evidence section and the separately delivered `PHASE_14_OWNER_ACCEPTANCE_REPORT`; local results are not remote CI or provider acceptance.
+This report preserves the historical pre-merge engineering checkpoint and unsuccessful attempts below, followed by the separately owner-authorized formal closeout and exact verified CI/staging evidence. Local tests remain distinct from authenticated GitHub/hosted staging evidence. A merged PR alone is not the owner's acceptance.
+
+## Formal owner closeout and final acceptance — 2026-10-17
+
+**Verdict: PHASE 14 CLOSED** by explicit owner instruction, **for controlled isolated synthetic staging only**. Acceptance covers the survey builder, consent/eligibility review, web form and prepared Telegram response contracts, privacy-preserving anonymous feedback, source-grounded insights, manager-controlled improvement queue, serious identified feedback linked to Phase 12 and Turkish/English administrator experience. This is not a commercial activation, production data-protection audit or real Telegram-provider delivery acceptance.
+
+### Exact implementation and remote release evidence
+
+| Gate | Evidence | Result |
+| --- | --- | --- |
+| Implementation PR #97 | [PR #97](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/97), head `6a2faa71e7ff8fd9bf40e7153e2a435addd054f2`, merge `041f3a59eb2ab68db23e0dd0a906b17e649f3f92` | MERGED |
+| Initial required CI | [39025339848](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39025339848), PR #97 head | Application + Database PASS |
+| Initial merged main CI | [39025670439](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39025670439) | Application + Database PASS |
+| Focused fresh-survey source-authority fix | [PR #98](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/98), head `e13e7bc2d26c2f0ca5b832369de565aae24f751c` | MERGED |
+| Correction PR CI | [39026067678](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39026067678) | Application + Database PASS |
+| **Accepted Phase 14 application main SHA** | `2289fc5af8e8dd4bdeb0eda6572eb81fd4ad1bc3` (PR #98 merge) | Final accepted application SHA |
+| **Final application main CI** | [39026333696](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39026333696) on `2289fc5af8e8dd4bdeb0eda6572eb81fd4ad1bc3` | Application + Database PASS |
+| **Isolated controlled staging** | [39026615428](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39026615428) on `2289fc5af8e8dd4bdeb0eda6572eb81fd4ad1bc3` | **66/66 synthetic acceptance PASS**, cleanup verified |
+| Staging application | `dpl_Ga1DDq9duVdhjucVshMf9Ls3pge6` | READY; verified deployment Git SHA matches `2289fc5af8e8dd4bdeb0eda6572eb81fd4ad1bc3` |
+
+Retained source-reported acceptance totals: **592 unit, 169 integration, 811 PostgreSQL pgTAP (87 Phase 14), 66 authenticated HTTP/Admin controls**. These are recorded test results for the accepted release, not new tests performed by the documentation closeout. Local actual-component visual/keyboard testing covered **22 checks**, TR/EN, 320/390/768/1440 px, with synthetic fixtures. The source-reported acceptance ZIP is [staging artifact 12098861603](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39026615428/artifacts/12098861603), SHA-256 `fae070f70149588d5f17084f15843df190ebab96b739e379fd38fdb5c72f66ec`; GitHub artifact retention may expire. Source of record for the full acceptance matrix remains the original acceptance run and owner report.
+
+### Privacy, complaint and message authority
+
+- Anonymous web answers use distinct restricted storage without a customer/Telegram identity, individualized invitation, response/contact mapping or fingerprint. Fixed **closed calendar months** and **k≥5**, with complete distribution suppression for small cells, limit the admin analytics projection. Anonymous per-respondent export, raw-text admin access and named customer enrichment are prohibited. One permit is not proof of one human; optional text can self-disclose identity and transport metadata may be processed by infrastructure.
+- Identified eligible survey responses can create or link **one source-grounded Phase 12 escalation** with historical evidence and current takeover fences. Anonymous serious concerns use identity-free triage rather than a fabricated customer or conversation.
+- Critical Turkish operations Telegram content is **DRAFT ONLY**: approved ops bot `8915334711`, exact private test group `-5537216841`. No Phase 14 `sendMessage`, `getUpdates`, `getMe`, real notification receipt, customer survey invitation, direct customer message or provider acceptance took place. Previous one Phase 12 manager delivery is historical and unrelated.
+- Real customer replies remain English by default, with evidence-linked explicit/verified EN/TR/AR/RU alternatives. Administrator UI remains per-account TR default/EN selectable. Questionnaire test publication is **not** customer delivery.
+
+### Historical unsuccessful attempts — preserved, not retroactively passed
+
+- [39025159044](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39025159044) was **CANCELLED**, not a successful CI acceptance and not evidence of an executed failing assertion. Preserve its original state.
+- The original local Phase 14 complaint-source implementation misused an **older real conversation anchor message timestamp** as if it were the fresh survey feedback's age. The aged two-day synthetic conversation fixture exposed **six failed case/takeover/evidence checks** before repair. PR #98 added an **append-only** source-authority migration: new verified survey is current evidence, pre-existing message only links the conversation; missing anchor, stale response or changed return boundary is denied atomically. After correction, 66/66 isolated staging acceptance PASSED without inventing an inbound Telegram message.
+- Other original local diagnostics — shell/cache permissions, restricted Turbopack worker, SQL variable ambiguity, compact insight DTO mismatch, Telegram callback replay metadata, duplicate selector and fixture/missing source state — remain described in the historical verification section. Negative tests for mismatched request ID/payload and oversized policy evidence were fixed before final acceptance. Do not delete, relabel or omit earlier results.
+
+### Read-only staging safety reconciliation at closeout
+
+The accepted isolated fixture tenant `4c0bfcb1-77f5-4b57-9889-8111801b9b84` remains **suspended**, with **outbound false, no active members, survey/form controls disabled**, after its original synthetic acceptance. Separate read-only database verification on 2026-10-17 showed:
+
+| Control / retained synthetic evidence | Count / state |
+| --- | --- |
+| Survey collection enabled, and configured live cadence or retention | **0** |
+| Phase 14 active synthetic tenants, Phase 13 active controls | **0** |
+| Remaining anonymous test responses | **0** (deleted on fixture cleanup) |
+| Identified synthetic survey responses | **2** (permitted test evidence retained) |
+| Synthetic Phase 12 complaint cases / Phase 14 notification drafts | **1 / 2** |
+| Recorded insights / survey fixture history entries | **12 / 28** |
+| Survey alert drafts allowed to send | **0** |
+| Enabled live payment-entitlement/escalation controls | **0** |
+| Verified live payment invoices / subscriptions / VIP channel access | **0 / 0 / 0** |
+| Historical manager notification SENT (pre-Phase-14 Phase 12 test) | **1** |
+
+The original authorized staging operating tenant still has its **pre-existing outbound flag**, which this phase did **not** change. That flag is not a Phase 14 campaign sender. Source-reported prior/current unrelated tenant and conversation hashes were identical and no Phase 14 customer/provider message was sent.
+
+### Remaining owner decisions and non-authorized work
+
+No live periodic cadence, live first cohort/consent evidence, retention/deletion duration, final privacy notice/jurisdictions, real customer survey rollout or real critical manager alerts were approved. Live trading-signal commercial claims, payments, production subscriptions/VIP, historical imports and broad outbound remain independently locked. Phase 15+ is **NOT AUTHORIZED / NOT STARTED**. No new code, migration, deployment, Telegram call or external provider test is authorized by this formal **documentation-only** closeout.
+
+**FORMAL PHASE 14 VERDICT: CLOSED — expressly owner-approved on 2026-10-17 for previously accepted isolated synthetic staging scope only.**
 
 ## Delivered
 
@@ -22,7 +80,7 @@ This pre-merge engineering record describes the delivered scope and local verifi
 
 **Geri Bildirim Merkezi → inceleme ayı (UTC) → kaynak ve örneklem → İyileştirme Kuyruğu → kanıt incelemesi → sorumlu/onay/plan/sonuç.** Approval does not change commercial policies, send messages or grant access. Identified complaints can be opened in the existing Attention workflow; anonymous triage has no customer to identify.
 
-## Verification record
+## Historical engineering verification checkpoint (before final remote acceptance)
 
 - Local full suite before the final small evidence-view addition: 592 unit + 168 integration tests PASS; final targeted survey/Phase 12 evidence view: 62/62 PASS. Mandatory exact-head CI must confirm final totals.
 - Phase 14 PostgreSQL: 87 pgTAP assertions PASS, including immutable versions, consent/source gates, both channels, current/closed-month privacy, serious complaint linkage, legal hold/retention and verified TEST trigger evidence.
@@ -37,7 +95,7 @@ This pre-merge engineering record describes the delivered scope and local verifi
 
 Local failures were retained, not described as passes: package-tool cache/home permissions, restricted Turbopack local worker binding and Git stdin subprocess blocking; SQL aggregate/workspace variable ambiguity; compact insight DTO mismatch; callback replay metadata stripped by presentation parsing; test-fixture cohort movement after triage caused an extra legitimate draft; desktop screenshot selector matched both navigation and page headings. Corrections preserved mandatory checks. Visual acceptance also corrected metric-card readability and native browser month text to explicit locale-aware UTC month choices. A final negative test also reproduced changed-payload request-ID reuse and oversized policy evidence acceptance; both were corrected in the same implementation PR and the expanded 86-assertion matrix passed. No real provider retries or historical Telegram matrix were run.
 
-## Remaining gates and practical limits
+## Historical remaining gates and practical limits (superseded by formal closeout above where applicable)
 
 - Exact-head Application + Database CI and the controlled isolated staging result are authoritative remote gates. Merge alone does not close Phase 14.
 - Live cadence, lawful initial cohort/consent evidence, retention/deletion duration, final privacy notice/jurisdictions, invitation rollout and any genuine manager alert need separate owner approval.
@@ -46,9 +104,9 @@ Local failures were retained, not described as passes: package-tool cache/home p
 - Admin projections and workers are deliberately bounded. Revisit pagination/source lists and tenant fairness before live scale. No new paid service, warehouse or bot was introduced.
 - Live payments, production subscriptions/VIP, historical imports, broad customer outbound and persistent production escalation remain disabled/locked or independently unauthorized. Existing unrelated staging control values must remain unchanged, rather than being falsely reported all false.
 
-Design and live-operation boundaries: [Phase 14 design](docs/phases/PHASE_14_DESIGN.md), [Master context](docs/MASTER_PRODUCT_CONTEXT.md), [Backlog](docs/NEXT_EXECUTION_BACKLOG.md). No formal Phase 14 closeout is claimed.
+Design and live-operation boundaries: [Phase 14 design](docs/phases/PHASE_14_DESIGN.md), [Master context](docs/MASTER_PRODUCT_CONTEXT.md), [Backlog](docs/NEXT_EXECUTION_BACKLOG.md). At this earlier checkpoint no formal closeout had yet been approved; the owner's later explicit CLOSED decision is recorded above.
 
 
-## Necessary source-authority correction before staging
+## Historical source-authority correction before accepted staging
 
 An isolated regression moved the real conversation fixture's inbound anchor two days into the past while submitting a fresh identified serious survey response. The initial Phase 14 helper silently returned without a case because it applied the inbound message age to the fresh survey source. Six case/takeover/retention assertions failed; this evidence was preserved. An append-only correction migration makes the current, verified survey response the source of authority and uses the existing persisted message only to anchor the conversation. The synthetic HTTP matrix now passes 66/66 with cleanup verified. Missing anchors, changed return boundaries or stale survey sources fail closed; no inbound message is fabricated. The 87-assertion PostgreSQL matrix passes with the aged anchor, and the controlled staging script explicitly exercises this regression. This is the sole necessary correction PR; no Phase 12 financial, provider or takeover authority was reopened.
