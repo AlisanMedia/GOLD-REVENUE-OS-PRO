@@ -1,4 +1,5 @@
 import { afterEach,beforeEach,describe,it,expect,vi } from "vitest";
+vi.mock("@/lib/surveys/worker",()=>({drainSurveys:async()=>({processed:0,tenants:0,send_enabled:false})}));
 const mocks=vi.hoisted(()=>({success:vi.fn(),agent:vi.fn(),escalations:vi.fn(),replies:vi.fn()}));
 vi.mock("@/lib/customer-success/worker",()=>({drainCustomerSuccess:mocks.success}));
 vi.mock("@/lib/agent-runtime/worker",()=>({runDeterministicWorker:mocks.agent}));

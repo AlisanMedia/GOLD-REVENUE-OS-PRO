@@ -151,6 +151,12 @@ jobs:
         run: |
           set -o pipefail
           supabase test db supabase/tests/phase12_escalation.test.sql | tee "$RUNNER_TEMP/phase12-pgtap.log"
+      - name: Run Phase 14 survey privacy, source authority and concurrency assertions
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/phase14_surveys.test.sql | tee "$RUNNER_TEMP/phase14-pgtap.log"
+          bash supabase/tests/phase14_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" | tee "$RUNNER_TEMP/phase14-concurrency.log"
       - name: Run Phase 13 Customer Success security and lifecycle assertions
         shell: bash
         run: |
@@ -215,6 +221,7 @@ jobs:
           export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SUPABASE_PUBLISHABLE_KEY"
           export CRON_SECRET=$(openssl rand -hex 32)
           echo "::add-mask::$CRON_SECRET"
+          export SURVEY_SANDBOX_FORMS_ENABLED=true
           export PAYMENT_TEST_WEBHOOKS_ENABLED=true
           export PAYMENT_TEST_WEBHOOK_SECRET=$(openssl rand -hex 32)
           echo "::add-mask::$PAYMENT_TEST_WEBHOOK_SECRET"
@@ -239,6 +246,10 @@ jobs:
           export PHASE13_LOCAL_APP_URL=http://127.0.0.1:3100
           export PHASE13_EVIDENCE_FILE="$RUNNER_TEMP/phase13-http-acceptance.json"
           node apps/web/scripts/phase13-staging.mjs
+          export PHASE14_LOCAL_DB_URL="$phase10_db_url"
+          export PHASE14_LOCAL_APP_URL=http://127.0.0.1:3100
+          export PHASE14_EVIDENCE_FILE="$RUNNER_TEMP/phase14-http-acceptance.json"
+          node apps/web/scripts/phase14-staging.mjs
       - name: Upload sandbox HTTP acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -267,6 +278,13 @@ jobs:
           name: phase13-http-acceptance
           path: ${{ runner.temp }}/phase13-http-acceptance.json
           retention-days: 14
+      - name: Upload Phase 14 authenticated HTTP and privacy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase14-http-acceptance
+          path: ${{ runner.temp }}/phase14-http-acceptance.json
+          retention-days: 14
       - name: Upload database evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -286,6 +304,8 @@ jobs:
             ${{ runner.temp }}/phase12-concurrency.log
             ${{ runner.temp }}/phase13-pgtap.log
             ${{ runner.temp }}/phase13-concurrency.log
+            ${{ runner.temp }}/phase14-pgtap.log
+            ${{ runner.temp }}/phase14-concurrency.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack
