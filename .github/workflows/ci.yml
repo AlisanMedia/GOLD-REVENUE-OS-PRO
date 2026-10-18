@@ -151,6 +151,12 @@ jobs:
         run: |
           set -o pipefail
           supabase test db supabase/tests/phase12_escalation.test.sql | tee "$RUNNER_TEMP/phase12-pgtap.log"
+      - name: Run Phase 15 financial truth, isolation and concurrent review assertions
+        shell: bash
+        run: |
+          set -o pipefail
+          supabase test db supabase/tests/phase15_analytics.test.sql | tee "$RUNNER_TEMP/phase15-pgtap.log"
+          bash supabase/tests/phase15_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" | tee "$RUNNER_TEMP/phase15-concurrency.log"
       - name: Run Phase 14 survey privacy, source authority and concurrency assertions
         shell: bash
         run: |
@@ -250,6 +256,10 @@ jobs:
           export PHASE14_LOCAL_APP_URL=http://127.0.0.1:3100
           export PHASE14_EVIDENCE_FILE="$RUNNER_TEMP/phase14-http-acceptance.json"
           node apps/web/scripts/phase14-staging.mjs
+          export PHASE15_LOCAL_DB_URL="$phase10_db_url"
+          export PHASE15_LOCAL_APP_URL=http://127.0.0.1:3100
+          export PHASE15_EVIDENCE_FILE="$RUNNER_TEMP/phase15-http-acceptance.json"
+          node apps/web/scripts/phase15-staging.mjs
       - name: Upload sandbox HTTP acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -278,6 +288,13 @@ jobs:
           name: phase13-http-acceptance
           path: ${{ runner.temp }}/phase13-http-acceptance.json
           retention-days: 14
+      - name: Upload Phase 15 authenticated analytics and financial truth evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase15-http-acceptance
+          path: ${{ runner.temp }}/phase15-http-acceptance.json
+          retention-days: 14
       - name: Upload Phase 14 authenticated HTTP and privacy evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -304,6 +321,8 @@ jobs:
             ${{ runner.temp }}/phase12-concurrency.log
             ${{ runner.temp }}/phase13-pgtap.log
             ${{ runner.temp }}/phase13-concurrency.log
+            ${{ runner.temp }}/phase15-pgtap.log
+            ${{ runner.temp }}/phase15-concurrency.log
             ${{ runner.temp }}/phase14-pgtap.log
             ${{ runner.temp }}/phase14-concurrency.log
           if-no-files-found: warn
