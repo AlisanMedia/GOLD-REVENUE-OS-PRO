@@ -11,7 +11,8 @@
       "codex/phase14-survey-intelligence-20261017": false,
       "codex/phase14-source-evidence-20261017": false,
       "codex/phase15-revenue-intelligence-20261017": false,
-      "codex/phase16c0-bounded-admin-reads": false
+      "codex/phase16c0-bounded-admin-reads": false,
+      "codex/phase16c1a-financial-source-contracts": false
     }
   },
   "framework": "nextjs",
