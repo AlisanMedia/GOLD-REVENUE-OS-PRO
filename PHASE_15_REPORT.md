@@ -1,8 +1,51 @@
-# Phase 15 — Revenue Intelligence (OPEN, owner acceptance required)
+# Phase 15 — Revenue Intelligence (CLOSED — scoped synthetic acceptance)
 
-Baseline `54ada98b65854e86ac5e1fb0c825b13bac86c4fb`; Phase 14 formally owner-approved in #99. Both mandatory baseline CI jobs were independently verified. The owner separately authorized Phase 15 analytics implementation/CI/merges and controlled isolated synthetic staging. Phases 1–14 remain CLOSED within their boundaries. Phase 16+, commercial activation, live payments, production VIP, real outreach and historical imports remain unauthorized.
+Baseline `54ada98b65854e86ac5e1fb0c825b13bac86c4fb`; Phase 14 was formally owner-approved in #99. The owner separately authorized Phase 15 analytics implementation, CI/merge and controlled isolated synthetic staging, and subsequently **expressly approved Phase 15 formal closure on 2026-10-18** within that same evidence-limited test scope. Phases 1–14 retain their original acceptance boundaries. Phase 16+, commercial activation, live payments, production VIP, real outreach and historical imports remain unauthorized.
 
-This engineering record describes the implementation. Final exact PR/main CI, staging artifacts and responsive screenshots are recorded in the PR's final evidence section and the delivered self-contained Turkish `PHASE_15_OWNER_ACCEPTANCE_REPORT`; pending gates below are not passing claims.
+This report preserves the original engineering record and its previously pending checkpoints below; the subsequent exact PR/main CI and staging results are now independently verified and the owner explicitly approved closeout. The owner-delivered `PHASE_15_OWNER_ACCEPTANCE_REPORT` is the complete acceptance ledger; historical local checks are not relabeled as provider or remote CI evidence.
+
+## Formal owner-approved Phase 15 closeout — 2026-10-18
+
+**VERDICT: PHASE 15 CLOSED within the explicitly owner-accepted isolated synthetic/staging scope only.** The owner separately and expressly approved the technical and operator experience, the final evidence and this five-document formal closeout on 2026-10-18. PR merge alone would not constitute owner acceptance. **Phase 16 / pilot is NOT AUTHORIZED or started.** Neither this report nor the Phase 15 analytics creates a production commercial permission.
+
+### Delivered and accepted operating scope
+
+- **Seven localized premium Analytics views:** `/admin/analytics` overview, `/funnel`, `/revenue`, `/customers`, `/operations`, `/costs`, `/quality`. Per-account `tr-TR` default and selectable `en-US`; customer communication separately defaults to English with verified preference overrides, unchanged. Role/tenant-scoped charts, bounded periods, accessible tabular equivalents and safe evidence drilldowns.
+- **41 typed source-bound metric definitions** in [analytics.ts](packages/domain/src/analytics.ts): authoritative source/formula, numerator/denominator, UTC bounds, exact decimal currency/asset-network segmentation, duplicate handling, RBAC, provenance, missing-data reason and limitations. Funnel cohorts, evidenced subscription periods, current snapshot versus time-window distinctions, model usage/cost coverage, escalation/customer-success and privacy-safe Phase 14 topics are distinguished.
+- **Financial truth:** LIVE real money collected, true live MRR/ARR, verified refunds, revenue retention, CAC/LTV/ROI and contribution margin are **UNAVAILABLE** while independent amount/currency, refund, attribution, complete cost and accounting policy evidence remain missing. A `private.verified_payment_receipts` receipt lacks authoritative received amount/currency. An offer/quote/TEST observation is **not** genuine cash. Missing costs are not zero; no fake total, FX conversion or profit is inferred.
+- **Separate SANDBOX economic review:** tested exact `numeric` with asset/network-specific labels, calendar-based monthly/yearly normalization (fixed-day monthly convention not invented), multi-plan deduplication, unverified billing coverage, source-hash/idempotency/revision fences and manager-approved cost-evidence notes. Economic review does **not** create accounting/payment/refund/commission/VIP rights.
+- **Privileged data isolation:** super_admin/manager/analyst permitted scoped reads; support/readonly/wrong tenant denied. Only manager/super_admin may review sandbox cost evidence. Reused Phase 14 k≥5 closed-month anonymous suppression, without anonymous individual IDs/text/contact correlation.
+
+### Exact independently rechecked release evidence
+
+| Control | Evidence | Result |
+| --- | --- | --- |
+| Implementation | [PR #100](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/100), final PR head `136b871dddb05b6e9f00f1830cefd95b0e75cb6a` | MERGED |
+| Accepted application/main SHA | `fe823267365d7f0c554737081a7ff667cc730ae1` (PR #100 merge) | Accepted Phase 15 application |
+| PR-head CI | [39082041698](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39082041698) | Application + Database PASS |
+| Exact merged application CI | [39082475909](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39082475909), SHA `fe823267365d7f0c554737081a7ff667cc730ae1` | **Application + Database PASS** |
+| Controlled isolated staging | [39082759184](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39082759184), same SHA | **59/59 synthetic acceptance PASS**, fixture cleanup confirmed |
+| Isolated staging deployment | `dpl_CawCdTno5JkGjB6b6w1ey1qrCDGw` | Reported READY on dedicated staging project; no commercial production claim |
+
+Owner-supplied CI/test evidence reports **642 unit, 218 integration and 887/887 pgTAP across 16 suites (76 new Phase 15 assertions)**, with concurrency/idempotency and authenticated HTTP/Admin coverage. Real-component synthetic TR/EN UX previews covered **54 interaction/layout checks**, **37 images** at 320/390/768/1440px; these are not genuine customer research. GitHub retained staging [artifact 12119796721](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39082759184/artifacts/12119796721); the owner report records artifact ZIP SHA-256 `7eb38b8e1b548e09d4ff9b66c4c480e81154fb9f71501c30ba09c58750234c02` (artifact expiry applies). No provider acceptance is inferred from synthetic checks.
+
+### Historical unsuccessful and cancelled evidence — retained
+
+- The initial PR run [39081900151](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39081900151) on `949c8fc8da0639864d5d7163c82821c072b02905` was **CANCELLED** after the head changed; it is **not** a passing CI run and is not mislabeled a test failure.
+- A real local funnel regression incorrectly treated a backdated subscription billing `period_start` as the **first conversion event timestamp**, producing conversion 0 instead of expected 1. The accepted correction uses immutable `subscriptions.created_at` plus independently evidenced payment period; it does not rewrite actual paid periods or Phase 11 authority. Retain the original failed golden assertion and the later passing tests separately.
+- Historical local failures/diagnostics remain in the original engineering section below: shared local fixture interference with a pre-existing quality worker lease, SQL alias/fixture events, wrong test dictionary property, attempted UPDATE on append-only invocations, audit-count scope, Supabase Auth snapshot/role and port setup, and browser hydration/native-details timing. The accepted fixes did not relax tenant/RBAC, financial or privacy gates. A local SQL helper loading an incorrect file is not final proof.
+
+### Source and safety reconciliation, 2026-10-18
+
+Read-only Supabase readback after acceptance found **21 TEST invoices, 4 TEST subscriptions, 565 model-invocation rows (2 with complete *recorded*, not independently verified, billed fields)**; these totals include accepted synthetic Phase 15 fixtures and must **not** be marketed as money or provider spending. **Zero** live invoices/subscriptions/VIP access, verified payment receipts, enabled live entitlement controls, enabled Phase 13/14 processing and active Phase 15 synthetic tenants. One previously accepted **Phase 12** manager-notification SENT record persists; **no new Phase 15 Telegram/customer message** was delivered. The existing operating tenant outbound flag remained unchanged.
+
+Phase 15 synthetic tenant `phase15-sandbox-*` is suspended/disabled after testing, with no active fixture membership or customer outbound; permitted immutable audit/economic evidence remains. No new staging deployment, provider call, migration, schema, account, economic write or historical import is authorized by **this documentation-only closeout**.
+
+### Separate business/production decisions still required
+
+Genuine provider-authoritative received/refund amounts, tax/discount/accounting policy, fixed-day recurring normalization, historical churn/grace/cancellation rules, acquisition attribution, independently verified AI costs, supplier/reseller/commission rights, operating jurisdictions and full source-backed costs remain unresolved. Until separately authorized and evidenced, actual collected revenue, MRR/ARR, profitability and commercial economic conclusions remain unavailable; Phase 15 passing does not establish merchant or supplier eligibility.
+
+**FORMAL VERDICT: PHASE 15 CLOSED — owner-approved 2026-10-18, isolated synthetic/staging scope only. Phase 16 NOT AUTHORIZED / NOT STARTED.**
 
 ## Delivered implementation
 
@@ -26,14 +69,14 @@ Staging: 16 TEST invoices, two TEST subscriptions; zero live invoices/subscripti
 
 **Maliyetler → test kanıtı ekle → varsayım/belgeli kaynak → incele/reddet.** Bu işlem bir ödemeyi doğrulamaz, komisyon anlaşması kurmaz veya maliyetlerin tamamlandığını onaylamaz. Müşteri iletişimi, tahsilat, plan fiyatı ve erişim değiştirme yetkisi yoktur.
 
-## Acceptance record and retained failures
+## Historical engineering acceptance record and retained failures (superseded by formal closeout above where relevant)
 
-- Local clean-schema migration verification and exact numeric/source/RBAC/anonymous pgTAP scenarios are implemented. Executed local Phase15 matrix: 76 assertions PASS. All 811 unchanged earlier assertions passed in a separate clean database; the earlier combined run passed 881 before six additional Phase15 assertions were added. Remote exact-head totals remain CI gates.
+- Local clean-schema migration verification and exact numeric/source/RBAC/anonymous pgTAP scenarios are implemented. Executed local Phase15 matrix: 76 assertions PASS. All 811 unchanged earlier assertions passed in a separate clean database; the earlier combined run passed 881 before six additional Phase15 assertions were added. At this historical local checkpoint remote exact-head totals remained pending CI gates; the later 887/887 full CI result is recorded above.
 - Concurrent request/review harness tests one idempotent cost record and exactly one review/audit; no financial worker or provider call.
 - Synthetic HTTP/Admin script covers both locales/all seven areas, wrong tenant/roles, amounts/periods, cost replay/review, source drift, anonymous suppression and unchanged unrelated state, then disables fixture tenants/members and removes anonymous synthetic rows while retaining immutable allowed evidence.
 - Original unsuccessful evidence is retained outside Git: SQL alias shadowing; fixture event omitted required test-mode payload; fixture offer reused an already-consumed source; a dictionary assertion used the wrong field; append-only invocation storage rejected a test UPDATE, corrected with append-only duplicate scenarios; a global audit-count assertion included an unrelated concurrency fixture, corrected to tenant scope. None are represented as passes.
 - Local minimal Supabase setup lacked CLI-managed service-role default grants and used occupied ports; local infrastructure was corrected without relaxing production/migration permissions. The schema-only local Auth snapshot also required its existing 69 migration identifiers and an explicit authenticated fixture role; these local infrastructure corrections did not change hosted Auth settings. No live credential/provider operation was used.
-- Local unit/integration: 642 + 218 PASS; authenticated production-bundle HTTP/Admin: 58/58 PASS before the final added subscription-timestamp assertion; the final HTTP matrix has 59 checks with cleanup verified. Lint/typecheck/build/audit and targeted PL/pgSQL error lint passed. Responsive/keyboard evidence remains a separate recorded visual gate until completed. Required Application and Database must pass on final PR head and merged main. One controlled isolated staging acceptance is authorized; real Telegram acceptance is not.
+- Local unit/integration: 642 + 218 PASS; authenticated production-bundle HTTP/Admin: 58/58 PASS before the final added subscription-timestamp assertion; the final HTTP matrix has 59 checks with cleanup verified. Lint/typecheck/build/audit and targeted PL/pgSQL error lint passed. Responsive/keyboard evidence remains a separate recorded visual gate until completed. At this original engineering checkpoint required PR/main Application + Database checks and one isolated staging run remained pending. These have since passed, as recorded above; real Telegram acceptance was neither requested nor performed.
 
 ## Security and remaining gates
 
@@ -41,7 +84,7 @@ Read access: active tenant super_admin/manager/analyst; support/readonly and cro
 
 Before first push, exact feature-branch Vercel suppression must be in that commit; preserve main=false, all existing branch policies and cron. Existing isolated staging project's production-named target is only its accepted cron environment, not commercial production activation. No old provider matrices are replayed.
 
-Remaining owner inputs: authoritative live received/refund amounts; accounting/discount/tax/net revenue, fixed-day recurring normalization, FX (if desired), historical churn/retention policy, acquisition attribution, supplier/commission terms, complete cost scope and independent billing evidence. No percentages or operating arrangements were invented. Broad/live operations and Phase 16 require separate owner authorization. Phase 15 remains OPEN until explicit owner approval of its final report.
+Remaining owner inputs: authoritative live received/refund amounts; accounting/discount/tax/net revenue, fixed-day recurring normalization, FX (if desired), historical churn/retention policy, acquisition attribution, supplier/commission terms, complete cost scope and independent billing evidence. No percentages or operating arrangements were invented. Broad/live operations and Phase 16 require separate owner authorization. At the historical engineering checkpoint Phase 15 remained OPEN until explicit owner approval; that approval was subsequently granted on 2026-10-18 and is recorded above.
 
 Additional acceptance findings: a shared local database with active visual fixtures interfered with a pre-existing globally leasing quality test; all 811 earlier assertions passed in a separate clean database, without changing accepted Phase7 logic. The analytics subtree now authorizes above its loading boundary so denied roles receive a redirect before a financial skeleton. Native details/React hydration and a refreshed-card count race affected browser automation; the actual saved/reviewed source record was reconciled, and final checks target individual records. Cash source drilldowns use the same trusted observation/timestamp rules as totals. LIVE periods without amounts never produce SANDBOX MRR groups; margin/ROI units are ratios. Original failures remain retained outside Git.
 
