@@ -1,8 +1,42 @@
 import "server-only";
+import { cache } from "react";
 import { z } from "zod";
 import { requireAdminCapability } from "@/lib/admin/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-export const subscriptionRow=z.object({id:z.uuid(),customer_id:z.uuid(),plan_version_id:z.uuid(),mode:z.enum(["test","live"]),state:z.string(),starts_at:z.string(),ends_at:z.string(),grace_until:z.string(),renewal_due_at:z.string(),plan_snapshot:z.record(z.string(),z.unknown())});
-const accessRow=z.object({id:z.uuid(),subscription_id:z.uuid(),mode:z.enum(["test","live"]),status:z.string(),telegram_user_id:z.string(),chat_id:z.string(),invite_reference:z.string().nullable(),invite_expires_at:z.string().nullable(),membership_checked_at:z.string().nullable()});
-const ledger=z.object({observed_at:z.string(),subscriptions:z.array(subscriptionRow),access:z.array(accessRow),payments:z.array(z.object({id:z.uuid(),subscription_id:z.uuid(),event_id:z.uuid(),test_invoice_id:z.uuid().nullable(),receipt_id:z.uuid().nullable(),period_start:z.string(),period_end:z.string()})),jobs:z.array(z.object({id:z.uuid(),access_id:z.uuid(),operation:z.string(),status:z.string(),attempts:z.number(),last_error:z.string().nullable(),available_at:z.string()})),audit:z.array(z.object({id:z.uuid(),subscription_id:z.uuid(),action:z.string(),mode:z.string(),created_at:z.string(),details:z.record(z.string(),z.unknown())}))});
-export async function entitlementList(customerId?:string){const context=await requireAdminCapability("entitlements.read"),db=await createSupabaseServerClient();const {data,error}=await db.rpc("admin_entitlement_list",{target_tenant_id:context.tenantId,target_customer_id:customerId?z.uuid().parse(customerId):null});if(error)throw Error("ENTITLEMENTS_UNAVAILABLE");return {context,...ledger.parse(data)};}
+import { decodeEntitlementCursor, entitlementPageSchema, rowSchemas, subscriptionDetailSchema,
+  type EntitlementCollection, type EntitlementPage, type EntitlementRows } from "./read-model";
+
+// Request-local memoization only; no shared Next cache of privileged data.
+const readContext = cache(async () => ({ context: await requireAdminCapability("entitlements.read"), db: await createSupabaseServerClient() }));
+export type EntitlementReadFailure = "cursor" | "unavailable";
+export async function requireEntitlementRead() { return (await readContext()).context; }
+
+export async function entitlementPage<K extends EntitlementCollection>(collection: K, input: {
+  customer?: string | undefined; subscription?: string | undefined; size?: number | undefined; cursor?: string | undefined;
+} = {}) {
+  const { context, db } = await readContext();
+  let cursor = null;
+  try { cursor = input.cursor ? decodeEntitlementCursor(input.cursor) : null; }
+  catch { return { context, page: null, error: "cursor" as const }; }
+  const { data, error } = await Promise.resolve(db.rpc("admin_entitlement_page_v1", {
+    target_tenant_id: context.tenantId, collection_value: collection,
+    target_customer_id: input.customer ? z.uuid().parse(input.customer) : null,
+    target_subscription_id: input.subscription ? z.uuid().parse(input.subscription) : null,
+    page_size_value: z.number().int().min(1).max(100).parse(input.size ?? 25), cursor_value: cursor,
+  })).catch(() => ({ data: null, error: { code: "READ_UNAVAILABLE" } }));
+  if (error) return { context, page: null, error: error.code === "22023" ? "cursor" as const : "unavailable" as const };
+  const parsed = entitlementPageSchema(rowSchemas[collection]).safeParse(data);
+  if (!parsed.success || parsed.data.collection !== collection) return { context, page: null, error: "unavailable" as const };
+  return { context, page: parsed.data as EntitlementPage<EntitlementRows[K]>, error: null };
+}
+
+export async function subscriptionDetail(id: string) {
+  const { context, db } = await readContext();
+  if (!z.uuid().safeParse(id).success) return { context, detail: null, error: null };
+  const { data, error } = await Promise.resolve(db.rpc("admin_subscription_detail_v1", { target_tenant_id: context.tenantId, target_subscription_id: id }))
+    .catch(() => ({ data: null, error: { code: "READ_UNAVAILABLE" } }));
+  if (error) return { context, detail: null, error: "unavailable" as const };
+  if (data === null) return { context, detail: null, error: null };
+  const parsed = subscriptionDetailSchema.safeParse(data);
+  return parsed.success ? { context, detail: parsed.data, error: null } : { context, detail: null, error: "unavailable" as const };
+}

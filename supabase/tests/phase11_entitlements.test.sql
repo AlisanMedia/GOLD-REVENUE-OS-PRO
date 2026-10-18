@@ -136,4 +136,6 @@ select is((select state from public.subscriptions where id=(select value from p1
 select is(public.consume_verified_payment('e3200000-0000-4000-8000-000000000001',(select value from p11 where key='valid-receipt')),(select value from p11 where key='live-sub'),'genuine authority contract duplicate is idempotent');
 select is((select count(*) from public.subscription_payments where mode='live'),1::bigint,'single genuine authority period in disposable fixture');
 select ok(not exists(select 1 from public.channel_access where mode='live'),'missing authorized real channel never grants access');
+-- Also runs under the existing mandatory Database job; no workflow change needed.
+\ir helpers/phase16c0_assertions.sql
 select * from finish();rollback;

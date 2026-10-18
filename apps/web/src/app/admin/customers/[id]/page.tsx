@@ -5,7 +5,9 @@ import ManualStateTransition from "@/components/manual-state-transition";
 import { hasAdminCapability } from "@/lib/admin/permissions";
 import { getCustomer360 } from "@/lib/customer-os/server";
 import Link from "next/link";
-import { entitlementList } from "@/lib/entitlements/admin";
+import { entitlementPage } from "@/lib/entitlements/admin";
+import { entitlementSearchSchema } from "@/lib/entitlements/read-model";
+import { EntitlementPagination, EntitlementReadError } from "@/components/entitlement-pagination";
 import { getConversationList } from "@/lib/messaging/server";
 
 function formatValue(value: unknown): string {
@@ -13,11 +15,14 @@ function formatValue(value: unknown): string {
   return JSON.stringify(value);
 }
 
-export default async function Customer360Page({ params }: { params: Promise<{ id: string }> }) {
+export default async function Customer360Page({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string,string|string[]|undefined>> }) {
   const customerId = (await params).id;
   const data = await getCustomer360(customerId);
   const success = hasAdminCapability(data.role,"success.read") ? await successList({customer:customerId}) : null;
-  const entitlements = hasAdminCapability(data.role,"entitlements.read") ? await entitlementList(customerId) : null;
+  const canReadEntitlements = hasAdminCapability(data.role,"entitlements.read");
+  const entitlementQuery = entitlementSearchSchema.safeParse(await searchParams);
+  const entitlementScopeValid = entitlementQuery.success && (!entitlementQuery.data.customer || entitlementQuery.data.customer === customerId);
+  const entitlements = canReadEntitlements && entitlementScopeValid ? await entitlementPage("subscriptions",{customer:customerId,size:Number(entitlementQuery.data.size),cursor:entitlementQuery.data.cursor}) : null;
   const conversations = hasAdminCapability(data.role, "messaging.read")
     ? await getConversationList({ customerId, page: 1, pageSize: 20 })
     : null;
@@ -35,7 +40,15 @@ export default async function Customer360Page({ params }: { params: Promise<{ id
       {success&&<section className="case-section"><div className="card-heading"><h2><T k="Customer Success"/></h2><Link href={`/admin/customer-success?customer=${customerId}`}><T k="Open customer success"/> →</Link></div><SuccessTaskCards items={success.items.slice(0,3)} managers={success.managers}/></section>}
       {hasAdminCapability(data.role,"surveys.read")&&<p><Link className="table-link" href={`/admin/feedback?customer=${customerId}`}><T k="Survey feedback"/> →</Link></p>}
       <section className="detail-grid">
-        {entitlements && <article className="detail-card"><h2><T k="Payments, subscriptions and VIP"/></h2>{entitlements.subscriptions.map(s=><p key={s.id}><Link href={"/admin/subscriptions/"+s.id}>{s.mode.toUpperCase()} · {<AdminEnum value={s.state}/>}</Link><br/><T k="Expires"/> {<AdminDate value={s.ends_at}/>}<br/><T k="Payment evidence:"/> {entitlements.payments.filter(p=>p.subscription_id===s.id).map(p=>p.event_id).join(", ")}<br/><T k="VIP:"/> {entitlements.access.find(a=>a.subscription_id===s.id)?.status??<T k="Not requested"/>}</p>)}{!entitlements.subscriptions.length&&<p><T k="No verified entitlement."/></p>}</article>}
+        {canReadEntitlements && <article className="detail-card"><h2><T k="Payments, subscriptions and VIP"/></h2>
+          {!entitlementScopeValid ? <EntitlementReadError error="cursor" href={`/admin/customers/${customerId}`}/> : entitlements?.error ? <EntitlementReadError error={entitlements.error} href={`/admin/customers/${customerId}`}/> : entitlements?.page && <>
+            {entitlements.page.items.map(s=><p key={s.id}><Link href={`/admin/subscriptions/${s.id}`}>{s.plan_snapshot.title} · <AdminEnum value={s.mode}/> · <AdminEnum value={s.state}/></Link><br/>
+              <T k="Expires"/> <AdminDate value={s.ends_at}/><br/><T k="Payment evidence:"/> <AdminEnum value={s.has_payment ? s.mode==="test" ? "SANDBOX_VERIFIED" : "VERIFIED_RECEIPT" : "NOT_VERIFIED"}/><br/>
+              <T k="VIP:"/> {s.access_status ? <AdminEnum value={s.access_status}/> : <T k="Not requested"/>}</p>)}
+            {!entitlements.page.items.length&&<p><T k={entitlementQuery.data.cursor ? "No records on this page." : "No verified entitlement."}/></p>}
+            <EntitlementPagination path={`/admin/customers/${customerId}`} size={entitlementQuery.data.size} next={entitlements.page.next_cursor} hasMore={entitlements.page.has_more} count={entitlements.page.items.length} continued={Boolean(entitlementQuery.data.cursor)}/>
+          </>}
+        </article>}
         <article className="detail-card"><h2><T k="Overview"/></h2><dl><div><dt><T k="Lifecycle state"/></dt><dd>{<AdminEnum value={data.customer.state}/>}</dd></div><div><dt><T k="Segment / risk"/></dt><dd>{data.customer.segment ?? <T k="Unsegmented"/>} · {<AdminEnum value={data.customer.risk_level}/>}</dd></div><div><dt><T k="Source"/></dt><dd>{data.customer.source_name ?? data.customer.source_type ?? <T k="Unknown"/>} · {data.customer.source_record_ref ?? <T k="no source reference"/>}</dd></div><div><dt><T k="Created"/></dt><dd>{<AdminDate value={data.customer.created_at}/>}</dd></div></dl></article>
         <details className="detail-card secondary-records"><summary><T k="Identities"/></summary>{data.identities.length ? <ul>{data.identities.map((item) => <li key={item.id}><strong>{item.identity_type}{item.is_primary ? <T k=" · primary"/> : ""}</strong><span>{item.identity_value}</span><small><T k="normalized:"/> {item.normalized_value} <T k="· source:"/> {item.source_name ?? item.source_type ?? "unknown"} · {item.source_record_ref ?? <T k="no reference"/>}</small></li>)}</ul> : <p className="muted"><T k="No visible identities. The current role may not access identity PII."/></p>}</details>
         <details className="detail-card secondary-records"><summary><T k="Trading profile"/></summary>{data.profile ? <dl>{Object.entries(data.profile).filter(([key, value]) => !["customer_id","tenant_id","field_metadata","updated_at"].includes(key) && value !== null && value !== undefined && value !== "").map(([key, value]) => <div key={key}><dt>{key.replaceAll("_", " ")}</dt><dd>{formatValue(value)}</dd></div>)}</dl> : <p className="muted"><T k="Profile is not populated yet."/></p>}</details>

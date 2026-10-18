@@ -34,3 +34,5 @@ SQL
 )
 test "$phase11_counts" = '1:1:1:1'
 echo 'PASS: concurrent verified test payment consumers create one subscription, period, access record and exclusive worker lease.'
+# Read-only Admin contract against the same disposable concurrency fixture.
+bash supabase/tests/phase16c0_concurrency.sh "$phase11_db_url"
