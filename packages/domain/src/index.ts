@@ -38,3 +38,4 @@ export * from "./payments";
 export * from "./subscriptions";
 export * from "./escalations";
 export * from "./surveys";
+export * from "./analytics";

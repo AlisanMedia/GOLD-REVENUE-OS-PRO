@@ -104,3 +104,17 @@ B01–B04, B06–B09, B12–B16 remain independently gated. No claim of measured
 Phase 14 source regression: the old-message-age guard could suppress a fresh identified serious survey complaint. An append-only source-authority correction and aged-anchor regression were added before the single controlled staging acceptance. Missing conversation evidence stays ineligible; no new inbound message or provider action is invented. This correction does not reopen accepted Phase 12.
 
 **Phase 14 owner closeout (2026-10-17):** [Report](../PHASE_14_REPORT.md); [PR #97](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/97) and [PR #98](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/pull/98) merged; accepted application `2289fc5af8e8dd4bdeb0eda6572eb81fd4ad1bc3`, [exact-main CI 39026333696](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39026333696) Application + Database PASS; [staging 39026615428](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39026615428) **66/66 PASS**, cleanup verified. 592 unit, 169 integration and 811 pgTAP results recorded. Preserve the cancelled CI and initially failed source-authority regression as history. Real customer survey/manager Telegram messages, actual financial/VIP authority, historical import and **Phase 15+** remain separately locked.
+
+## Phase 15 authorized execution — OPEN
+
+Owner explicitly authorized B13 Analytics at baseline `54ada98b65854e86ac5e1fb0c825b13bac86c4fb`; historical Phase15 prohibitions above are superseded only for implementation, CI/merges and isolated synthetic staging. [Design](phases/PHASE_15_DESIGN.md), [report](../PHASE_15_REPORT.md). Phase16+ remains unauthorized.
+
+| Priority | Delivered / verification | Remaining gate |
+|---|---|---|
+| P0 | Financial truth dictionary, exact numeric/currency grouping, live/test/unknown separation, no unverified cash or double billing, tenant/RBAC and anonymous suppression | Exact head/main CI, controlled synthetic acceptance, owner sign-off |
+| P1 | Seven premium TR/EN analytics views, cohort/subscription/operational/cost quality, safe source pagination and revision-fenced economic review | Actual desktop/mobile/keyboard and authenticated HTTP acceptance |
+| P0 before live | Actual received/refund amounts, tax/accounting/discount policy, cost completeness/independent billing, lawful supplier/commission evidence | Separate source/financial activation authorization; estimates are not actual records |
+| P1 before business analytics reliance | Fixed-day MRR, historical recurring retention/grace/cancellation, attribution and acquisition spend | Owner-reviewed definitions and genuine evidence; unavailable until then |
+| P2 before scale | Measure combined-period source limits, source lineage fingerprint/query plans, chart/provider-group bounds and pagination | No warehouse/polling service until query evidence justifies it |
+
+No Phase16 pilot, live campaigns/payments/VIP or historical import is included. Formal Phase15 closure requires separate explicit owner approval, not merge alone.

@@ -9,7 +9,8 @@
       "codex/phase12-stale-conflict-fix-20261016": false,
       "codex/phase13-success-admin-20261016": false,
       "codex/phase14-survey-intelligence-20261017": false,
-      "codex/phase14-source-evidence-20261017": false
+      "codex/phase14-source-evidence-20261017": false,
+      "codex/phase15-revenue-intelligence-20261017": false
     }
   },
   "framework": "nextjs",
