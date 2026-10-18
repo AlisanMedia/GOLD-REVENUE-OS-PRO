@@ -46,6 +46,7 @@ try{
  check('missing-billing-visible',Number(metric(data,'billing_coverage').value)>0.66&&Number(metric(data,'billing_coverage').value)<0.67&&!data.money.some(x=>x.kind==='cost_per_operation'));
  check('drafts-not-provider-delivered',metric(data,'outbound').value==='0'&&metric(data,'human_handled').value==='0');
  check('cohort-dedup-and-unmatched-policy',data.funnel[0].count===2&&data.funnel[1].count===1&&data.funnel[3].count===1);
+ check('subscription-stage-record-time-not-billing-start',Number(data.funnel.find(x=>x.stage==='subscription')?.rate)===1);
  check('no-live-cohort-without-provenance',live.funnel.every(x=>x.count===0));
  check('critical-case-workload-visible',metric(data,'critical_cases').value==='1');
  check('success-and-renewal-reviews-visible',data.distributions.success.OPEN===1&&data.distributions.success.COMPLETED===1&&data.distributions.renewal_reviews.OPEN===1);

@@ -112,5 +112,6 @@ select ok(not exists(select 1 from jsonb_array_elements(private.analytics_money(
 select ok((public.admin_analytics_workspace('e3200000-0000-4000-8000-000000000001',current_date-30,current_date+1,'SANDBOX')->'cost_evidence'->0->>'reference') is not null,'manager can inspect evidence before reviewing costs');
 select set_config('request.jwt.claim.sub','e3100000-0000-4000-8000-000000000003',true);
 select ok((public.admin_analytics_workspace('e3200000-0000-4000-8000-000000000001',current_date-30,current_date+1,'SANDBOX')->'cost_evidence'->0->>'reference') is null,'analyst does not receive private economic source references');
+select is((select (x->>'rate')::numeric from p15 cross join lateral jsonb_array_elements(v->'funnel') x where k='sandbox' and x->>'stage'='subscription'),1::numeric,'backdated billing period cannot create a false payment-to-subscription drop-off');
 select * from finish();
 rollback;
