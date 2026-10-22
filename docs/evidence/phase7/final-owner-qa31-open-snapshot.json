@@ -1,0 +1,2235 @@
+{
+  "title": "PHASE_7_FINAL_OWNER_ACCEPTANCE_REPORT",
+  "verdict": "PHASE 7 REMAINS OPEN",
+  "source_sha": "0392c6dbed0b532a8101c8a6ea7b8e0ec360d3ce",
+  "source_tree": "3d84005814d3d7c3516c35f265ee883f49d0c5a9",
+  "scope": {
+    "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+    "conversation_id": "67aad0a3-6c20-4a34-8263-b87d6d151420",
+    "owner": "@alisangul",
+    "bot": "@gold_revenue_os_staging_bot"
+  },
+  "flags": [
+    {
+      "observed_at": "2026-10-10 22:14:15.034705+00",
+      "outbound_messaging_enabled": false,
+      "automatic_replies_enabled": true,
+      "automatic_replies_enabled_at": "2026-10-10 08:13:37.053956+00",
+      "runtime_mode": "AI_ACTIVE",
+      "human_takeover": false,
+      "pending_or_sending": 0,
+      "active_tasks": 0
+    }
+  ],
+  "configuration": [
+    {
+      "quality_config_id": "be79ca02-6d10-464c-bac8-aa3df36a1801",
+      "config_version": 34,
+      "prompt_version": "conversation-quality-prompt-v26",
+      "director_version": "conversation-director-v4",
+      "renderer_version": "natural-renderer-v5",
+      "qa_version": "conversation-qa-v31",
+      "context_version": 3,
+      "evaluation_set_version": "phase7-balanced-v32",
+      "qa_thresholds": {
+        "robotic_rewrite": 60,
+        "maximum_rewrites": 1,
+        "tone_fit_minimum": 65,
+        "policy_risk_block": 80,
+        "repetition_rewrite": 60,
+        "context_fit_minimum": 65,
+        "escalation_need_block": 80,
+        "sales_pressure_rewrite": 70,
+        "excessive_length_rewrite": 60,
+        "factual_confidence_minimum": 65
+      },
+      "default_execution_mode": "SHADOW",
+      "agent_version_id": "8792d06a-1fdd-43e9-8860-b549eda97cea",
+      "agent_version": 36,
+      "model_provider": "openai",
+      "model_name": "gpt-5.4-mini",
+      "output_schema_version": 4,
+      "agent_context_version": 3,
+      "agent_prompt_version": "conversation-quality-prompt-v26",
+      "agent_qa_version": "conversation-qa-v31",
+      "agent_evaluation": "phase7-balanced-v32"
+    }
+  ],
+  "scope_counts": [
+    {
+      "customer_id": null,
+      "runtime_mode": "AI_ACTIVE",
+      "human_takeover": false,
+      "automatic_replies_enabled": true,
+      "enabled_conversations": 1,
+      "cumulative_system_sent": 271,
+      "cumulative_human_sent": 2
+    }
+  ],
+  "mission_integrity": [
+    {
+      "inputs": 348,
+      "runs": 348,
+      "anchor_mismatch": 0,
+      "future_or_other_conversation_messages": 0,
+      "failed_model_calls": 0,
+      "tool_calls": 0,
+      "human_approved": 0,
+      "other_conversation_outbound": 0,
+      "completed_imports": 0,
+      "import_commit_enabled": false
+    }
+  ],
+  "model_calls": [
+    {
+      "period": "before_this_mission",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "calls": 84
+    },
+    {
+      "period": "mission_diagnostics",
+      "status": "SUCCEEDED",
+      "error_code": null,
+      "calls": 378
+    }
+  ],
+  "fresh_final_counts": [
+    {
+      "observed_at": "2026-10-10 22:14:42.244892+00",
+      "inputs_after_final_pause": 0,
+      "outbound_after_final_pause": 0,
+      "qa31_evaluations": 0
+    }
+  ],
+  "deployment": {
+    "id": "dpl_C72ULEkwioJAKZbDeopjXXLpWqYA",
+    "name": "gold-revenue-os-staging",
+    "url": "gold-revenue-os-staging-9i65kwtrl-gold-revenue-os-staging.vercel.app",
+    "type": "LAMBDAS",
+    "state": "READY",
+    "createdAt": 1791669038969,
+    "creator": {
+      "uid": "bEeHfybTPUeEgIlvu3HEUHCD",
+      "username": "alisangul123-8556"
+    },
+    "project": {
+      "id": "prj_iax5OhGUbLL3s6BemMLqQAHFDAHl",
+      "name": "gold-revenue-os-staging",
+      "framework": null
+    },
+    "meta": {
+      "githubCommitRef": "HEAD",
+      "githubCommitSha": "0392c6dbed0b532a8101c8a6ea7b8e0ec360d3ce",
+      "githubCommitMessage": "Merge pull request #65 from AlisanMedia/codex/phase7-source-grounded-selection-grammar",
+      "githubRepo": "GOLD-REVENUE-OS-PRO",
+      "githubOrg": "AlisanMedia"
+    },
+    "alias": [
+      "gold-revenue-os-staging.vercel.app",
+      "gold-revenue-os-staging-gold-revenue-os-staging.vercel.app"
+    ],
+    "target": "production",
+    "regions": [
+      "iad1"
+    ],
+    "buildingAt": 1791669040051,
+    "ready": 1791669048936,
+    "readyState": "READY",
+    "source": "cli",
+    "aliasError": null
+  },
+  "alias": {
+    "alias": "gold-revenue-os-staging.vercel.app",
+    "created": "2026-09-18T07:04:18.872Z",
+    "createdAt": 1789715058872,
+    "creator": {
+      "uid": "bEeHfybTPUeEgIlvu3HEUHCD",
+      "username": "alisangul123-8556"
+    },
+    "deletedAt": null,
+    "deployment": {
+      "id": "dpl_C72ULEkwioJAKZbDeopjXXLpWqYA",
+      "url": "gold-revenue-os-staging-9i65kwtrl-gold-revenue-os-staging.vercel.app"
+    },
+    "deploymentId": "dpl_C72ULEkwioJAKZbDeopjXXLpWqYA",
+    "projectId": "prj_iax5OhGUbLL3s6BemMLqQAHFDAHl",
+    "redirect": null,
+    "redirectStatusCode": null,
+    "uid": "b3ef3e6ba330bfec8cbdc676f126edc9b12f72072d3dcee656d02054cc125c35eb44acb5c78b6ec7d2434f96451774640e0df87b612ea36fcccdfd36c765a08e",
+    "updatedAt": 1791669050902
+  },
+  "migrations": {
+    "migrations": [
+      {
+        "version": "202609120001",
+        "name": "foundation"
+      },
+      {
+        "version": "202609150002",
+        "name": "customer_os"
+      },
+      {
+        "version": "202609160001",
+        "name": "import_batch_dedup"
+      },
+      {
+        "version": "202609160002",
+        "name": "state_event_engine"
+      },
+      {
+        "version": "20260917055834",
+        "name": "phase4_admin_control_plane"
+      },
+      {
+        "version": "20260917090000",
+        "name": "phase5_messaging_gateway"
+      },
+      {
+        "version": "20260926220326",
+        "name": "phase6_agent_runtime"
+      },
+      {
+        "version": "20260928080436",
+        "name": "phase7_conversation_quality"
+      },
+      {
+        "version": "20261003212706",
+        "name": "phase7_multilingual_recovery"
+      },
+      {
+        "version": "20261004094144",
+        "name": "phase7_source_message_context_anchor"
+      },
+      {
+        "version": "20261005095246",
+        "name": "phase7_corrective_evidence"
+      },
+      {
+        "version": "20261005144505",
+        "name": "phase7_live_claim_corrections"
+      },
+      {
+        "version": "20261007062559",
+        "name": "phase7_qa_precision_evidence_integrity"
+      },
+      {
+        "version": "20261009061946",
+        "name": "phase7_conversation_auto_replies"
+      },
+      {
+        "version": "20261010082727",
+        "name": "phase7_current_turn_greeting_precision"
+      },
+      {
+        "version": "20261010084407",
+        "name": "phase7_arabic_membership_pricing_precision"
+      },
+      {
+        "version": "20261010085549",
+        "name": "phase7_standalone_ai_identity_precision"
+      },
+      {
+        "version": "20261010091141",
+        "name": "phase7_non_executable_capability_contract"
+      },
+      {
+        "version": "20261010091637",
+        "name": "phase7_complete_sentence_opening_precision"
+      },
+      {
+        "version": "20261010093154",
+        "name": "phase7_compound_greeting_precision"
+      },
+      {
+        "version": "20261010122351",
+        "name": "phase7_turkish_review_note_precision"
+      },
+      {
+        "version": "20261010142540",
+        "name": "phase7_final_acceptance_precision_and_burst_order"
+      },
+      {
+        "version": "20261010144618",
+        "name": "phase7_unicode_greeting_precision"
+      },
+      {
+        "version": "20261010151550",
+        "name": "phase7_inbound_customer_claim_schema"
+      },
+      {
+        "version": "20261010152543",
+        "name": "phase7_explicit_qa_rewrite"
+      },
+      {
+        "version": "20261010153852",
+        "name": "phase7_compound_greeting_question_label"
+      },
+      {
+        "version": "20261010160922",
+        "name": "phase7_final_language_precision"
+      },
+      {
+        "version": "20261010163228",
+        "name": "phase7_identity_claim_boundary"
+      },
+      {
+        "version": "20261010165151",
+        "name": "phase7_monthly_offer_context"
+      },
+      {
+        "version": "20261010171438",
+        "name": "phase7_topic_offer_and_continuity"
+      },
+      {
+        "version": "20261010174116",
+        "name": "phase7_review_draft_grounding"
+      },
+      {
+        "version": "20261010180105",
+        "name": "phase7_illustrative_topic_offers"
+      },
+      {
+        "version": "20261010181750",
+        "name": "phase7_turkish_clarity_limitation"
+      },
+      {
+        "version": "20261010184309",
+        "name": "phase7_burst_delivery_clarification"
+      },
+      {
+        "version": "20261010185002",
+        "name": "phase7_publish_quality_version"
+      },
+      {
+        "version": "20261010191618",
+        "name": "phase7_request_summary_access_intent"
+      },
+      {
+        "version": "20261010195527",
+        "name": "phase7_canonical_safe_speech_and_topic_context"
+      },
+      {
+        "version": "20261010202301",
+        "name": "phase7_grounded_selection_presented_question"
+      },
+      {
+        "version": "20261010203802",
+        "name": "phase7_requested_turkish_knowledge_continuity"
+      },
+      {
+        "version": "20261010211001",
+        "name": "phase7_bounded_membership_help"
+      },
+      {
+        "version": "20261010212201",
+        "name": "phase7_explanation_topic_invitation"
+      },
+      {
+        "version": "20261010214001",
+        "name": "phase7_source_grounded_selection_grammar"
+      }
+    ]
+  },
+  "advisors": {
+    "result": {
+      "lints": [
+        {
+          "name": "rls_enabled_no_policy",
+          "title": "RLS Enabled No Policy",
+          "level": "INFO",
+          "facing": "EXTERNAL",
+          "categories": [
+            "SECURITY"
+          ],
+          "description": "Detects cases where row level security (RLS) has been enabled on a table but no RLS policies have been created.",
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy",
+          "count": 1,
+          "findings": [
+            {
+              "detail": "Table \\`public.agent_worker_heartbeats\\` has RLS enabled, but no policies exist",
+              "metadata": {
+                "name": "agent_worker_heartbeats",
+                "type": "table",
+                "schema": "public"
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            }
+          ]
+        },
+        {
+          "name": "authenticated_security_definer_function_executable",
+          "title": "Signed-In Users Can Execute SECURITY DEFINER Function",
+          "level": "WARN",
+          "facing": "EXTERNAL",
+          "categories": [
+            "SECURITY"
+          ],
+          "description": "Detects `SECURITY DEFINER` functions that are callable by signed-in users. Revoke `EXECUTE`, switch the function to `SECURITY INVOKER`, or move it out of your exposed API schema if signed-in users should not call it.",
+          "remediation": "https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable",
+          "count": 24,
+          "findings": [
+            {
+              "detail": "Function `public.admin_agent_quality_summary(target_tenant_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_agent_quality_summary`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_agent_quality_summary",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_agent_run_detail(target_tenant_id uuid, target_run_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_agent_run_detail`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_agent_run_detail",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_run_id uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_agent_runtime_health(target_tenant_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_agent_runtime_health`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_agent_runtime_health",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_agent_tasks(target_tenant_id uuid, status_value text, page_value integer, page_size_value integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_agent_tasks`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_agent_tasks",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, status_value text, page_value integer, page_size_value integer",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_agent_version_detail(target_tenant_id uuid, target_version_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_agent_version_detail`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_agent_version_detail",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_version_id uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_agent_versions(target_tenant_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_agent_versions`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_agent_versions",
+                "schema": "public",
+                "language": "sql",
+                "arguments": "target_tenant_id uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_audit_list(target_tenant_id uuid, actor_value uuid, role_value public.app_role, action_value text, entity_value text, correlation_value uuid, date_from_value timestamp with time zone, date_to_value timestamp with time zone, page_value integer, page_size_value integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_audit_list`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_audit_list",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, actor_value uuid, role_value public.app_role, action_value text, entity_value text, correlation_value uuid, date_from_value timestamp with time zone, date_to_value timestamp with time zone, page_value integer, page_size_value integer",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_conversation_list(target_tenant_id uuid, status_value text, customer_value uuid, page_value integer, page_size_value integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_conversation_list`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_conversation_list",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, status_value text, customer_value uuid, page_value integer, page_size_value integer",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_conversation_messages(target_tenant_id uuid, target_conversation_id uuid, before_value timestamp with time zone, limit_value integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_conversation_messages`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_conversation_messages",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_conversation_id uuid, before_value timestamp with time zone, limit_value integer",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_customer_list(target_tenant_id uuid, search_value text, state_value public.customer_state, segment_value text, risk_value text, source_value text, manager_value uuid, created_from_value timestamp with time zone, created_to_value timestamp with time zone, page_value integer, page_size_value integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_customer_list`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_customer_list",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, search_value text, state_value public.customer_state, segment_value text, risk_value text, source_value text, manager_value uuid, created_from_value timestamp with time zone, created_to_value timestamp with time zone, page_value integer, page_size_value integer",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_dashboard_metrics(target_tenant_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_dashboard_metrics`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_dashboard_metrics",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_event_list(target_tenant_id uuid, event_type_value text, status_value text, authority_value public.event_authority, customer_value uuid, correlation_value uuid, date_from_value timestamp with time zone, date_to_value timestamp with time zone, page_value integer, page_size_value integer)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_event_list`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_event_list",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, event_type_value text, status_value text, authority_value public.event_authority, customer_value uuid, correlation_value uuid, date_from_value timestamp with time zone, date_to_value timestamp with time zone, page_value integer, page_size_value integer",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_needs_attention(target_tenant_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_needs_attention`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_needs_attention",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.admin_system_health(target_tenant_id uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/admin_system_health`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "admin_system_health",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.cancel_agent_task(target_tenant_id uuid, target_task_id uuid, reason_value text, correlation_id_value uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/cancel_agent_task`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "cancel_agent_task",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_task_id uuid, reason_value text, correlation_id_value uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.create_import_dry_run(target_tenant_id uuid, source_type_value text, source_name_value text, file_name_value text, file_sha256_value text, rows_value jsonb)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/create_import_dry_run`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "create_import_dry_run",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, source_type_value text, source_name_value text, file_name_value text, file_sha256_value text, rows_value jsonb",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.queue_approved_agent_proposal(target_tenant_id uuid, target_proposal_id uuid, correlation_id_value uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/queue_approved_agent_proposal`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "queue_approved_agent_proposal",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_proposal_id uuid, correlation_id_value uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.queue_outbound_message(target_tenant_id uuid, target_conversation_id uuid, content_value text, idempotency_key_value text, correlation_id_value uuid, reply_to_message_id_value uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/queue_outbound_message`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "queue_outbound_message",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_conversation_id uuid, content_value text, idempotency_key_value text, correlation_id_value uuid, reply_to_message_id_value uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.review_agent_proposal(target_tenant_id uuid, target_proposal_id uuid, decision_value text, edited_payload_value jsonb, reason_value text, correlation_id_value uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/review_agent_proposal`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "review_agent_proposal",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_proposal_id uuid, decision_value text, edited_payload_value jsonb, reason_value text, correlation_id_value uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.review_import_row(target_batch_id uuid, target_row_id uuid, resolution_value text, candidate_value uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/review_import_row`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "review_import_row",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_batch_id uuid, target_row_id uuid, resolution_value text, candidate_value uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.set_conversation_automatic_replies(target_tenant_id uuid, target_conversation_id uuid, enabled_value boolean, correlation_id_value uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_conversation_automatic_replies`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "set_conversation_automatic_replies",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_conversation_id uuid, enabled_value boolean, correlation_id_value uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.set_conversation_runtime_mode(target_tenant_id uuid, target_conversation_id uuid, mode_value public.conversation_runtime_mode, reason_value text, correlation_id_value uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_conversation_runtime_mode`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "set_conversation_runtime_mode",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_conversation_id uuid, mode_value public.conversation_runtime_mode, reason_value text, correlation_id_value uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.set_outbound_messaging_enabled(target_tenant_id uuid, enabled_value boolean, correlation_id_value uuid)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/set_outbound_messaging_enabled`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "set_outbound_messaging_enabled",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, enabled_value boolean, correlation_id_value uuid",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            },
+            {
+              "detail": "Function `public.transition_customer_state(target_tenant_id uuid, target_customer_id uuid, expected_from_state public.customer_state, target_to_state public.customer_state, reason_code_value text, actor_type_value public.lifecycle_actor_type, actor_id_value text, correlation_id_value uuid, causation_id_value uuid, triggering_event_value text, triggering_event_id_value uuid, idempotency_key_value text, occurred_at_value timestamp with time zone)` can be executed by the `authenticated` role as a `SECURITY DEFINER` function via `/rest/v1/rpc/transition_customer_state`. Revoke `EXECUTE` or switch it to `SECURITY INVOKER` if that is not intentional.",
+              "metadata": {
+                "name": "transition_customer_state",
+                "schema": "public",
+                "language": "plpgsql",
+                "arguments": "target_tenant_id uuid, target_customer_id uuid, expected_from_state public.customer_state, target_to_state public.customer_state, reason_code_value text, actor_type_value public.lifecycle_actor_type, actor_id_value text, correlation_id_value uuid, causation_id_value uuid, triggering_event_value text, triggering_event_id_value uuid, idempotency_key_value text, occurred_at_value timestamp with time zone",
+                "security_definer": true
+              },
+              "observed_at": "2026-10-10T22:12:46.835Z"
+            }
+          ]
+        },
+        {
+          "name": "auth_leaked_password_protection",
+          "title": "Leaked Password Protection Disabled",
+          "level": "WARN",
+          "facing": "EXTERNAL",
+          "categories": [
+            "SECURITY"
+          ],
+          "description": "Leaked password protection is currently disabled.",
+          "remediation": "https://supabase.com/docs/guides/auth/password-security#password-strength-and-leaked-password-protection",
+          "count": 1,
+          "findings": [
+            {
+              "detail": "Supabase Auth prevents the use of compromised passwords by checking against HaveIBeenPwned.org. Enable this feature to enhance security.",
+              "metadata": {
+                "type": "auth",
+                "entity": "Auth"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "ci": {
+    "38088661362": {
+      "jobs": [
+        {
+          "id": 114320388289,
+          "name": "Application",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 38088661362,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run pnpm install --frozen-lockfile",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run pnpm lint",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Run pnpm typecheck",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Run pnpm test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Run pnpm build",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Run pnpm audit --audit-level high --ignore GHSA-vfj7-8cjw-p6xm",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Production bundle smoke test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 20
+            },
+            {
+              "name": "Post Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 21
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 22
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 23
+            }
+          ]
+        },
+        {
+          "id": 114320388482,
+          "name": "Database",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 38088661362,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run pnpm install --frozen-lockfile",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run supabase/setup-cli@v1",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Start Supabase stack",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Rebuild database and execute migrations",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Verify migration history",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Lint database",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Run foundation pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Run tenant isolation tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 12
+            },
+            {
+              "name": "Run Customer OS pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Run State and Event Engine pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Run Admin Control Plane pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Run Messaging Gateway pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Run Agent Runtime pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            },
+            {
+              "name": "Run Conversation Quality pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 18
+            },
+            {
+              "name": "Prove concurrent transition serialization",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 19
+            },
+            {
+              "name": "Export local Auth credentials safely",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 20
+            },
+            {
+              "name": "Run authentication smoke test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 21
+            },
+            {
+              "name": "Upload database evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 22
+            },
+            {
+              "name": "Stop Supabase stack",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 23
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 44
+            },
+            {
+              "name": "Post Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 45
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 46
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 47
+            }
+          ]
+        }
+      ]
+    },
+    "38088847236": {
+      "jobs": [
+        {
+          "id": 114320931145,
+          "name": "Application",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 38088847236,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run pnpm install --frozen-lockfile",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run pnpm lint",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Run pnpm typecheck",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Run pnpm test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Run pnpm build",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Run pnpm audit --audit-level high --ignore GHSA-vfj7-8cjw-p6xm",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Production bundle smoke test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 20
+            },
+            {
+              "name": "Post Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 21
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 22
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 23
+            }
+          ]
+        },
+        {
+          "id": 114320931351,
+          "name": "Database",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 38088847236,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run pnpm install --frozen-lockfile",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run supabase/setup-cli@v1",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Start Supabase stack",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Rebuild database and execute migrations",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Verify migration history",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Lint database",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Run foundation pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Run tenant isolation tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 12
+            },
+            {
+              "name": "Run Customer OS pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Run State and Event Engine pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Run Admin Control Plane pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Run Messaging Gateway pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Run Agent Runtime pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            },
+            {
+              "name": "Run Conversation Quality pgTAP tests",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 18
+            },
+            {
+              "name": "Prove concurrent transition serialization",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 19
+            },
+            {
+              "name": "Export local Auth credentials safely",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 20
+            },
+            {
+              "name": "Run authentication smoke test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 21
+            },
+            {
+              "name": "Upload database evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 22
+            },
+            {
+              "name": "Stop Supabase stack",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 23
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 44
+            },
+            {
+              "name": "Post Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 45
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 46
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 47
+            }
+          ]
+        }
+      ]
+    },
+    "38089063290": {
+      "jobs": [
+        {
+          "id": 114321565191,
+          "name": "Supabase staging validation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 38089063290,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Enforce successful CI gate",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run pnpm install --frozen-lockfile",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Run supabase/setup-cli@v1",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Validate required staging secrets",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 8
+            },
+            {
+              "name": "Link isolated staging database",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Apply migrations to staging",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Verify staging migration history",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Lint staging database",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 12
+            },
+            {
+              "name": "Run staging authentication smoke test",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Write validation evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Upload Supabase staging evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 15
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 28
+            },
+            {
+              "name": "Post Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 29
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 30
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 31
+            }
+          ]
+        },
+        {
+          "id": 114321702341,
+          "name": "Vercel staging validation",
+          "status": "completed",
+          "conclusion": "success",
+          "run_id": 38089063290,
+          "logs_url": null,
+          "steps": [
+            {
+              "name": "Set up job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 1
+            },
+            {
+              "name": "Enforce successful CI gate",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 2
+            },
+            {
+              "name": "Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 3
+            },
+            {
+              "name": "Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 4
+            },
+            {
+              "name": "Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 5
+            },
+            {
+              "name": "Run pnpm install --frozen-lockfile",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 6
+            },
+            {
+              "name": "Validate required Vercel secrets",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 7
+            },
+            {
+              "name": "Validate required Telegram staging secrets",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 8
+            },
+            {
+              "name": "Validate required Agent Runtime staging secrets",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 9
+            },
+            {
+              "name": "Validate required OpenAI staging secrets",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 10
+            },
+            {
+              "name": "Verify Vercel project identity",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 11
+            },
+            {
+              "name": "Pull isolated Vercel staging preview configuration",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 12
+            },
+            {
+              "name": "Pull isolated Vercel staging production-target configuration",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 13
+            },
+            {
+              "name": "Materialize isolated staging production build environment",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 14
+            },
+            {
+              "name": "Build staging preview deployment",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 15
+            },
+            {
+              "name": "Build isolated staging production-target deployment",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 16
+            },
+            {
+              "name": "Deploy staging artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 17
+            },
+            {
+              "name": "Point canonical staging alias at validated artifact",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 18
+            },
+            {
+              "name": "Validate staging deployment",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 19
+            },
+            {
+              "name": "Activate Phase 7 OpenAI provider in shadow mode",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 20
+            },
+            {
+              "name": "Requeue owner-resolved OpenAI quota dead letters",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 21
+            },
+            {
+              "name": "Drain and validate Phase 6 worker backlog without outbound messaging",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 22
+            },
+            {
+              "name": "Upload Phase 6 worker evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 23
+            },
+            {
+              "name": "Validate Phase 7 quality runtime evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 24
+            },
+            {
+              "name": "Upload Phase 7 quality evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 25
+            },
+            {
+              "name": "Register and validate Telegram staging webhook",
+              "status": "completed",
+              "conclusion": "skipped",
+              "number": 26
+            },
+            {
+              "name": "Write Vercel validation evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 27
+            },
+            {
+              "name": "Upload Vercel staging evidence",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 28
+            },
+            {
+              "name": "Post Run actions/setup-node@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 54
+            },
+            {
+              "name": "Post Run pnpm/action-setup@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 55
+            },
+            {
+              "name": "Post Run actions/checkout@v4",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 56
+            },
+            {
+              "name": "Complete job",
+              "status": "completed",
+              "conclusion": "success",
+              "number": 57
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "outbound_audit": [
+    {
+      "id": 187,
+      "created_at": "2026-10-10 14:40:09.708504+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 193,
+      "created_at": "2026-10-10 14:43:38.415292+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 211,
+      "created_at": "2026-10-10 15:06:28.131788+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 217,
+      "created_at": "2026-10-10 15:09:55.301742+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 237,
+      "created_at": "2026-10-10 15:33:49.157611+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 244,
+      "created_at": "2026-10-10 15:37:04.707339+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 253,
+      "created_at": "2026-10-10 15:55:31.59115+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 259,
+      "created_at": "2026-10-10 15:58:17.923725+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 279,
+      "created_at": "2026-10-10 16:24:07.621367+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 289,
+      "created_at": "2026-10-10 16:49:59.650804+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 292,
+      "created_at": "2026-10-10 16:52:28.998772+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 298,
+      "created_at": "2026-10-10 17:01:32.985068+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 320,
+      "created_at": "2026-10-10 17:12:44.238113+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 326,
+      "created_at": "2026-10-10 17:25:00.913818+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 348,
+      "created_at": "2026-10-10 17:40:50.249093+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 354,
+      "created_at": "2026-10-10 17:57:29.017128+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 357,
+      "created_at": "2026-10-10 18:00:17.870034+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 363,
+      "created_at": "2026-10-10 18:12:25.258726+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 370,
+      "created_at": "2026-10-10 18:16:56.101825+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 376,
+      "created_at": "2026-10-10 18:32:16.763544+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 395,
+      "created_at": "2026-10-10 18:40:29.095228+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 401,
+      "created_at": "2026-10-10 19:01:03.286784+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 425,
+      "created_at": "2026-10-10 19:14:37.135969+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 431,
+      "created_at": "2026-10-10 19:37:22.484714+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 457,
+      "created_at": "2026-10-10 19:52:20.205632+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 463,
+      "created_at": "2026-10-10 20:09:56.757834+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 489,
+      "created_at": "2026-10-10 20:22:05.834383+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 495,
+      "created_at": "2026-10-10 20:32:51.988704+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 502,
+      "created_at": "2026-10-10 20:37:14.515602+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 508,
+      "created_at": "2026-10-10 20:47:56.769744+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 536,
+      "created_at": "2026-10-10 21:09:48.365885+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 542,
+      "created_at": "2026-10-10 21:19:51.90977+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 545,
+      "created_at": "2026-10-10 21:22:12.632619+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 551,
+      "created_at": "2026-10-10 21:32:56.498083+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 566,
+      "created_at": "2026-10-10 21:40:05.901028+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    }
+  ],
+  "browser_block": {
+    "type": "infrastructure_timeout",
+    "attempts": [
+      {
+        "action": "fastPanel.getAXState",
+        "duration_seconds": 305.2057
+      },
+      {
+        "action": "browser-troubleshooting documentation",
+        "duration_seconds": 300.0013
+      },
+      {
+        "action": "cua_repl.js_reset",
+        "duration_seconds": 300.0015
+      }
+    ],
+    "new_messages_sent": 0,
+    "restore_completed": false
+  },
+  "prior_diagnostic_rounds": 18,
+  "prior_diagnostic_inputs": 348,
+  "prior_diagnostic_system_sent": 252,
+  "prior_diagnostic_blocked": 96,
+  "prior_diagnostic_model_calls": 378,
+  "prior_diagnostic_failed_model_calls": 0,
+  "release_rows": [
+    {
+      "pr": 43,
+      "main": "8edc1f81cb3b1bd09ef5d539397ff1d2fe24b4dc",
+      "prCI": 38060153568,
+      "mainCI": 38060345995,
+      "staging": 38060553990,
+      "note": "FIFO/kısa güvenli yanıtlar"
+    },
+    {
+      "pr": 44,
+      "main": "82c50a19200dc3131e366aee3fff9193a6547785",
+      "prCI": 38061810110,
+      "mainCI": 38062034282,
+      "staging": 38062305970,
+      "note": "Unicode/dil/kimlik"
+    },
+    {
+      "pr": 45,
+      "main": "8a867990d8af5b5e176ec12d0c76ea0bd9570b2b",
+      "prCI": 38063128573,
+      "mainCI": 38063336013,
+      "staging": null,
+      "note": "46 ile birlikte staging"
+    },
+    {
+      "pr": 46,
+      "main": "de866d3c238a52d4bfbaa8a984ba2d69339face0",
+      "prCI": 38063688373,
+      "mainCI": 38063907186,
+      "staging": 38064143470,
+      "note": "Gerçek tek yeniden yazma"
+    },
+    {
+      "pr": 47,
+      "main": "12fe599d70056fd001b3875c8f904d1787e8baed",
+      "prCI": 38065133992,
+      "mainCI": 38065357242,
+      "staging": 38065596854,
+      "note": "Sınırlı doğal konuşma"
+    },
+    {
+      "pr": 48,
+      "main": "06b8d879401a69e5da8d6425c751d1b94a557181",
+      "prCI": 38066720680,
+      "mainCI": 38066927383,
+      "staging": null,
+      "note": "49 ile birlikte staging; otomatik deploy hata"
+    },
+    {
+      "pr": 49,
+      "main": "dae2d4db6defb77d83ce9a0c282f082b223867e7",
+      "prCI": 38067239881,
+      "mainCI": 38067526854,
+      "staging": 38067803165,
+      "note": "Vercel ignore kök dizin düzeltmesi"
+    },
+    {
+      "pr": 50,
+      "main": "193f6f31611537a03db86e6cac7f574ea6fcaec1",
+      "prCI": 38068668456,
+      "mainCI": 38068853888,
+      "staging": 38069050380,
+      "note": "Tüm etiketlerde doğru kimlik"
+    },
+    {
+      "pr": 51,
+      "main": "b9d975b26dbe0b1262488dfcf9cb2c0895b05e97",
+      "prCI": 38069455351,
+      "mainCI": 38069666091,
+      "staging": 38069858867,
+      "note": "Aylık açıklama teklifi"
+    },
+    {
+      "pr": 52,
+      "main": "52297988647ad63fa5ae97414fc2a3a5fc4b4afa",
+      "prCI": 38071045792,
+      "mainCI": 38071249757,
+      "staging": 38071456369,
+      "note": "Gerçek yetki/bağlam"
+    },
+    {
+      "pr": 54,
+      "main": "25e400db36aeb543fe320a15992b09dcb9a1dc4c",
+      "prCI": 38073227305,
+      "mainCI": 38073432574,
+      "staging": 38073630363,
+      "note": "TR teklif/sorular; biyografi/kazanç sert koruması"
+    },
+    {
+      "pr": 55,
+      "main": "04e144ba8f6b6ffa01358383d22e8a7a27312382",
+      "prCI": 38074193110,
+      "mainCI": 38074402656,
+      "staging": 38074643024,
+      "note": "Sınırlı konu teklifi"
+    },
+    {
+      "pr": 56,
+      "main": "e1b72b5143b616a849a2d1e2b74109103601892b",
+      "prCI": 38075453885,
+      "mainCI": 38075742653,
+      "staging": 38075928537,
+      "note": "Türkçe net değil"
+    },
+    {
+      "pr": 57,
+      "main": "34228ae08534cf51e6ef5adc72f26f4574de6c4e",
+      "prCI": 38076966620,
+      "mainCI": 38077166592,
+      "staging": null,
+      "note": "58 ile birlikte staging; boş migration bulundu"
+    },
+    {
+      "pr": 58,
+      "main": "08e2940a5ebc69d55b9b992c988e16ce22373f22",
+      "prCI": 38077461797,
+      "mainCI": 38077640786,
+      "staging": 38077858223,
+      "note": "QA yayın sürümü doğrulaması"
+    },
+    {
+      "pr": 59,
+      "main": "36ccbebb47ac91c718404084d519cfe7f48b0801",
+      "prCI": 38079878319,
+      "mainCI": 38080090825,
+      "staging": 38080319639,
+      "note": "Kaynak özeti ve kelime sınırları"
+    },
+    {
+      "pr": 60,
+      "main": "65d6df5cbfe2dc99a39bc1a1fedd923df387efb3",
+      "prCI": 38081800496,
+      "mainCI": 38081973889,
+      "staging": 38082185702,
+      "note": "6 yanlış engel/bağlam hatası; değer atıf koruması"
+    },
+    {
+      "pr": 61,
+      "main": "6b7ff83c26149162fa40dd8fa51a4b95554b937a",
+      "prCI": 38083584867,
+      "mainCI": 38083760715,
+      "staging": 38083960883,
+      "note": "Seçim onayı ve sunulan soru"
+    },
+    {
+      "pr": 62,
+      "main": "58c4aad039c3e456aaf7f1c6a63c2473806d961c",
+      "prCI": 38084575267,
+      "mainCI": 38084777699,
+      "staging": 38084956014,
+      "note": "Yeni istenen bilgi eksikliği sürekliliği"
+    },
+    {
+      "pr": 63,
+      "main": "2fb807add841da94e221b8a43ee3c4c20966efa2",
+      "prCI": 38086630519,
+      "mainCI": 38086800105,
+      "staging": 38086989286,
+      "note": "Bütün sınırlı üyelik yardım teklifi; gerçek yetki/ref/işlem sınırları korunur"
+    },
+    {
+      "pr": 64,
+      "main": "dbb82dd589e005793dfa4a215d1fbf7bd52f5923",
+      "prCI": 38087433348,
+      "mainCI": 38087628555,
+      "staging": 38087826204,
+      "note": "Sınırlı explain/clarify konu listesi; soru etiketli bütün davet"
+    },
+    {
+      "pr": 65,
+      "main": "0392c6dbed0b532a8101c8a6ea7b8e0ec360d3ce",
+      "prCI": 38088661362,
+      "mainCI": 38088847236,
+      "staging": 38089063290,
+      "note": "Gerçek kaynakla aylık seçim sözdizimi; adverb sırası ve eksiltili onay"
+    }
+  ],
+  "memory_validation_historical_qa28": [
+    {
+      "test": "real_current",
+      "result": {
+        "code": "PROVENANCE_VALID",
+        "valid": true,
+        "failures": []
+      }
+    },
+    {
+      "test": "fake_uuid",
+      "result": {
+        "code": "PROVENANCE_MESSAGE_NOT_AUTHORIZED",
+        "valid": false,
+        "failures": [
+          {
+            "code": "PROVENANCE_MESSAGE_NOT_AUTHORIZED",
+            "message_id": "00000000-0000-4000-8000-000000000001"
+          }
+        ]
+      }
+    },
+    {
+      "test": "future_burst",
+      "result": {
+        "code": "PROVENANCE_AFTER_SOURCE_BOUNDARY",
+        "valid": false,
+        "failures": [
+          {
+            "code": "PROVENANCE_AFTER_SOURCE_BOUNDARY",
+            "message_id": "84b6d821-8792-47b2-8b11-bf5e7e801b17"
+          }
+        ]
+      }
+    },
+    {
+      "test": "outbound_not_customer",
+      "result": {
+        "code": "PROVENANCE_NOT_INBOUND",
+        "valid": false,
+        "failures": [
+          {
+            "code": "PROVENANCE_NOT_INBOUND",
+            "message_id": "ec4bfd71-fa38-4034-970d-330139c4e77e"
+          }
+        ]
+      }
+    }
+  ],
+  "fake_wire_historical_qa28": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"error\":{\"name\":\"HttpException\",\"message\":\"Failed to run sql query: ERROR:  22023: EVIDENCE_REFERENCE_NOT_ALLOWED\\nCONTEXT:  PL/pgSQL function private.resolve_quality_wire_refs(jsonb,jsonb,boolean) line 8 at RAISE\\n\"}}"
+      }
+    ],
+    "structuredContent": {
+      "error_code": "INVALID_ARGUMENT"
+    },
+    "isError": true
+  },
+  "approval_status": "Owner formal Phase 7 approval pending",
+  "phase8_started": false,
+  "historical_import": "LOCKED"
+}

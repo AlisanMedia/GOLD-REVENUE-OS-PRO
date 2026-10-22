@@ -1,0 +1,28 @@
+$ vitest run packages -- -t 'live whole Turkish clarity'
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (161 tests | 1 failed) 200ms
+   ❯ Live Turkish visibility regression (2)
+     × accepts the live whole Turkish clarity limitation while rejecting appended facts 10ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Live Turkish visibility regression > accepts the live whole Turkish clarity limitation while rejecting appended facts
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:522:51
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 8 passed (9)
+      Tests  1 failed | 359 passed (360)
+   Start at  20:17:11
+   Duration  689ms (transform 47%, import 30%, tests 21%, worker 2%)
+
+[ELIFECYCLE] Command failed with exit code 1.

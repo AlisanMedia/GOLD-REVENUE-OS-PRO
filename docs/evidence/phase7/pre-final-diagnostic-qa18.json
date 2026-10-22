@@ -1,0 +1,1825 @@
+{
+  "source_sha": "193f6f31611537a03db86e6cac7f574ea6fcaec1",
+  "start": "2026-10-10 16:50:12.292947+00",
+  "round": "partial QA18 diagnostic; false block case2; not final acceptance",
+  "rows": [
+    {
+      "source_id": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2",
+      "source_provider": "296",
+      "input": "Hi",
+      "received_at": "2026-10-10 16:50:22.603772+00",
+      "event_id": "86afa4fa-f073-4b78-8234-27dbc68100d9",
+      "task_id": "412e4724-93eb-4f6b-a958-ceb431bd110f",
+      "task_status": "SUCCEEDED",
+      "run_id": "7a846764-db2f-4dee-b1a4-224fbed4f2fa",
+      "run_status": "SUCCEEDED",
+      "failure_code": null,
+      "run_started_at": "2026-10-10 16:50:24.702442+00",
+      "run_completed_at": "2026-10-10 16:50:28.002503+00",
+      "task_created_at": "2026-10-10 16:50:23.406279+00",
+      "director_output": {
+        "should_sell": false,
+        "should_wait": false,
+        "response_goal": "Return the greeting briefly and invite the customer's topic.",
+        "primary_intent": "greeting",
+        "information_gap": null,
+        "should_escalate": false,
+        "conversation_stage": "greeting",
+        "should_ask_question": true,
+        "desired_style_profile": "neutral",
+        "should_answer_directly": true,
+        "desired_response_length": "short"
+      },
+      "style_profile": {
+        "language": "en",
+        "formality": "neutral",
+        "confidence": 0.35,
+        "provenance": "bounded_conversation_inference",
+        "jargon_level": "low",
+        "emoji_tolerance": "none",
+        "response_energy": "medium",
+        "preferred_message_length": "short"
+      },
+      "qa_scores": {
+        "tone_fit": 90,
+        "repetition": 0,
+        "context_fit": 90,
+        "policy_risk": 0,
+        "sales_pressure": 0,
+        "escalation_need": 0,
+        "excessive_length": 0,
+        "robotic_language": 0,
+        "factual_confidence": 100,
+        "semantic_context_fit": 90,
+        "structural_context_fit": 90
+      },
+      "customer_facing_blocked": false,
+      "qa_version": "conversation-qa-v18",
+      "qa_action": "approve",
+      "qa_reasons": [],
+      "rewrite_count": 0,
+      "proposal_id": "81ee54fc-840d-4cf6-a5ed-e3def9eb91b6",
+      "original_payload": {
+        "claims": [
+          {
+            "kind": "social",
+            "text": "Hello.",
+            "grounding": "GENERAL_SAFE_STATEMENT",
+            "capability": "conversation.reply",
+            "speech_act": "ACKNOWLEDGEMENT",
+            "evidence_refs": [
+              "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+            ],
+            "action_category": null
+          },
+          {
+            "kind": "question",
+            "text": "What can I help you with?",
+            "grounding": "GENERAL_SAFE_STATEMENT",
+            "capability": "conversation.reply",
+            "speech_act": "QUESTION",
+            "evidence_refs": [
+              "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+            ],
+            "action_category": null
+          }
+        ],
+        "confidence": 0.99,
+        "classification": "greeting",
+        "memory_proposals": [],
+        "proposed_response": "Hello. What can I help you with?",
+        "semantic_response": {
+          "key_points": [
+            "Greet the customer briefly.",
+            "Ask what they need help with."
+          ],
+          "response_goal": "Return the greeting briefly and invite the customer's topic.",
+          "factual_grounding": {
+            "evidence_refs": [
+              "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+            ],
+            "classification": "known_from_system",
+            "missing_information": []
+          }
+        },
+        "escalation_category": null,
+        "proposed_tool_calls": [],
+        "escalation_recommended": false
+      },
+      "approval_status": "approved",
+      "block_reason": null,
+      "reviewed_at": "2026-10-10 16:50:28.338598+00",
+      "reviewed_by": null,
+      "outbound_id": "ba8f53e3-f6ff-4df4-9fc8-43cdf8dae242",
+      "reply_provider": "297",
+      "outbound_status": "sent",
+      "reply": "Hello. What can I help you with?",
+      "outbound_created_at": "2026-10-10 16:50:28.338598+00",
+      "sent_at": "2026-10-10 16:50:29.214329+00",
+      "reply_to_message_id": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2",
+      "idempotency_key": "agent-proposal:81ee54fc-840d-4cf6-a5ed-e3def9eb91b6:qa-auto-v1",
+      "sent_events": [
+        {
+          "id": "e7bfd83a-5e8a-4b59-8a5a-a70aaa52affa"
+        }
+      ],
+      "system_approvals": [
+        {
+          "id": 290,
+          "actor_type": "SYSTEM",
+          "after_data": {
+            "message_id": "ba8f53e3-f6ff-4df4-9fc8-43cdf8dae242",
+            "human_review": false,
+            "qa_evaluation_id": "33fc44cb-3ab3-4f02-8991-9e0c52d4b096"
+          },
+          "created_at": "2026-10-10T16:50:28.338598+00:00"
+        }
+      ],
+      "actor_type": "SYSTEM",
+      "reply_to_provider_message_id": "296",
+      "seconds": "6.610557"
+    },
+    {
+      "source_id": "49d88f3e-5957-4edc-ada0-095c8e17b6a6",
+      "source_provider": "298",
+      "input": "I’m looking into membership. What can you help me clarify?",
+      "received_at": "2026-10-10 16:50:39.384959+00",
+      "event_id": "74dbcef9-67f3-4b75-8366-53a74aa3bf76",
+      "task_id": "c29beee9-2391-4ca0-99fe-53479158cdc0",
+      "task_status": "WAITING_FOR_APPROVAL",
+      "run_id": "d7cb5fb0-fb45-4d97-b3b9-5ba8ecd05ee7",
+      "run_status": "WAITING_FOR_APPROVAL",
+      "failure_code": null,
+      "run_started_at": "2026-10-10 16:50:41.475916+00",
+      "run_completed_at": "2026-10-10 16:50:44.216537+00",
+      "task_created_at": "2026-10-10 16:50:40.086821+00",
+      "director_output": {
+        "should_sell": false,
+        "should_wait": false,
+        "response_goal": "Address the customer's primary request concisely.",
+        "primary_intent": "membership_details",
+        "information_gap": "product.source_of_truth",
+        "should_escalate": false,
+        "conversation_stage": "information",
+        "should_ask_question": false,
+        "desired_style_profile": "neutral",
+        "should_answer_directly": true,
+        "desired_response_length": "short"
+      },
+      "style_profile": {
+        "language": "en",
+        "formality": "neutral",
+        "confidence": 0.72,
+        "provenance": "bounded_conversation_inference",
+        "jargon_level": "low",
+        "emoji_tolerance": "none",
+        "response_energy": "medium",
+        "preferred_message_length": "short"
+      },
+      "qa_scores": {
+        "tone_fit": 90,
+        "repetition": 5,
+        "context_fit": 72,
+        "policy_risk": 100,
+        "sales_pressure": 0,
+        "escalation_need": 0,
+        "excessive_length": 0,
+        "robotic_language": 0,
+        "factual_confidence": 0,
+        "semantic_context_fit": 40,
+        "structural_context_fit": 72
+      },
+      "customer_facing_blocked": true,
+      "qa_version": "conversation-qa-v18",
+      "qa_action": "block",
+      "qa_reasons": [
+        "UNSUPPORTED_CLAIM",
+        "SEMANTIC_CONTEXT_FIT_LOW",
+        "POLICY_RISK",
+        "FACTUAL_CONFIDENCE_LOW"
+      ],
+      "rewrite_count": 0,
+      "proposal_id": "5b6b78d6-e3b1-4c72-935d-310c5eafab04",
+      "original_payload": {
+        "claims": [
+          {
+            "kind": "fact",
+            "text": "I can help clarify the monthly price, what’s included, and cancellation terms.",
+            "grounding": "GENERAL_SAFE_STATEMENT",
+            "capability": "conversation.reply",
+            "speech_act": "CAPABILITY_OFFER",
+            "evidence_refs": [
+              "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+            ],
+            "action_category": null
+          },
+          {
+            "kind": "question",
+            "text": "What would you like to start with?",
+            "grounding": "GENERAL_SAFE_STATEMENT",
+            "capability": null,
+            "speech_act": "QUESTION",
+            "evidence_refs": [
+              "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+            ],
+            "action_category": null
+          }
+        ],
+        "confidence": 0.9,
+        "classification": "ok",
+        "memory_proposals": [],
+        "proposed_response": "I can help clarify the monthly price, what’s included, and cancellation terms. What would you like to start with?",
+        "semantic_response": {
+          "key_points": [
+            "Acknowledge the membership topic.",
+            "Say what can be clarified in general terms.",
+            "Ask one brief question to narrow the request."
+          ],
+          "response_goal": "Offer concise, truthful help on membership topics without claiming verified details.",
+          "factual_grounding": {
+            "evidence_refs": [
+              "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+            ],
+            "classification": "known_from_system",
+            "missing_information": [
+              "Exact membership details are not available in the provided context."
+            ]
+          }
+        },
+        "escalation_category": null,
+        "proposed_tool_calls": [],
+        "escalation_recommended": false
+      },
+      "approval_status": "pending",
+      "block_reason": "UNSUPPORTED_CLAIM,SEMANTIC_CONTEXT_FIT_LOW,POLICY_RISK,FACTUAL_CONFIDENCE_LOW",
+      "reviewed_at": null,
+      "reviewed_by": null,
+      "outbound_id": null,
+      "reply_provider": null,
+      "outbound_status": null,
+      "reply": null,
+      "outbound_created_at": null,
+      "sent_at": null,
+      "reply_to_message_id": null,
+      "idempotency_key": null,
+      "sent_events": null,
+      "system_approvals": null,
+      "actor_type": null,
+      "reply_to_provider_message_id": null,
+      "seconds": null
+    }
+  ],
+  "details": [
+    {
+      "run_id": "7a846764-db2f-4dee-b1a4-224fbed4f2fa",
+      "context_manifest": {
+        "limits": {
+          "messages": 20,
+          "memoryItems": 24,
+          "recentEvents": 12,
+          "messageCharacters": 4096,
+          "totalMessageCharacters": 16000
+        },
+        "event_count": 1,
+        "memory_count": 0,
+        "message_count": 20,
+        "context_version": 3,
+        "source_event_id": "86afa4fa-f073-4b78-8234-27dbc68100d9",
+        "manifest_version": 2,
+        "profile_included": false,
+        "secrets_included": false,
+        "customer_included": false,
+        "knowledge_sources": [
+          "customer.core",
+          "customer.profile",
+          "customer.memory",
+          "conversation.recent_messages",
+          "conversation.contactability",
+          "event.recent_types"
+        ],
+        "retrieval_version": "source-bounded-v2",
+        "source_message_id": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2",
+        "included_event_ids": [
+          "86afa4fa-f073-4b78-8234-27dbc68100d9"
+        ],
+        "context_fingerprint": "51c923f4f410fcf6e7c88d79c2e19bd30a4a03cba263556adc2aebf4ad07a0fb",
+        "unavailable_sources": [
+          "customer.profile",
+          "customer.memory",
+          "product.catalog",
+          "pricing.source_of_truth",
+          "payment.status",
+          "subscription.status",
+          "knowledge_base"
+        ],
+        "included_message_ids": [
+          "af1ac952-4b88-4a3a-aec0-2c5fd9c1dbc6",
+          "a7338f18-6df8-4344-a2dd-10b415f30898",
+          "2dee279f-1a1b-4998-ab70-cb46a818ea16",
+          "9b5d3c4d-ccb1-400b-b4c8-ab59b38ac2a3",
+          "fe0aaba5-2962-41f9-b63b-06729131f916",
+          "8faa5500-5431-49a8-8e6c-bacf7c7e1bad",
+          "ec6c9927-8999-455b-9f8b-13c078b4b7aa",
+          "b9ae07af-7af9-4ef5-b85e-ee17921ecfc6",
+          "769cbcf0-32a0-440b-bd38-6351053f6f7c",
+          "35bed4f7-b476-406e-a6a2-4b8e55a63ded",
+          "dfe8dd6d-b6cc-4ab4-bf47-5ed98d898925",
+          "d6a877f4-c7cb-4e91-bffa-c15b408c9b26",
+          "5d2c100d-abad-4a68-b8a3-b9291fb908ef",
+          "cb165bf2-d531-4842-a5dd-45e5b4ac5fe7",
+          "b5d0dd40-110c-4e1b-9cf5-6ae30584e2a2",
+          "a8d20fa6-9caf-424a-8865-e4064e2b817f",
+          "4223b4ca-e15a-4dfd-9815-9d6153db236c",
+          "5352fa48-c4e1-462e-b71f-6c96051840cf",
+          "da2a47a6-10df-48fc-a827-a33676f0e629",
+          "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+        ],
+        "message_fingerprints": [
+          {
+            "id": "af1ac952-4b88-4a3a-aec0-2c5fd9c1dbc6",
+            "created_at": "2026-10-10T16:03:22.857207+00:00",
+            "content_sha256": "ae75280875da0b63265d1aebed9a1c9dd2f748e08fac199c0cc9ae2455d6c718",
+            "included_characters": 48
+          },
+          {
+            "id": "a7338f18-6df8-4344-a2dd-10b415f30898",
+            "created_at": "2026-10-10T16:03:36.731826+00:00",
+            "content_sha256": "e4075dd9e88f290ee794a3acb084700e4e936cf563167871672191a477a67d46",
+            "included_characters": 42
+          },
+          {
+            "id": "2dee279f-1a1b-4998-ab70-cb46a818ea16",
+            "created_at": "2026-10-10T16:03:42.499805+00:00",
+            "content_sha256": "6c5b5f3463b4729421fa0e38700409421fd28a7447e0f8ef56337f56f26441df",
+            "included_characters": 13
+          },
+          {
+            "id": "9b5d3c4d-ccb1-400b-b4c8-ab59b38ac2a3",
+            "created_at": "2026-10-10T16:03:54.607609+00:00",
+            "content_sha256": "671748eb583c359bc2186298e6f52cac311837fcc0e00e123f8fc76e4f71c99b",
+            "included_characters": 91
+          },
+          {
+            "id": "fe0aaba5-2962-41f9-b63b-06729131f916",
+            "created_at": "2026-10-10T16:03:59.04012+00:00",
+            "content_sha256": "adb218be67fad5aaf88907727361df9d9cfde764a6a00434cf9f04604a211ba5",
+            "included_characters": 47
+          },
+          {
+            "id": "8faa5500-5431-49a8-8e6c-bacf7c7e1bad",
+            "created_at": "2026-10-10T16:04:11.185059+00:00",
+            "content_sha256": "f4e944a9569ae23237ca8c716229e6f8c83e2ab3cc5781dd5b0c1ca380435774",
+            "included_characters": 81
+          },
+          {
+            "id": "ec6c9927-8999-455b-9f8b-13c078b4b7aa",
+            "created_at": "2026-10-10T16:04:17.522661+00:00",
+            "content_sha256": "092080f562a91516e5303d461ba9906a476f1fa94f1dfcd4d35e4447201a6d2e",
+            "included_characters": 42
+          },
+          {
+            "id": "b9ae07af-7af9-4ef5-b85e-ee17921ecfc6",
+            "created_at": "2026-10-10T16:04:29.941165+00:00",
+            "content_sha256": "958a28d3328261fc1d8d84cfb43bae7c9252617154ebf2e9b6a458bff49ffc85",
+            "included_characters": 123
+          },
+          {
+            "id": "769cbcf0-32a0-440b-bd38-6351053f6f7c",
+            "created_at": "2026-10-10T16:04:36.768857+00:00",
+            "content_sha256": "53a0bb84a93549578699e7fe04a0bdc49a2b477205646f41210978ceb242914c",
+            "included_characters": 101
+          },
+          {
+            "id": "35bed4f7-b476-406e-a6a2-4b8e55a63ded",
+            "created_at": "2026-10-10T16:05:01.265893+00:00",
+            "content_sha256": "44576d33e775ca362014b4932a8a8e0561f99d282a2fbdf8e7b63abecad74388",
+            "included_characters": 54
+          },
+          {
+            "id": "dfe8dd6d-b6cc-4ab4-bf47-5ed98d898925",
+            "created_at": "2026-10-10T16:05:23.956701+00:00",
+            "content_sha256": "885f530eeab15284919eb50df36de551166673e5746b4d390aaa8df3c7f6ce10",
+            "included_characters": 76
+          },
+          {
+            "id": "d6a877f4-c7cb-4e91-bffa-c15b408c9b26",
+            "created_at": "2026-10-10T16:05:58.264089+00:00",
+            "content_sha256": "eec7f078237d6f15200ee1a751a4bc7d428cf9bc9819a75b8f1c9c2a90dd5ce8",
+            "included_characters": 122
+          },
+          {
+            "id": "5d2c100d-abad-4a68-b8a3-b9291fb908ef",
+            "created_at": "2026-10-10T16:06:28.691607+00:00",
+            "content_sha256": "f0da08f330286e31d2cef0d21cbed4a15db66a609f5e60d5a42ea39cc3a574f0",
+            "included_characters": 97
+          },
+          {
+            "id": "cb165bf2-d531-4842-a5dd-45e5b4ac5fe7",
+            "created_at": "2026-10-10T16:06:50.040972+00:00",
+            "content_sha256": "f4ecc687f91cf09e2581359633e174661e9717f267e1d991505b13f7631f356c",
+            "included_characters": 146
+          },
+          {
+            "id": "b5d0dd40-110c-4e1b-9cf5-6ae30584e2a2",
+            "created_at": "2026-10-10T16:06:55.083339+00:00",
+            "content_sha256": "75aff0fa2e22bec16f1cbb14060e3b04d4cfb7d60a0ca0006a8427ce14962f8d",
+            "included_characters": 78
+          },
+          {
+            "id": "a8d20fa6-9caf-424a-8865-e4064e2b817f",
+            "created_at": "2026-10-10T16:07:07.092667+00:00",
+            "content_sha256": "71ade035262171fe4f548bc1b2131f85bbf1d85675920f2546159e658fbe0c8e",
+            "included_characters": 110
+          },
+          {
+            "id": "4223b4ca-e15a-4dfd-9815-9d6153db236c",
+            "created_at": "2026-10-10T16:07:40.212539+00:00",
+            "content_sha256": "436111deb968b67fd0eba64f0debf07a3327ed422514f146b2ad70da0c994e07",
+            "included_characters": 144
+          },
+          {
+            "id": "5352fa48-c4e1-462e-b71f-6c96051840cf",
+            "created_at": "2026-10-10T16:07:57.658821+00:00",
+            "content_sha256": "f4e944a9569ae23237ca8c716229e6f8c83e2ab3cc5781dd5b0c1ca380435774",
+            "included_characters": 81
+          },
+          {
+            "id": "da2a47a6-10df-48fc-a827-a33676f0e629",
+            "created_at": "2026-10-10T16:08:03.725032+00:00",
+            "content_sha256": "6c9500724103769d1158c010d0e58bb4bddb30cc10171c54ececcf68ebbefbc5",
+            "included_characters": 46
+          },
+          {
+            "id": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2",
+            "created_at": "2026-10-10T16:50:22.603772+00:00",
+            "content_sha256": "3639efcd08abb273b1619e82e78c29a7df02c1051b1820e99fc395dcaa3326b8",
+            "included_characters": 2
+          }
+        ],
+        "backend_action_receipts": [],
+        "message_character_count": 1544,
+        "mutable_state_retrieval": "exclude_versions_updated_after_source_boundary",
+        "evidence_handle_registry": [
+          {
+            "handle": "EVIDENCE_MESSAGE_1",
+            "direction": "outbound",
+            "messageId": "af1ac952-4b88-4a3a-aec0-2c5fd9c1dbc6"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_2",
+            "direction": "inbound",
+            "messageId": "a7338f18-6df8-4344-a2dd-10b415f30898"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_3",
+            "direction": "outbound",
+            "messageId": "2dee279f-1a1b-4998-ab70-cb46a818ea16"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_4",
+            "direction": "inbound",
+            "messageId": "9b5d3c4d-ccb1-400b-b4c8-ab59b38ac2a3"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_5",
+            "direction": "outbound",
+            "messageId": "fe0aaba5-2962-41f9-b63b-06729131f916"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_6",
+            "direction": "inbound",
+            "messageId": "8faa5500-5431-49a8-8e6c-bacf7c7e1bad"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_7",
+            "direction": "outbound",
+            "messageId": "ec6c9927-8999-455b-9f8b-13c078b4b7aa"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_8",
+            "direction": "inbound",
+            "messageId": "b9ae07af-7af9-4ef5-b85e-ee17921ecfc6"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_9",
+            "direction": "outbound",
+            "messageId": "769cbcf0-32a0-440b-bd38-6351053f6f7c"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_10",
+            "direction": "inbound",
+            "messageId": "35bed4f7-b476-406e-a6a2-4b8e55a63ded"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_11",
+            "direction": "inbound",
+            "messageId": "dfe8dd6d-b6cc-4ab4-bf47-5ed98d898925"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_12",
+            "direction": "inbound",
+            "messageId": "d6a877f4-c7cb-4e91-bffa-c15b408c9b26"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_13",
+            "direction": "inbound",
+            "messageId": "5d2c100d-abad-4a68-b8a3-b9291fb908ef"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_14",
+            "direction": "inbound",
+            "messageId": "cb165bf2-d531-4842-a5dd-45e5b4ac5fe7"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_15",
+            "direction": "outbound",
+            "messageId": "b5d0dd40-110c-4e1b-9cf5-6ae30584e2a2"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_16",
+            "direction": "inbound",
+            "messageId": "a8d20fa6-9caf-424a-8865-e4064e2b817f"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_17",
+            "direction": "inbound",
+            "messageId": "4223b4ca-e15a-4dfd-9815-9d6153db236c"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_18",
+            "direction": "inbound",
+            "messageId": "5352fa48-c4e1-462e-b71f-6c96051840cf"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_19",
+            "direction": "outbound",
+            "messageId": "da2a47a6-10df-48fc-a827-a33676f0e629"
+          },
+          {
+            "handle": "EVIDENCE_CURRENT_MESSAGE",
+            "direction": "inbound",
+            "messageId": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+          }
+        ],
+        "included_memory_versions": [],
+        "profile_version_timestamp": null,
+        "source_message_created_at": "2026-10-10T16:50:22.603772+00:00",
+        "context_boundary_timestamp": "2026-10-10T16:50:22.603772+00:00"
+      },
+      "structured_output": {
+        "claims": [
+          {
+            "kind": "social",
+            "text": "Hello.",
+            "grounding": "GENERAL_SAFE_STATEMENT",
+            "capability": "conversation.reply",
+            "speech_act": "ACKNOWLEDGEMENT",
+            "evidence_refs": [
+              "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+            ],
+            "action_category": null
+          },
+          {
+            "kind": "question",
+            "text": "What can I help you with?",
+            "grounding": "GENERAL_SAFE_STATEMENT",
+            "capability": "conversation.reply",
+            "speech_act": "QUESTION",
+            "evidence_refs": [
+              "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+            ],
+            "action_category": null
+          }
+        ],
+        "confidence": 0.99,
+        "classification": "greeting",
+        "memory_proposals": [],
+        "proposed_response": "Hello. What can I help you with?",
+        "semantic_response": {
+          "key_points": [
+            "Greet the customer briefly.",
+            "Ask what they need help with."
+          ],
+          "response_goal": "Return the greeting briefly and invite the customer's topic.",
+          "factual_grounding": {
+            "evidence_refs": [
+              "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+            ],
+            "classification": "known_from_system",
+            "missing_information": []
+          }
+        },
+        "escalation_category": null,
+        "proposed_tool_calls": [],
+        "escalation_recommended": false
+      },
+      "started_at": "2026-10-10 16:50:24.702442+00",
+      "completed_at": "2026-10-10 16:50:28.002503+00",
+      "model_provider": "openai",
+      "model_name": "gpt-5.4-mini",
+      "latency_ms": 2658,
+      "stages": [
+        {
+          "id": "00dace5b-22ec-4cae-a470-59e3cc8acb85",
+          "run_id": "7a846764-db2f-4dee-b1a4-224fbed4f2fa",
+          "evidence": {
+            "versions": {
+              "qa": "conversation-qa-v18",
+              "prompt": "conversation-quality-prompt-v13",
+              "context": 3,
+              "director": "conversation-director-v4",
+              "renderer": "natural-renderer-v5",
+              "outputSchema": 4,
+              "evaluationSet": "phase7-balanced-v19"
+            },
+            "evaluation": {
+              "action": "approve",
+              "scores": {
+                "tone_fit": 90,
+                "repetition": 0,
+                "context_fit": 90,
+                "policy_risk": 0,
+                "sales_pressure": 0,
+                "escalation_need": 0,
+                "excessive_length": 0,
+                "robotic_language": 0,
+                "factual_confidence": 100,
+                "semantic_context_fit": 90,
+                "structural_context_fit": 90
+              },
+              "reasons": [],
+              "semantic": {
+                "score": 90,
+                "checks": {
+                  "no_irrelevant_cta": true,
+                  "current_topic_addressed": true
+                },
+                "method": "source_intent_constraints_v1",
+                "coverage": "intent_constraints",
+                "failures": [],
+                "requires_human_review": true
+              },
+              "grounding": {
+                "claims": [
+                  {
+                    "kind": "social",
+                    "text": "Hello.",
+                    "grounding": "GENERAL_SAFE_STATEMENT",
+                    "validated": true,
+                    "capability": "conversation.reply",
+                    "speech_act": "ACKNOWLEDGEMENT",
+                    "evidence_refs": [
+                      "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                    ],
+                    "action_category": null,
+                    "evidence_confidence": 100
+                  },
+                  {
+                    "kind": "question",
+                    "text": "What can I help you with?",
+                    "grounding": "GENERAL_SAFE_STATEMENT",
+                    "validated": true,
+                    "capability": "conversation.reply",
+                    "speech_act": "QUESTION",
+                    "evidence_refs": [
+                      "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                    ],
+                    "action_category": null,
+                    "evidence_confidence": 100
+                  }
+                ],
+                "blocked": false,
+                "reasons": [],
+                "model_confidence": 0.99,
+                "factual_confidence": 100,
+                "grounding_confidence": 100,
+                "action_receipt_failures": [],
+                "factual_assertion_count": 0,
+                "grounded_assertion_score": null,
+                "unsupported_assertion_count": 0,
+                "verified_business_knowledge_available": false
+              },
+              "naturalness": {
+                "method": "deterministic_text_indicators_v1",
+                "dimensions": {
+                  "grammar": 0,
+                  "unnecessary_cta": 0,
+                  "repeated_closing": 0,
+                  "repeated_opening": 0,
+                  "robotic_phrasing": 0,
+                  "tone_consistency": 0,
+                  "context_awareness": 0,
+                  "sentence_variation": 0,
+                  "template_similarity": 0,
+                  "response_specificity": 0,
+                  "conversational_continuity": 0,
+                  "unnatural_acknowledgement": 0
+                }
+              },
+              "factual_evidence": {
+                "grounded_assertion_score": null,
+                "unsupported_assertion_count": 0,
+                "verified_business_knowledge_available": false
+              },
+              "customerFacingBlocked": false
+            },
+            "original_output": {
+              "claims": [
+                {
+                  "kind": "social",
+                  "text": "Hello.",
+                  "grounding": "GENERAL_SAFE_STATEMENT",
+                  "capability": "conversation.reply",
+                  "speech_act": "ACKNOWLEDGEMENT",
+                  "evidence_refs": [
+                    "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                  ],
+                  "action_category": null
+                },
+                {
+                  "kind": "question",
+                  "text": "What can I help you with?",
+                  "grounding": "GENERAL_SAFE_STATEMENT",
+                  "capability": "conversation.reply",
+                  "speech_act": "QUESTION",
+                  "evidence_refs": [
+                    "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                  ],
+                  "action_category": null
+                }
+              ],
+              "confidence": 0.99,
+              "classification": "greeting",
+              "memory_proposals": [],
+              "proposed_response": "Hello. What can I help you with?",
+              "semantic_response": {
+                "key_points": [
+                  "Greet the customer briefly.",
+                  "Ask what they need help with."
+                ],
+                "response_goal": "Return the greeting briefly and invite the customer's topic.",
+                "factual_grounding": {
+                  "evidence_refs": [
+                    "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                  ],
+                  "classification": "known_from_system",
+                  "missing_information": []
+                }
+              },
+              "escalation_category": null,
+              "proposed_tool_calls": [],
+              "escalation_recommended": false
+            },
+            "rendered_output": {
+              "claims": [
+                {
+                  "kind": "social",
+                  "text": "Hello.",
+                  "grounding": "GENERAL_SAFE_STATEMENT",
+                  "capability": "conversation.reply",
+                  "speech_act": "ACKNOWLEDGEMENT",
+                  "evidence_refs": [
+                    "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                  ],
+                  "action_category": null
+                },
+                {
+                  "kind": "question",
+                  "text": "What can I help you with?",
+                  "grounding": "GENERAL_SAFE_STATEMENT",
+                  "capability": "conversation.reply",
+                  "speech_act": "QUESTION",
+                  "evidence_refs": [
+                    "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                  ],
+                  "action_category": null
+                }
+              ],
+              "confidence": 0.99,
+              "classification": "greeting",
+              "memory_proposals": [],
+              "proposed_response": "Hello. What can I help you with?",
+              "semantic_response": {
+                "key_points": [
+                  "Greet the customer briefly.",
+                  "Ask what they need help with."
+                ],
+                "response_goal": "Return the greeting briefly and invite the customer's topic.",
+                "factual_grounding": {
+                  "evidence_refs": [
+                    "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                  ],
+                  "classification": "known_from_system",
+                  "missing_information": []
+                }
+              },
+              "escalation_category": null,
+              "proposed_tool_calls": [],
+              "escalation_recommended": false
+            },
+            "memory_validation": {
+              "accepted": [],
+              "rejected": []
+            },
+            "authoritative_evidence_resolution": {
+              "registry": [
+                {
+                  "handle": "EVIDENCE_MESSAGE_1",
+                  "direction": "outbound",
+                  "messageId": "af1ac952-4b88-4a3a-aec0-2c5fd9c1dbc6"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_2",
+                  "direction": "inbound",
+                  "messageId": "a7338f18-6df8-4344-a2dd-10b415f30898"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_3",
+                  "direction": "outbound",
+                  "messageId": "2dee279f-1a1b-4998-ab70-cb46a818ea16"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_4",
+                  "direction": "inbound",
+                  "messageId": "9b5d3c4d-ccb1-400b-b4c8-ab59b38ac2a3"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_5",
+                  "direction": "outbound",
+                  "messageId": "fe0aaba5-2962-41f9-b63b-06729131f916"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_6",
+                  "direction": "inbound",
+                  "messageId": "8faa5500-5431-49a8-8e6c-bacf7c7e1bad"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_7",
+                  "direction": "outbound",
+                  "messageId": "ec6c9927-8999-455b-9f8b-13c078b4b7aa"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_8",
+                  "direction": "inbound",
+                  "messageId": "b9ae07af-7af9-4ef5-b85e-ee17921ecfc6"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_9",
+                  "direction": "outbound",
+                  "messageId": "769cbcf0-32a0-440b-bd38-6351053f6f7c"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_10",
+                  "direction": "inbound",
+                  "messageId": "35bed4f7-b476-406e-a6a2-4b8e55a63ded"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_11",
+                  "direction": "inbound",
+                  "messageId": "dfe8dd6d-b6cc-4ab4-bf47-5ed98d898925"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_12",
+                  "direction": "inbound",
+                  "messageId": "d6a877f4-c7cb-4e91-bffa-c15b408c9b26"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_13",
+                  "direction": "inbound",
+                  "messageId": "5d2c100d-abad-4a68-b8a3-b9291fb908ef"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_14",
+                  "direction": "inbound",
+                  "messageId": "cb165bf2-d531-4842-a5dd-45e5b4ac5fe7"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_15",
+                  "direction": "outbound",
+                  "messageId": "b5d0dd40-110c-4e1b-9cf5-6ae30584e2a2"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_16",
+                  "direction": "inbound",
+                  "messageId": "a8d20fa6-9caf-424a-8865-e4064e2b817f"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_17",
+                  "direction": "inbound",
+                  "messageId": "4223b4ca-e15a-4dfd-9815-9d6153db236c"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_18",
+                  "direction": "inbound",
+                  "messageId": "5352fa48-c4e1-462e-b71f-6c96051840cf"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_19",
+                  "direction": "outbound",
+                  "messageId": "da2a47a6-10df-48fc-a827-a33676f0e629"
+                },
+                {
+                  "handle": "EVIDENCE_CURRENT_MESSAGE",
+                  "direction": "inbound",
+                  "messageId": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                }
+              ],
+              "resolved": true,
+              "wireOutput": {
+                "claims": [
+                  {
+                    "kind": "social",
+                    "text": "Hello.",
+                    "grounding": "GENERAL_SAFE_STATEMENT",
+                    "capability": "conversation.reply",
+                    "speech_act": "ACKNOWLEDGEMENT",
+                    "evidence_refs": [
+                      "EVIDENCE_CURRENT_MESSAGE"
+                    ],
+                    "action_category": null
+                  },
+                  {
+                    "kind": "question",
+                    "text": "What can I help you with?",
+                    "grounding": "GENERAL_SAFE_STATEMENT",
+                    "capability": "conversation.reply",
+                    "speech_act": "QUESTION",
+                    "evidence_refs": [
+                      "EVIDENCE_CURRENT_MESSAGE"
+                    ],
+                    "action_category": null
+                  }
+                ],
+                "confidence": 0.99,
+                "classification": "greeting",
+                "memory_proposals": [],
+                "proposed_response": "Hello. What can I help you with?",
+                "semantic_response": {
+                  "key_points": [
+                    "Greet the customer briefly.",
+                    "Ask what they need help with."
+                  ],
+                  "response_goal": "Return the greeting briefly and invite the customer's topic.",
+                  "factual_grounding": {
+                    "evidence_refs": [
+                      "EVIDENCE_CURRENT_MESSAGE"
+                    ],
+                    "classification": "known_from_system",
+                    "missing_information": []
+                  }
+                },
+                "escalation_category": null,
+                "proposed_tool_calls": [],
+                "escalation_recommended": false
+              }
+            }
+          },
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "created_at": "2026-10-10T16:50:27.852413+00:00",
+          "invocation_sequence": 1
+        }
+      ],
+      "invocations": [
+        {
+          "id": "46712633-8335-4a1e-acfb-0a5a543c8829",
+          "model": "gpt-5.4-mini",
+          "run_id": "7a846764-db2f-4dee-b1a4-224fbed4f2fa",
+          "status": "SUCCEEDED",
+          "purpose": "generation",
+          "provider": "openai",
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "created_at": "2026-10-10T16:50:27.515067+00:00",
+          "error_code": null,
+          "latency_ms": 2658,
+          "input_tokens": 4251,
+          "total_tokens": 4475,
+          "billed_amount": null,
+          "output_tokens": 224,
+          "billed_currency": null,
+          "invocation_sequence": 1,
+          "provider_request_id": "req_4ac55cb3adf7430d886af925ac9b7b38",
+          "request_fingerprint": "6bfa66d70cc75de6aef44066130df0cdc83391aa3c38c14211c38251285bdf80"
+        }
+      ],
+      "attempts": [
+        {
+          "id": 643,
+          "stage": "model_started",
+          "run_id": "7a846764-db2f-4dee-b1a4-224fbed4f2fa",
+          "task_id": "412e4724-93eb-4f6b-a958-ceb431bd110f",
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "worker_id": "vercel-e133533f-5111-4896-9a00-590592313912",
+          "created_at": "2026-10-10T16:50:24.702442+00:00",
+          "error_code": null,
+          "attempt_number": 1,
+          "failure_category": null
+        },
+        {
+          "id": 644,
+          "stage": "completed",
+          "run_id": "7a846764-db2f-4dee-b1a4-224fbed4f2fa",
+          "task_id": "412e4724-93eb-4f6b-a958-ceb431bd110f",
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "worker_id": "vercel-e133533f-5111-4896-9a00-590592313912",
+          "created_at": "2026-10-10T16:50:28.002503+00:00",
+          "error_code": null,
+          "attempt_number": 1,
+          "failure_category": null
+        }
+      ],
+      "delivery": [
+        {
+          "id": 95,
+          "result": "sent",
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "created_at": "2026-10-10T16:50:29.214329+00:00",
+          "error_code": null,
+          "message_id": "ba8f53e3-f6ff-4df4-9fc8-43cdf8dae242",
+          "attempt_number": 1,
+          "provider_status": 200,
+          "retry_after_seconds": null
+        }
+      ]
+    },
+    {
+      "run_id": "d7cb5fb0-fb45-4d97-b3b9-5ba8ecd05ee7",
+      "context_manifest": {
+        "limits": {
+          "messages": 20,
+          "memoryItems": 24,
+          "recentEvents": 12,
+          "messageCharacters": 4096,
+          "totalMessageCharacters": 16000
+        },
+        "event_count": 1,
+        "memory_count": 0,
+        "message_count": 20,
+        "context_version": 3,
+        "source_event_id": "74dbcef9-67f3-4b75-8366-53a74aa3bf76",
+        "manifest_version": 2,
+        "profile_included": false,
+        "secrets_included": false,
+        "customer_included": false,
+        "knowledge_sources": [
+          "customer.core",
+          "customer.profile",
+          "customer.memory",
+          "conversation.recent_messages",
+          "conversation.contactability",
+          "event.recent_types"
+        ],
+        "retrieval_version": "source-bounded-v2",
+        "source_message_id": "49d88f3e-5957-4edc-ada0-095c8e17b6a6",
+        "included_event_ids": [
+          "74dbcef9-67f3-4b75-8366-53a74aa3bf76"
+        ],
+        "context_fingerprint": "9d9c1360f5e8022850de51bf9bf55609c307fb36336d134d67f34b463d0659e7",
+        "unavailable_sources": [
+          "customer.profile",
+          "customer.memory",
+          "product.catalog",
+          "pricing.source_of_truth",
+          "payment.status",
+          "subscription.status",
+          "knowledge_base"
+        ],
+        "included_message_ids": [
+          "2dee279f-1a1b-4998-ab70-cb46a818ea16",
+          "9b5d3c4d-ccb1-400b-b4c8-ab59b38ac2a3",
+          "fe0aaba5-2962-41f9-b63b-06729131f916",
+          "8faa5500-5431-49a8-8e6c-bacf7c7e1bad",
+          "ec6c9927-8999-455b-9f8b-13c078b4b7aa",
+          "b9ae07af-7af9-4ef5-b85e-ee17921ecfc6",
+          "769cbcf0-32a0-440b-bd38-6351053f6f7c",
+          "35bed4f7-b476-406e-a6a2-4b8e55a63ded",
+          "dfe8dd6d-b6cc-4ab4-bf47-5ed98d898925",
+          "d6a877f4-c7cb-4e91-bffa-c15b408c9b26",
+          "5d2c100d-abad-4a68-b8a3-b9291fb908ef",
+          "cb165bf2-d531-4842-a5dd-45e5b4ac5fe7",
+          "b5d0dd40-110c-4e1b-9cf5-6ae30584e2a2",
+          "a8d20fa6-9caf-424a-8865-e4064e2b817f",
+          "4223b4ca-e15a-4dfd-9815-9d6153db236c",
+          "5352fa48-c4e1-462e-b71f-6c96051840cf",
+          "da2a47a6-10df-48fc-a827-a33676f0e629",
+          "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2",
+          "ba8f53e3-f6ff-4df4-9fc8-43cdf8dae242",
+          "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+        ],
+        "message_fingerprints": [
+          {
+            "id": "2dee279f-1a1b-4998-ab70-cb46a818ea16",
+            "created_at": "2026-10-10T16:03:42.499805+00:00",
+            "content_sha256": "6c5b5f3463b4729421fa0e38700409421fd28a7447e0f8ef56337f56f26441df",
+            "included_characters": 13
+          },
+          {
+            "id": "9b5d3c4d-ccb1-400b-b4c8-ab59b38ac2a3",
+            "created_at": "2026-10-10T16:03:54.607609+00:00",
+            "content_sha256": "671748eb583c359bc2186298e6f52cac311837fcc0e00e123f8fc76e4f71c99b",
+            "included_characters": 91
+          },
+          {
+            "id": "fe0aaba5-2962-41f9-b63b-06729131f916",
+            "created_at": "2026-10-10T16:03:59.04012+00:00",
+            "content_sha256": "adb218be67fad5aaf88907727361df9d9cfde764a6a00434cf9f04604a211ba5",
+            "included_characters": 47
+          },
+          {
+            "id": "8faa5500-5431-49a8-8e6c-bacf7c7e1bad",
+            "created_at": "2026-10-10T16:04:11.185059+00:00",
+            "content_sha256": "f4e944a9569ae23237ca8c716229e6f8c83e2ab3cc5781dd5b0c1ca380435774",
+            "included_characters": 81
+          },
+          {
+            "id": "ec6c9927-8999-455b-9f8b-13c078b4b7aa",
+            "created_at": "2026-10-10T16:04:17.522661+00:00",
+            "content_sha256": "092080f562a91516e5303d461ba9906a476f1fa94f1dfcd4d35e4447201a6d2e",
+            "included_characters": 42
+          },
+          {
+            "id": "b9ae07af-7af9-4ef5-b85e-ee17921ecfc6",
+            "created_at": "2026-10-10T16:04:29.941165+00:00",
+            "content_sha256": "958a28d3328261fc1d8d84cfb43bae7c9252617154ebf2e9b6a458bff49ffc85",
+            "included_characters": 123
+          },
+          {
+            "id": "769cbcf0-32a0-440b-bd38-6351053f6f7c",
+            "created_at": "2026-10-10T16:04:36.768857+00:00",
+            "content_sha256": "53a0bb84a93549578699e7fe04a0bdc49a2b477205646f41210978ceb242914c",
+            "included_characters": 101
+          },
+          {
+            "id": "35bed4f7-b476-406e-a6a2-4b8e55a63ded",
+            "created_at": "2026-10-10T16:05:01.265893+00:00",
+            "content_sha256": "44576d33e775ca362014b4932a8a8e0561f99d282a2fbdf8e7b63abecad74388",
+            "included_characters": 54
+          },
+          {
+            "id": "dfe8dd6d-b6cc-4ab4-bf47-5ed98d898925",
+            "created_at": "2026-10-10T16:05:23.956701+00:00",
+            "content_sha256": "885f530eeab15284919eb50df36de551166673e5746b4d390aaa8df3c7f6ce10",
+            "included_characters": 76
+          },
+          {
+            "id": "d6a877f4-c7cb-4e91-bffa-c15b408c9b26",
+            "created_at": "2026-10-10T16:05:58.264089+00:00",
+            "content_sha256": "eec7f078237d6f15200ee1a751a4bc7d428cf9bc9819a75b8f1c9c2a90dd5ce8",
+            "included_characters": 122
+          },
+          {
+            "id": "5d2c100d-abad-4a68-b8a3-b9291fb908ef",
+            "created_at": "2026-10-10T16:06:28.691607+00:00",
+            "content_sha256": "f0da08f330286e31d2cef0d21cbed4a15db66a609f5e60d5a42ea39cc3a574f0",
+            "included_characters": 97
+          },
+          {
+            "id": "cb165bf2-d531-4842-a5dd-45e5b4ac5fe7",
+            "created_at": "2026-10-10T16:06:50.040972+00:00",
+            "content_sha256": "f4ecc687f91cf09e2581359633e174661e9717f267e1d991505b13f7631f356c",
+            "included_characters": 146
+          },
+          {
+            "id": "b5d0dd40-110c-4e1b-9cf5-6ae30584e2a2",
+            "created_at": "2026-10-10T16:06:55.083339+00:00",
+            "content_sha256": "75aff0fa2e22bec16f1cbb14060e3b04d4cfb7d60a0ca0006a8427ce14962f8d",
+            "included_characters": 78
+          },
+          {
+            "id": "a8d20fa6-9caf-424a-8865-e4064e2b817f",
+            "created_at": "2026-10-10T16:07:07.092667+00:00",
+            "content_sha256": "71ade035262171fe4f548bc1b2131f85bbf1d85675920f2546159e658fbe0c8e",
+            "included_characters": 110
+          },
+          {
+            "id": "4223b4ca-e15a-4dfd-9815-9d6153db236c",
+            "created_at": "2026-10-10T16:07:40.212539+00:00",
+            "content_sha256": "436111deb968b67fd0eba64f0debf07a3327ed422514f146b2ad70da0c994e07",
+            "included_characters": 144
+          },
+          {
+            "id": "5352fa48-c4e1-462e-b71f-6c96051840cf",
+            "created_at": "2026-10-10T16:07:57.658821+00:00",
+            "content_sha256": "f4e944a9569ae23237ca8c716229e6f8c83e2ab3cc5781dd5b0c1ca380435774",
+            "included_characters": 81
+          },
+          {
+            "id": "da2a47a6-10df-48fc-a827-a33676f0e629",
+            "created_at": "2026-10-10T16:08:03.725032+00:00",
+            "content_sha256": "6c9500724103769d1158c010d0e58bb4bddb30cc10171c54ececcf68ebbefbc5",
+            "included_characters": 46
+          },
+          {
+            "id": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2",
+            "created_at": "2026-10-10T16:50:22.603772+00:00",
+            "content_sha256": "3639efcd08abb273b1619e82e78c29a7df02c1051b1820e99fc395dcaa3326b8",
+            "included_characters": 2
+          },
+          {
+            "id": "ba8f53e3-f6ff-4df4-9fc8-43cdf8dae242",
+            "created_at": "2026-10-10T16:50:28.338598+00:00",
+            "content_sha256": "09eda351b77d39c32ae81648e02495bf9ff3777794a9303fb2f69307d79fed49",
+            "included_characters": 32
+          },
+          {
+            "id": "49d88f3e-5957-4edc-ada0-095c8e17b6a6",
+            "created_at": "2026-10-10T16:50:39.384959+00:00",
+            "content_sha256": "1666202bebb6070fe1bf60c2130a0ae9ed219820dbb23871e3bef63fadbc8588",
+            "included_characters": 58
+          }
+        ],
+        "backend_action_receipts": [],
+        "message_character_count": 1544,
+        "mutable_state_retrieval": "exclude_versions_updated_after_source_boundary",
+        "evidence_handle_registry": [
+          {
+            "handle": "EVIDENCE_MESSAGE_1",
+            "direction": "outbound",
+            "messageId": "2dee279f-1a1b-4998-ab70-cb46a818ea16"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_2",
+            "direction": "inbound",
+            "messageId": "9b5d3c4d-ccb1-400b-b4c8-ab59b38ac2a3"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_3",
+            "direction": "outbound",
+            "messageId": "fe0aaba5-2962-41f9-b63b-06729131f916"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_4",
+            "direction": "inbound",
+            "messageId": "8faa5500-5431-49a8-8e6c-bacf7c7e1bad"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_5",
+            "direction": "outbound",
+            "messageId": "ec6c9927-8999-455b-9f8b-13c078b4b7aa"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_6",
+            "direction": "inbound",
+            "messageId": "b9ae07af-7af9-4ef5-b85e-ee17921ecfc6"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_7",
+            "direction": "outbound",
+            "messageId": "769cbcf0-32a0-440b-bd38-6351053f6f7c"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_8",
+            "direction": "inbound",
+            "messageId": "35bed4f7-b476-406e-a6a2-4b8e55a63ded"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_9",
+            "direction": "inbound",
+            "messageId": "dfe8dd6d-b6cc-4ab4-bf47-5ed98d898925"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_10",
+            "direction": "inbound",
+            "messageId": "d6a877f4-c7cb-4e91-bffa-c15b408c9b26"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_11",
+            "direction": "inbound",
+            "messageId": "5d2c100d-abad-4a68-b8a3-b9291fb908ef"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_12",
+            "direction": "inbound",
+            "messageId": "cb165bf2-d531-4842-a5dd-45e5b4ac5fe7"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_13",
+            "direction": "outbound",
+            "messageId": "b5d0dd40-110c-4e1b-9cf5-6ae30584e2a2"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_14",
+            "direction": "inbound",
+            "messageId": "a8d20fa6-9caf-424a-8865-e4064e2b817f"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_15",
+            "direction": "inbound",
+            "messageId": "4223b4ca-e15a-4dfd-9815-9d6153db236c"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_16",
+            "direction": "inbound",
+            "messageId": "5352fa48-c4e1-462e-b71f-6c96051840cf"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_17",
+            "direction": "outbound",
+            "messageId": "da2a47a6-10df-48fc-a827-a33676f0e629"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_18",
+            "direction": "inbound",
+            "messageId": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+          },
+          {
+            "handle": "EVIDENCE_MESSAGE_19",
+            "direction": "outbound",
+            "messageId": "ba8f53e3-f6ff-4df4-9fc8-43cdf8dae242"
+          },
+          {
+            "handle": "EVIDENCE_CURRENT_MESSAGE",
+            "direction": "inbound",
+            "messageId": "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+          }
+        ],
+        "included_memory_versions": [],
+        "profile_version_timestamp": null,
+        "source_message_created_at": "2026-10-10T16:50:39.384959+00:00",
+        "context_boundary_timestamp": "2026-10-10T16:50:39.384959+00:00"
+      },
+      "structured_output": {
+        "claims": [
+          {
+            "kind": "fact",
+            "text": "I can help clarify the monthly price, what’s included, and cancellation terms.",
+            "grounding": "GENERAL_SAFE_STATEMENT",
+            "capability": "conversation.reply",
+            "speech_act": "CAPABILITY_OFFER",
+            "evidence_refs": [
+              "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+            ],
+            "action_category": null
+          },
+          {
+            "kind": "question",
+            "text": "What would you like to start with?",
+            "grounding": "GENERAL_SAFE_STATEMENT",
+            "capability": null,
+            "speech_act": "QUESTION",
+            "evidence_refs": [
+              "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+            ],
+            "action_category": null
+          }
+        ],
+        "confidence": 0.9,
+        "classification": "ok",
+        "memory_proposals": [],
+        "proposed_response": "I can help clarify the monthly price, what’s included, and cancellation terms. What would you like to start with?",
+        "semantic_response": {
+          "key_points": [
+            "Acknowledge the membership topic.",
+            "Say what can be clarified in general terms.",
+            "Ask one brief question to narrow the request."
+          ],
+          "response_goal": "Offer concise, truthful help on membership topics without claiming verified details.",
+          "factual_grounding": {
+            "evidence_refs": [
+              "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+            ],
+            "classification": "known_from_system",
+            "missing_information": [
+              "Exact membership details are not available in the provided context."
+            ]
+          }
+        },
+        "escalation_category": null,
+        "proposed_tool_calls": [],
+        "escalation_recommended": false
+      },
+      "started_at": "2026-10-10 16:50:41.475916+00",
+      "completed_at": "2026-10-10 16:50:44.216537+00",
+      "model_provider": "openai",
+      "model_name": "gpt-5.4-mini",
+      "latency_ms": 2339,
+      "stages": [
+        {
+          "id": "2fab5821-f7de-419f-918c-863b2d37db76",
+          "run_id": "d7cb5fb0-fb45-4d97-b3b9-5ba8ecd05ee7",
+          "evidence": {
+            "versions": {
+              "qa": "conversation-qa-v18",
+              "prompt": "conversation-quality-prompt-v13",
+              "context": 3,
+              "director": "conversation-director-v4",
+              "renderer": "natural-renderer-v5",
+              "outputSchema": 4,
+              "evaluationSet": "phase7-balanced-v19"
+            },
+            "evaluation": {
+              "action": "block",
+              "scores": {
+                "tone_fit": 90,
+                "repetition": 5,
+                "context_fit": 72,
+                "policy_risk": 100,
+                "sales_pressure": 0,
+                "escalation_need": 0,
+                "excessive_length": 0,
+                "robotic_language": 0,
+                "factual_confidence": 0,
+                "semantic_context_fit": 40,
+                "structural_context_fit": 72
+              },
+              "reasons": [
+                "UNSUPPORTED_CLAIM",
+                "SEMANTIC_CONTEXT_FIT_LOW",
+                "POLICY_RISK",
+                "FACTUAL_CONFIDENCE_LOW"
+              ],
+              "semantic": {
+                "score": 40,
+                "checks": {
+                  "no_irrelevant_cta": true,
+                  "current_topic_addressed": false
+                },
+                "method": "source_intent_constraints_v1",
+                "coverage": "intent_constraints",
+                "failures": [
+                  "current_topic_addressed"
+                ],
+                "requires_human_review": true
+              },
+              "grounding": {
+                "claims": [
+                  {
+                    "kind": "fact",
+                    "text": "I can help clarify the monthly price, what’s included, and cancellation terms.",
+                    "grounding": "GENERAL_SAFE_STATEMENT",
+                    "validated": false,
+                    "capability": "conversation.reply",
+                    "speech_act": "CAPABILITY_OFFER",
+                    "evidence_refs": [
+                      "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                    ],
+                    "action_category": null,
+                    "evidence_confidence": 0
+                  },
+                  {
+                    "kind": "question",
+                    "text": "What would you like to start with?",
+                    "grounding": "GENERAL_SAFE_STATEMENT",
+                    "validated": true,
+                    "capability": null,
+                    "speech_act": "QUESTION",
+                    "evidence_refs": [
+                      "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                    ],
+                    "action_category": null,
+                    "evidence_confidence": 100
+                  }
+                ],
+                "blocked": true,
+                "reasons": [
+                  "UNSUPPORTED_CLAIM"
+                ],
+                "model_confidence": 0.9,
+                "factual_confidence": 0,
+                "grounding_confidence": 0,
+                "action_receipt_failures": [],
+                "factual_assertion_count": 1,
+                "grounded_assertion_score": 0,
+                "unsupported_assertion_count": 1,
+                "verified_business_knowledge_available": false
+              },
+              "naturalness": {
+                "method": "deterministic_text_indicators_v1",
+                "dimensions": {
+                  "grammar": 0,
+                  "unnecessary_cta": 0,
+                  "repeated_closing": 0,
+                  "repeated_opening": 0,
+                  "robotic_phrasing": 0,
+                  "tone_consistency": 0,
+                  "context_awareness": 0,
+                  "sentence_variation": 0,
+                  "template_similarity": 5,
+                  "response_specificity": 0,
+                  "conversational_continuity": 0,
+                  "unnatural_acknowledgement": 0
+                }
+              },
+              "factual_evidence": {
+                "grounded_assertion_score": 0,
+                "unsupported_assertion_count": 1,
+                "verified_business_knowledge_available": false
+              },
+              "customerFacingBlocked": true
+            },
+            "original_output": {
+              "claims": [
+                {
+                  "kind": "fact",
+                  "text": "I can help clarify the monthly price, what’s included, and cancellation terms.",
+                  "grounding": "GENERAL_SAFE_STATEMENT",
+                  "capability": "conversation.reply",
+                  "speech_act": "CAPABILITY_OFFER",
+                  "evidence_refs": [
+                    "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                  ],
+                  "action_category": null
+                },
+                {
+                  "kind": "question",
+                  "text": "What would you like to start with?",
+                  "grounding": "GENERAL_SAFE_STATEMENT",
+                  "capability": null,
+                  "speech_act": "QUESTION",
+                  "evidence_refs": [
+                    "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                  ],
+                  "action_category": null
+                }
+              ],
+              "confidence": 0.9,
+              "classification": "ok",
+              "memory_proposals": [],
+              "proposed_response": "I can help clarify the monthly price, what’s included, and cancellation terms. What would you like to start with?",
+              "semantic_response": {
+                "key_points": [
+                  "Acknowledge the membership topic.",
+                  "Say what can be clarified in general terms.",
+                  "Ask one brief question to narrow the request."
+                ],
+                "response_goal": "Offer concise, truthful help on membership topics without claiming verified details.",
+                "factual_grounding": {
+                  "evidence_refs": [
+                    "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                  ],
+                  "classification": "known_from_system",
+                  "missing_information": [
+                    "Exact membership details are not available in the provided context."
+                  ]
+                }
+              },
+              "escalation_category": null,
+              "proposed_tool_calls": [],
+              "escalation_recommended": false
+            },
+            "rendered_output": {
+              "claims": [
+                {
+                  "kind": "fact",
+                  "text": "I can help clarify the monthly price, what’s included, and cancellation terms.",
+                  "grounding": "GENERAL_SAFE_STATEMENT",
+                  "capability": "conversation.reply",
+                  "speech_act": "CAPABILITY_OFFER",
+                  "evidence_refs": [
+                    "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                  ],
+                  "action_category": null
+                },
+                {
+                  "kind": "question",
+                  "text": "What would you like to start with?",
+                  "grounding": "GENERAL_SAFE_STATEMENT",
+                  "capability": null,
+                  "speech_act": "QUESTION",
+                  "evidence_refs": [
+                    "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                  ],
+                  "action_category": null
+                }
+              ],
+              "confidence": 0.9,
+              "classification": "ok",
+              "memory_proposals": [],
+              "proposed_response": "I can help clarify the monthly price, what’s included, and cancellation terms. What would you like to start with?",
+              "semantic_response": {
+                "key_points": [
+                  "Acknowledge the membership topic.",
+                  "Say what can be clarified in general terms.",
+                  "Ask one brief question to narrow the request."
+                ],
+                "response_goal": "Offer concise, truthful help on membership topics without claiming verified details.",
+                "factual_grounding": {
+                  "evidence_refs": [
+                    "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                  ],
+                  "classification": "known_from_system",
+                  "missing_information": [
+                    "Exact membership details are not available in the provided context."
+                  ]
+                }
+              },
+              "escalation_category": null,
+              "proposed_tool_calls": [],
+              "escalation_recommended": false
+            },
+            "memory_validation": {
+              "accepted": [],
+              "rejected": []
+            },
+            "authoritative_evidence_resolution": {
+              "registry": [
+                {
+                  "handle": "EVIDENCE_MESSAGE_1",
+                  "direction": "outbound",
+                  "messageId": "2dee279f-1a1b-4998-ab70-cb46a818ea16"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_2",
+                  "direction": "inbound",
+                  "messageId": "9b5d3c4d-ccb1-400b-b4c8-ab59b38ac2a3"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_3",
+                  "direction": "outbound",
+                  "messageId": "fe0aaba5-2962-41f9-b63b-06729131f916"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_4",
+                  "direction": "inbound",
+                  "messageId": "8faa5500-5431-49a8-8e6c-bacf7c7e1bad"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_5",
+                  "direction": "outbound",
+                  "messageId": "ec6c9927-8999-455b-9f8b-13c078b4b7aa"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_6",
+                  "direction": "inbound",
+                  "messageId": "b9ae07af-7af9-4ef5-b85e-ee17921ecfc6"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_7",
+                  "direction": "outbound",
+                  "messageId": "769cbcf0-32a0-440b-bd38-6351053f6f7c"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_8",
+                  "direction": "inbound",
+                  "messageId": "35bed4f7-b476-406e-a6a2-4b8e55a63ded"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_9",
+                  "direction": "inbound",
+                  "messageId": "dfe8dd6d-b6cc-4ab4-bf47-5ed98d898925"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_10",
+                  "direction": "inbound",
+                  "messageId": "d6a877f4-c7cb-4e91-bffa-c15b408c9b26"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_11",
+                  "direction": "inbound",
+                  "messageId": "5d2c100d-abad-4a68-b8a3-b9291fb908ef"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_12",
+                  "direction": "inbound",
+                  "messageId": "cb165bf2-d531-4842-a5dd-45e5b4ac5fe7"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_13",
+                  "direction": "outbound",
+                  "messageId": "b5d0dd40-110c-4e1b-9cf5-6ae30584e2a2"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_14",
+                  "direction": "inbound",
+                  "messageId": "a8d20fa6-9caf-424a-8865-e4064e2b817f"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_15",
+                  "direction": "inbound",
+                  "messageId": "4223b4ca-e15a-4dfd-9815-9d6153db236c"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_16",
+                  "direction": "inbound",
+                  "messageId": "5352fa48-c4e1-462e-b71f-6c96051840cf"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_17",
+                  "direction": "outbound",
+                  "messageId": "da2a47a6-10df-48fc-a827-a33676f0e629"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_18",
+                  "direction": "inbound",
+                  "messageId": "6d936bb0-3a1a-4bb9-8276-5b1cc75192a2"
+                },
+                {
+                  "handle": "EVIDENCE_MESSAGE_19",
+                  "direction": "outbound",
+                  "messageId": "ba8f53e3-f6ff-4df4-9fc8-43cdf8dae242"
+                },
+                {
+                  "handle": "EVIDENCE_CURRENT_MESSAGE",
+                  "direction": "inbound",
+                  "messageId": "49d88f3e-5957-4edc-ada0-095c8e17b6a6"
+                }
+              ],
+              "resolved": true,
+              "wireOutput": {
+                "claims": [
+                  {
+                    "kind": "fact",
+                    "text": "I can help clarify the monthly price, what’s included, and cancellation terms.",
+                    "grounding": "GENERAL_SAFE_STATEMENT",
+                    "capability": "conversation.reply",
+                    "speech_act": "CAPABILITY_OFFER",
+                    "evidence_refs": [
+                      "EVIDENCE_CURRENT_MESSAGE"
+                    ],
+                    "action_category": null
+                  },
+                  {
+                    "kind": "question",
+                    "text": "What would you like to start with?",
+                    "grounding": "GENERAL_SAFE_STATEMENT",
+                    "capability": null,
+                    "speech_act": "QUESTION",
+                    "evidence_refs": [
+                      "EVIDENCE_CURRENT_MESSAGE"
+                    ],
+                    "action_category": null
+                  }
+                ],
+                "confidence": 0.9,
+                "classification": "ok",
+                "memory_proposals": [],
+                "proposed_response": "I can help clarify the monthly price, what’s included, and cancellation terms. What would you like to start with?",
+                "semantic_response": {
+                  "key_points": [
+                    "Acknowledge the membership topic.",
+                    "Say what can be clarified in general terms.",
+                    "Ask one brief question to narrow the request."
+                  ],
+                  "response_goal": "Offer concise, truthful help on membership topics without claiming verified details.",
+                  "factual_grounding": {
+                    "evidence_refs": [
+                      "EVIDENCE_CURRENT_MESSAGE"
+                    ],
+                    "classification": "known_from_system",
+                    "missing_information": [
+                      "Exact membership details are not available in the provided context."
+                    ]
+                  }
+                },
+                "escalation_category": null,
+                "proposed_tool_calls": [],
+                "escalation_recommended": false
+              }
+            }
+          },
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "created_at": "2026-10-10T16:50:44.088887+00:00",
+          "invocation_sequence": 1
+        }
+      ],
+      "invocations": [
+        {
+          "id": "512e55fe-45a3-4b62-8d73-2e09e4115edf",
+          "model": "gpt-5.4-mini",
+          "run_id": "d7cb5fb0-fb45-4d97-b3b9-5ba8ecd05ee7",
+          "status": "SUCCEEDED",
+          "purpose": "generation",
+          "provider": "openai",
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "created_at": "2026-10-10T16:50:43.94311+00:00",
+          "error_code": null,
+          "latency_ms": 2339,
+          "input_tokens": 4266,
+          "total_tokens": 4544,
+          "billed_amount": null,
+          "output_tokens": 278,
+          "billed_currency": null,
+          "invocation_sequence": 1,
+          "provider_request_id": "req_0f9b26beba9f46e891d39125c64c5c72",
+          "request_fingerprint": "16cd4f0b5bb60fd15b1cfc9b6a36fb22ffc6fedbf515433216a0d09c64dcb337"
+        }
+      ],
+      "attempts": [
+        {
+          "id": 646,
+          "stage": "model_started",
+          "run_id": "d7cb5fb0-fb45-4d97-b3b9-5ba8ecd05ee7",
+          "task_id": "c29beee9-2391-4ca0-99fe-53479158cdc0",
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "worker_id": "vercel-aebd77e8-e4d9-4a7c-89f2-fd369a5cbe20",
+          "created_at": "2026-10-10T16:50:41.475916+00:00",
+          "error_code": null,
+          "attempt_number": 1,
+          "failure_category": null
+        },
+        {
+          "id": 647,
+          "stage": "completed",
+          "run_id": "d7cb5fb0-fb45-4d97-b3b9-5ba8ecd05ee7",
+          "task_id": "c29beee9-2391-4ca0-99fe-53479158cdc0",
+          "tenant_id": "e372b64d-2066-4939-baf6-6c0540c2f605",
+          "worker_id": "vercel-aebd77e8-e4d9-4a7c-89f2-fd369a5cbe20",
+          "created_at": "2026-10-10T16:50:44.216537+00:00",
+          "error_code": null,
+          "attempt_number": 1,
+          "failure_category": null
+        }
+      ],
+      "delivery": null
+    }
+  ]
+}

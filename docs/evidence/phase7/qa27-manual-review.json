@@ -1,0 +1,56 @@
+[
+  {
+    "case": 1,
+    "source": "611",
+    "input": "Hi",
+    "final": "Hi. What can I help you with?",
+    "qa": "approve",
+    "result": "PASS",
+    "reason": "Natural relevant factual manually reviewed response, actual provider HTTP200 and linkage verified."
+  },
+  {
+    "case": 2,
+    "source": "613",
+    "input": "I’m looking into membership. What can you help me clarify?",
+    "final": "I can help clarify membership pricing, what’s included, cancellation terms, and access questions. I don’t have the exact membership details here.",
+    "qa": "approve",
+    "result": "PASS",
+    "reason": "Natural relevant factual manually reviewed response, actual provider HTTP200 and linkage verified."
+  },
+  {
+    "case": 3,
+    "source": "615",
+    "input": "How much is the membership, and what does it include? Please answer in English with no emojis.",
+    "final": "I don’t have the exact membership price or inclusions available right now.",
+    "qa": "approve",
+    "result": "PASS",
+    "reason": "Natural relevant factual manually reviewed response, actual provider HTTP200 and linkage verified."
+  },
+  {
+    "case": 4,
+    "source": "617",
+    "input": "Please reply only in English from now on, and do not use emojis.",
+    "final": "Understood. I’ll reply in English and won’t use emojis.",
+    "qa": "approve",
+    "result": "PASS",
+    "reason": "Natural relevant factual manually reviewed response, actual provider HTTP200 and linkage verified."
+  },
+  {
+    "case": 5,
+    "source": "619",
+    "input": "Merhaba",
+    "final": "Merhaba. Size nasıl yardımcı olabilirim?",
+    "qa": "approve",
+    "result": "PASS",
+    "reason": "Natural relevant factual manually reviewed response, actual provider HTTP200 and linkage verified."
+  },
+  {
+    "case": 6,
+    "source": "621",
+    "input": "Üyeliğin fiyatı ve içeriği nedir? Türkçe cevap ver.",
+    "final": "Merhaba. Üyeliğin fiyatı ve içeriği şu anda net değil.",
+    "qa": "block",
+    "result": "FAIL",
+    "reason": "Correct whole truthful original answer to a new price/inclusion question falsely treated as historic template repetition; rewrite added a greeting then reached the one-rewrite budget."
+  }
+]

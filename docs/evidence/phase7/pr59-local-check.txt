@@ -1,0 +1,107 @@
+$ pnpm lint && pnpm typecheck && pnpm test && pnpm build
+$ pnpm -r lint
+Scope: 5 of 6 workspace projects
+packages/config lint$ eslint src
+packages/contracts lint$ eslint src
+packages/domain lint$ eslint src
+packages/observability lint$ eslint src
+packages/observability lint: Done
+packages/contracts lint: Done
+packages/config lint: Done
+packages/domain lint: Done
+apps/web lint$ eslint
+apps/web lint: Done
+$ pnpm -r typecheck
+Scope: 5 of 6 workspace projects
+packages/config typecheck$ tsc --noEmit
+packages/contracts typecheck$ tsc --noEmit
+packages/domain typecheck$ tsc --noEmit
+packages/observability typecheck$ tsc --noEmit
+packages/observability typecheck: Done
+packages/contracts typecheck: Done
+packages/config typecheck: Done
+packages/domain typecheck: Done
+apps/web typecheck$ tsc --noEmit
+apps/web typecheck: Done
+$ pnpm test:unit && pnpm test:integration
+$ vitest run packages
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+
+ Test Files  9 passed (9)
+      Tests  369 passed (369)
+   Start at  21:26:35
+   Duration  730ms (transform 52%, import 29%, tests 16%, worker 2%)
+
+$ vitest run tests/integration
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+
+ Test Files  10 passed (10)
+      Tests  61 passed (61)
+   Start at  21:26:36
+   Duration  539ms (transform 41%, tests 36%, import 20%, worker 3%)
+
+$ pnpm --filter @gold-revenue-os/web build
+$ next build
+▲ Next.js 16.3.8 (Turbopack)
+✓ Running next.config.ts took 25ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 268ms
+  Running TypeScript ...
+  Finished TypeScript in 2.7s ...
+  Collecting page data using 8 workers ...
+  Generating static pages using 8 workers (0/12) ...
+  Generating static pages using 8 workers (3/12) 
+  Generating static pages using 8 workers (6/12) 
+  Generating static pages using 8 workers (9/12) 
+✓ Generating static pages using 8 workers (12/12) in 188ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /access-pending
+├ ƒ /admin
+├ ƒ /admin/agent-quality
+├ ƒ /admin/agent-runs/[id]
+├ ƒ /admin/agents
+├ ƒ /admin/agents/versions/[id]
+├ ƒ /admin/attention
+├ ƒ /admin/audit
+├ ƒ /admin/conversations
+├ ƒ /admin/conversations/[id]
+├ ƒ /admin/customers
+├ ƒ /admin/customers/[id]
+├ ƒ /admin/events
+├ ƒ /admin/imports
+├ ƒ /admin/imports/[id]
+├ ƒ /admin/imports/new
+├ ƒ /admin/system
+├ ƒ /api/health/live
+├ ƒ /api/health/ready
+├ ƒ /api/internal/agent-worker
+├ ƒ /api/v1/conversations/[id]/messages
+├ ƒ /api/v1/customers
+├ ƒ /api/v1/customers/[id]
+├ ƒ /api/v1/customers/[id]/state
+├ ƒ /api/v1/customers/import
+├ ƒ /api/v1/imports
+├ ƒ /api/v1/imports/[id]
+├ ƒ /api/v1/imports/[id]/commit
+├ ƒ /api/v1/imports/[id]/rows/[rowId]/review
+├ ƒ /api/v1/me
+├ ƒ /api/v1/messaging/kill-switch
+├ ƒ /api/webhooks/telegram
+├ ƒ /auth/callback
+└ ƒ /login
+
+
+ƒ Proxy (Middleware)
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+

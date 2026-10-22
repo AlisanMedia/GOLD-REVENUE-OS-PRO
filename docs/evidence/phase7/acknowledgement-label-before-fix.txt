@@ -1,0 +1,35 @@
+$ vitest run packages -- -t 'unsafe assertion mislabelled'
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (151 tests | 2 failed) 158ms
+   ❯ Final acceptance safe-response regressions (27)
+     × blocks an unsafe assertion mislabelled as acknowledgement: I’m an AI assistant who personally trades gold. 33ms
+     × blocks an unsafe assertion mislabelled as acknowledgement: This gold trading membership guarantees profits every day. 8ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > blocks an unsafe assertion mislabelled as acknowledgement: I’m an AI assistant who personally trades gold.
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > blocks an unsafe assertion mislabelled as acknowledgement: This gold trading membership guarantees profits every day.
+AssertionError: expected 'approve' to be 'block' // Object.is equality
+
+Expected: "block"
+Received: "approve"
+
+ ❯ packages/domain/src/qa-precision.test.ts:26:27
+     24|     const claim: ResponseClaim = { text: response, kind: "social", spe…
+     25|     const result = evaluate(fixture, [], [claim]);
+     26|     expect(result.action).toBe("block");
+       |                           ^
+     27|     expect(result.customerFacingBlocked).toBe(true);
+     28|   });
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed | 8 passed (9)
+      Tests  2 failed | 348 passed (350)
+   Start at  19:41:13
+   Duration  712ms (transform 47%, import 34%, tests 17%, worker 2%)
+
+[ELIFECYCLE] Command failed with exit code 1.

@@ -1,0 +1,26 @@
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (182 tests | 1 failed | 181 skipped) 61ms
+   ❯ Final acceptance safe-response regressions (49)
+     × accepts a newly requested whole Turkish price and inclusion knowledge gap from prior history 60ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > accepts a newly requested whole Turkish price and inclusion knowledge gap from prior history
+AssertionError: expected 'rewrite' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "rewrite"
+
+ ❯ packages/domain/src/qa-precision.test.ts:26:47
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 181 skipped (182)
+   Start at  22:37:34
+   Duration  457ms (transform 49%, import 31%, tests 19%, worker 1%)
+
