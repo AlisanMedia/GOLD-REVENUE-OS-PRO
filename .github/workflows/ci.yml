@@ -146,6 +146,8 @@ jobs:
         run: supabase test db supabase/tests/phase10_payments.test.sql
       - name: Run Phase 11 subscription and access security assertions
         run: supabase test db supabase/tests/phase11_entitlements.test.sql
+      - name: Verify read-only entitlement review visibility
+        run: supabase test db supabase/tests/entitlement_review_visibility.test.sql
       - name: Run Phase 12 escalation security and behavior assertions
         shell: bash
         run: |

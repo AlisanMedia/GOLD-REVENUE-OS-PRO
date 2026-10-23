@@ -6,13 +6,14 @@ import { AdminI18nProvider } from "../../apps/web/src/components/admin-i18n";
 import { EntitlementPagination } from "../../apps/web/src/components/entitlement-pagination";
 import { entitlementCursor } from "../../apps/web/src/lib/entitlements/read-model";
 import type { AdminLocale } from "../../apps/web/src/lib/i18n/core";
-const mocks = vi.hoisted(() => ({ page: vi.fn(), detail: vi.fn(), read: vi.fn(), names: vi.fn(), role: "manager", path: "/admin/subscriptions" }));
-vi.mock("@/lib/entitlements/admin", () => ({ entitlementPage: mocks.page, subscriptionDetail: mocks.detail, requireEntitlementRead: mocks.read }));
+const mocks = vi.hoisted(() => ({ page: vi.fn(), detail: vi.fn(), health: vi.fn(), read: vi.fn(), names: vi.fn(), role: "manager", path: "/admin/subscriptions" }));
+vi.mock("@/lib/entitlements/admin", () => ({ entitlementPage: mocks.page, subscriptionDetail: mocks.detail, entitlementJobHealth: mocks.health, requireEntitlementRead: mocks.read }));
 vi.mock("@/lib/admin/server", () => ({ getCustomerDisplayNames: mocks.names }));
 vi.mock("@/components/entitlement-pagination", () => import("../../apps/web/src/components/entitlement-pagination"));
 vi.mock("@/lib/entitlements/read-model", () => import("../../apps/web/src/lib/entitlements/read-model"));
 vi.mock("@/lib/admin/permissions", () => import("../../apps/web/src/lib/admin/permissions"));
 vi.mock("@/components/purchase-status", () => import("../../apps/web/src/components/purchase-status"));
+vi.mock("@/components/entitlement-job-health", () => import("../../apps/web/src/components/entitlement-job-health"));
 vi.mock("../../apps/web/src/app/admin/subscriptions/actions", () => ({ subscriptionControl: async () => {}, testSubscription: async () => {}, requestAccess: async () => {}, testAccessCycle: async () => {} }));
 vi.mock("next/navigation", () => ({ usePathname: () => mocks.path, notFound: () => { throw Error("NOT_FOUND"); } }));
 import SubscriptionsPage from "../../apps/web/src/app/admin/subscriptions/page";
@@ -28,6 +29,7 @@ const result = (collection: string, items: unknown[]) => ({ context: { role: moc
 function localized(locale: AdminLocale, node: React.ReactNode) { return render(h(AdminI18nProvider, { locale }, node)); }
 beforeEach(() => {
   vi.clearAllMocks(); mocks.role = "manager";
+  mocks.health.mockResolvedValue({ data: null, error: "unavailable" });
   mocks.read.mockImplementation(async () => ({ role: mocks.role })); mocks.names.mockResolvedValue({ [customer]: "Synthetic customer · TEST" });
   mocks.detail.mockResolvedValue({ context: { role: mocks.role }, error: null, detail: { version: 1, observed_at: time, subscription: sub, access, plan_terms: terms } });
   mocks.page.mockImplementation(async (collection: string) => result(collection, collection === "subscriptions" ? [sub] : collection === "access" ? [access] : collection === "jobs" ? [
@@ -61,6 +63,14 @@ describe("Phase16C0 actual Admin components", () => {
     expect(mocks.page).toHaveBeenCalledOnce(); expect(mocks.page).toHaveBeenCalledWith(evidence, expect.objectContaining({ subscription: id, customer }));
     expect(html).toContain('aria-current="page"'); expect(html).toContain("evidence=" + evidence);
     expect(html).not.toContain("lease_token"); expect(html).not.toContain("invite:PRIVATE");
+    if(evidence==="jobs"){expect(mocks.health).toHaveBeenCalledExactlyOnceWith(id,[id]);expect(html).toContain("No successful operation is assumed");}
+    else expect(mocks.health).not.toHaveBeenCalled();
+  });
+  it.each(["tr-TR","en-US"] as const)("shows actual unknown-effect guidance in %s only on selected jobs",async locale=>{
+    mocks.health.mockResolvedValue({error:null,data:{items:[{job_id:id,mode:"test",financial_authority:"NONE",retry_authority:"NONE",revision_current:true,review_required:true,obligation:"RECONCILE",reason:"UNKNOWN_EFFECT",claims:2,reclaims:0,provider_failures:0,effect_state:"UNCERTAIN",lease_state:"NONE"}]}});
+    const html=localized(locale,await SubscriptionDetail({params:Promise.resolve({id}),searchParams:Promise.resolve({evidence:"jobs"})}));
+    expect(html).toContain(locale==="tr-TR"?"Sonucu bilinmeyen işlemi tekrarlamayın":"Do not retry an unknown effect");
+    expect(html).not.toContain('name="retry"');expect(html).not.toContain("lease_token");
   });
   it.each(["tr-TR", "en-US"] as const)("keeps customer preview English for %s operators", async locale => {
     const html = localized(locale, await SubscriptionDetail({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) }));

@@ -3,6 +3,7 @@ import { cache } from "react";
 import { z } from "zod";
 import { requireAdminCapability } from "@/lib/admin/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { jobHealthSchema } from "./job-health";
 import { decodeEntitlementCursor, entitlementPageSchema, rowSchemas, subscriptionDetailSchema,
   type EntitlementCollection, type EntitlementPage, type EntitlementRows } from "./read-model";
 
@@ -39,4 +40,20 @@ export async function subscriptionDetail(id: string) {
   if (data === null) return { context, detail: null, error: null };
   const parsed = subscriptionDetailSchema.safeParse(data);
   return parsed.success ? { context, detail: parsed.data, error: null } : { context, detail: null, error: "unavailable" as const };
+}
+
+// One bounded query for the already-loaded jobs, never a per-card RPC or shared cache.
+export async function entitlementJobHealth(subscription: string, ids: string[]) {
+  const { db, context } = await readContext();
+  if (!z.uuid().safeParse(subscription).success || !z.array(z.uuid()).max(100).safeParse(ids).success || new Set(ids).size !== ids.length)
+    return { data: null, error: "unavailable" as const };
+  const { data, error } = await Promise.resolve(db.rpc("admin_entitlement_job_health_v1", { target_tenant_id: context.tenantId, target_subscription_id: subscription, job_ids_value: ids }))
+    .catch(() => ({ data: null, error: { code: "READ_UNAVAILABLE" } }));
+  if (error) return { data: null, error: "unavailable" as const };
+  const result = jobHealthSchema.safeParse(data);
+  if (!result.success || result.data.subscription_id !== subscription || result.data.items.length !== ids.length || new Set(result.data.items.map(r=>r.job_id)).size!==ids.length || result.data.items.some(r=>!ids.includes(r.job_id)))
+    return { data: null, error: "unavailable" as const };
+  if (context.role === "analyst" && result.data.items.some(r=>r.reason!=="RESTRICTED"||r.claims!==null||r.reclaims!==null||r.provider_failures!==null||r.effect_state!=="RESTRICTED"||r.lease_state!=="RESTRICTED"))
+    return { data: null, error: "unavailable" as const };
+  return { data: result.data, error: null };
 }
