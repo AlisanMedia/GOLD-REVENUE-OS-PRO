@@ -268,6 +268,10 @@ jobs:
           export PHASE15_LOCAL_APP_URL=http://127.0.0.1:3100
           export PHASE15_EVIDENCE_FILE="$RUNNER_TEMP/phase15-http-acceptance.json"
           node apps/web/scripts/phase15-staging.mjs
+          export SIGNAL_LOCAL_DB_URL="$phase10_db_url"
+          export SIGNAL_LOCAL_APP_URL=http://127.0.0.1:3100
+          export SIGNAL_HTTP_EVIDENCE_FILE="$RUNNER_TEMP/signal-http-acceptance.json"
+          node apps/web/scripts/signal-operations-http.mjs
       - name: Upload sandbox HTTP acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -343,6 +347,17 @@ jobs:
           bash supabase/tests/signal_distribution_benchmark.sh "$db_url" | tee "$RUNNER_TEMP/signal-distribution-benchmark.log"
           SIGNAL_BENCHMARK_DIR="$RUNNER_TEMP" pnpm exec vitest run tests/integration/signal-normalization-benchmark.test.ts | tee "$RUNNER_TEMP/signal-normalization.log"
           psql "$db_url" -X -v ON_ERROR_STOP=1 -f supabase/tests/signal_distribution_read_plans.sql | tee "$RUNNER_TEMP/signal-distribution-plans.log"
+      - name: Verify bounded read-only signal operations
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase test db supabase/tests/signal_operations.test.sql | tee "$RUNNER_TEMP/signal-operations-pgtap.log"
+          supabase status -o env >"$RUNNER_TEMP/signal-operations-db.env"
+          signal_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/signal-operations-db.env")
+          test -n "$signal_db_url"
+          echo "::add-mask::$signal_db_url"
+          bash supabase/tests/signal_operations_read_concurrency.sh "$signal_db_url" | tee "$RUNNER_TEMP/signal-operations-concurrency.log"
+          psql "$signal_db_url" -X -v ON_ERROR_STOP=1 -f supabase/tests/signal_operations_read_plans.sql | tee "$RUNNER_TEMP/signal-operations-read-plans.log"
       - name: Verify synthetic fulfillment and offline recovery
         shell: bash
         run: |
@@ -398,6 +413,10 @@ jobs:
             ${{ runner.temp }}/signal-notification-wakeup.log
             ${{ runner.temp }}/signal-distribution-benchmark.log
             ${{ runner.temp }}/signal-distribution-plans.log
+            ${{ runner.temp }}/signal-operations-concurrency.log
+            ${{ runner.temp }}/signal-operations-pgtap.log
+            ${{ runner.temp }}/signal-operations-read-plans.log
+            ${{ runner.temp }}/signal-http-acceptance.json
             ${{ runner.temp }}/signal-normalization.log
             ${{ runner.temp }}/signal-normalization.json
           if-no-files-found: warn

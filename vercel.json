@@ -21,7 +21,8 @@
       "codex/pilot-readiness-evidence": false,
       "codex/signal-ingestion-foundation": false,
       "codex/signal-commercial-readiness": false,
-      "codex/signal-distribution-engine": false
+      "codex/signal-distribution-engine": false,
+      "codex/signal-operations-admin": false
     }
   },
   "framework": "nextjs",
