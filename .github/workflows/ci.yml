@@ -329,8 +329,8 @@ jobs:
           test -n "$db_url"
           echo "::add-mask::$db_url"
           supabase test db supabase/tests/phase16d_fulfillment_recovery.test.sql | tee "$RUNNER_TEMP/phase16d-pgtap.log"
-          bash supabase/tests/phase16d_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16d-concurrency.log"
           supabase test db supabase/tests/phase16dr2_maintenance.test.sql | tee "$RUNNER_TEMP/phase16dr2-pgtap.log"
+          bash supabase/tests/phase16d_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16d-concurrency.log"
           bash supabase/tests/phase16dr2_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16dr2-concurrency.log"
           bash supabase/tests/phase16e_offline_recovery.sh "$db_url" | tee "$RUNNER_TEMP/phase16e-recovery.log"
       - name: Upload database evidence

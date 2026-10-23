@@ -58,6 +58,16 @@ Recovery fingerprint yeni function body/ACL'yi de kapsar. CI Database yeni rollb
 pgTAP+independent connections'ı mevcut mandatory gates yanında çalıştırır. Hiçbir
 accepted provider testi/hosted staging acceptance tekrar dispatch edilmez.
 
+## İlk mandatory CI başarısızlığı — korunur
+
+[39996380290](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39996380290):
+Application SUCCESS, Database FAIL. R2 rollback testinin, aynı16de kimliklerini
+persist eden eski16D concurrency fixture'ından sonra çalışması auth.users PK
+çakışmasına yol açtı. Runtime veya security assertion failure değildir. R2 rollback
+testi, eski16D rollback testinden sonra fakat iki kalıcı concurrency script'inden
+önceye alındı. Assertion, veri constraint'i veya gate kaldırılmadı. Bu başarısız
+run daha sonraki green sonuçla tarihsel PASS olarak yeniden yazılmaz.
+
 ## Güvenlik ve kalan kapı
 
 Tek Vercel değişikliği exact `codex/phase16d-r2-bounded-maintenance=false` entry;
