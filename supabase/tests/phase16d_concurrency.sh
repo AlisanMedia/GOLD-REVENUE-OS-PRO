@@ -12,13 +12,14 @@ d_root="$(cd "$(dirname "$0")" && pwd)"
 d_expect "select current_setting('server_version_num')::integer/10000" 17 'PostgreSQL17 required'
 d_expect "select count(*) from public.tenants where id='16de2000-0000-4000-8000-000000000001'" 0 'fresh synthetic fixture required'
 d_sql -f "$d_root/helpers/phase16de_fixtures.sql" >"$d_tmp/setup" 2>&1
+d_sql -c "insert into private.entitlement_test_policy(tenant_id) values('16de2000-0000-4000-8000-000000000001')" >"$d_tmp/policy"
 d_wait(){ for n in $(seq 1 200);do test ! -f "$1" || return 0;sleep .02;done;echo BARRIER_TIMEOUT >&2;exit 1; }
 d_holder(){
  local name="$1" marker="$2"
  PGAPPNAME="$name" d_sql >"$d_tmp/$name" 2>&1 <<SQL &
 begin;
 select pg_backend_pid();
-select public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001') is not null;
+select public.entitlement_test_claim_cycle_v1('16de2000-0000-4000-8000-000000000001')->'job' is distinct from 'null'::jsonb;
 \! touch '$d_tmp/$marker.ready'
 \! for n in \$(seq 1 400);do test ! -f '$d_tmp/$marker.release' || exit 0;sleep .02;done;exit 1
 \if :SHELL_ERROR
@@ -31,7 +32,7 @@ SQL
 d_holder phase16d-crash-s1 crash;d_wait "$d_tmp/crash.ready"
 PGAPPNAME=phase16d-crash-s2 d_sql >"$d_tmp/second" <<'SQL'
 select pg_backend_pid();
-select public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001') is null;
+select public.entitlement_test_claim_cycle_v1('16de2000-0000-4000-8000-000000000001')->'job'='null'::jsonb;
 SQL
 test "$(tail -1 "$d_tmp/second")" = t
 test "$(head -1 "$d_tmp/phase16d-crash-s1")" != "$(head -1 "$d_tmp/second")"
@@ -45,13 +46,13 @@ echo 'PASS D-C1: distinct backend PIDs; SKIP LOCKED; real pre-COMMIT death rolls
 
 # A committed claim with a lost response remains exclusively leased. Only after
 # fixture time expiry can another backend reclaim; no unsafe immediate retry.
-d_expect "select public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001') is not null" t 'recover after precommit death'
-d_expect "select public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001') is null" t 'lost claim ACK cannot duplicate lease'
+d_expect "select public.entitlement_test_claim_cycle_v1('16de2000-0000-4000-8000-000000000001')->'job' is distinct from 'null'::jsonb" t 'recover after precommit death'
+d_expect "select public.entitlement_test_claim_cycle_v1('16de2000-0000-4000-8000-000000000001')->'job'='null'::jsonb" t 'lost claim ACK cannot duplicate lease'
 d_sql -c "update public.entitlement_jobs set lease_until=now()-interval '1 second' where tenant_id='16de2000-0000-4000-8000-000000000001'" >"$d_tmp/expire"
 d_holder phase16d-reclaim-s1 reclaim;d_wait "$d_tmp/reclaim.ready"
 PGAPPNAME=phase16d-reclaim-s2 d_sql >"$d_tmp/reclaim-second" <<'SQL'
 select pg_backend_pid();
-select public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001') is null;
+select public.entitlement_test_claim_cycle_v1('16de2000-0000-4000-8000-000000000001')->'job'='null'::jsonb;
 SQL
 test "$(tail -1 "$d_tmp/reclaim-second")" = t
 test "$(head -1 "$d_tmp/phase16d-reclaim-s1")" != "$(head -1 "$d_tmp/reclaim-second")"
@@ -61,6 +62,7 @@ echo 'PASS D-C2: committed response loss stays leased; two-backend expiry recove
 
 # Hold after a claimed fake provider side effect, then compensation. No genuine
 # financial event, live control, channel or Telegram transport is touched.
+d_expect "select public.entitlement_test_begin_effect_v1(tenant_id,id,lease_token) from public.entitlement_jobs where tenant_id='16de2000-0000-4000-8000-000000000001' and status='RUNNING'" t 'mark fake effect before hold'
 d_sql >"$d_tmp/hold" <<'SQL'
 begin;
 select set_config('request.jwt.claim.sub','16de1000-0000-4000-8000-000000000001',true);

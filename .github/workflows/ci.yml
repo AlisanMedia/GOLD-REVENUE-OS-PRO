@@ -183,6 +183,12 @@ jobs:
           test -n "$phase10_db_url"
           echo "::add-mask::$phase10_db_url"
           bash supabase/tests/phase10_concurrency.sh "$phase10_db_url"
+      - name: Prove TEST lifetime budgets, fair queue draining and isolated authorities
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase test db supabase/tests/phase16dr1_hardening.test.sql | tee "$RUNNER_TEMP/phase16dr1-pgtap.log"
+          bash supabase/tests/phase16dr1_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" | tee "$RUNNER_TEMP/phase16dr1-concurrency.log"
       - name: Prove concurrent Phase 11 entitlement consumers and access leases
         run: bash supabase/tests/phase11_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres"
       - name: Prove concurrent specialist task leasing
@@ -352,6 +358,8 @@ jobs:
             ${{ runner.temp }}/phase16c1b-v1-db-bridge.log
             ${{ runner.temp }}/phase16c1b-concurrency.log
             ${{ runner.temp }}/phase16c1b-read-plans.log
+            ${{ runner.temp }}/phase16dr1-pgtap.log
+            ${{ runner.temp }}/phase16dr1-concurrency.log
             ${{ runner.temp }}/phase16d-pgtap.log
             ${{ runner.temp }}/phase16d-concurrency.log
             ${{ runner.temp }}/phase16e-recovery.log
