@@ -57,3 +57,8 @@ describe("actual asynchronous Admin route",()=>{
  it("rejects client tenant and repeated search arguments without querying data",async()=>{let view=await SignalPageRoute({searchParams:Promise.resolve({tenant})});expect(render(h(AdminI18nProvider,{locale:"en-US"},view))).toContain("page link is invalid");expect(mocks.rpc).not.toHaveBeenCalled();view=await SignalPageRoute({searchParams:Promise.resolve({size:["25","100"]})});expect(render(h(AdminI18nProvider,{locale:"en-US"},view))).toContain("page link is invalid");});
  it("does not hide a permission failure behind validation UI",async()=>{mocks.require.mockRejectedValue(Error("DENIED"));await expect(SignalPageRoute({searchParams:Promise.resolve({tenant})})).rejects.toThrow("DENIED");expect(mocks.rpc).not.toHaveBeenCalled();});
 });
+import SignalOperationsLayout from "../../apps/web/src/app/admin/signals/layout";
+describe("authorization before the loading boundary",()=>{
+ it("returns allowed children after the existing capability guard",async()=>{const child=h("p",null,"allowed");expect(await SignalOperationsLayout({children:child})).toBe(child);expect(mocks.require).toHaveBeenCalledWith("signals.read");expect(mocks.rpc).not.toHaveBeenCalled();});
+ it("rejects before returning children or loading UI for a denied role",async()=>{mocks.require.mockRejectedValue(Error("DENIED"));await expect(SignalOperationsLayout({children:h("p",null,"PROTECTED")})).rejects.toThrow("DENIED");expect(mocks.rpc).not.toHaveBeenCalled();});
+});
