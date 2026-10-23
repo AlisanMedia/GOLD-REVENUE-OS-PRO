@@ -43,3 +43,5 @@ export * from "./financial-source";
 export * from "./financial-source-canonical";
 export * from "./financial-evidence";
 export * from "./signals";
+
+export * from "./signal-commerce";
