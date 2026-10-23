@@ -31,7 +31,12 @@ export const signalSummarySchema=z.strictObject({version:z.literal(1),mode:z.lit
 export type SignalSummary=z.infer<typeof signalSummarySchema>;
 export const signalSearchSchema=z.strictObject({collection:z.enum(signalCollections).default("deliveries"),provider:id.optional(),source:id.optional(),destination:id.optional(),delivery:id.optional(),status:z.preprocess(v=>v===""?undefined:v,z.enum(signalStatuses).optional()),size:z.enum(["25","50","100"]).default("25"),cursor:z.string().min(1).max(1024).optional()});
 export type SignalSearch=z.infer<typeof signalSearchSchema>;
-export function decodeSignalCursor(raw:string):SignalCursor {const parsed=signalCursorSchema.parse(JSON.parse(raw));if(JSON.stringify(parsed)!==raw)throw Error("SIGNAL_CURSOR_INVALID");return parsed;}
+export function decodeSignalCursor(raw:string):SignalCursor {
+ const value:unknown=JSON.parse(raw);
+ // Detect duplicate/noncanonical JSON before schema parsing reorders valid object keys.
+ if(JSON.stringify(value)!==raw)throw Error("SIGNAL_CURSOR_INVALID");
+ return signalCursorSchema.parse(value);
+}
 export function signalHref(input:Partial<Omit<SignalSearch,"cursor">>&{cursor?:SignalCursor|undefined}={}):string {
  const params=new URLSearchParams();for(const key of ["collection","provider","source","destination","delivery","status","size"] as const)if(input[key])params.set(key,input[key]);if(input.cursor)params.set("cursor",JSON.stringify(input.cursor));return "/admin/signals"+(params.size?"?"+params.toString():"");
 }
