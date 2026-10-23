@@ -45,3 +45,4 @@ export * from "./financial-evidence";
 export * from "./signals";
 
 export * from "./signal-commerce";
+export * from "./signal-distribution";
