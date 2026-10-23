@@ -31,7 +31,7 @@ with evidence_rows as (
  union all
  select 'function:'||p.proname||':'||pg_get_function_identity_arguments(p.oid),jsonb_build_array(pg_get_functiondef(p.oid),
   (select jsonb_agg(to_jsonb(a) order by grantee,grantor,privilege_type,is_grantable) from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),pg_get_userbyid(p.proowner))::text
- from pg_proc p join pg_namespace n on n.oid=p.pronamespace where (n.nspname='private' and (p.proname like 'fse_%' or p.proname like 'entitlement_test_%' or p.proname in ('prepare_financial_evidence_v1','record_financial_evidence_v1','read_financial_evidence_command_v1'))) or (n.nspname='public' and (p.proname like 'admin_financial_evidence_%' or p.proname in ('entitlement_test_maintenance_v1','entitlement_test_claim_cycle_v1','entitlement_test_begin_effect_v1','entitlement_claim_job','entitlement_complete_job')))
+ from pg_proc p join pg_namespace n on n.oid=p.pronamespace where (n.nspname='private' and (p.proname like 'fse_%' or p.proname like 'entitlement_test_%' or p.proname in ('prepare_financial_evidence_v1','record_financial_evidence_v1','read_financial_evidence_command_v1'))) or (n.nspname='public' and (p.proname like 'admin_financial_evidence_%' or p.proname in ('admin_entitlement_job_health_v1','entitlement_test_maintenance_v1','entitlement_test_claim_cycle_v1','entitlement_test_begin_effect_v1','entitlement_claim_job','entitlement_complete_job')))
 )
 select jsonb_build_object('version',1,'classification','SYNTHETIC','financial_authority','NONE',
  'tables',(select jsonb_object_agg(k,jsonb_build_object('rows',n,'sha256',digest) order by k) from fingerprints),

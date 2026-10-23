@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { T, CustomerPreviewBoundary, AdminDate, AdminEnum, AdminNumber, AdminPlanDuration, AdminDecimal } from "../../../../components/admin-i18n";
 import { EntitlementPagination, EntitlementReadError } from "@/components/entitlement-pagination";
-import { entitlementPage, subscriptionDetail } from "@/lib/entitlements/admin";
+import { entitlementPage, subscriptionDetail, entitlementJobHealth } from "@/lib/entitlements/admin";
+import { EntitlementJobHealth } from "@/components/entitlement-job-health";
 import { entitlementHref, entitlementSearchSchema } from "@/lib/entitlements/read-model";
 import { getCustomerDisplayNames } from "@/lib/admin/server";
 import PurchaseStatus from "@/components/purchase-status";
@@ -32,6 +33,8 @@ export default async function SubscriptionDetail({ params, searchParams }: {
   // Route identity owns this evidence scope; URL customer input cannot replace it.
   const validScope = q && (!q.customer || q.customer === sub.customer_id);
   const evidence = validScope ? await entitlementPage(q.evidence, { subscription: id, customer: sub.customer_id, size: Number(q.size), cursor: q.cursor }) : null;
+  const health = q?.evidence === "jobs" && evidence?.page?.items.length ? await entitlementJobHealth(id, evidence.page.items.map(j=>j.id)) : null;
+  const healthByJob = new Map(health?.data?.items.map(j=>[j.job_id,j]));
   return <main className="admin-main">
     <Link className="back-link" href="/admin/subscriptions">← <T k="Subscriptions"/></Link>
     <h1><T k="Subscription journey and audit"/></h1><p><Link href={`/admin/customers/${sub.customer_id}`}>{names[sub.customer_id] ?? <T k="Customer"/>}</Link> · {sub.plan_snapshot.title} · <AdminEnum value={sub.mode}/> · <AdminEnum value={sub.state}/></p>
@@ -53,13 +56,14 @@ export default async function SubscriptionDetail({ params, searchParams }: {
     <nav className="survey-tabs" aria-labelledby="entitlement-evidence-title">{(Object.keys(evidenceLabels) as (keyof typeof evidenceLabels)[]).map(key =>
       <Link key={key} href={entitlementHref(path, { size: q?.size ?? "25", evidence: key })} aria-current={q?.evidence === key ? "page" : undefined}><T k={evidenceLabels[key]}/></Link>)}</nav>
     {!validScope ? <EntitlementReadError error="cursor" href={path}/> : evidence?.error ? <EntitlementReadError error={evidence.error} href={entitlementHref(path, { size: q.size, evidence: q.evidence })}/> : evidence?.page && <>
+      {health?.error&&<p className="alert" role="alert"><T k="Review details unavailable. No successful operation is assumed."/></p>}
       <div className="case-list">{evidence.page.items.map(e => <article key={e.id} className="detail-card case-section">
         {"period_start" in e ? <><p><AdminEnum value={e.mode}/> · <AdminDate value={e.period_start}/> → <AdminDate value={e.period_end}/></p>
           {(e.event_id || e.receipt_id || e.test_invoice_id) && <details><summary><T k="Technical references"/></summary><p>{e.event_id}<br/>{e.receipt_id ?? e.test_invoice_id}</p></details>}</> :
           "telegram_user_id" in e ? <><p><AdminEnum value={e.mode}/> · <AdminEnum value={e.status}/></p><p>{e.telegram_user_id ?? <T k="Identity details restricted"/>}</p>
             <p><T k={e.invite_present ? "Invitation recorded" : "No invitation"}/> · <AdminDate value={e.invite_expires_at}/></p><p><T k="Checked:"/> <AdminDate value={e.membership_checked_at}/></p></> :
           "available_at" in e ? <><p><T k={operationLabels[e.operation]}/> · <AdminEnum value={e.status}/></p><p><AdminDate value={e.available_at}/> · <T k="· attempts"/> <AdminNumber value={e.attempts}/></p>
-            {e.last_error && <p className="muted"><T k={e.last_error === "PROVIDER_FAILURE" ? "Provider failure; retry status is shown above." : "Technical details restricted"}/></p>}</> :
+            {healthByJob.has(e.id) ? <EntitlementJobHealth data={healthByJob.get(e.id)!}/> : e.last_error && <p className="muted"><T k={e.last_error === "PROVIDER_FAILURE" ? "Provider failure; retry status is shown above." : "Technical details restricted"}/></p>}</> :
           <><p><AdminDate value={e.created_at}/> · <T k={actionLabels[e.action] ?? "Other recorded action"}/> · <AdminEnum value={e.mode}/></p>
             {e.details.attempt !== undefined && <p><T k="· attempts"/> <AdminNumber value={e.details.attempt}/></p>}</>}
       </article>)}</div>
