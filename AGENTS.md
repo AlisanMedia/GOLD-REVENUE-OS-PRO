@@ -10,6 +10,7 @@ Current continuation (2026-10-23): Phase16A governance and16C-0 reads are accept
 
 Read `docs/source-of-truth/v1.0.0/` and accepted ADRs before changing architecture. ADR-002 controls the approved Phase 1 amendments.
 
+- Signal development is fixture-only: no real Telegram sessions, protected-content bypass, forwarding, wallet/merchant setup or former-customer import/outreach. Normal channel membership is not redistribution permission. See `SIGNAL_INGESTION_FOUNDATION_REPORT.md` and `infra/runbooks/signal-commercial-readiness.md`; all genuine rights/payment/access/pilot gates remain closed.
 - TypeScript is strict. Avoid `any`.
 - Every business table is tenant scoped unless its global scope is explicit.
 - Deny access by default. Browser tenant input never grants access.

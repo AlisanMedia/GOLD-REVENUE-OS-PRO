@@ -19,7 +19,8 @@
       "codex/commercial-journey-truthfulness": false,
       "codex/entitlement-review-visibility": false,
       "codex/pilot-readiness-evidence": false,
-      "codex/signal-ingestion-foundation": false
+      "codex/signal-ingestion-foundation": false,
+      "codex/signal-commercial-readiness": false
     }
   },
   "framework": "nextjs",

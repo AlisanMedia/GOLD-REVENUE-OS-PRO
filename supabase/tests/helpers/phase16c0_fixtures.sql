@@ -25,6 +25,18 @@ insert into public.channel_access(id,tenant_id,subscription_id,binding_id,channe
 select ('ec060000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'e3200000-0000-4000-8000-000000000001',
  ('ec030000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,('ec050000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,
  (select id from public.vip_channels where tenant_id='e3200000-0000-4000-8000-000000000001' and mode='test'),'test','INVITED','test:invite:PRIVATE-'||n,now()+interval '5 minutes' from generate_series(1,320)n;
+-- Separate fixture binding preserves the one-binding/channel uniqueness rule.
+insert into public.customers(id,tenant_id,display_name) values('ec020000-0000-4000-8000-000000000321','e3200000-0000-4000-8000-000000000001','Synthetic no-invitation customer');
+insert into public.subscriptions(id,tenant_id,customer_id,plan_version_id,mode,state,plan_snapshot,commercial_snapshot,starts_at,ends_at,grace_until,renewal_due_at,created_at) values
+ ('ec030000-0000-4000-8000-000000000322','e3200000-0000-4000-8000-000000000001','ec020000-0000-4000-8000-000000000321','e3500000-0000-4000-8000-000000000002','test','HOLD','{"title":"Synthetic no-invitation plan"}','{}','2026-01-01Z','2026-02-01Z','2026-02-01Z','2026-01-29Z','2026-01-01Z');
+insert into public.telegram_entitlement_bindings(id,tenant_id,customer_id,mode,telegram_user_id,source_event_id)
+select 'ec050000-0000-4000-8000-000000000321','e3200000-0000-4000-8000-000000000001','ec020000-0000-4000-8000-000000000321','test','test:321',
+ (select id from public.domain_events where customer_id='e3300000-0000-4000-8000-000000000001' and event_type='customer.created');
+-- Deliberately sorts before all INVITED rows: ordering cannot imply an invite.
+-- A held synthetic second plan has no invitation or side effect.
+insert into public.channel_access(id,tenant_id,subscription_id,binding_id,channel_id,mode,status)
+select 'ffffffff-ffff-4fff-8fff-ffffffffffff','e3200000-0000-4000-8000-000000000001','ec030000-0000-4000-8000-000000000322','ec050000-0000-4000-8000-000000000321',
+ (select id from public.vip_channels where tenant_id='e3200000-0000-4000-8000-000000000001' and mode='test'),'test','REVIEW';
 insert into public.entitlement_jobs(id,tenant_id,access_id,revision,operation,status,attempts,available_at,lease_token,lease_until,last_error)
 select ('ec070000-0000-4000-8000-'||lpad(n::text,12,'0'))::uuid,'e3200000-0000-4000-8000-000000000001',
  ('ec060000-0000-4000-8000-'||lpad(((n-1)%320+1)::text,12,'0'))::uuid,((n-1)/320)+1,'reconcile','FAILED',2,'2026-01-01Z',gen_random_uuid(),now(),'PRIVATE ERROR test:invite:PRIVATE'
