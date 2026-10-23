@@ -22,6 +22,10 @@ Mandatory Database CI, migration replay ve mevcut regresyonlardan sonra sırası
    geçici DB'ye restore eder. Kaynak DB asla drop/reset edilmez. Tam Storage,
    diğer Supabase managed schemas, secrets, global roles, WAL/PITR ve gerçek
    production recovery kanıtı değildir. Aynı cluster'daki mevcut roller kullanılır.
+   Supabase'in korumalı Auth sahiplerini korumak için yalnız yeni disposable
+   restore kopyasında mevcut local supabase_admin engine administrator seçilir;
+   plainPG17'de mevcut postgres kullanılır. Rol/grant oluşturulmaz, owner/ACL
+   dump'tan çıkarılmaz; mevcut yetkili restore login yoksa test durur.
 4. Fingerprint;10 FSE tablo, audit, periods/jobs/access ve FSE function/ACL/RLS
    metadata'sını karşılaştırır. Restore kopyasında gerçek SQLSTATE42501 denial ve
    append-only testleri çalışır. Kaynak ve kopya değişmemiş olmalıdır.

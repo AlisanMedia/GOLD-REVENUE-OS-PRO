@@ -71,6 +71,13 @@ Failed pgTAP diagnostic sentetik lease JSON'ı bastı. Yeni helper/assertion'lar
 yalnız boolean karşılaştırır; raw job/lease output yoktur. Tarihsel failed log
 silinmez; gerçek secret/customer/provider verisi veya yaşayan hosted lease yoktur.
 
+Üçüncü PR CI [39945669056](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39945669056)
+Application SUCCESS, yeni67 SQL ve3 concurrency PASS; Database ownership restore'da
+FAIL kaldı. Supabase postgres login korumalı Auth owner'ına SET ROLE yapamıyordu.
+Yeni disposable kopyada mevcut local engine administrator kullanılır; plainPG17
+postgres dalı korunur. Rol/grant eklenmez; --no-owner/--no-acl ile güvenlik
+metadata'sı atlanmaz. Genuine runtime writer yetkisi veya hosted role değişmedi.
+
 ## Çalıştırma ve operator değeri
 
 [Runbook](infra/runbooks/synthetic-recovery.md) queue durumlarını ve güvenli

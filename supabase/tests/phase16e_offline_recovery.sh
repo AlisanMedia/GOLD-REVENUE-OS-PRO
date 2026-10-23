@@ -38,6 +38,14 @@ e_cleanup(){
 }
 trap e_cleanup EXIT
 test "$(e_sql "$e_source" -c "select current_setting('server_version_num')::integer/10000")" = 17
+# Supabase's postgres login deliberately cannot SET ROLE to protected Auth
+# owners. Restore the NEW disposable copy with the already-existing local
+# engine administrator instead; never grant roles or use --no-owner/--no-acl.
+e_restore_role=postgres
+if test "$(e_sql "$e_source" -c "select count(*) from pg_roles where rolname='supabase_admin' and rolsuper and rolcanlogin")" = 1;then
+ e_restore_role=supabase_admin
+fi
+test "$(e_exec psql -U "$e_restore_role" -d "$e_source" -X -qAt -v ON_ERROR_STOP=1 -c "select rolsuper from pg_roles where rolname=current_user")" = t || { echo EXISTING_RESTORE_AUTHORITY_REQUIRED >&2;exit 1; }
 test "$(e_sql "$e_source" -c "select count(*) from private.fse_namespaces where origin='SYNTHETIC' and provider_environment='FIXTURE'")" = 1
 test "$(e_sql "$e_source" -c "select count(*) from private.fse_assessments")" -le 10000
 test "$(e_sql "$e_source" -c "select count(*) from public.audit_logs")" -le 50000
@@ -60,7 +68,7 @@ e_exec createdb -U postgres --template=template0 "$e_restore" >"$e_tmp/create.lo
 # template0 includes public; remove only that empty schema in the database this
 # invocation just created. The source database is never dropped or reset.
 e_sql "$e_restore" -c 'drop schema public;' >"$e_tmp/empty-schema.log" 2>&1
-if ! e_exec pg_restore -U postgres -d "$e_restore" --exit-on-error <"$e_tmp/recovery.dump" >"$e_tmp/restore.log" 2>&1;then
+if ! e_exec pg_restore -U "$e_restore_role" -d "$e_restore" --exit-on-error <"$e_tmp/recovery.dump" >"$e_tmp/restore.log" 2>&1;then
  echo 'RESTORE_ERROR; supported-schema recovery did not complete' >&2
  # Error class only, never SQL text/data or raw dump.
  python3 - "$e_tmp/restore.log" <<'PY'
