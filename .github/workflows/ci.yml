@@ -302,6 +302,18 @@ jobs:
           name: phase14-http-acceptance
           path: ${{ runner.temp }}/phase14-http-acceptance.json
           retention-days: 14
+      - name: Verify synthetic financial evidence persistence and real backend races
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/fse-supabase-status.env"
+          db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/fse-supabase-status.env")
+          test -n "$db_url"
+          echo "::add-mask::$db_url"
+          supabase test db supabase/tests/phase16c1b_financial_evidence.test.sql | tee "$RUNNER_TEMP/phase16c1b-pgtap.log"
+          FSE_DISPOSABLE_DB_URL="$db_url" pnpm exec vitest run tests/integration/phase16c1b-evidence-contracts.test.ts | tee "$RUNNER_TEMP/phase16c1b-v1-db-bridge.log"
+          bash supabase/tests/phase16c1b_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16c1b-concurrency.log"
+          psql "$db_url" -X -v ON_ERROR_STOP=1 -f supabase/tests/phase16c1b_read_plans.sql | tee "$RUNNER_TEMP/phase16c1b-read-plans.log"
       - name: Upload database evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -325,6 +337,10 @@ jobs:
             ${{ runner.temp }}/phase15-concurrency.log
             ${{ runner.temp }}/phase14-pgtap.log
             ${{ runner.temp }}/phase14-concurrency.log
+            ${{ runner.temp }}/phase16c1b-pgtap.log
+            ${{ runner.temp }}/phase16c1b-v1-db-bridge.log
+            ${{ runner.temp }}/phase16c1b-concurrency.log
+            ${{ runner.temp }}/phase16c1b-read-plans.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack
