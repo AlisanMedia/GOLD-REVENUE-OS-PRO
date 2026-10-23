@@ -41,7 +41,7 @@ test "$(e_sql "$e_source" -c "select current_setting('server_version_num')::inte
 test "$(e_sql "$e_source" -c "select count(*) from private.fse_namespaces where origin='SYNTHETIC' and provider_environment='FIXTURE'")" = 1
 test "$(e_sql "$e_source" -c "select count(*) from private.fse_assessments")" -le 10000
 test "$(e_sql "$e_source" -c "select count(*) from public.audit_logs")" -le 50000
-test "$(e_sql "$e_source" -c "select count(*) from public.tenants where id='d3200000-0000-4000-8000-000000000001' and slug='phase11-sandbox-16de-a' and not outbound_messaging_enabled")" = 1
+test "$(e_sql "$e_source" -c "select count(*) from public.tenants where id='16de2000-0000-4000-8000-000000000001' and slug='phase11-sandbox-16de-a' and not outbound_messaging_enabled")" = 1
 e_sql "$e_source" <"$e_root/phase16e_readiness_snapshot.sql" >"$e_tmp/before.json"
 python3 - "$e_tmp/before.json" <<'PY'
 import json,sys
@@ -89,7 +89,7 @@ e_deny(){
 e_deny E03 "begin;set local role authenticated;select count(*) from private.fse_observations;rollback;"
 e_deny E04 "begin;set local role service_role;select private.record_financial_evidence_v1('{}','0000000000000000000000000000000000000000000000000000000000000000');rollback;"
 e_deny E05 "update private.fse_observations set raw_hash=raw_hash where id=(select id from private.fse_observations limit 1);"
-e_deny E06 "delete from public.entitlement_audit where tenant_id='d3200000-0000-4000-8000-000000000001';"
+e_deny E06 "delete from public.entitlement_audit where tenant_id='16de2000-0000-4000-8000-000000000001';"
 e_sql "$e_restore" <"$e_root/phase16e_readiness_snapshot.sql" >"$e_tmp/after-drills.json"
 e_compare "$e_tmp/before.json" "$e_tmp/after-drills.json"
 
@@ -126,11 +126,11 @@ e_sql "$e_source" >"$e_tmp/disable.log" <<'SQL'
 begin;
 update private.fse_scopes set writes_enabled=false where namespace_id=private.phase16c1b_id('namespace');
 update private.fse_namespaces set admission_enabled=false where id=private.phase16c1b_id('namespace');
-update public.tenants set status='suspended' where id in (private.phase16c1b_id('tenant:1'),private.phase16c1b_id('tenant:2'),'d3200000-0000-4000-8000-000000000001','d3200000-0000-4000-8000-000000000002');
+update public.tenants set status='suspended' where id in (private.phase16c1b_id('tenant:1'),private.phase16c1b_id('tenant:2'),'16de2000-0000-4000-8000-000000000001','16de2000-0000-4000-8000-000000000002');
 commit;
 SQL
 test "$(e_sql "$e_source" -c "select count(*) from private.fse_scopes where namespace_id=private.phase16c1b_id('namespace') and writes_enabled")" = 0
 test "$(e_sql "$e_source" -c "select admission_enabled from private.fse_namespaces where id=private.phase16c1b_id('namespace')")" = f
-test "$(e_sql "$e_source" -c "select count(*) from public.tenants where id in (private.phase16c1b_id('tenant:1'),private.phase16c1b_id('tenant:2'),'d3200000-0000-4000-8000-000000000001','d3200000-0000-4000-8000-000000000002') and (status='active' or outbound_messaging_enabled)")" = 0
+test "$(e_sql "$e_source" -c "select count(*) from public.tenants where id in (private.phase16c1b_id('tenant:1'),private.phase16c1b_id('tenant:2'),'16de2000-0000-4000-8000-000000000001','16de2000-0000-4000-8000-000000000002') and (status='active' or outbound_messaging_enabled)")" = 0
 echo 'PASS E09: only owned synthetic namespaces/scopes/tenants disabled; append-only evidence retained'
 echo 'DEFERRED: genuine receipt/event/outbox atomicity; hosted restore/PITR; actual provider outage; live subscription/VIP; commercial pilot'

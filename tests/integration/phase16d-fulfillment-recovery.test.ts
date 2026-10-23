@@ -6,9 +6,9 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: mocks.rpc }) }));
 import { runTestEntitlementCycle } from "../../apps/web/src/lib/entitlements/service";
 
-const tenant = "d3200000-0000-4000-8000-000000000001";
-const job: AccessJob = { id: "d3800000-0000-4000-8000-000000000001", tenant_id: tenant,
-  subscription_id: "d3800000-0000-4000-8000-000000000002", lease_token: "d3800000-0000-4000-8000-000000000003",
+const tenant = "16de2000-0000-4000-8000-000000000001";
+const job: AccessJob = { id: "16de8000-0000-4000-8000-000000000001", tenant_id: tenant,
+  subscription_id: "16de8000-0000-4000-8000-000000000002", lease_token: "16de8000-0000-4000-8000-000000000003",
   mode: "test", operation: "invite", telegram_user_id: "test:123", chat_id: "test:vip", invite_reference: null,
   invite_expires_at: "2030-01-01T00:05:00Z" };
 beforeEach(() => {
@@ -28,7 +28,7 @@ describe("16D registered TEST worker / no provider network", () => {
     const execute = vi.fn();await expect(runTestEntitlementCycle(tenant, { execute })).rejects.toThrow(failing === "entitlement_tick" ? "ENTITLEMENT_TICK_FAILED" : "ACCESS_CLAIM_FAILED");
     expect(execute).not.toHaveBeenCalled();expect(mocks.rpc).not.toHaveBeenCalledWith("entitlement_complete_job", expect.anything());
   });
-  it.each([{ ...job, tenant_id: "d3200000-0000-4000-8000-000000000002" }, { ...job, mode: "live" }])("rejects a foreign or live lease before transport", async input => {
+  it.each([{ ...job, tenant_id: "16de2000-0000-4000-8000-000000000002" }, { ...job, mode: "live" }])("rejects a foreign or live lease before transport", async input => {
     mocks.rpc.mockResolvedValue({ error: null, data: input });const execute = vi.fn();
     await expect(runTestEntitlementCycle(tenant, { execute })).rejects.toThrow(input.mode === "live" ? "LIVE_ACCESS_DISABLED" : "ACCESS_TENANT_MISMATCH");expect(execute).not.toHaveBeenCalled();
   });

@@ -57,6 +57,12 @@ privilege/grant-option semantiği sıralanarak canonical karşılaştırıldı. 
 grant/owner/RLS alanı karşılaştırmadan çıkarılmadı. Kaynak DB/audit reset edilmedi. İlk
 failed logs ve sonraki gerçek sonuçlar final owner evidence'de korunur.
 
+İlk PR CI [39943588412](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39943588412)
+Application SUCCESS, Database FAILURE kaldı: yeni d3 UUID alanı mevcut Phase10
+Auth fixture'larıyla çakıştı. Yeni fixture'lar dedicated16de UUID alanına taşındı;
+eski kayıtlar upsert/delete edilmedi, test/grant/RLS gevşetilmedi. Bu failed run
+korunur ve yeni exact head için iki mandatory job da yeniden gereklidir.
+
 ## Çalıştırma ve operator değeri
 
 [Runbook](infra/runbooks/synthetic-recovery.md) queue durumlarını ve güvenli
