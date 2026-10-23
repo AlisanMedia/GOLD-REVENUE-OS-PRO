@@ -63,6 +63,14 @@ Auth fixture'larıyla çakıştı. Yeni fixture'lar dedicated16de UUID alanına 
 eski kayıtlar upsert/delete edilmedi, test/grant/RLS gevşetilmedi. Bu failed run
 korunur ve yeni exact head için iki mandatory job da yeniden gereklidir.
 
+İkinci PR CI [39944649792](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/39944649792)
+Application SUCCESS, Database FAILURE: expiry testinde aynı available_at ve
+random UUID tie-break yüzünden geçerli revoke önce seçilebiliyordu. Fixture'ın
+obsolete invite zamanı açıkça önceye kondu; runtime ordering değiştirilmedi.
+Failed pgTAP diagnostic sentetik lease JSON'ı bastı. Yeni helper/assertion'lar
+yalnız boolean karşılaştırır; raw job/lease output yoktur. Tarihsel failed log
+silinmez; gerçek secret/customer/provider verisi veya yaşayan hosted lease yoktur.
+
 ## Çalıştırma ve operator değeri
 
 [Runbook](infra/runbooks/synthetic-recovery.md) queue durumlarını ve güvenli

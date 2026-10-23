@@ -8,9 +8,9 @@ insert into dctx select 'subscription',to_jsonb(id) from public.subscriptions wh
 insert into dctx select 'access',to_jsonb(id) from public.channel_access where tenant_id='16de2000-0000-4000-8000-000000000001';
 create function pg_temp.dsub() returns uuid language sql as $$select (v#>>'{}')::uuid from dctx where k='subscription'$$;
 create function pg_temp.daccess() returns uuid language sql as $$select (v#>>'{}')::uuid from dctx where k='access'$$;
-create function pg_temp.dclaim() returns jsonb language plpgsql as $$declare j jsonb;begin
+create function pg_temp.dclaim() returns boolean language plpgsql as $$declare j jsonb;begin
  j:=public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001');
- insert into dctx values('job',j) on conflict(k) do update set v=excluded.v;return j;end;$$;
+ insert into dctx values('job',j) on conflict(k) do update set v=excluded.v;return j is not null;end;$$;
 create function pg_temp.dcomplete(result_value jsonb) returns boolean language sql as $$
  select public.entitlement_complete_job('16de2000-0000-4000-8000-000000000001',(v->>'id')::uuid,(v->>'lease_token')::uuid,result_value) from dctx where k='job';$$;
 create function pg_temp.dcontrol(action_value text) returns boolean language sql as $$
@@ -22,16 +22,16 @@ select is((select count(*) from public.entitlement_jobs where tenant_id='16de200
 create function pg_temp.retry_assertions() returns setof text language plpgsql as $$declare j jsonb;attempt integer;delay_seconds integer;begin
  for attempt in 1..5 loop
   update public.entitlement_jobs set available_at=now()-interval '1 second' where tenant_id='16de2000-0000-4000-8000-000000000001';
-  j:=pg_temp.dclaim();
+  perform pg_temp.dclaim();select v into j from dctx where k='job';
   return next is((j->>'attempts')::integer,attempt,'D03 exact attempt '||attempt);
-  return next is(public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001'),null::jsonb,'D04 lease excludes duplicate worker '||attempt);
+  return next ok(public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001') is null,'D04 lease excludes duplicate worker '||attempt);
   return next is(pg_temp.dcomplete('{"ok":false}'),false,'D05 failure is not success '||attempt);
   return next is((select status from public.entitlement_jobs where id=(j->>'id')::uuid),case when attempt=5 then 'FAILED' else 'PENDING' end,'D06 bounded explicit-failure state '||attempt);
   select extract(epoch from available_at-now())::integer into delay_seconds from public.entitlement_jobs where id=(j->>'id')::uuid;
   return next is(delay_seconds,least(300,10*(2^attempt)::integer),'D07 bounded persisted backoff '||attempt);
  end loop;end;$$;
 select * from pg_temp.retry_assertions();
-select is(public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001'),null::jsonb,'D08 failed job does not silently restart');
+select ok(public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001') is null,'D08 failed job does not silently restart');
 select is((select status from public.channel_access where id=pg_temp.daccess()),'REVIEW','D09 outage leaves visible review');
 
 select ok(pg_temp.dcontrol('hold'),'D10 manager hold creates a new revision');
@@ -42,7 +42,7 @@ insert into dctx select 'old_lease',v from dctx where k='job';
 update public.entitlement_jobs set lease_until=now()-interval '1 second' where id=(select (v->>'id')::uuid from dctx where k='job');
 select throws_ok($$select pg_temp.dcomplete('{"ok":true,"invite_reference":"test:invite:expired","expires_at":"2030-01-01Z"}')$$,'42501','access lease denied','D13 expired lease cannot complete');
 select pg_temp.dclaim();
-select isnt((select v->>'lease_token' from dctx where k='job'),(select v->>'lease_token' from dctx where k='old_lease'),'D14 reclaimed lease token differs');
+select ok((select v->>'lease_token' from dctx where k='job') is distinct from (select v->>'lease_token' from dctx where k='old_lease'),'D14 reclaimed lease token differs');
 select throws_ok($$select public.entitlement_complete_job('16de2000-0000-4000-8000-000000000001',(select (v->>'id')::uuid from dctx where k='old_lease'),(select (v->>'lease_token')::uuid from dctx where k='old_lease'),'{"ok":true}')$$,'42501','access lease denied','D15 stale worker cannot use reclaimed token');
 select ok(pg_temp.dcomplete(jsonb_build_object('ok',true,'invite_reference','test:invite:recovered','expires_at',now()+interval '300 seconds')),'D16 replacement lease commits safe TEST link');
 select throws_ok($$select pg_temp.dcomplete('{"ok":true}')$$,'42501','access lease denied','D17 repeated completion cannot duplicate effects');
@@ -80,7 +80,10 @@ select public.admin_request_entitlement_access('16de2000-0000-4000-8000-00000000
 update public.subscriptions set ends_at=now()-interval '1 second',grace_until=now()-interval '1 second' where id='16de8000-0000-4000-8000-000000000003';
 select public.entitlement_tick('16de2000-0000-4000-8000-000000000001');
 select is((select state from public.subscriptions where id='16de8000-0000-4000-8000-000000000003'),'EXPIRED','D37 expired TEST subscription truth');
-select is(public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001'),null::jsonb,'D38 obsolete invite drains as STALE');
+-- Explicitly put the obsolete fixture first. Equal available_at values may
+-- correctly select revoke before invite via UUID tie-break; that is not a bug.
+update public.entitlement_jobs set available_at=now()-interval '2 seconds' where tenant_id='16de2000-0000-4000-8000-000000000001' and access_id=(select id from public.channel_access where subscription_id='16de8000-0000-4000-8000-000000000003') and operation='invite';
+select ok(public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001') is null,'D38 obsolete invite drains as STALE');
 select pg_temp.dclaim();select ok(pg_temp.dcomplete('{"ok":true}'),'D39 next call processes queued revoke');
 select is((select status from public.channel_access where subscription_id='16de8000-0000-4000-8000-000000000003'),'REVOKED','D40 expired access safely revoked');
 
