@@ -17,7 +17,8 @@
       "codex/phase16d-r1-synthetic-hardening": false,
       "codex/phase16d-r2-bounded-maintenance": false,
       "codex/commercial-journey-truthfulness": false,
-      "codex/entitlement-review-visibility": false
+      "codex/entitlement-review-visibility": false,
+      "codex/pilot-readiness-evidence": false
     }
   },
   "framework": "nextjs",
