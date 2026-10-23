@@ -328,6 +328,21 @@ jobs:
           set -euo pipefail
           supabase test db supabase/tests/signal_ingestion.test.sql | tee "$RUNNER_TEMP/signal-ingestion-pgtap.log"
           bash supabase/tests/signal_ingestion_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" | tee "$RUNNER_TEMP/signal-ingestion-concurrency.log"
+      - name: Verify synthetic distribution, actual v1 bridge, crash recovery and latency
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/signal-db.env"
+          db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/signal-db.env")
+          test -n "$db_url"
+          echo "::add-mask::$db_url"
+          supabase test db supabase/tests/signal_distribution.test.sql | tee "$RUNNER_TEMP/signal-distribution-pgtap.log"
+          SIGNAL_DISPOSABLE_DB_URL="$db_url" pnpm exec vitest run tests/integration/signal-distribution-db.test.ts | tee "$RUNNER_TEMP/signal-distribution-v1-bridge.log"
+          bash supabase/tests/signal_distribution_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/signal-distribution-concurrency.log"
+          bash supabase/tests/signal_notification_wakeup.sh "$db_url" | tee "$RUNNER_TEMP/signal-notification-wakeup.log"
+          bash supabase/tests/signal_distribution_benchmark.sh "$db_url" | tee "$RUNNER_TEMP/signal-distribution-benchmark.log"
+          SIGNAL_BENCHMARK_DIR="$RUNNER_TEMP" pnpm exec vitest run tests/integration/signal-normalization-benchmark.test.ts | tee "$RUNNER_TEMP/signal-normalization.log"
+          psql "$db_url" -X -v ON_ERROR_STOP=1 -f supabase/tests/signal_distribution_read_plans.sql | tee "$RUNNER_TEMP/signal-distribution-plans.log"
       - name: Verify synthetic fulfillment and offline recovery
         shell: bash
         run: |
@@ -377,6 +392,14 @@ jobs:
             ${{ runner.temp }}/phase16e-recovery.log
             ${{ runner.temp }}/signal-ingestion-pgtap.log
             ${{ runner.temp }}/signal-ingestion-concurrency.log
+            ${{ runner.temp }}/signal-distribution-pgtap.log
+            ${{ runner.temp }}/signal-distribution-v1-bridge.log
+            ${{ runner.temp }}/signal-distribution-concurrency.log
+            ${{ runner.temp }}/signal-notification-wakeup.log
+            ${{ runner.temp }}/signal-distribution-benchmark.log
+            ${{ runner.temp }}/signal-distribution-plans.log
+            ${{ runner.temp }}/signal-normalization.log
+            ${{ runner.temp }}/signal-normalization.json
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack

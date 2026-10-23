@@ -27,6 +27,10 @@ with evidence_rows as (
  union all select 'signal_routes',to_jsonb(x)::text from private.signal_routes x
  union all select 'signal_events',to_jsonb(x)::text from private.signal_events x
  union all select 'signal_heads',to_jsonb(x)::text from private.signal_heads x
+ union all select 'signal_deliveries',to_jsonb(x)::text from private.signal_deliveries x
+ union all select 'signal_attempts',to_jsonb(x)::text from private.signal_attempts x
+ union all select 'signal_delivery_history',to_jsonb(x)::text from private.signal_delivery_history x
+ union all select 'signal_message_bindings',to_jsonb(x)::text from private.signal_message_bindings x
 ), row_hashes as (
  select k,encode(extensions.digest(v,'sha256'),'hex') h from evidence_rows
 ), fingerprints as (
