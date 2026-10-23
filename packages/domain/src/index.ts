@@ -41,3 +41,4 @@ export * from "./surveys";
 export * from "./analytics";
 export * from "./financial-source";
 export * from "./financial-source-canonical";
+export * from "./financial-evidence";
