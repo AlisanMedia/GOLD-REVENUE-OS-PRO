@@ -10,6 +10,7 @@ select is((select count(*)::int from private.signal_events),1,'one immutable eve
 select is((select original#>>'{interpretation,entry,0}' from private.signal_events),'2700.010','precision preserved');
 select is(private.signal_record_fixture_v1(pg_temp.signal_input())->>'duplicate','true','identical replay suppressed');
 select is((select count(*)::int from private.signal_events),1,'replay does not append duplicate');
+select is(private.signal_record_fixture_v1(replace(pg_temp.signal_input(),'18:00:00Z','18:00:01Z'))->>'duplicate','true','new arrival time is not a contradictory source event');
 select throws_ok($$select private.signal_record_fixture_v1(replace(pg_temp.signal_input(),'2700.010','2701.010'))$$,'22023','SIGNAL_REPLAY_CONFLICT','same source/revision cannot change historical facts');
 select lives_ok($$select private.signal_record_fixture_v1(pg_temp.signal_input('m1',3,'51a03000-0000-4000-8000-000000000001','51a02000-0000-4000-8000-000000000001','EDIT'))$$,'edit stored');
 select is(private.signal_record_fixture_v1(pg_temp.signal_input('m1',2))->>'current','false','out of order earlier revision preserved but not current');

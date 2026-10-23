@@ -10,7 +10,9 @@ export function normalizeSignal(input: unknown) {
   const unavailable = ["DELETE", "RESTRICTED", "UNAVAILABLE"].includes(event.kind);
   const i = event.interpretation;
   const parseState = unavailable ? "UNAVAILABLE" : !i || i.action === "OPEN" && (!i.direction || !i.symbol || !i.order_type || i.order_type !== "MARKET" && !i.entry.length) ? "UNCERTAIN" : "STRUCTURED";
-  return { event, identity, fact_hash: hash(canonical), canonical, parse_state: parseState, financial_authority: "NONE" as const, distribution_authority: "SYNTHETIC_ONLY" as const };
+  const { observed_at: observedAt, ...sourceFacts } = event;
+  void observedAt; // A replay has a new receipt time but the same upstream facts.
+  return { event, identity, fact_hash: hash(canonicalFinancialJson(sourceFacts)), canonical, parse_state: parseState, financial_authority: "NONE" as const, distribution_authority: "SYNTHETIC_ONLY" as const };
 }
 export function parseSignalJson(raw: string) { return normalizeSignal(parseFinancialJson(raw)); }
 

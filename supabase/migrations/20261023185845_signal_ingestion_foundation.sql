@@ -102,7 +102,7 @@ begin
  end if;
  parse_value:=case when v->>'kind' in ('DELETE','RESTRICTED','UNAVAILABLE') then 'UNAVAILABLE'
   when i='null'::jsonb or (i->>'action'='OPEN' and (i->>'direction' is null or i->>'symbol' is null or i->>'order_type' is null or (i->>'order_type'<>'MARKET' and i->'entry'='[]'::jsonb))) then 'UNCERTAIN' else 'STRUCTURED' end;
- hash_value:=private.fse_hash(private.fse_canonical(v));
+ hash_value:=private.fse_hash(private.fse_canonical(v-'observed_at'));
  identity_value:=private.fse_hash(private.fse_canonical(jsonb_build_array('SIGNAL1',t::text,s::text,v->>'message_key',v->>'revision')));
  select * into e from private.signal_events where event_identity=identity_value;
  if found then

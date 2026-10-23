@@ -31,6 +31,7 @@ describe("authorized synthetic signal foundation", () => {
     expect(normalizeSignal(event()).identity).not.toBe(normalizeSignal(event({ tenant_id: "51a02000-0000-4000-8000-000000000002" })).identity);
     expect(normalizeSignal(event()).identity).not.toBe(normalizeSignal(event({ revision: 2 })).identity);
   });
+  it("deduplicates redelivery at a later receipt time without changing first observation", () => { const first = normalizeSignal(event()), replay = normalizeSignal(event({ observed_at: "2026-10-23T18:00:01Z" })); expect(replay.fact_hash).toBe(first.fact_hash); expect(replay.identity).toBe(first.identity); });
   it("canonicalizes key order and rejects duplicate JSON keys or injected authority", () => {
     const e = event(); expect(normalizeSignal(e).fact_hash).toBe(normalizeSignal(Object.fromEntries(Object.entries(e).reverse())).fact_hash);
     expect(() => parseSignalJson(JSON.stringify(e).replace('"version":1', '"version":1,"version":1'))).toThrow();
