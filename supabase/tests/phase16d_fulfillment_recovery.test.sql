@@ -9,7 +9,9 @@ insert into dctx select 'access',to_jsonb(id) from public.channel_access where t
 create function pg_temp.dsub() returns uuid language sql as $$select (v#>>'{}')::uuid from dctx where k='subscription'$$;
 create function pg_temp.daccess() returns uuid language sql as $$select (v#>>'{}')::uuid from dctx where k='access'$$;
 create function pg_temp.dclaim() returns boolean language plpgsql as $$declare j jsonb;begin
- j:=public.entitlement_claim_job('16de2000-0000-4000-8000-000000000001');
+ -- Explicit tracked TEST acquisition distinguishes a safe pre-dispatch loss
+ -- from the conservative unknown-effect treatment of legacy issued leases.
+ j:=nullif(public.entitlement_test_claim_cycle_v1('16de2000-0000-4000-8000-000000000001')->'job','null'::jsonb);
  insert into dctx values('job',j) on conflict(k) do update set v=excluded.v;return j is not null;end;$$;
 create function pg_temp.dcomplete(result_value jsonb) returns boolean language sql as $$
  select public.entitlement_complete_job('16de2000-0000-4000-8000-000000000001',(v->>'id')::uuid,(v->>'lease_token')::uuid,result_value) from dctx where k='job';$$;
@@ -61,7 +63,9 @@ select pg_temp.dclaim();select ok(pg_temp.dcomplete('{"ok":true,"membership":"le
 select is((select status from public.channel_access where id=pg_temp.daccess()),'PENDING','D27 missing member is not shown as delivered');
 select pg_temp.dclaim();select ok(pg_temp.dcomplete(jsonb_build_object('ok',true,'invite_reference','test:invite:race','expires_at',now()+interval '300 seconds')),'D28 repair invitation completes');
 select public.entitlement_join_request('16de2000-0000-4000-8000-000000000001',pg_temp.daccess(),'test:1616','test:invite:race');
-select pg_temp.dclaim();select ok(pg_temp.dcontrol('hold'),'D29 hold while fake grant in flight');
+select pg_temp.dclaim();
+select public.entitlement_test_begin_effect_v1('16de2000-0000-4000-8000-000000000001',(select (v->>'id')::uuid from dctx where k='job'),(select (v->>'lease_token')::uuid from dctx where k='job'));
+select ok(pg_temp.dcontrol('hold'),'D29 hold while fake grant in flight');
 select is(pg_temp.dcomplete('{"ok":true,"membership":"member"}'),false,'D30 late fake side effect cannot revive held DB access');
 select is((select status from public.channel_access where id=pg_temp.daccess()),'REVIEW','D31 stale side effect remains visible for compensation');
 select pg_temp.dclaim();select ok(pg_temp.dcomplete('{"ok":true}'),'D32 queued fake revoke compensates');

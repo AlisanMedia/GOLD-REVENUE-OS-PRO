@@ -7,6 +7,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc
 import { runTestEntitlementCycle } from "../../apps/web/src/lib/entitlements/service";
 
 const tenant = "16de2000-0000-4000-8000-000000000001";
+const queue = (value: unknown) => ({ version: 1, job: value, examined: value ? 1 : 0, stale: 0, review: 0, blocked: 0, has_more: false });
 const job: AccessJob = { id: "16de8000-0000-4000-8000-000000000001", tenant_id: tenant,
   subscription_id: "16de8000-0000-4000-8000-000000000002", lease_token: "16de8000-0000-4000-8000-000000000003",
   mode: "test", operation: "invite", telegram_user_id: "test:123", chat_id: "test:vip", invite_reference: null,
@@ -14,26 +15,26 @@ const job: AccessJob = { id: "16de8000-0000-4000-8000-000000000001", tenant_id: 
 beforeEach(() => {
   vi.clearAllMocks();
   vi.stubGlobal("fetch", vi.fn(() => { throw Error("NETWORK_FORBIDDEN_IN_SYNTHETIC_TEST"); }));
-  mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_claim_job" ? job : true }));
+  mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_test_claim_cycle_v1" ? queue(job) : true }));
 });
 afterEach(() => vi.unstubAllGlobals());
 
 describe("16D registered TEST worker / no provider network", () => {
   it("does nothing when no lease is available", async () => {
-    const execute = vi.fn();mocks.rpc.mockResolvedValue({ error: null, data: null });
-    expect(await runTestEntitlementCycle(tenant, { execute })).toEqual({ processed: false });expect(execute).not.toHaveBeenCalled();
+    const execute = vi.fn();mocks.rpc.mockResolvedValue({ error: null, data: queue(null) });
+    expect(await runTestEntitlementCycle(tenant, { execute })).toEqual({ processed: false, queue: { examined: 0, stale: 0, review: 0, blocked: 0, has_more: false } });expect(execute).not.toHaveBeenCalled();
   });
-  it.each(["entitlement_tick", "entitlement_claim_job"])("fails closed on %s error", async failing => {
+  it.each(["entitlement_tick", "entitlement_test_claim_cycle_v1"])("fails closed on %s error", async failing => {
     mocks.rpc.mockImplementation(async (name: string) => ({ data: null, error: name === failing ? { message: "private transport detail" } : null }));
     const execute = vi.fn();await expect(runTestEntitlementCycle(tenant, { execute })).rejects.toThrow(failing === "entitlement_tick" ? "ENTITLEMENT_TICK_FAILED" : "ACCESS_CLAIM_FAILED");
     expect(execute).not.toHaveBeenCalled();expect(mocks.rpc).not.toHaveBeenCalledWith("entitlement_complete_job", expect.anything());
   });
   it.each([{ ...job, tenant_id: "16de2000-0000-4000-8000-000000000002" }, { ...job, mode: "live" }])("rejects a foreign or live lease before transport", async input => {
-    mocks.rpc.mockResolvedValue({ error: null, data: input });const execute = vi.fn();
+    mocks.rpc.mockResolvedValue({ error: null, data: queue(input) });const execute = vi.fn();
     await expect(runTestEntitlementCycle(tenant, { execute })).rejects.toThrow(input.mode === "live" ? "LIVE_ACCESS_DISABLED" : "ACCESS_TENANT_MISMATCH");expect(execute).not.toHaveBeenCalled();
   });
   it("malformed lease evidence cannot reach transport", async () => {
-    mocks.rpc.mockResolvedValue({ error: null, data: { ...job, lease_token: null } });const execute = vi.fn();
+    mocks.rpc.mockResolvedValue({ error: null, data: queue({ ...job, lease_token: null }) });const execute = vi.fn();
     await expect(runTestEntitlementCycle(tenant, { execute })).rejects.toThrow();expect(execute).not.toHaveBeenCalled();
   });
   it("registered default transport creates only a TEST invitation and commits the exact lease", async () => {
@@ -42,24 +43,60 @@ describe("16D registered TEST worker / no provider network", () => {
       lease_value: job.lease_token, result_value: { ok: true, invite_reference: expect.stringMatching(/^test:invite:/u) as string, expires_at: job.invite_expires_at } });
     expect(fetch).not.toHaveBeenCalled();
   });
-  it("provider failure never reports confirmed or includes thrown secrets", async () => {
-    mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_claim_job" ? job : name !== "entitlement_complete_job" }));
+  it("uncertain adapter exception never reports confirmed or includes thrown secrets", async () => {
+    mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_test_claim_cycle_v1" ? queue(job) : name !== "entitlement_complete_job" }));
     const execute = vi.fn().mockRejectedValue(Error("fixture-private-not-for-audit"));
     expect(await runTestEntitlementCycle(tenant, { execute })).toEqual({ processed: true, confirmed: false });
-    expect(mocks.rpc).toHaveBeenLastCalledWith("entitlement_complete_job", expect.objectContaining({ result_value: { ok: false } }));expect(execute).toHaveBeenCalledOnce();
+    expect(mocks.rpc).toHaveBeenLastCalledWith("entitlement_complete_job", expect.objectContaining({ result_value: { ok: false, outcome: "unknown" } }));expect(execute).toHaveBeenCalledOnce();
     expect(JSON.stringify(mocks.rpc.mock.calls)).not.toContain("fixture-private-not-for-audit");
   });
   it("unknown completion outcome is not immediately replayed through a second provider call", async () => {
-    mocks.rpc.mockImplementation(async (name: string) => ({ data: name === "entitlement_claim_job" ? job : null, error: name === "entitlement_complete_job" ? { message: "connection lost" } : null }));
+    mocks.rpc.mockImplementation(async (name: string) => ({ data: name === "entitlement_test_claim_cycle_v1" ? queue(job) : true, error: name === "entitlement_complete_job" ? { message: "connection lost" } : null }));
     const execute = vi.fn().mockResolvedValue({ ok: true, invite_reference: "test:invite:once", expires_at: job.invite_expires_at });
     await expect(runTestEntitlementCycle(tenant, { execute })).rejects.toThrow("ACCESS_COMPLETION_REJECTED");expect(execute).toHaveBeenCalledOnce();expect(fetch).not.toHaveBeenCalled();
   });
+  it("persists dispatch authorization before invoking the TEST adapter", async () => {
+    const execute = vi.fn(async () => {
+      expect(mocks.rpc).toHaveBeenLastCalledWith("entitlement_test_begin_effect_v1", { target_tenant_id: tenant, target_job_id: job.id, lease_value: job.lease_token });
+      return { ok: false };
+    });
+    await runTestEntitlementCycle(tenant, { execute });
+    expect(execute).toHaveBeenCalledOnce();
+    expect(mocks.rpc).toHaveBeenLastCalledWith("entitlement_complete_job", expect.objectContaining({ result_value: { ok: false } }));
+  });
+  it.each([false, null])("does not execute when begin-effect is not positively acknowledged (%s)", async data => {
+    mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_test_claim_cycle_v1" ? queue(job) : name === "entitlement_test_begin_effect_v1" ? data : true }));
+    const execute = vi.fn();expect(await runTestEntitlementCycle(tenant, { execute })).toEqual({ processed: true, confirmed: false });
+    expect(execute).not.toHaveBeenCalled();expect(mocks.rpc).not.toHaveBeenCalledWith("entitlement_complete_job", expect.anything());
+  });
+  it("lost begin-effect ACK does not invoke the adapter or blindly repeat", async () => {
+    mocks.rpc.mockImplementation(async (name: string) => ({ error: name === "entitlement_test_begin_effect_v1" ? { message: "fixture-private-detail" } : null, data: name === "entitlement_test_claim_cycle_v1" ? queue(job) : true }));
+    const execute = vi.fn();await expect(runTestEntitlementCycle(tenant, { execute })).rejects.toThrow("ACCESS_EFFECT_AUTHORIZATION_FAILED");
+    expect(execute).not.toHaveBeenCalled();expect(mocks.rpc.mock.calls.filter(([name]: [string]) => name === "entitlement_test_begin_effect_v1")).toHaveLength(1);
+  });
+  it("reports a partially drained backlog without inventing an external completion", async () => {
+    const progress = { ...queue(null), examined: 32, stale: 29, review: 2, blocked: 1, has_more: true };
+    mocks.rpc.mockResolvedValue({ error: null, data: progress });const execute = vi.fn();
+    expect(await runTestEntitlementCycle(tenant, { execute })).toEqual({ processed: false, queue: { examined: 32, stale: 29, review: 2, blocked: 1, has_more: true } });
+    expect(execute).not.toHaveBeenCalled();
+  });
+  it.each([{}, { ok: "false" }, { ok: true, private_error: "not-for-logs" }])("malformed adapter result is uncertainty, never safe retry evidence", async result => {
+    // Deliberately violates the adapter contract to exercise the runtime boundary.
+    const execute = vi.fn().mockResolvedValue(result);
+    expect(await runTestEntitlementCycle(tenant, { execute })).toEqual({ processed: true, confirmed: false });
+    expect(mocks.rpc).toHaveBeenLastCalledWith("entitlement_complete_job", expect.objectContaining({ result_value: { ok: false, outcome: "unknown" } }));
+    expect(JSON.stringify(mocks.rpc.mock.calls)).not.toContain("not-for-logs");
+  });
+  it.each([{ ...queue(job), examined: 33 }, { ...queue(job), version: 2 }, { ...queue(job), financial_authority: "LIVE" }])("rejects malformed or unexpected queue authority", async data => {
+    mocks.rpc.mockResolvedValue({ error: null, data });const execute = vi.fn();
+    await expect(runTestEntitlementCycle(tenant, { execute })).rejects.toThrow();expect(execute).not.toHaveBeenCalled();
+  });
   it("stale completion does not fabricate membership success", async () => {
-    mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_claim_job" ? { ...job, operation: "join" } : name !== "entitlement_complete_job" }));
+    mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_test_claim_cycle_v1" ? queue({ ...job, operation: "join" }) : name !== "entitlement_complete_job" }));
     expect(await runTestEntitlementCycle(tenant, new TestTelegramAccessAdapter())).toEqual({ processed: true, confirmed: false });
   });
   it("missing membership is reported as left for deterministic reconciliation", async () => {
-    mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_claim_job" ? { ...job, operation: "reconcile" } : true }));
+    mocks.rpc.mockImplementation(async (name: string) => ({ error: null, data: name === "entitlement_test_claim_cycle_v1" ? queue({ ...job, operation: "reconcile" }) : true }));
     await runTestEntitlementCycle(tenant, new TestTelegramAccessAdapter("missing"));
     expect(mocks.rpc).toHaveBeenLastCalledWith("entitlement_complete_job", expect.objectContaining({ result_value: { ok: true, membership: "left" } }));expect(fetch).not.toHaveBeenCalled();
   });

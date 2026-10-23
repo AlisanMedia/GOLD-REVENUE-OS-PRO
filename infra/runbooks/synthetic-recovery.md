@@ -50,9 +50,9 @@ sonunda kaldırılır. Yalnız sanitizer sonuçları `database-test-evidence` ar
 | --- | --- |
 | PENDING + available_at future | Persisted retry bekliyor; başarılı teslim diye sunulmaz. Hızlandırmak için hosted timestamp/state değiştirilmez. |
 | RUNNING + geçerli lease | Başka worker sorumlu olabilir. Aynı dış işlemi kör tekrar etmek yok. |
-| Expired RUNNING lease | Testte token değişerek reclaim edilir; eski completion reddedilir. Gerçek provider effect bağımsız mutabakat gerektirir. |
-| FAILED | Explicit provider failure bütçesi doldu. Owner/manager review; kayıt veya audit silinmez. |
-| STALE | Eski revision/grant artık geçerli değil. Mevcut abonelik ve yeni revoke/repair işi incelenir. Tek claim STALE tüketince null dönebilir; yeni cycle gerekir. |
+| Expired RUNNING lease | TEST'te yalnız effect başlamamışsa en fazla2 reclaim; yeni token eski completion'ı reddeder. Dispatch edilmiş belirsiz sonuç tekrar gönderilmez. Gerçek provider effect bağımsız mutabakat gerektirir. |
+| FAILED | Provider failure5 veya TEST crash/claim budget/unknown effect. `channel_access.REVIEW` ve güvenli reason code incelenir; revoke/repair yükümlülüğü, kayıt ve audit silinmez. |
+| STALE | Eski revision/grant geçersizdir. Yeni TEST cycle en fazla32 candidate ile drain eder; revoke/reconcile gerekliyse current revision işi deduplicate edilerek korunur. Legacy tek-claim RPC compatibility için null dönebilir. |
 | REVIEW / belirsiz completion | Provider yan etkisi ile DB kararı ayrı değerlendirilir. DB'de MEMBER/PAID uydurulmaz. |
 | Backup/fingerprint/ACL uyuşmazlığı | NO-GO; restore sonucu güvenilir değildir. Başarısız evidence saklanır, kaynak geçmiş değiştirilmez. |
 | Eksik finans/cost/merchant kanıtı | UNAVAILABLE/UNRESOLVED; sıfır veya100% marj değildir. |
@@ -66,12 +66,33 @@ yeniden kullanılmalı; Türkçe operator dili müşteri English default'unu de�
 
 ## Gerçek işletim öncesi açık sınırlar
 
-- Global live-off mevcut revoke yolunu da durdurur; yeni admission ve güvenli
-  revoke/repair authority ayrımı genuine activation tasarımında ayrıca çözülmeli.
-- Explicit failure5 kez sınırlandırılmıştır; tekrar tekrar lease kaybeden/crash
-  eden jobs için SQL claim'de ömür boyu toplam attempt ceiling yoktur. Bu testin
-  bounded senaryoları böyle bir ceiling'i kanıtlamaz. Gerçek sağlayıcı maliyet ve
-  retry policy ayrı gate'tir; mevcut accepted migration değiştirilmedi.
+- Global live-off mevcut LIVE revoke yolunu da durdurur; bu davranış değişmedi.
+  Yeni private TEST policy yalnız admission, observation/reconciliation ve fake
+  revocation'ı ayrı simüle eder. LIVE-off altında gerçek corrective revoke için
+  exact scope, identity/provider evidence, süre/count/spend sınırı, audit,
+  ayrı owner onayı ve bağımsız kabul gereklidir. TEST policy bu yetkiyi vermez.
+- R1 additive migration: TEST job ömrü en fazla7 claim (5 definite provider
+  failure +2 tracked pre-dispatch reclaim). Expired lease'te en fazla2 reclaim; effect
+  başladıktan sonra timeout/crash/unknown ACK REVIEW gerektirir. Provider failure
+  sayacı bağımsızdır;20/40/80/160/300s backoff korunur. Yeni service, effect'i
+  çağırmadan önce server-owned begin marker'ını persist eder; kayıp marker ACK
+  durumunda adapter çağırmaz. Legacy RPC'ler de aynı TEST budget'ı kullanır;
+  fakat legacy-issued lease'in effect'i izlenmediğinden expiry'de safe pre-dispatch
+  varsayılmaz: doğrudan unknown REVIEW olur. İki reclaim yalnız tracked akış içindir.
+  Geçmiş RUNNING işinde marker yoksa muhafazakâr unknown review uygulanır.
+  Private policy yokken eski TEST izinleri korunur; runtime role bu policy veya
+  counters üzerinde yazma yetkisi almaz. Bunlar LIVE retry politikası değildir.
+- TEST cycle üç lane'i (revoke→reconcile→invite/join) kalıcı round-robin ile
+  sıraya koyar.32 candidate, candidate başına en fazla3 indexed head probe ve1 leased
+  effect üst sınırıdır. Tenant scheduler kilidi nonblocking; contention veya
+  incomplete queue başarı değildir, has_more ile sonraki cycle gerekir. Tick'in
+  eski subscription-maintenance döngüsü değişmedi; bu job-drain sınırı tüm
+  bakım yolunun sabit süreli veya production-capacity garantisi değildir.
+- Unknown effect, sonraki revision admission'ını da durdurur; yeni otomatik
+  claim veya hidden retry ile review temizlenmez. Bu pakette bir review-reset
+  writer/UI yoktur. Var olan Admin'de FAILED/REVIEW ve audit görünür; raw
+  lease/error/invite ifşa edilmez. Gerçek bağımsız evidence ile review çözümü
+  ve yeni retry için ayrıca yetkili tasarım/kabul gerekir.
 - Grant sonrası lease/hold yarışı gerçek provider'da geri alınamaz sayılmaz;
   bu paket fake side effect + queued compensation kanıtıdır. Actual provider
   idempotency, permission/rate-limit ve reconcile kabulü ayrıca yetkilendirilmeli.
