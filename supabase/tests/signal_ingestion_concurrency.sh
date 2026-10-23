@@ -7,7 +7,7 @@ s_root="$(cd "$(dirname "$0")" && pwd)"
 s_sql(){ psql "$s_db" -X -qAt -v ON_ERROR_STOP=1 "$@"; }
 test "$(s_sql -c "select current_setting('server_version_num')::int/10000")" = 17
 test "$(s_sql -c "select count(*) from public.tenants where id='51a12000-0000-4000-8000-000000000001'")" = 0
-sed 's/51a0/51a1/g' "$s_root/helpers/signal_fixtures.sql" | s_sql >"$s_tmp/setup"
+sed 's/51a0/51a1/g;s/signal-sandbox-/signal-sandbox-replay-/g;s/signal-fixture-/signal-replay-fixture-/g' "$s_root/helpers/signal_fixtures.sql" | s_sql >"$s_tmp/setup"
 s_raw='{"version":1,"mode":"SYNTHETIC","tenant_id":"51a12000-0000-4000-8000-000000000001","source_id":"51a13000-0000-4000-8000-000000000001","message_key":"race","revision":1,"kind":"MESSAGE","observed_at":"2026-10-23T18:00:00Z","published_at":null,"reply_to":null,"original_text":"BUY XAUUSD","attachments":[],"interpretation":null}'
 
 for n in 1 2;do

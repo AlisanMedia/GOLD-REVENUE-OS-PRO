@@ -33,7 +33,7 @@ with evidence_rows as (
  select k,count(*) n,encode(extensions.digest(string_agg(h,'' order by h),'sha256'),'hex') digest from row_hashes group by k
 ), objects as (
  select 'table:'||c.relname k,jsonb_build_array(c.relrowsecurity,c.relforcerowsecurity,
-  (select jsonb_agg(to_jsonb(a) order by grantee,grantor,privilege_type,is_grantable) from aclexplode(coalesce(c.relacl,acldefault('r',c.relowner))) a),pg_get_userbyid(c.relowner))::text v
+  (select jsonb_agg(to_jsonb(a) order by grantee,grantor,privilege_type,is_grantable) from aclexplode(coalesce(c.relacl,acldefault((case when c.relkind='S' then 's' else 'r' end)::"char",c.relowner))) a),pg_get_userbyid(c.relowner))::text v
  from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='private' and (c.relname like 'signal_%' or c.relname like 'fse_%' or c.relname in ('entitlement_test_runtime','entitlement_test_policy'))
  union all
  select 'function:'||p.proname||':'||pg_get_function_identity_arguments(p.oid),jsonb_build_array(pg_get_functiondef(p.oid),
