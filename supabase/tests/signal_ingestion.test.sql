@@ -1,6 +1,7 @@
 begin;
 create extension if not exists pgtap with schema extensions;
 select no_plan();
+create temp table signal_access_baseline as select encode(extensions.digest(coalesce(jsonb_agg(to_jsonb(a) order by a.id)::text,'[]'),'sha256'),'hex') hash from public.channel_access a;
 \ir helpers/signal_fixtures.sql
 create temp table signal_results(v jsonb);
 insert into signal_results values(private.signal_record_fixture_v1(pg_temp.signal_input()));
@@ -42,6 +43,6 @@ select ok(not has_table_privilege('authenticated','private.signal_events','SELEC
 select ok(not has_table_privilege('service_role','private.signal_events','INSERT'),'no service insert');
 select is((select count(*)::int from private.verified_payment_receipts),0,'no genuine receipt');
 select is((select count(*)::int from public.domain_events where event_type='payment.confirmed'),0,'no trusted payment event');
-select is((select count(*)::int from public.channel_access),0,'no access writes');
+select is((select encode(extensions.digest(coalesce(jsonb_agg(to_jsonb(a) order by a.id)::text,'[]'),'sha256'),'hex') from public.channel_access a),(select hash from signal_access_baseline),'all existing access rows remain byte-for-byte unchanged');
 select is((select count(*)::int from public.audit_logs where action='signal.synthetic_observed'),6,'one safe audit per unique event');
 select * from finish();rollback;
