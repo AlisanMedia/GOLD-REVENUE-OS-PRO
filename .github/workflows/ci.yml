@@ -322,6 +322,12 @@ jobs:
           FSE_DISPOSABLE_DB_URL="$db_url" pnpm exec vitest run tests/integration/phase16c1b-evidence-contracts.test.ts | tee "$RUNNER_TEMP/phase16c1b-v1-db-bridge.log"
           bash supabase/tests/phase16c1b_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16c1b-concurrency.log"
           psql "$db_url" -X -v ON_ERROR_STOP=1 -f supabase/tests/phase16c1b_read_plans.sql | tee "$RUNNER_TEMP/phase16c1b-read-plans.log"
+      - name: Verify synthetic signal ingestion and concurrent replay
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase test db supabase/tests/signal_ingestion.test.sql | tee "$RUNNER_TEMP/signal-ingestion-pgtap.log"
+          bash supabase/tests/signal_ingestion_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" | tee "$RUNNER_TEMP/signal-ingestion-concurrency.log"
       - name: Verify synthetic fulfillment and offline recovery
         shell: bash
         run: |
@@ -369,6 +375,8 @@ jobs:
             ${{ runner.temp }}/phase16d-pgtap.log
             ${{ runner.temp }}/phase16d-concurrency.log
             ${{ runner.temp }}/phase16e-recovery.log
+            ${{ runner.temp }}/signal-ingestion-pgtap.log
+            ${{ runner.temp }}/signal-ingestion-concurrency.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack

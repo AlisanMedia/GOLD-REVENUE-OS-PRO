@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export * from "./financial-source";
 export * from "./financial-evidence";
+export * from "./signals";
 
 export const APP_ROLES = ["super_admin", "manager", "support", "analyst", "readonly"] as const;
 export const appRoleSchema = z.enum(APP_ROLES);
