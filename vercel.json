@@ -15,7 +15,8 @@
       "codex/phase16c1a-financial-source-contracts": false,
       "codex/phase16c1b-financial-evidence-store": false,
       "codex/phase16d-r1-synthetic-hardening": false,
-      "codex/phase16d-r2-bounded-maintenance": false
+      "codex/phase16d-r2-bounded-maintenance": false,
+      "codex/commercial-journey-truthfulness": false
     }
   },
   "framework": "nextjs",

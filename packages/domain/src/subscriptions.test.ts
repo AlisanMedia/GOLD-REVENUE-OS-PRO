@@ -9,8 +9,8 @@ describe("deterministic membership duration",()=>{
 describe("one truthful localized journey",()=>{
  const base={paymentVerified:false,paymentState:"PENDING",entitled:false,membershipVerified:false,inviteAvailable:false,mode:"live" as const};
  it.each(["en","tr","ar","ru"] as const)("keeps %s pending until backend verification",locale=>{const r=purchaseJourney({...base,subscriptionState:"ACTIVE",membershipVerified:true,inviteAvailable:true},locale);expect(r.state).toBe("payment_pending");expect(r.action).toBe("wait");});
- it("does not claim access on subscription activation alone",()=>expect(purchaseJourney({...base,paymentVerified:true,entitled:true}).state).toBe("access_pending"));
- it("allows one join action only after backend readiness",()=>expect(purchaseJourney({...base,paymentVerified:true,entitled:true,inviteAvailable:true}).action).toBe("join"));
+ it("does not claim access on subscription activation alone",()=>expect(purchaseJourney({...base,paymentVerified:true,paymentState:"CONFIRMED",subscriptionState:"ACTIVE",entitled:true}).state).toBe("access_pending"));
+ it("allows one join action only after backend readiness",()=>expect(purchaseJourney({...base,paymentVerified:true,paymentState:"CONFIRMED",subscriptionState:"ACTIVE",entitled:true,inviteAvailable:true}).action).toBe("join"));
  it("labels simulations",()=>expect(purchaseJourney({...base,paymentVerified:true,entitled:true,mode:"test"}).message).toMatch(/^TEST ONLY/));
  it.each(["HOLD","SUSPENDED","CANCELLED"])("%s overrides an old invite",subscriptionState=>expect(purchaseJourney({...base,paymentVerified:true,entitled:true,inviteAvailable:true,subscriptionState}).state).toBe("review"));
  it("underpayment has no repeat payment instruction",()=>{const r=purchaseJourney({...base,paymentState:"REVIEW",reason:"UNDERPAYMENT"});expect(r.state).toBe("underpaid");expect(r.action).toBe("wait");});
