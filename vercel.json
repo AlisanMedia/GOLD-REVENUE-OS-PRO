@@ -23,7 +23,8 @@
       "codex/signal-commercial-readiness": false,
       "codex/signal-distribution-engine": false,
       "codex/signal-operations-admin": false,
-      "codex/signal-source-recovery": false
+      "codex/signal-source-recovery": false,
+      "codex/signal-deterministic-parser": false
     }
   },
   "framework": "nextjs",
