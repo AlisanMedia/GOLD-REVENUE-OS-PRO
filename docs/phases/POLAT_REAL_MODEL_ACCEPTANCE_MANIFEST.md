@@ -1,3 +1,52 @@
+# Polat real-model acceptance manifest — v2 / DECISIONS PENDING / EXECUTION DISABLED
+
+## Güncel karar sözleşmesi —2026-10-24
+
+Bu belge mevcut [devre dışı manifesti](../../packages/domain/src/polat-model-acceptance.ts) genişletir; ikinci bir yetki sistemi veya provider adaptörü oluşturmaz. [Katı v2 girdi şeması](../../packages/contracts/src/polat-model-acceptance.ts), `emptyPolatModelDecisionFields`, `polatModelDecisionHash` ve `parsePolatModelDecisionJson` çevrimdışı dosyayı hazırlar/doğrular. Fonksiyonun hiçbir dalı credential çözmez, ağ çağırmaz veya çalıştırmayı açmaz.
+
+Güncel kaynak [v2 corpus](../../packages/domain/src/polat-multiturn-v2-corpus.ts), hash `ec2a008c1575660d9f97f9d17fb4e14956051b2f890557477e82fda611d10d4c`:49 senaryo, stil başına151 tur, toplam296 fixture invocation. Yerel hata enjeksiyonu/duplicate/human-pause hariç tam iki-stilli dış semantik karşılaştırma **290 istek önerisidir**. Yeni sayı v1'in190 isteklik önerisinin otomatik yetki uzantısı değildir. V2 için daha küçük kısmi deney istenirse açıkça tanımlanmış yeni subset/version/coverage kararı gerekir; bu tam-corpus sözleşmesi190/289/291'i sessizce kabul etmez.
+
+`authorized_external_requests=0`, `execution_enabled=false`, `real_model_execution=false`. Dosya yapısal olarak eksiksiz olsa bile `READY_FOR_INDEPENDENT_OWNER_VERIFICATION` ve `OWNER_RECORD_PRESENT_NOT_AUTHENTICATED` döner; gerçek owner kaydının doğruluğu, exact protected main/CI, provider/veri/billing/secret kontrolleri ve insan kimlikleri ayrıca bağımsız doğrulanmadan hiçbir deneye yetki oluşmaz.
+
+### Gelecekte doldurulacak zorunlu alanlar
+
+| Alan grubu | Kesin karar / kanıt | Şimdiki durum |
+| --- | --- | --- |
+| Provider/model | Exact provider, model, model version, account scope reference | Hepsi null; seçilmedi |
+| Kaynak | Exact onaylı repository SHA + v2 version/hash | Hash/version belirli; owner onaylı deney SHA'sı null |
+| Veri politikası | Region; retention/deletion ve training terms için referans+belge hash'i; data-handling approval | Null; gerçek müşteri verisi zaten yasak |
+| Secret custody | Korumalı secret **referansı**, erişim politikası belgesi, yetkili rol referansları | Null/boş; token veya secret değeri alınmaz |
+| Request/spend | Tam maximum_requests, ISO currency, pozitif exact decimal maksimum harcama, güncel pricing ve uygulanabilir account cap kanıtı | Null;290 yalnız öneri, bütçe seçilmedi |
+| Billing | Kullanım ve ücretin request/model/account bağlantılı provenance'ı; `STOP_AND_RECONCILE_UNKNOWN_COST` | Null; eksik kullanım/ücret0 sayılamaz |
+| İnsanlar | Named monitoring-owner reference; birbirinden bağımsız iki reviewer UUID ve farklı kimlik kanıtı referans/hash'leri | Eksik; public dosyada gerçek kimlik belgesi yok |
+| Review manifest | `polat-human-rubric-v1`,20 ordinary/language/style + ALL safety, sample/threshold approval | Politika belirli; onay null; [offline akış](../../POLAT_INDEPENDENT_HUMAN_REVIEW_REPORT.md) |
+| Ölçütler | p95 süre, hata/QA oranı denominator/pencere tanımı, handoff kanıtı,100% cost coverage, insan boyut/ortalama sınırı, kritik safety0 | Hepsi karara açık null;3/5 ve4/5 yalnız önceki öneri |
+| Durdurma | Budget/billing belirsizliği, tenant/secret ihlali, safety, corpus/version drift, provider policy, QA/timeout burst | Zorunlu bütün koşullar seçilmemiş |
+| Recovery/rollback | Referanslı plan; bilinmeyen ücret uzlaştırması, test entry yetkisini kapatma, kanıtı koruma | Null; mevcut staging/production değiştirilmez |
+| Owner authorization | Record reference, approved_by_ref, approved_at, canonical proposal_hash ve exact experiment kararı | Null; beyan/hash kimlik doğrulaması değildir |
+
+V2 girdi şekli `{version:2, fields:emptyPolatModelDecisionFields(), owner_authorization:null}` olur. Nullable alanlar açıkça null; eksik zorunlu şema anahtarı veya beklenmeyen `verified`, `execution_enabled`, raw credential/authority alanı reddedilir. İç içe belge referansları identifier+SHA-256'dır; secret, özel URL/query veya belge içeriği değildir. JSON16KiB limiti ve duplicate-key/prototype reddi korunur. Proposal hash canonical UTF-8 JSON üzerinden sürüm ve bütün fields değerlerine bağlıdır; owner record kendi hash'ine döngü oluşturmaz. Bütün eşitliği doğrulanan hash'ler yalnız bütünlük kanıtıdır.
+
+Bütçe string olarak tutulur: toplam en fazla30 rakam, en fazla18 ondalık, pozitif değer; JSON sayı, exponent, baştaki sıfır, virgül, negatif, rounding/FX yok. Bu bir harcama önerisidir, nakit/billing/receipt kaydı değildir. Otomatik retry0; hatalı çağrı ücret doğurabileceğinden yeniden deneme veya QA rewrite ek request olarak cap dışına çıkarılamaz.
+
+### Karşılaştırma çerçevesi ve sonuç dili
+
+`polatModelComparisonFramework()` dokuz boyutu kaynak/formül/sınırlamayla verir: correctness, naturalness, latency, safety, usage, pricing, effective cost, handoff, sample limitations. Şimdiki bütün değerler null/NOT_MEASURED. Existing `model_invocations` kullanım kaynağı ve [fixture observation](../../packages/domain/src/polat-model-evaluation.ts) dedup/unknown kuralları değişmedi. Model karşılaştırmasında aynı corpus/hash, source context, request plan ve prompt/persona/model version kullanılmalı; farklı sürümler tek puan diye birleştirilmemeli.
+
+- Bütün denemeler latency ve error denominator'ında tutulur; timeout censoring/ölçülemeyen süre ayrıca açıklanır. Streaming gözlemi yoksa first-response null.
+- Provider-reported token/charge yoksa null; karakterden token, güncel tarifeden gerçek borç, intent'ten gelir türetilmez. Fiyat belgesinin para birimi/tarihi/model/cache koşulları ayrıca incelenir.
+- Effective cost ancak tam doğrulanmış maliyet payı ve geçerli operasyon denominator'ıyla, para birimleri ayrı numerator/denominator olarak karşılaştırılır; eksik billing veya denominator'da UNAVAILABLE. Phase15 metrik tanımı değişmez.
+- Kör insan puanları gerçek output/context hash'ine bağlanır; aynı256-bit hash veya deklarasyon gerçek insanı ispatlamaz. [Paket B](../../POLAT_INDEPENDENT_HUMAN_REVIEW_REPORT.md) bağımsız kayıt/adjudication sağlar; puan üretmez.
+- Fixture PASS, heuristic language göstergesi, insan doğallığı, gerçek model kalitesi, müşteri memnuniyeti ve gerçek satış dönüşümü ayrı sınıflardır. Mevcut durum `HUMAN_REVIEW_PENDING`, `NATURALNESS_NOT_MEASURED`, `REAL_MODEL_NOT_TESTED`, `CUSTOMER_CONVERSION_UNKNOWN`.
+
+### Ayrı yetkili en küçük sonraki işlem
+
+Önce eksik model/veri/bütçe/insan/stop alanlarını gerçek kanıtlarla doldurun; owner exact versioned proposal/SHA/hash/request/currency/spend kaydını ayrıca onaylasın. Uygulama gerekirse mevcut ModelProvider'ı genişleten dar, harici gönderimi yalnız bu deneye kapatan adapter/guard paketi için ayrı scope gerekir. Mevcut yetki herhangi bir harici model çağrısını, deployment'ı veya gerçek insan değerlendirmesini başlatmaz. Gerçek Telegram ve C01–C10 ticari giriş bundan bağımsızdır; [ticari karar tablosu](../../POLAT_MODEL_DECISION_READINESS_REPORT.md).
+
+## Tarihsel v1 manifest — kabul edilmiş eski öneri korunur
+
+Aşağıdaki özgün v1 metni tarihsel kapsamdır. Eski hash/38 senaryo/194 fixture invocation/190 önerisi değişmedi. `polatModelAcceptanceManifestV1()` eski nesneyi aynen döndürür; bu değerler güncel v2 request bütçesi olarak kullanılmaz. Aşağıdaki önerilerin hiçbiri geçmişte dış model yetkisi vermedi.
+
 # Polat real-model acceptance manifest — PROPOSED / EXECUTION DISABLED
 
 This is a future owner decision contract, not permission to call a model, use a credential, deploy, contact customers or change financial/access state. Current execution is fixture-only. C01–C10 remain unresolved for commercial operation; the pilot is NO-GO.
