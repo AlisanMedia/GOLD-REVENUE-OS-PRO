@@ -391,6 +391,17 @@ jobs:
           supabase test db supabase/tests/signal_recovery_head.test.sql | tee "$RUNNER_TEMP/signal-recovery-head-pgtap.log"
           supabase test db supabase/tests/signal_reviews.test.sql | tee "$RUNNER_TEMP/signal-reviews-pgtap.log"
           bash supabase/tests/signal_review_concurrency.sh "$review_db_url" | tee "$RUNNER_TEMP/signal-review-concurrency.log"
+      - name: Verify synthetic Polat inbound ownership and response evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/polat-db.env"
+          polat_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/polat-db.env")
+          test -n "$polat_db_url"
+          echo "::add-mask::$polat_db_url"
+          supabase test db supabase/tests/polat_inbound.test.sql | tee "$RUNNER_TEMP/polat-inbound-pgtap.log"
+          bash supabase/tests/polat_response_concurrency.sh "$polat_db_url" | tee "$RUNNER_TEMP/polat-response-concurrency.log"
+          POLAT_DISPOSABLE_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-response-db.test.ts | tee "$RUNNER_TEMP/polat-response-bridge.log"
       - name: Verify synthetic fulfillment and offline recovery
         shell: bash
         run: |
@@ -462,6 +473,9 @@ jobs:
             ${{ runner.temp }}/signal-http-acceptance.json
             ${{ runner.temp }}/signal-normalization.log
             ${{ runner.temp }}/signal-normalization.json
+            ${{ runner.temp }}/polat-inbound-pgtap.log
+            ${{ runner.temp }}/polat-response-concurrency.log
+            ${{ runner.temp }}/polat-response-bridge.log
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack
