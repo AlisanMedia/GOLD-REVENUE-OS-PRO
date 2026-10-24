@@ -1,0 +1,27 @@
+begin;create extension if not exists pgtap with schema extensions;select no_plan();
+\ir helpers/signal_recovery_fixtures.sql
+select pg_temp.source_setup(n)from generate_series(12,15)n;
+select pg_temp.source_command(12,'RECONNECT',jsonb_build_object('at',clock_timestamp()));
+create function pg_temp.head_page(a integer,b integer,head_value integer)returns jsonb language sql as $$select pg_temp.source_page(12,a,b,coalesce((select jsonb_agg(jsonb_build_object('sequence',n,'event',pg_temp.signal_dispatch_input(12,'head-'||n)::jsonb)order by n)from generate_series(a,b)n),'[]'::jsonb))||jsonb_build_object('head',head_value)$$;
+select is(pg_temp.source_command(12,'RECOVER',jsonb_build_object('page',pg_temp.head_page(1,64,130)))->>'state','RECOVERING','complete64-entry page cannot pretend to reach provider head130');
+select is((select recovery_attempts from private.signal_source_runtime where tenant_id=pg_temp.signal_case_id(12,'2000')),0,'successful bounded page does not consume incomplete-proof retry budget');
+select is((select last_sequence from private.signal_source_runtime where tenant_id=pg_temp.signal_case_id(12,'2000')),64,'bounded first page promoted exactly64');
+select is((select recovery_target from private.signal_source_runtime where tenant_id=pg_temp.signal_case_id(12,'2000')),130,'independent head checkpoint persisted');
+select is(private.signal_source_result_v1(pg_temp.signal_case_id(12,'2000'),pg_temp.signal_case_id(12,'3000'))->>'can_dispatch','false','partial history cannot dispatch');
+select is(pg_temp.source_command(12,'RECONNECT',jsonb_build_object('at',clock_timestamp()))->>'state','RECOVERING','network reconnect cannot erase known target');
+select is(pg_temp.source_command(12,'RECOVER',jsonb_build_object('page',pg_temp.head_page(65,128,130)))->>'state','RECOVERING','second complete page still leaves two events');
+select is((select last_sequence from private.signal_source_runtime where tenant_id=pg_temp.signal_case_id(12,'2000')),128,'middle page stable checkpoint');
+select is(pg_temp.source_command(12,'RECOVER',jsonb_build_object('page',pg_temp.head_page(129,130,130)))->>'state','CONNECTED','only complete history through head reconnects');
+select is((select verified_head from private.signal_source_recovery_log where tenant_id=pg_temp.signal_case_id(12,'2000')and outcome='CONNECTED'order by sequence desc limit 1),130,'immutable recovery log binds exact independent head');
+select is((select recovery_required from private.signal_source_runtime where tenant_id=pg_temp.signal_case_id(12,'2000')),false,'recovery obligation clears only with full proof');
+select is((select count(*)::int from private.signal_events where tenant_id=pg_temp.signal_case_id(12,'2000')),130,'all130 distinct events retained exactly once');
+select is(pg_temp.source_command(12,'RECOVER',jsonb_build_object('page',pg_temp.head_page(131,130,129)))->>'processed','0','regressed head cannot advance or rewrite history');
+select pg_temp.source_command(13,'RECONNECT',jsonb_build_object('at',clock_timestamp()));select pg_temp.source_observe(13,1);
+select pg_temp.source_command(13,'DISCONNECT',jsonb_build_object('at',clock_timestamp()));select pg_temp.source_command(13,'RECONNECT',jsonb_build_object('at',clock_timestamp()));
+select is(pg_temp.source_command(13,'RECOVER',jsonb_build_object('page',pg_temp.source_page(13,2,1,'[]')))->>'state','CONNECTED','empty independent history proves no events arrived during short outage');
+select is((select count(*)::int from private.signal_events where tenant_id=pg_temp.signal_case_id(13,'2000')),1,'empty recovery invents no event');
+select pg_temp.source_command(14,'RECONNECT',jsonb_build_object('at',clock_timestamp()));
+select is(pg_temp.source_command(14,'RECOVER',jsonb_build_object('page',(pg_temp.source_page(14,1,1,jsonb_build_array(jsonb_build_object('sequence',1,'event',pg_temp.signal_dispatch_input(14)::jsonb)))-'head')||'{"version":1}'::jsonb))->>'processed','0','legacyv1 range proof cannot bypass missing source head');
+select is((select last_sequence from private.signal_source_runtime where tenant_id=pg_temp.signal_case_id(14,'2000')),0,'unproven recovery leaves original checkpoint untouched');
+select is((select count(*)::int from private.signal_events where tenant_id=pg_temp.signal_case_id(14,'2000')),0,'no unproven recovered events fabricated');
+select *from finish();rollback;

@@ -380,6 +380,17 @@ jobs:
           echo "::add-mask::$source_db_url"
           supabase test db supabase/tests/signal_recovery.test.sql | tee "$RUNNER_TEMP/signal-recovery-pgtap.log"
           bash supabase/tests/signal_recovery_concurrency.sh "$source_db_url" | tee "$RUNNER_TEMP/signal-recovery-concurrency.log"
+      - name: Verify source head evidence and fixture-only operator review
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/signal-review-db.env"
+          review_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/signal-review-db.env")
+          test -n "$review_db_url"
+          echo "::add-mask::$review_db_url"
+          supabase test db supabase/tests/signal_recovery_head.test.sql | tee "$RUNNER_TEMP/signal-recovery-head-pgtap.log"
+          supabase test db supabase/tests/signal_reviews.test.sql | tee "$RUNNER_TEMP/signal-reviews-pgtap.log"
+          bash supabase/tests/signal_review_concurrency.sh "$review_db_url" | tee "$RUNNER_TEMP/signal-review-concurrency.log"
       - name: Verify synthetic fulfillment and offline recovery
         shell: bash
         run: |
@@ -443,6 +454,9 @@ jobs:
             ${{ runner.temp }}/signal-operations-concurrency.log
             ${{ runner.temp }}/signal-recovery-pgtap.log
             ${{ runner.temp }}/signal-recovery-concurrency.log
+            ${{ runner.temp }}/signal-recovery-head-pgtap.log
+            ${{ runner.temp }}/signal-reviews-pgtap.log
+            ${{ runner.temp }}/signal-review-concurrency.log
             ${{ runner.temp }}/signal-operations-pgtap.log
             ${{ runner.temp }}/signal-operations-read-plans.log
             ${{ runner.temp }}/signal-http-acceptance.json

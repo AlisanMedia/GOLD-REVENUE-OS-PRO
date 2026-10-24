@@ -2,30 +2,50 @@
 import Link from "next/link";
 import { AdminDate,AdminDuration,AdminNumber,T,useAdminI18n } from "./admin-i18n";
 import { signalCollections,signalHref,signalStatuses,type SignalPage,type SignalRow,type SignalSearch,type SignalSummary } from "../lib/signals/read-model";
-function State({row}:{row:SignalRow}){return <span className={`badge ${["UNKNOWN","REVIEW","SOURCE_RESTRICTED"].includes(row.state)?"warning":""}`}><T k={`signal.${row.state}`}/></span>;}
+function State({row}:{row:SignalRow}){
+ const h=row.kind==="SOURCE"?row.source_health:undefined;
+ // A quarantined observation is still observed, even before event promotion.
+ const state=row.state==="NO_OBSERVATION"&&h?.last_activity_at?(h.state==="SOURCE_RESTRICTED"?"SOURCE_RESTRICTED":["GAP_DETECTED","RECOVERING","UNRECOVERABLE","CONFLICT","LIMITED","BLOCKED"].includes(h.state)?"REVIEW":"SIMULATED"):row.state;
+ return <span className={`badge ${["UNKNOWN","REVIEW","SOURCE_RESTRICTED","OPEN","BLOCKED"].includes(state)?"warning":""}`}><T k={`signal.${state}`}/></span>;
+}
+function SourceHealth({row:r}:{row:SignalRow}){
+ const{t}=useAdminI18n();const h=r.source_health;if(!h)return null;
+ return <section className="case-section" aria-label={t("signal.sourceHealth")}><h3><T k="signal.sourceHealth"/></h3><p><T k={`signal.health.${h.state}`}/></p>
+  {(h.recovery_required||["GAP_DETECTED","RECOVERING","UNRECOVERABLE","LIMITED","BLOCKED","CONFLICT"].includes(h.state))&&<p className="signal-warning"><T k="signal.recoveryHelp"/></p>}
+  {!h.fresh&&<p className="muted"><T k="signal.staleHealth"/></p>}
+  {h.last_activity_at&&<p className="muted"><T k="signal.lastSourceActivity"/> · <AdminDate value={h.last_activity_at}/></p>}
+  <details><summary><T k="signal.checkpoint"/></summary><dl className="signal-evidence"><dt><T k="signal.processedSequence"/></dt><dd><AdminNumber value={h.last_sequence}/></dd><dt><T k="signal.verifiedHead"/></dt><dd>{h.recovery_target===null?<T k="signal.unknownHead"/>:<AdminNumber value={h.recovery_target}/>}</dd><dt><T k="signal.recoveryFailures"/></dt><dd><AdminNumber value={h.recovery_attempts}/></dd></dl></details>
+ </section>;
+}
 function RecordCard({row:r}:{row:SignalRow}){
- return <article className="detail-card signal-record"><div className="card-heading"><h2>{r.label}</h2><State row={r}/></div>
+ return <article className="detail-card signal-record"><div className="card-heading"><h2>{r.review?<T k={`signal.issue.${r.review.issue}`}/>:r.label}</h2><State row={r}/></div>
   {(r.source_label||r.destination_label)&&<p className="signal-route">{r.source_label}{r.source_label&&r.destination_label?" → ":""}{r.destination_label}</p>}
   {r.provider_label&&r.kind!=="PROVIDER"&&<p className="muted"><T k="signal.providers"/> · {r.provider_label}</p>}
   {r.authorization&&<p><T k={`signal.${r.authorization}`}/></p>}
   {r.state==="UNKNOWN"&&<p className="signal-warning" role="note"><T k="signal.unknownHelp"/></p>}
   {(r.state==="SOURCE_RESTRICTED"||r.code==="SOURCE_RESTRICTED")&&<p className="signal-warning"><T k="signal.restrictedHelp"/></p>}
   {(r.parse_state==="UNCERTAIN"||r.code==="PARSE_UNCERTAIN")&&<p className="signal-warning"><T k="signal.parseHelp"/></p>}
+  {r.source_health&&<SourceHealth row={r}/>}
+  {r.review&&<section className="case-section"><p className="muted">{r.label}</p><h3><T k="signal.reviewEvidence"/></h3><p><T k={`signal.reason.${r.review.reason}`}/></p><p className="muted"><T k="signal.reviewer"/> · <T k={`signal.reviewer.${r.review.reviewer_role}`}/></p><p className="muted"><T k="signal.reviewOnly"/></p></section>}
+  {r.lease_expired&&<p className="signal-warning"role="note"><T k="signal.leaseExpiredHelp"/></p>}
   {r.current===false&&<p className="muted"><T k="signal.oldRevision"/></p>}
   {r.code&&<p><T k={`signal.${r.code}`}/></p>}
-  {r.observed_at&&<p className="muted"><T k="signal.observed"/> · <AdminDate value={r.observed_at}/></p>}
+  {r.observed_at&&!(r.kind==="SOURCE"&&r.source_health)&&<p className="muted"><T k="signal.observed"/> · <AdminDate value={r.observed_at}/></p>}
   {r.acknowledged_at&&<p><T k="signal.lastAck"/> · <AdminDate value={r.acknowledged_at}/></p>}
   <div className="signal-links">
    {r.kind==="PROVIDER"&&<><Link href={signalHref({collection:"sources",provider:r.id})}><T k="signal.sources"/> →</Link><Link href={signalHref({collection:"routes",provider:r.id})}><T k="signal.routes"/> →</Link></>}
-   {r.kind==="SOURCE"&&<><Link href={signalHref({collection:"events",source:r.id})}><T k="signal.events"/> →</Link><Link href={signalHref({collection:"deliveries",source:r.id})}><T k="signal.deliveries"/> →</Link></>}
+   {r.kind==="SOURCE"&&<><Link href={signalHref({collection:"events",source:r.id})}><T k="signal.events"/> →</Link><Link href={signalHref({collection:"reviews",source:r.id})}><T k="signal.reviews"/> →</Link><Link href={signalHref({collection:"deliveries",source:r.id})}><T k="signal.deliveries"/> →</Link></>}
    {r.kind==="DESTINATION"&&<Link href={signalHref({collection:"deliveries",destination:r.id})}><T k="signal.deliveries"/> →</Link>}
    {r.kind==="ROUTE"&&<Link href={signalHref({collection:"deliveries",source:r.source_id!,destination:r.destination_id!})}><T k="signal.deliveries"/> →</Link>}
    {r.kind==="HISTORY"&&r.delivery_id&&<Link href={signalHref({collection:"deliveries",delivery:r.delivery_id})}><T k="signal.deliveries"/> →</Link>}
+   {(r.kind==="DELIVERY"||r.kind==="REVIEW")&&r.delivery_id&&<Link href={signalHref({collection:"reviews",delivery:r.delivery_id})}><T k="signal.reviews"/> →</Link>}
+   {r.kind==="REVIEW"&&r.source_id&&<Link href={signalHref({collection:"sources",source:r.source_id})}><T k="signal.sources"/> →</Link>}
    {r.kind==="DELIVERY"&&<Link href={signalHref({collection:"history",delivery:r.id})}><T k="signal.history"/> →</Link>}
   </div>
   <details><summary><T k="signal.details"/></summary><dl className="signal-evidence">
    <dt><T k="signal.revision"/></dt><dd>{r.revision??"—"}</dd>
    <dt><T k="signal.recorded"/></dt><dd><AdminDate value={r.recorded_at}/></dd>
+   {r.kind==="SOURCE"&&r.source_health&&r.observed_at&&<><dt><T k="signal.observed"/></dt><dd><AdminDate value={r.observed_at}/></dd></>}
    {r.published_at&&<><dt><T k="signal.published"/></dt><dd><AdminDate value={r.published_at}/></dd></>}
    {r.available_at&&<><dt><T k="signal.nextAttempt"/></dt><dd><AdminDate value={r.available_at}/></dd></>}
    {r.claims!==null&&<><dt><T k="signal.claims"/></dt><dd>{r.claims} / {r.reclaims??"—"} / {r.failures??"—"}</dd></>}
