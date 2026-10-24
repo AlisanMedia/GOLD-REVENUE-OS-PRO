@@ -48,3 +48,5 @@ export * from "./signal-commerce";
 export * from "./signal-distribution";
 
 export * from "./signal-recovery";
+
+export * from "./signal-parser";
