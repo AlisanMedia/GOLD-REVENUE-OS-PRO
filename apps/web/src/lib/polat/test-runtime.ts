@@ -1,5 +1,5 @@
 import "server-only";
-import{polatRuntimeDraftSchema,POLAT_TEST_PROFILE,polatResponseCommandSchema,type PolatRuntimeContext}from "@gold-revenue-os/contracts";
+import{polatRuntimeDraftSchema,POLAT_TEST_PROFILE,polatResponseCommandSchema,polatContactTicketSchema,type PolatRuntimeContext}from "@gold-revenue-os/contracts";
 import{createSupabaseAdminClient}from "@/lib/supabase/admin";
 import{preparePolatConversation,PolatFixtureProvider,renderPolatFixture,assessPolatDraft}from "@gold-revenue-os/domain";
 import{buildPolatSalesPreview}from "@gold-revenue-os/domain";
@@ -28,6 +28,8 @@ export async function dispatchPolatTestProposal(tenantId:string,proposalId:strin
  if(d.tenant_id!==tenantId)throw Error("POLAT_DRAFT_SCOPE");
  if(!d.qa_approved)return{state:"HUMAN_HANDOFF_PENDING",delivery:"NOT_SENT",financial_authority:"NONE"}as const;
  const command=polatResponseCommandSchema.parse({version:1,mode:"SYNTHETIC",tenant_id:d.tenant_id,conversation_id:d.conversation_id,message_id:d.message_id,operation_id:d.operation_id,generation:d.generation,source_hash:d.source_hash,body_hash:d.body_hash,actor:"AI"});
+ const contact=polatContactTicketSchema.parse(await rpc("polat_test_contact_ticket_v1",{target_tenant_id:tenantId,draft_id_value:d.draft_id,purpose_value:"REQUESTED_SUPPORT"}));
+ if(contact.state!=="FAKE_ELIGIBLE")return{state:"HUMAN_HANDOFF_PENDING",delivery:"NOT_SENT",financial_authority:"NONE"}as const;
  const prepared=await rpc("polat_test_runtime_prepare_v1",{target_tenant_id:tenantId,draft_id_value:d.draft_id});
  if(!prepared||typeof prepared!=="object"||!("state"in prepared))throw Error("POLAT_PREPARE_INVALID");
  if(prepared.state!=="PREPARED"){

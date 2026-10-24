@@ -1,5 +1,5 @@
 import "server-only";
-import{polatRuntimeContextSchema,type PolatRuntimeContext}from "@gold-revenue-os/contracts";
+import{polatRuntimeContextSchema,polatContactSnapshotSchema,type PolatRuntimeContext}from "@gold-revenue-os/contracts";
 import { createHash } from "node:crypto";
 
 import {
@@ -75,6 +75,8 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
 
   let polat:PolatRuntimeContext|undefined;
   if(options?.polatTest){
+    const contact=await supabase.rpc("polat_test_contact_for_source_v1",{target_tenant_id:task.tenant_id,target_conversation_id:task.conversation_id,target_event_id:task.source_event_id});
+    if(contact.error)throw Error("POLAT_CONTACT_EVIDENCE_UNAVAILABLE");polatContactSnapshotSchema.parse(contact.data);
     const read=await supabase.rpc("polat_test_runtime_context_v1",{target_tenant_id:task.tenant_id,target_conversation_id:task.conversation_id,target_event_id:task.source_event_id});
     if(read.error)throw Error("POLAT_TEST_CONTEXT_UNAVAILABLE");polat=polatRuntimeContextSchema.parse(read.data);
     if(polat.input.tenant_id!==task.tenant_id||polat.input.conversation_id!==task.conversation_id||polat.input.customer_id!==task.customer_id||polat.input.source_message_id!==sourceMessageId)throw Error("POLAT_TEST_CONTEXT_SCOPE");

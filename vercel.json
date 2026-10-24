@@ -31,7 +31,8 @@
       "codex/polat-response-reliability": false,
       "codex/polat-sales-conversion": false,
       "codex/polat-crm-operations": false,
-      "codex/polat-test-runtime": false
+      "codex/polat-test-runtime": false,
+      "codex/polat-consent-ownership": false
     }
   },
   "framework": "nextjs",
