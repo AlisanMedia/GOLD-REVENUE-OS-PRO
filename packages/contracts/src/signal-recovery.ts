@@ -1,0 +1,10 @@
+import {z} from "zod";
+import {signalSourceEventSchema} from "./signals";
+export const sourceCapabilitiesSchema=z.strictObject({version:z.literal(1),mode:z.literal("SYNTHETIC"),adapter:z.literal("FAKE"),identity_reference:z.string().regex(/^fixture:[A-Za-z0-9:._-]{1,100}$/u),member_role:z.enum(["MEMBER","SUPPLIER_FEED"]),authorization:z.literal("SYNTHETIC_ONLY"),protected_policy:z.literal("SOURCE_RESTRICTED"),events:z.array(z.enum(["MESSAGE","EDIT","DELETE"])).min(1).max(3),sequence:z.enum(["MONOTONIC_INT","UNSUPPORTED"]),recovery:z.enum(["INDEPENDENT_FAKE_HISTORY","UNSUPPORTED"])}).superRefine((v,c)=>{if(new Set(v.events).size!==v.events.length)c.addIssue({code:"custom",message:"CAPABILITY_INVALID"});});
+export type SourceCapabilities=z.infer<typeof sourceCapabilitiesSchema>;
+const seq=z.number().int().min(1).max(2147483647);
+export const sourcePacketSchema=z.strictObject({sequence:seq,event:signalSourceEventSchema});
+export const recoveryPageSchema=z.strictObject({version:z.literal(1),mode:z.literal("SYNTHETIC"),origin:z.literal("INDEPENDENT_FAKE_HISTORY"),tenant_id:z.uuid(),source_id:z.uuid(),epoch:z.uuid(),from:seq,to:seq,complete:z.boolean(),entries:z.array(sourcePacketSchema).max(64)}).superRefine((v,c)=>{if(v.to<v.from||v.to-v.from>=64)c.addIssue({code:"custom",message:"RECOVERY_BOUND"});});
+export type RecoveryPage=z.infer<typeof recoveryPageSchema>;
+export const sourceRecoveryStates=["CONNECTED","DISCONNECTED","RECOVERING","GAP_DETECTED","SOURCE_RESTRICTED","UNRECOVERABLE","CONFLICT","LIMITED","BLOCKED"] as const;
+export const sourceRecoveryResultSchema=z.strictObject({version:z.literal(1),mode:z.literal("SYNTHETIC"),state:z.enum(sourceRecoveryStates),generation:z.number().int().positive(),epoch:z.uuid(),last_sequence:z.number().int().min(0).max(2147483647),processed:z.number().int().min(0).max(64),replay:z.boolean(),can_dispatch:z.boolean(),financial_authority:z.literal("NONE"),live_operations_authorized:z.literal(false)});

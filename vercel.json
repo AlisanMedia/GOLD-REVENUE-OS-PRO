@@ -22,7 +22,8 @@
       "codex/signal-ingestion-foundation": false,
       "codex/signal-commercial-readiness": false,
       "codex/signal-distribution-engine": false,
-      "codex/signal-operations-admin": false
+      "codex/signal-operations-admin": false,
+      "codex/signal-source-recovery": false
     }
   },
   "framework": "nextjs",

@@ -358,6 +358,16 @@ jobs:
           echo "::add-mask::$signal_db_url"
           bash supabase/tests/signal_operations_read_concurrency.sh "$signal_db_url" | tee "$RUNNER_TEMP/signal-operations-concurrency.log"
           psql "$signal_db_url" -X -v ON_ERROR_STOP=1 -f supabase/tests/signal_operations_read_plans.sql | tee "$RUNNER_TEMP/signal-operations-read-plans.log"
+      - name: Verify synthetic source capability and gap recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/source-recovery-db.env"
+          source_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/source-recovery-db.env")
+          test -n "$source_db_url"
+          echo "::add-mask::$source_db_url"
+          supabase test db supabase/tests/signal_recovery.test.sql | tee "$RUNNER_TEMP/signal-recovery-pgtap.log"
+          bash supabase/tests/signal_recovery_concurrency.sh "$source_db_url" | tee "$RUNNER_TEMP/signal-recovery-concurrency.log"
       - name: Verify synthetic fulfillment and offline recovery
         shell: bash
         run: |
@@ -414,6 +424,8 @@ jobs:
             ${{ runner.temp }}/signal-distribution-benchmark.log
             ${{ runner.temp }}/signal-distribution-plans.log
             ${{ runner.temp }}/signal-operations-concurrency.log
+            ${{ runner.temp }}/signal-recovery-pgtap.log
+            ${{ runner.temp }}/signal-recovery-concurrency.log
             ${{ runner.temp }}/signal-operations-pgtap.log
             ${{ runner.temp }}/signal-operations-read-plans.log
             ${{ runner.temp }}/signal-http-acceptance.json

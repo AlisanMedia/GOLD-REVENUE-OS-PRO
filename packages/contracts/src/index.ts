@@ -70,3 +70,5 @@ export type StateTransitionResponse = z.infer<typeof stateTransitionResponseSche
 
 export * from "./signal-commerce";
 export * from "./signal-distribution";
+
+export * from "./signal-recovery";
