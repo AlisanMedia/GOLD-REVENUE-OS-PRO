@@ -100,6 +100,10 @@ insert into private.signal_events(tenant_id,source_id,message_key,revision,kind,
 select (x->>'tenant_id')::uuid,(x->>'source_id')::uuid,x->>'message_key',1,'MESSAGE',private.fse_hash(private.fse_canonical(jsonb_build_array('SIGNAL1',x->>'tenant_id',x->>'source_id',x->>'message_key','1'))),private.fse_hash(private.fse_canonical(x-'observed_at')),x,'STRUCTURED' from v;
 insert into private.signal_heads(tenant_id,source_id,message_key,revision,event_id)
 select tenant_id,source_id,message_key,revision,id from private.signal_events where tenant_id='51c22000-0000-4000-8000-000000000001' and message_key like 'large-%';
+-- The large fixture is inserted inside this rollback transaction; autovacuum
+-- cannot analyze its uncommitted10k rows. Supply real cardinalities before
+-- measuring the bounded read, rather than relying on stale empty-table stats.
+analyze private.signal_events;analyze private.signal_heads;analyze private.signal_deliveries;analyze private.signal_delivery_history;
 set local role authenticated;select set_config('request.jwt.claim.sub','51c01000-0000-4000-8000-000000000001',true);
 select is((select value->>'value' from jsonb_array_elements(public.admin_signal_summary_v1('51c22000-0000-4000-8000-000000000001')->'counts')where value->>'status'='PENDING'),'10000','status count is hard bounded at10000');
 select is((select value->>'complete' from jsonb_array_elements(public.admin_signal_summary_v1('51c22000-0000-4000-8000-000000000001')->'counts')where value->>'status'='PENDING'),'false','incomplete total explicitly lower bound');

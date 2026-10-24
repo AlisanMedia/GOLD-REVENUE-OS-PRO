@@ -35,6 +35,7 @@ with evidence_rows as (
  union all select 'signal_source_runtime',to_jsonb(x)::text from private.signal_source_runtime x
  union all select 'signal_source_observations',to_jsonb(x)::text from private.signal_source_observations x
  union all select 'signal_source_recovery_log',to_jsonb(x)::text from private.signal_source_recovery_log x
+ union all select 'signal_reviews',to_jsonb(x)::text from private.signal_reviews x
 ), row_hashes as (
  select k,encode(extensions.digest(v,'sha256'),'hex') h from evidence_rows
 ), fingerprints as (

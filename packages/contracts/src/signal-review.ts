@@ -1,0 +1,10 @@
+import {z}from "zod";
+import{sourceRecoveryStates}from "./signal-recovery";
+export const signalReviewIssues=["UNKNOWN_DELIVERY","STALE_REVISION","MISSING_EVENT","SOURCE_RESTRICTED","INCOMPLETE_RECOVERY","AMBIGUOUS_INTERPRETATION","LEASE_EXPIRED","ACK_CONFLICT"]as const;
+export const signalReviewDecisions=["OPEN","BLOCKED","RESOLVED_WITH_EVIDENCE"]as const;
+export const signalReviewReasons=["EVIDENCE_MISSING","WAITING_PROVIDER","ALTERNATIVE_SOURCE_REQUIRED","SOURCE_CONTINUITY_CONFIRMED","MATCHING_FAKE_ACK","INTERPRETATION_UNCERTAIN","STALE_SOURCE","LEASE_UNKNOWN","ACK_INCONSISTENT"]as const;
+export const signalReviewCommandSchema=z.strictObject({version:z.literal(1),mode:z.literal("SYNTHETIC"),source_id:z.uuid(),delivery_id:z.uuid().nullable(),issue:z.enum(signalReviewIssues),decision:z.enum(signalReviewDecisions),reason:z.enum(signalReviewReasons),expected_context_hash:z.string().regex(/^[a-f0-9]{64}$/u),evidence:z.array(z.strictObject({kind:z.enum(["SOURCE_RECOVERY","DELIVERY_HISTORY"]),id:z.uuid()})).max(8)}).superRefine((v,c)=>{if(new Set(v.evidence.map(e=>e.kind+":"+e.id)).size!==v.evidence.length)c.addIssue({code:"custom",message:"SIGNAL_REVIEW_DUPLICATE_REFERENCE"});});
+export const signalReviewSafeSummarySchema=z.strictObject({issue:z.enum(signalReviewIssues),reason:z.enum(signalReviewReasons),reviewer_role:z.enum(["super_admin","manager"])});
+export type SignalReviewCommand=z.infer<typeof signalReviewCommandSchema>;
+
+export const signalSourceHealthSchema=z.strictObject({mode:z.literal("SYNTHETIC"),state:z.enum(sourceRecoveryStates),generation:z.number().int().positive(),last_sequence:z.number().int().min(0),recovery_target:z.number().int().min(0).nullable(),recovery_required:z.boolean(),recovery_attempts:z.number().int().min(0).max(3),last_activity_at:z.iso.datetime({offset:true}).nullable(),disconnected_at:z.iso.datetime({offset:true}).nullable(),fresh:z.boolean(),sequence_capability:z.enum(["MONOTONIC_INT","UNSUPPORTED"]),recovery_capability:z.enum(["INDEPENDENT_FAKE_HISTORY","UNSUPPORTED"])});

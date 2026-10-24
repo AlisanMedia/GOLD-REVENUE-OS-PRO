@@ -22,9 +22,9 @@ const row:SignalRow={id,kind:"DELIVERY",label:"OUT-102",reference:"OUT-102",stat
 const cursor={version:1 as const,scope:"a".repeat(64),started_at:time,after:"100",anchor:"102"};
 const page:SignalPage={version:1,mode:"SYNTHETIC",financial_authority:"NONE",live_authority:"NONE",collection:"deliveries",page_size:25,items:[row],has_more:true,next_cursor:cursor,consistency:"LIVE_KEYSET_REFRESH_FOR_CHANGES"};
 const summary:SignalSummary={version:1,mode:"SYNTHETIC",financial_authority:"NONE",live_authority:"NONE",enabled:false,observed_at:time,oldest_pending_at:time,counts:signalStatuses.map(s=>({status:s,value:s==="UNKNOWN"?1:0,complete:true})),latency:{sampled:2,valid:2,p50_ms:15.01,p95_ms:30.02,p99_ms:30.02,max_ms:30.02,last_ack_at:time}};
-beforeEach(()=>{vi.clearAllMocks();mocks.require.mockResolvedValue({tenantId:tenant,role:"support"});mocks.rpc.mockImplementation(async(name:string)=>({data:name==="admin_signal_page_v1"?page:summary,error:null}));});
+beforeEach(()=>{vi.clearAllMocks();mocks.require.mockResolvedValue({tenantId:tenant,role:"support"});mocks.rpc.mockImplementation(async(name:string)=>({data:name==="admin_signal_page_v2"?page:summary,error:null}));});
 describe("minimal server-owned signal read boundary",()=>{
- it("uses capability, validated tenant and exactly one bounded list + summary",async()=>{const r=await signalOperations({collection:"deliveries",size:"25"});expect(r.error).toBeNull();expect(r.summary?.mode).toBe("SYNTHETIC");expect(mocks.require).toHaveBeenCalledWith("signals.read");expect(mocks.rpc).toHaveBeenCalledTimes(2);expect(mocks.rpc).toHaveBeenCalledWith("admin_signal_page_v1",expect.objectContaining({target_tenant_id:tenant,page_size_value:25,source_value:null,cursor_value:null}));});
+ it("uses capability, validated tenant and exactly one bounded list + summary",async()=>{const r=await signalOperations({collection:"deliveries",size:"25"});expect(r.error).toBeNull();expect(r.summary?.mode).toBe("SYNTHETIC");expect(mocks.require).toHaveBeenCalledWith("signals.read");expect(mocks.rpc).toHaveBeenCalledTimes(2);expect(mocks.rpc).toHaveBeenCalledWith("admin_signal_page_v2",expect.objectContaining({target_tenant_id:tenant,page_size_value:25,source_value:null,cursor_value:null}));});
  it("does not swallow authorization denial",async()=>{mocks.require.mockRejectedValue(Error("DENIED"));await expect(signalOperations({collection:"events",size:"25"})).rejects.toThrow("DENIED");expect(mocks.rpc).not.toHaveBeenCalled();});
  it("rejects malformed cursor before any RPC",async()=>{expect((await signalOperations({collection:"events",size:"25",cursor:"{}"})).error).toBe("cursor");expect(mocks.rpc).not.toHaveBeenCalled();});
  it("strict schema refuses leaked private fields or counterfeit authority",()=>{for(const extra of [{lease_token:id},{source_ref:"private"},{original_text:"private"},{live_authority:"LIVE"}])expect(signalRowSchema.safeParse({...row,...extra}).success).toBe(false);expect(signalPageSchema.safeParse({...page,financial_authority:"LIVE"}).success).toBe(false);});
@@ -54,7 +54,7 @@ vi.mock("@/lib/signals/read-model",()=>import("../../apps/web/src/lib/signals/re
 vi.mock("@/components/signal-operations",()=>import("../../apps/web/src/components/signal-operations"));
 import SignalPageRoute from "../../apps/web/src/app/admin/signals/page";
 describe("actual asynchronous Admin route",()=>{
- it("keeps validated source and status in the server-owned read",async()=>{const view=await SignalPageRoute({searchParams:Promise.resolve({collection:"deliveries",source:id,status:"UNKNOWN"})});const html=render(h(AdminI18nProvider,{locale:"tr-TR"},view));expect(html).toContain("Sinyal Operasyonları");expect(mocks.rpc).toHaveBeenCalledWith("admin_signal_page_v1",expect.objectContaining({source_value:id,status_value:"UNKNOWN",target_tenant_id:tenant}));});
+ it("keeps validated source and status in the server-owned read",async()=>{const view=await SignalPageRoute({searchParams:Promise.resolve({collection:"deliveries",source:id,status:"UNKNOWN"})});const html=render(h(AdminI18nProvider,{locale:"tr-TR"},view));expect(html).toContain("Sinyal Operasyonları");expect(mocks.rpc).toHaveBeenCalledWith("admin_signal_page_v2",expect.objectContaining({source_value:id,status_value:"UNKNOWN",target_tenant_id:tenant}));});
  it("rejects client tenant and repeated search arguments without querying data",async()=>{let view=await SignalPageRoute({searchParams:Promise.resolve({tenant})});expect(render(h(AdminI18nProvider,{locale:"en-US"},view))).toContain("page link is invalid");expect(mocks.rpc).not.toHaveBeenCalled();view=await SignalPageRoute({searchParams:Promise.resolve({size:["25","100"]})});expect(render(h(AdminI18nProvider,{locale:"en-US"},view))).toContain("page link is invalid");});
  it("does not hide a permission failure behind validation UI",async()=>{mocks.require.mockRejectedValue(Error("DENIED"));await expect(SignalPageRoute({searchParams:Promise.resolve({tenant})})).rejects.toThrow("DENIED");expect(mocks.rpc).not.toHaveBeenCalled();});
 });
@@ -63,3 +63,49 @@ describe("authorization before the loading boundary",()=>{
  it("returns allowed children after the existing capability guard",async()=>{const child=h("p",null,"allowed");expect(await SignalOperationsLayout({children:child})).toBe(child);expect(mocks.require).toHaveBeenCalledWith("signals.read");expect(mocks.rpc).not.toHaveBeenCalled();});
  it("rejects before returning children or loading UI for a denied role",async()=>{mocks.require.mockRejectedValue(Error("DENIED"));await expect(SignalOperationsLayout({children:h("p",null,"PROTECTED")})).rejects.toThrow("DENIED");expect(mocks.rpc).not.toHaveBeenCalled();});
 });
+
+const health={mode:"SYNTHETIC"as const,state:"RECOVERING"as const,generation:4,last_sequence:64,recovery_target:130,recovery_required:true,recovery_attempts:0,last_activity_at:time,disconnected_at:time,fresh:true,sequence_capability:"MONOTONIC_INT"as const,recovery_capability:"INDEPENDENT_FAKE_HISTORY"as const};
+const sourceRow:SignalRow={...row,kind:"SOURCE",state:"SIMULATED",label:"Synthetic source A",source_health:health,source_label:"Synthetic source A",destination_label:null,delivery_id:null,event_id:null,destination_id:null,current:null,authorization:"SYNTHETIC_APPROVED",paused:false,claims:null,reclaims:null,failures:null,code:null};
+const reviewRow:SignalRow={...row,kind:"REVIEW",state:"OPEN",label:"REV-2",code:null,current:null,claims:null,reclaims:null,failures:null,revision:null,observed_at:null,published_at:null,available_at:null,acknowledged_at:null,review:{issue:"UNKNOWN_DELIVERY",reason:"EVIDENCE_MISSING",reviewer_role:"manager"}};
+const reviewPage:SignalPage={...page,collection:"reviews",items:[reviewRow]};
+describe("source continuity and read-only operational review",()=>{
+ it("validates strict health/review projections without lease, actor or raw-source leakage",()=>{
+  expect(signalRowSchema.safeParse(sourceRow).success).toBe(true);expect(signalRowSchema.safeParse(reviewRow).success).toBe(true);
+  expect(signalRowSchema.safeParse({...sourceRow,source_health:{...health,lease_token:id}}).success).toBe(false);
+  expect(signalRowSchema.safeParse({...reviewRow,review:{...reviewRow.review,reviewer_id:id}}).success).toBe(false);
+  expect(signalRowSchema.safeParse({...row,source_health:health}).success).toBe(false);
+ });
+ it.each(["tr-TR","en-US"]as const)("%s source recovery is actionable without a force-send control",locale=>{
+  const html=render(h(AdminI18nProvider,{locale},h(SignalOperationsView,{query:{collection:"sources",size:"25"},page:{...page,collection:"sources",items:[sourceRow]},summary:null,error:null})));
+  expect(html).toContain(locale==="tr-TR"?"Kayıp dönem doğrulanıyor":"Outage history under verification");expect(html).toContain("130");expect(html).toContain('collection=reviews');expect(html).not.toContain('method="post"');
+ });
+ it.each(["tr-TR","en-US"]as const)("%s review resolution is not a delivery or resend claim",locale=>{
+  const html=render(h(AdminI18nProvider,{locale},h(SignalOperationsView,{query:{collection:"reviews",size:"25"},page:reviewPage,summary:null,error:null})));
+  expect(html).toContain(locale==="tr-TR"?"İnceleme açık":"Review open");expect(html).toContain(locale==="tr-TR"?"yeniden gönderim başlatmaz":"does not change delivery state");expect(html).not.toContain('method="post"');
+ });
+ it("uses a distinct read-only RPC with the existing server tenant/capability",async()=>{
+  mocks.rpc.mockImplementation(async(name:string)=>({data:name==="admin_signal_review_page_v1"?reviewPage:summary,error:null}));
+  expect((await signalOperations({collection:"reviews",size:"25",source:id})).page?.collection).toBe("reviews");
+  expect(mocks.rpc).toHaveBeenCalledWith("admin_signal_review_page_v1",expect.objectContaining({target_tenant_id:tenant,source_value:id,page_size_value:25}));
+  expect(mocks.rpc.mock.calls[0]?.[1]).not.toHaveProperty("status_value");
+ });
+ it("rejects misleading delivery-status filters on a review history",async()=>{
+  expect(signalSearchSchema.safeParse({collection:"reviews",status:"UNKNOWN"}).success).toBe(false);
+  expect((await signalOperations({collection:"reviews",size:"25",status:"UNKNOWN"})).error).toBe("cursor");expect(mocks.rpc).not.toHaveBeenCalled();
+ });
+ it("exposes only an expired-lease warning and no worker token",()=>{
+  const html=render(h(AdminI18nProvider,{locale:"en-US"},h(SignalOperationsView,{query:{collection:"deliveries",size:"25"},page:{...page,items:[{...row,state:"RUNNING",lease_expired:true}]},summary:null,error:null})));
+  expect(html).toContain("The worker lease expired.");expect(html).not.toContain("lease_token");
+ });
+ it("keeps a missing independent head unknown rather than0",()=>{
+  const html=render(h(AdminI18nProvider,{locale:"en-US"},h(SignalOperationsView,{query:{collection:"sources",size:"25"},page:{...page,collection:"sources",items:[{...sourceRow,source_health:{...health,recovery_target:null,fresh:false}}]},summary:null,error:null})));
+  expect(html).toContain("No independent history evidence yet");expect(html).toContain("Source freshness is unverified");
+ });
+});
+if(process.env.SIGNAL_REVIEW_PREVIEW_DIR){
+ const dir=process.env.SIGNAL_REVIEW_PREVIEW_DIR;mkdirSync(dir,{recursive:true});const css=readFileSync("apps/web/src/app/globals.css","utf8").replace('@import "tailwindcss";','');
+ for(const locale of["tr-TR","en-US"]as const)for(const collection of["sources","reviews"]as const){
+  const items=collection==="sources"?[sourceRow,{...sourceRow,id:tenant,source_id:tenant,source_label:"Synthetic source B",label:"Synthetic source B",source_health:{...health,state:"SOURCE_RESTRICTED"as const}},{...sourceRow,id:"51c03000-0000-4000-8000-000000000003",source_id:"51c03000-0000-4000-8000-000000000003",source_label:"Synthetic source C",label:"Synthetic source C",source_health:{...health,state:"CONNECTED"as const,last_sequence:130,recovery_required:false}}]:[reviewRow,{...reviewRow,id:tenant,label:"REV-1",delivery_id:null,destination_id:null,destination_label:null,source_label:"Synthetic source B",state:"BLOCKED"as const,review:{issue:"SOURCE_RESTRICTED"as const,reason:"ALTERNATIVE_SOURCE_REQUIRED"as const,reviewer_role:"manager"as const}},{...reviewRow,id:"51c03000-0000-4000-8000-000000000003",label:"REV-0",state:"RESOLVED_WITH_EVIDENCE"as const,review:{issue:"UNKNOWN_DELIVERY"as const,reason:"MATCHING_FAKE_ACK"as const,reviewer_role:"manager"as const}}];
+  writeFileSync(`${dir}/${collection}-${locale}.html`,`<!doctype html><html lang="${locale}"><meta charset="utf-8"><meta name="viewport"content="width=device-width,initial-scale=1"><title>Gold Revenue OS · Synthetic review preview</title><style>${css}</style><body>${render(h(AdminWorkspaceFrame,{locale,tenantName:"SIGNAL · SYNTHETIC TEST",userLabel:"synthetic-operator@example.test",role:"manager"},h(SignalOperationsView,{query:{collection,size:"25"},page:{...page,collection,items,has_more:false,next_cursor:null},summary:null,error:null})))}</body></html>`);
+ }
+}
