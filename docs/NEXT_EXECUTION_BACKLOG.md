@@ -6,6 +6,18 @@ Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea
 
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
+## Polat v2 evaluation and owner decisions —2026-10-24
+
+Latest three-package scope: [corpus](../POLAT_V2_CORPUS_REPORT.md)/PR129, [offline independent human review](../POLAT_INDEPENDENT_HUMAN_REVIEW_REPORT.md)/PR130 and [disabled-model decision/commercial pack](../POLAT_MODEL_DECISION_READINESS_REPORT.md). Preserve exact CI/merge evidence; historical v1 corpus/190 proposed requests do not authorize current v2/290 proposed requests.
+
+| Priority | Current implementation / smallest remaining step | Evidence and separate owner gate |
+| --- | --- | --- |
+| P1 quality evidence | V2 has49 scenarios,27 EN/30 TR distinct ordinary qualifying turns per style. Both v1/v2 fixture suites remain independent. Fixed human sample216 targets, two blind reviewer records per target and adjudication workflow implemented offline | Actual human reviews0; identity/independence and review/sample/threshold approval still external. Fixture/heuristic success is not human naturalness or customer conversion |
+| P1 model decision | Existing v2 manifest validates provider/model/version, approved SHA/hash, policy/custody/billing, exact request/currency/spend, named people, stop/recovery and owner-record linkage; every execution path stays disabled | Fill exact fields from genuine evidence, independently verify owner record, then separately authorize any model adapter/test. Proposed290 is not authorized; paid requests0 |
+| P0 genuine operations | Current C01–C10 matrix links supplier/product/territory, eligible merchant/sales surface, genuine receipt, terms, consent, operators, hosting/recovery, actual costs and release | All genuine commercial gates remain blocked/deferred/NO_GO; no documentation-only commercial PASS. Telegram/session/destination/message count and any deployment remain separate approvals |
+
+No fourth package or external action is authorized by this batch. Keep overall Phase16C-1 OPEN. Unknown usage/cost, human quality and conversion remain unknown.
+
 ## Polat AI remaining gates — integrated TEST batch, 2026-10-24
 
 A–D extend the existing runtime, consent/ownership evidence, fixed multi-turn evaluation and model readiness. See [runtime](../POLAT_TEST_RUNTIME_INTEGRATION_REPORT.md), [contact](../POLAT_CONSENT_OWNERSHIP_REPORT.md), [quality](../POLAT_MULTITURN_QUALITY_REPORT.md) and [readiness](../POLAT_MODEL_ACCEPTANCE_READINESS_REPORT.md). Exact CI/merge evidence is required; these reports do not authorize activation.

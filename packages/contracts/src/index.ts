@@ -91,3 +91,5 @@ export * from "./polat-contact";
 export * from "./polat-model-evaluation";
 
 export * from "./polat-human-review";
+
+export * from "./polat-model-acceptance";

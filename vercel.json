@@ -36,7 +36,8 @@
       "codex/polat-multiturn-evaluation": false,
       "codex/polat-model-acceptance-readiness": false,
       "codex/polat-v2-turkish-corpus": false,
-      "codex/polat-independent-human-review": false
+      "codex/polat-independent-human-review": false,
+      "codex/polat-model-decision-readiness": false
     }
   },
   "framework": "nextjs",
