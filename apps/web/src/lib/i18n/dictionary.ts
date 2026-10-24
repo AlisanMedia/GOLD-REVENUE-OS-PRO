@@ -1,3 +1,4 @@
+import { polatCopy } from "./polat";
 import { signalCopy } from "./signals";
 import { analyticsCopy } from "./analytics";
 import { entitlementCopy } from "./entitlements";
@@ -5,6 +6,7 @@ import { surveyCopy } from "./surveys";
 // Typed UI copy only. Never pass customer/provider content as a translation key.
 export const copy = {
   ...signalCopy,
+  ...polatCopy,
   ...entitlementCopy,
   ...surveyCopy,
   ...analyticsCopy,

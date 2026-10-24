@@ -1,0 +1,51 @@
+// Actual authenticated HTTP only against disposable local Supabase/Next; no hosted/provider fallback.
+import{createClient}from '@supabase/supabase-js';
+import{createServerClient}from '@supabase/ssr';
+import{randomUUID,randomBytes}from 'node:crypto';
+import{execFileSync}from 'node:child_process';
+import{writeFileSync}from 'node:fs';
+const db=process.env.POLAT_LOCAL_DB_URL,base=process.env.POLAT_LOCAL_APP_URL,url=process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,secret=process.env.SUPABASE_SECRET_KEY,out=process.env.POLAT_HTTP_EVIDENCE_FILE;
+function local(v,port,protocol){if(!v)throw Error('POLAT_LOCAL_ENV_REQUIRED');const u=new URL(v);if(u.hostname!=='127.0.0.1'||u.port!==port||u.protocol!==protocol)throw Error('POLAT_LOCAL_ONLY');return u;}
+if(local(db,'54322','postgresql:').pathname!=='/postgres')throw Error('DISPOSABLE_DATABASE_ONLY');local(base,'3100','http:');local(url,'54321','http:');if(!key||!secret||!out)throw Error('POLAT_LOCAL_ENV_REQUIRED');
+const actualFetch=globalThis.fetch;globalThis.fetch=(input,init)=>{const u=new URL(typeof input==='string'?input:input instanceof URL?input.href:input.url);if(u.hostname!=='127.0.0.1'||!['54321','3100'].includes(u.port))throw Error('EXTERNAL_NETWORK_PROHIBITED');return actualFetch(input,init);};
+const admin=createClient(url,secret,{auth:{persistSession:false,autoRefreshToken:false}}),t=randomUUID(),other=randomUUID(),checks=[],identities=[];let seeded=false,complete=false,clean=false,before;
+function check(name,ok){checks.push({name,status:ok?'PASS':'FAIL'});if(!ok)throw Error('POLAT_HTTP_FAILED:'+name);}
+function sql(text){return JSON.parse(execFileSync('psql',[db,'-X','-Atq','-v','ON_ERROR_STOP=1','-c',text],{encoding:'utf8',maxBuffer:1024*1024}).trim());}
+function invariants(){return sql(`select jsonb_build_object('receipts',(select count(*)from private.verified_payment_receipts),'confirmed',(select count(*)from public.domain_events where event_type='payment.confirmed'),'subscriptions',(select count(*)from public.subscriptions),'access',(select count(*)from public.channel_access),'outbound',(select count(*)from public.messages where direction='outbound'),'alerts',(select count(*)from public.escalation_notifications where status='SENT'),'imports',(select count(*)from public.import_batches),'live_enabled',(select count(*)from private.entitlement_controls where live_enabled))`);}
+async function identity(role){const password=randomBytes(32).toString('base64url')+'Aa1!',created=await admin.auth.admin.createUser({email:`polat-${role}-${randomUUID()}@example.test`,password,email_confirm:true});if(created.error)throw Error('LOCAL_AUTH_CREATE_FAILED');const id=created.data.user.id;const member=await admin.from('tenant_members').insert({tenant_id:t,user_id:id,role,status:'active'});if(member.error)throw Error('LOCAL_MEMBERSHIP_FAILED');let cookies=[];const client=createServerClient(url,key,{cookies:{getAll:()=>cookies,setAll:values=>{for(const c of values){cookies=cookies.filter(x=>x.name!==c.name);cookies.push(c);}}}});if((await client.auth.signInWithPassword({email:created.data.user.email,password})).error)throw Error('LOCAL_LOGIN_FAILED');const actor={id,client,cookie:()=>cookies.map(c=>`${c.name}=${c.value}`).join('; ')};identities.push(actor);return actor;}
+async function page(path,actor){const r=await fetch(base+path,{redirect:'manual',headers:actor?{cookie:actor.cookie()}: {}});return{status:r.status,body:await r.text(),location:r.headers.get('location')};}
+try{
+ before=invariants();sql(`insert into public.tenants(id,name,slug)values('${t}','Synthetic Polat operations','polat-sandbox-http-${t}'),('${other}','Foreign Polat fixture','polat-sandbox-http-${other}');select '{}'::jsonb;`);seeded=true;
+ const manager=await identity('manager'),support=await identity('support'),analyst=await identity('analyst'),readonly=await identity('readonly');
+ sql(`do $$declare c uuid;begin perform public.ingest_telegram_message('${t}','fixture-polat-first','first','999710001','999710001',null,'Synthetic',null,'PRIVATE-CUSTOMER-TEXT-NOT-IN-ADMIN',null,clock_timestamp());select id into strict c from public.conversations where tenant_id='${t}';perform set_config('request.jwt.claim.sub','${manager.id}',true);perform public.set_conversation_runtime_mode('${t}',c,'AI_ACTIVE','Synthetic acceptance only',extensions.gen_random_uuid());perform private.polat_configure_fixture('${t}',c);for n in 1..30 loop perform public.ingest_telegram_message('${t}','fixture-polat-'||n,n::text,'999710001','999710001',null,'Synthetic',null,'PRIVATE-CUSTOMER-TEXT-NOT-IN-ADMIN',null,clock_timestamp());end loop;end;$$;select '{}'::jsonb;`);
+ let r=await page('/admin/polat-operations');check('unauthenticated-redirect',[302,303,307,308].includes(r.status)&&r.location?.includes('/login'));
+ r=await page('/admin/polat-operations',readonly);check('readonly-redirect',[302,303,307,308].includes(r.status)&&r.location?.includes('forbidden'));
+ r=await page('/admin/polat-operations',manager);check('manager-turkish-default',r.status===200&&r.body.includes('Polat AI Operasyonları')&&r.body.includes('Yalnız sentetik doğrulama'));
+ check('no-private-source-in-html',!['PRIVATE-CUSTOMER-TEXT-NOT-IN-ADMIN','source_hash','body_hash','lease_token','fake_reference','receipt_hash'].some(x=>r.body.includes(x)));
+ check('locale-preference-write',!(await manager.client.from('admin_preferences').upsert({user_id:manager.id,locale:'en-US'})).error);
+ r=await page('/admin/polat-operations',manager);check('manager-english-own-account',r.status===200&&r.body.includes('Polat AI Operations')&&r.body.includes('Synthetic verification only'));
+ r=await page('/admin/polat-operations',support);check('support-locale-independent',r.status===200&&r.body.includes('Polat AI Operasyonları'));
+ r=await page('/admin/polat-operations',analyst);check('analyst-safe-read',r.status===200&&r.body.includes('Polat AI Operasyonları')&&!r.body.includes('PRIVATE-CUSTOMER-TEXT-NOT-IN-ADMIN'));
+ r=await page('/admin/polat-operations?view=business',support);check('support-business-role-boundary',r.status===200&&r.body.includes('Bu rol finansal analitik okuyamaz'));
+ r=await page('/admin/polat-operations?view=business',manager);check('actual-business-reuses-phase15',r.status===200&&r.body.includes('CRM &amp; source evidence')&&!r.body.includes('Evidence is unavailable'));
+ const args={target_tenant_id:t,page_size_value:25};let data=await manager.client.rpc('admin_polat_inbound_page_v1',args);check('authenticated-first-page',!data.error&&data.data.items.length===25&&data.data.has_more);
+ const cursor=data.data.next_cursor;data=await manager.client.rpc('admin_polat_inbound_page_v1',{...args,cursor_value:cursor});check('authenticated-final-page',!data.error&&data.data.items.length===6&&!data.data.has_more);
+ r=await page('/admin/polat-operations?cursor='+encodeURIComponent(JSON.stringify(cursor)),manager);check('actual-http-cursor-final',r.status===200&&r.body.includes('Current last page'));
+ data=await readonly.client.rpc('admin_polat_inbound_page_v1',args);check('readonly-rpc-denial',data.error?.code==='42501');
+ data=await manager.client.rpc('admin_polat_inbound_page_v1',{...args,target_tenant_id:other});check('cross-tenant-rpc-denial',data.error?.code==='42501');
+ const end=new Date();end.setUTCDate(end.getUTCDate()+1);const start=new Date(end);start.setUTCDate(start.getUTCDate()-7);
+ data=await manager.client.rpc('admin_polat_response_summary_v1',{target_tenant_id:t,start_value:start.toISOString().slice(0,10),end_value:end.toISOString().slice(0,10)});check('authenticated-summary-scope',!data.error&&data.data.mode==='SYNTHETIC'&&data.data.counts.captured===31&&data.data.coverage_gap===0&&data.data.financial_authority==='NONE');
+ check('summary-no-private-identities',!JSON.stringify(data.data).includes(manager.id)&&!JSON.stringify(data.data).includes(t));
+ r=await page('/admin/polat-operations?tenant='+other,manager);check('client-tenant-not-authority',r.status===200&&r.body.includes('page link is invalid'));
+ r=await page('/admin/polat-operations?size=25&size=100',manager);check('repeated-parameter-rejected',r.status===200&&r.body.includes('page link is invalid'));
+ r=await page('/admin/polat-operations?cursor=not-json',manager);check('invalid-cursor-honest-state',r.status===200&&r.body.includes('page link is invalid'));
+ r=await page('/admin/polat-operations?state=DELIVERY_UNKNOWN',manager);check('honest-empty-filter',r.status===200&&r.body.includes('No records in this scope yet'));
+ sql(`do $$declare c uuid;g bigint;begin select conversation_id,generation into strict c,g from private.polat_conversation_controls where tenant_id='${t}';perform set_config('request.jwt.claim.sub','${manager.id}',true);perform private.polat_claim_human_fixture('${t}',c,g);end;$$;select '{}'::jsonb;`);
+ r=await page('/admin/polat-operations',manager);check('native-human-ownership-visible',r.status===200&&r.body.includes('Human active')&&r.body.includes('Acknowledged by an authorized manager'));
+ r=await page('/admin/polat-operations?cursor='+encodeURIComponent(JSON.stringify(cursor)),manager);check('generation-change-requires-refresh',r.status===200&&r.body.includes('page link is invalid'));
+ check('financial-vip-outbound-import-unchanged',JSON.stringify(invariants())===JSON.stringify(before));complete=true;
+}finally{
+ try{for(const i of identities){await i.client.auth.signOut();if((await admin.from('tenant_members').update({status:'disabled'}).eq('user_id',i.id)).error)throw Error('LOCAL_CLEANUP_MEMBERS');}if(seeded)sql(`update private.polat_conversation_controls set enabled=false where tenant_id in('${t}','${other}');update public.tenants set status='suspended'where id in('${t}','${other}');select '{}'::jsonb;`);clean=JSON.stringify(invariants())===JSON.stringify(before);}catch{clean=false;}
+ writeFileSync(out,JSON.stringify({package:'POLAT_OPERATIONS',status:complete&&clean?'PASS':'FAIL',sha:process.env.VALIDATED_SHA??'local',checks,cleanup_verified:clean,mode:'SYNTHETIC',provider_calls:0,deployments:0,financial_authority:'NONE',live_operations_authorized:false},null,2),{mode:0o600});if(!clean)throw Error('LOCAL_POLAT_CLEANUP_FAILED');
+}
+console.log(JSON.stringify({package:'POLAT_OPERATIONS',pass:true,checks:checks.length,local_only:true}));

@@ -272,6 +272,10 @@ jobs:
           export SIGNAL_LOCAL_APP_URL=http://127.0.0.1:3100
           export SIGNAL_HTTP_EVIDENCE_FILE="$RUNNER_TEMP/signal-http-acceptance.json"
           node apps/web/scripts/signal-operations-http.mjs
+          export POLAT_LOCAL_DB_URL="$phase10_db_url"
+          export POLAT_LOCAL_APP_URL=http://127.0.0.1:3100
+          export POLAT_HTTP_EVIDENCE_FILE="$RUNNER_TEMP/polat-http-acceptance.json"
+          node apps/web/scripts/polat-operations-http.mjs
       - name: Upload sandbox HTTP acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -400,6 +404,7 @@ jobs:
           test -n "$polat_db_url"
           echo "::add-mask::$polat_db_url"
           supabase test db supabase/tests/polat_inbound.test.sql | tee "$RUNNER_TEMP/polat-inbound-pgtap.log"
+          supabase test db supabase/tests/polat_operations.test.sql | tee "$RUNNER_TEMP/polat-operations-pgtap.log"
           bash supabase/tests/polat_response_concurrency.sh "$polat_db_url" | tee "$RUNNER_TEMP/polat-response-concurrency.log"
           POLAT_DISPOSABLE_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-response-db.test.ts | tee "$RUNNER_TEMP/polat-response-bridge.log"
       - name: Verify synthetic fulfillment and offline recovery
@@ -476,6 +481,8 @@ jobs:
             ${{ runner.temp }}/polat-inbound-pgtap.log
             ${{ runner.temp }}/polat-response-concurrency.log
             ${{ runner.temp }}/polat-response-bridge.log
+            ${{ runner.temp }}/polat-operations-pgtap.log
+            ${{ runner.temp }}/polat-http-acceptance.json
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack

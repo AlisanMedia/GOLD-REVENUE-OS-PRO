@@ -290,3 +290,18 @@ input[type="file"] { padding: 10px; }
 .signal-bar { display:block; height:5px; border-radius:4px; background:var(--gold); margin-top:.35rem; }
 .signal-pagination { justify-content:space-between; }
 @media(max-width:480px) { .signal-filters label { flex:1 1 120px; } .signal-operations .metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* Polat read-only evidence uses the existing Admin cards/tokens. */
+.polat-columns,.polat-work-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin:1rem 0}
+.polat-actions{display:flex;flex-wrap:wrap;gap:.65rem;margin:.8rem 0}
+.polat-actions [aria-current=page]{border-color:var(--gold,#d4af37)}
+.polat-record{min-width:0}.polat-record .card-heading{flex-wrap:wrap;align-items:flex-start;gap:.6rem}
+.polat-record h3{font-size:1rem;margin:0}.polat-facts{display:grid;gap:.6rem}
+.polat-facts>div{display:flex;flex-wrap:wrap;gap:.35rem .8rem;justify-content:space-between}
+.polat-facts dt{color:var(--muted,#a3a3a3)}.polat-facts dd{margin:0;overflow-wrap:anywhere}
+.polat-record details{margin-top:.8rem;border-top:1px solid var(--border,#333);padding-top:.35rem}
+.polat-record summary{cursor:pointer;min-height:44px;display:flex;align-items:center}
+.polat-distribution{display:grid;grid-template-columns:minmax(0,1fr) minmax(40px,1fr) auto;gap:.7rem;align-items:center;margin:.7rem 0}
+.polat-distribution meter{width:100%;height:14px;accent-color:var(--gold,#d4af37)}
+.polat-operations .metric-card{min-width:0}.polat-operations .metric-card span{overflow-wrap:anywhere}
+@media(max-width:767px){.polat-columns,.polat-work-list{grid-template-columns:minmax(0,1fr)}.polat-actions>a{min-height:44px}.polat-distribution{font-size:.85rem}.polat-operations .filter-panel>label{min-width:0}.polat-operations .filter-panel select{max-width:100%}}
