@@ -39,6 +39,9 @@ with evidence_rows as (
  union all select 'polat_conversation_controls',to_jsonb(x)::text from private.polat_conversation_controls x
  union all select 'polat_inbound_work',to_jsonb(x)::text from private.polat_inbound_work x
  union all select 'polat_response_evidence',to_jsonb(x)::text from private.polat_response_evidence x
+ union all select 'polat_runtime_profiles',to_jsonb(x)::text from private.polat_runtime_profiles x
+ union all select 'polat_runtime_drafts',to_jsonb(x)::text from private.polat_runtime_drafts x
+ union all select 'polat_runtime_steps',to_jsonb(x)::text from private.polat_runtime_steps x
  union all select 'polat_work_history',to_jsonb(x)::text from private.polat_work_history x
 ), row_hashes as (
  select k,encode(extensions.digest(v,'sha256'),'hex') h from evidence_rows

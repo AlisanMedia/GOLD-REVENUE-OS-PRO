@@ -1,4 +1,5 @@
 import "server-only";
+import{polatRuntimeContextSchema,type PolatRuntimeContext}from "@gold-revenue-os/contracts";
 import { createHash } from "node:crypto";
 
 import {
@@ -30,11 +31,12 @@ type ConversationRow = {
 };
 
 export type ContextBuildResult = {
+  polat?: PolatRuntimeContext;
   context: AgentContext;
   manifest: Record<string, unknown>;
 };
 
-export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuildResult> {
+export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:true}): Promise<ContextBuildResult> {
   const supabase = createSupabaseAdminClient();
   const { data: conversationData, error: conversationError } = await supabase
     .from("conversations")
@@ -71,19 +73,26 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
     .maybeSingle();
   if (sourceMessageError || !sourceMessage) throw new Error("CONTEXT_SOURCE_MESSAGE_NOT_FOUND");
 
+  let polat:PolatRuntimeContext|undefined;
+  if(options?.polatTest){
+    const read=await supabase.rpc("polat_test_runtime_context_v1",{target_tenant_id:task.tenant_id,target_conversation_id:task.conversation_id,target_event_id:task.source_event_id});
+    if(read.error)throw Error("POLAT_TEST_CONTEXT_UNAVAILABLE");polat=polatRuntimeContextSchema.parse(read.data);
+    if(polat.input.tenant_id!==task.tenant_id||polat.input.conversation_id!==task.conversation_id||polat.input.customer_id!==task.customer_id||polat.input.source_message_id!==sourceMessageId)throw Error("POLAT_TEST_CONTEXT_SCOPE");
+  }
+  const sourceBoundary=polat?.input.boundary??sourceMessage.created_at;
   const [messagesResult, profileResult, memoryResult, eventsResult, customerResult] = await Promise.all([
-    supabase.from("messages")
+    polat?Promise.resolve({data:[...polat.input.messages].reverse().map(m=>({...m,created_at:m.occurred_at})),error:null}):supabase.from("messages")
       .select("id,direction,content,occurred_at,created_at")
       .eq("tenant_id", task.tenant_id)
       .eq("conversation_id", task.conversation_id)
       .lte("created_at", sourceMessage.created_at)
       .order("created_at", { ascending: false })
       .limit(CONTEXT_LIMITS.messages),
-    task.customer_id ? supabase.from("customer_profiles")
+    !polat&&task.customer_id ? supabase.from("customer_profiles")
       .select("updated_at,experience_level,primary_instrument,trading_style,risk_preference,preferred_signal_frequency,communication_style,price_sensitivity,trust_level,pain_points,objections,next_best_action")
       .eq("tenant_id", task.tenant_id).eq("customer_id", task.customer_id)
       .lte("updated_at", sourceMessage.created_at).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    task.customer_id ? supabase.from("customer_memory")
+    !polat&&task.customer_id ? supabase.from("customer_memory")
       .select("id,observed_at,memory_key,memory_value,confidence")
       .eq("tenant_id", task.tenant_id).eq("customer_id", task.customer_id)
       .is("superseded_at", null).lte("observed_at", sourceMessage.created_at).order("observed_at", { ascending: false })
@@ -104,7 +113,7 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
   if (messagesResult.error || profileResult.error || memoryResult.error || eventsResult.error || customerResult.error) {
     throw new Error("CONTEXT_QUERY_FAILED");
   }
-  if ((messagesResult.data ?? []).some((row: { id: string; created_at: string }) => row.id !== sourceMessageId && row.created_at === sourceMessage.created_at)) {
+  if (!polat&&(messagesResult.data ?? []).some((row: { id: string; created_at: string }) => row.id !== sourceMessageId && row.created_at === sourceMessage.created_at)) {
     throw new Error("CONTEXT_TIMESTAMP_AMBIGUOUS");
   }
 
@@ -129,7 +138,7 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
     throw new Error("CONTEXT_SOURCE_MESSAGE_NOT_LAST");
   }
 
-  const memory = (memoryResult.data ?? []).map((row: Record<string, unknown>) => ({
+  const memory = polat?polat.input.memory.map(m=>({key:m.key,value:m.value,confidence:1})):(memoryResult.data ?? []).map((row: Record<string, unknown>) => ({
     key: String(row.memory_key),
     value: row.memory_value,
     confidence: typeof row.confidence === "number" ? row.confidence : row.confidence === null ? null : Number(row.confidence),
@@ -153,6 +162,7 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
   const languagePreference=await supabase.rpc("customer_success_language_for_source",{target_tenant_id:task.tenant_id,target_event_id:task.source_event_id});
   if(languagePreference.error)throw new Error("CUSTOMER_LANGUAGE_EVIDENCE_UNAVAILABLE");
   if(typeof languagePreference.data==="string"&&["en","tr","ar","ru"].includes(languagePreference.data))context.verifiedCustomerLanguage=languagePreference.data;
+  if(polat)polat.input.verified_customer_language=(["en","tr","ar","ru"].includes(context.verifiedCustomerLanguage??"")?context.verifiedCustomerLanguage:null) as PolatRuntimeContext["input"]["verified_customer_language"];
   const detectedLanguage=inferStyleProfile(messages,context.verifiedCustomerLanguage).language;
   const commercialLocale=(["en","tr","ar","ru"].includes(detectedLanguage)?detectedLanguage:"en") as "en"|"tr"|"ar"|"ru";
   if(commercialRaw){
@@ -178,11 +188,13 @@ export async function buildAgentContext(task: TaskEnvelope): Promise<ContextBuil
     if(r.membership==="MEMBER"&&r.membership_checked_at&&Date.parse(r.membership_checked_at)<=Date.parse(sourceMessage.created_at))items.push({...scope,occurredAt:r.membership_checked_at,id:r.id+":access",category:"access_active",statement:{en:"Your VIP access is active.",tr:"VIP erişiminiz aktif.",ar:"وصولك إلى VIP نشط.",ru:"Доступ к VIP активен."}[commercialLocale]});
     return items;
   });
-  context.commercialEvidence=[...(context.commercialEvidence??[]),...receiptEvidence];
+  context.commercialEvidence=[...(context.commercialEvidence??[]),...(polat?[]:receiptEvidence)];
   assertSafeContext(context);
   return {
+    ...(polat?{polat}:{}),
     context,
     manifest: {
+      ...(polat?{polat_profile:polat.profile,polat_generation:polat.generation,polat_observed_boundary:sourceBoundary,polat_history_basis:"MATCHED_FAKE_ACK_ONLY",polat_memory_sources:polat.input.memory.map(m=>m.source_message_id),polat_subscription_context:polat.subscription_context,financial_authority:"NONE",live_operations_authorized:false}:{}),
       context_version: 3,
       manifest_version: 2,
       retrieval_version: "source-bounded-v2",

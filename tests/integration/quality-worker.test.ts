@@ -3,6 +3,7 @@ import { buildLeadIntelligence, conversationModelOutputSchema, directConversatio
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), invoke: vi.fn(), context: vi.fn(), dispatch: vi.fn() }));
 vi.mock("server-only", () => ({}));
+vi.mock("@/lib/polat/test-runtime",()=>import("../../apps/web/src/lib/polat/test-runtime"));
 vi.mock("@/lib/messaging/outbound-dispatch", () => ({ dispatchQueuedTelegramMessage: mocks.dispatch }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: mocks.rpc }) }));
 vi.mock("@/lib/agent-runtime/context-builder", () => ({ buildAgentContext: mocks.context }));

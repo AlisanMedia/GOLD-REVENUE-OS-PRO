@@ -30,7 +30,8 @@
       "codex/polat-conversation-intelligence": false,
       "codex/polat-response-reliability": false,
       "codex/polat-sales-conversion": false,
-      "codex/polat-crm-operations": false
+      "codex/polat-crm-operations": false,
+      "codex/polat-test-runtime": false
     }
   },
   "framework": "nextjs",
