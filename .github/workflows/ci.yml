@@ -37,6 +37,7 @@ jobs:
       - run: pnpm test
         env:
           POLAT_MULTITURN_EVIDENCE: ${{ runner.temp }}/polat-multiturn.json
+          POLAT_V2_EVIDENCE: ${{ runner.temp }}/polat-multiturn-v2.json
       - run: pnpm build
       # GHSA-vfj7-8cjw-p6xm currently has no patched release and is reachable
       # only through Next's ESLint development toolchain. Keep every other
@@ -64,7 +65,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: polat-offline-qa-${{ github.sha }}
-          path: ${{ runner.temp }}/polat-multiturn.json
+          path: |
+            ${{ runner.temp }}/polat-multiturn.json
+            ${{ runner.temp }}/polat-multiturn-v2.json
           if-no-files-found: warn
           retention-days: 14
 

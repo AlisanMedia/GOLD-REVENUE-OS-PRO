@@ -21,7 +21,7 @@ export function polatIntent(rawText:string):PolatIntent{
  if(/Deutsch|Guten Tag|Bitte|español|habla español|[\u4e00-\u9fff]/iu.test(text))return "UNSUPPORTED_LANGUAGE";
  if(/compar.{0,50}(?:provider|alternative)|another provider|başka.{0,30}sağlayıcı/iu.test(text))return "COMPARISON";
  if(/not interested|no thanks|ilgilenmiyorum/iu.test(text))return "UNINTERESTED";
- if(/need time|time to decide|düşünmek|zamana ihtiyac/iu.test(text))return "WAIT";
+ if(/need (?:some )?time|time to decide|düşünmek|zamana ihtiyac/iu.test(text))return "WAIT";
  if(/(?:prefer|preferred|tercih).{0,30}(?:XAUUSD|EURUSD|GBPUSD|BTCUSD)|(?:XAUUSD|EURUSD|GBPUSD|BTCUSD).{0,25}preferred/iu.test(text))return "PREFERENCE";
  if(/refund|iade|paramı geri/iu.test(text))return "REFUND";
  if(/cancel|iptal/iu.test(text))return "CANCEL";
@@ -29,7 +29,7 @@ export function polatIntent(rawText:string):PolatIntent{
  if(/payment|paid|ödeme|ödedim/iu.test(text))return "PAYMENT";
  if(/speak.{0,20}(?:human|Polat)|talk.{0,20}(?:human|Polat)|insanla|Polat.{0,15}görüş|temsilci/iu.test(text))return "HUMAN";
  if(/are you (?:Polat|a human|an? ai|a bot)|who are you|sen (?:Polat|kimsin|insan|yapay)|bot musun/iu.test(text))return "IDENTITY";
- if(/trust|scam|fraud|guarantee|profit|performance|track record|trading results|güven|dolandır|garanti|kazanç/iu.test(text))return "TRUST";
+ if(/trust|scam|fraud|guarantee|profit|performance|performans|track record|trading results|güven|dolandır|garanti|kazanç/iu.test(text))return "TRUST";
  if(/expensive|too much|pahalı|bütçe/iu.test(text))return "OBJECTION";
  if(/what (?:did|have) I (?:mention|say)|hangi.{0,20}(?:bahset|söyle)|ne söylemiştim/iu.test(text))return "MEMORY_QUERY";
  if(/^(?:thanks|thank you|thx|teşekkürler|sağ ol)[!.\s]*$/iu.test(text))return "ACKNOWLEDGEMENT";
@@ -91,7 +91,7 @@ export function renderPolatFixture(p:PreparedPolatConversation):ConversationMode
  else if(intent==="INJECTION")add(tr?"Talimatları veya hesap yetkilerini değiştiremem.":"I can't change account permissions or share private instructions.");
  else if(intent==="OPT_OUT")add(tr?"Tamam, iletişim istemiyorsun.":"Okay, you don't want further contact.","social","GENERAL_SAFE_STATEMENT");
  else if(intent==="CONSENT_QUESTION")add(tr?"Pazarlama mesajlarını durdurmak mı istiyorsun?":"Are you asking to stop marketing messages?","question");
- else if(intent==="PREFERENCE")add(previous.at(-1)==="Got it."?(tr?"Tamam.":"Okay."):(tr?"Anladım.":"Got it."),"social","GENERAL_SAFE_STATEMENT");
+ else if(intent==="PREFERENCE")add(tr?(previous.some(m=>m.endsWith("Anladım."))?"Tamam.":"Anladım."):previous.at(-1)==="Got it."?"Okay.":"Got it.","social","GENERAL_SAFE_STATEMENT");
  else if(intent==="WAIT")add(tr?"Acelesi yok.":"No rush.","social","GENERAL_SAFE_STATEMENT");
  else if(intent==="UNINTERESTED")add(tr?"Sorun değil.":"No problem.","social","GENERAL_SAFE_STATEMENT");
  else if(intent==="COMPARISON")add(tr?"Başka bir sağlayıcının iddialarını doğrulayamıyorum.":"I can't verify another provider's claims.");
