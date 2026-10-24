@@ -347,6 +347,18 @@ jobs:
           bash supabase/tests/signal_distribution_benchmark.sh "$db_url" | tee "$RUNNER_TEMP/signal-distribution-benchmark.log"
           SIGNAL_BENCHMARK_DIR="$RUNNER_TEMP" pnpm exec vitest run tests/integration/signal-normalization-benchmark.test.ts | tee "$RUNNER_TEMP/signal-normalization.log"
           psql "$db_url" -X -v ON_ERROR_STOP=1 -f supabase/tests/signal_distribution_read_plans.sql | tee "$RUNNER_TEMP/signal-distribution-plans.log"
+      - name: Verify optional synthetic independent-message waves
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/signal-wave-db.env"
+          wave_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/signal-wave-db.env")
+          test -n "$wave_db_url"
+          echo "::add-mask::$wave_db_url"
+          supabase test db supabase/tests/signal_wave.test.sql | tee "$RUNNER_TEMP/signal-wave-pgtap.log"
+          bash supabase/tests/signal_wave_concurrency.sh "$wave_db_url" | tee "$RUNNER_TEMP/signal-wave-concurrency.log"
+          SIGNAL_DISPOSABLE_DB_URL="$wave_db_url" SIGNAL_BENCHMARK_OUTPUT="$RUNNER_TEMP/signal-wave-benchmark.json" pnpm exec vitest run tests/integration/signal-wave-benchmark.test.ts | tee "$RUNNER_TEMP/signal-wave-benchmark.log"
+          psql "$wave_db_url" -X -v ON_ERROR_STOP=1 -f supabase/tests/signal_wave_read_plans.sql | tee "$RUNNER_TEMP/signal-wave-plans.log"
       - name: Verify bounded read-only signal operations
         shell: bash
         run: |
@@ -422,6 +434,11 @@ jobs:
             ${{ runner.temp }}/signal-distribution-concurrency.log
             ${{ runner.temp }}/signal-notification-wakeup.log
             ${{ runner.temp }}/signal-distribution-benchmark.log
+            ${{ runner.temp }}/signal-wave-pgtap.log
+            ${{ runner.temp }}/signal-wave-concurrency.log
+            ${{ runner.temp }}/signal-wave-benchmark.log
+            ${{ runner.temp }}/signal-wave-benchmark.json
+            ${{ runner.temp }}/signal-wave-plans.log
             ${{ runner.temp }}/signal-distribution-plans.log
             ${{ runner.temp }}/signal-operations-concurrency.log
             ${{ runner.temp }}/signal-recovery-pgtap.log

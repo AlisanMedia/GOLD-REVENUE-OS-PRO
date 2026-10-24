@@ -27,6 +27,10 @@ export class FakeSignalTransport {
   const delay = scenario.delay_ms ?? 0;
   if (!Number.isInteger(delay) || delay < 0 || delay > 1000) throw Error("SIGNAL_FAKE_BOUND");
   if (delay) await new Promise(resolve=>setTimeout(resolve,delay));
+  // Another independent caller can finish while this simulated API is waiting.
+  // Recheck after the await before the synchronous ledger/effect commit.
+  const completed = this.ledger.get(p.operation_key);
+  if (completed) { if (completed.payload !== canonical) throw Error("SIGNAL_OPERATION_CONFLICT"); return structuredClone(completed.ack); }
   if (scenario.outcome === "UNKNOWN_BEFORE_EFFECT") return { outcome:"UNKNOWN",retry_after_ms:null };
   if (scenario.outcome === "KNOWN_FAILURE" || scenario.outcome === "RATE_LIMITED") return { outcome:scenario.outcome,retry_after_ms:scenario.retry_after_ms??null };
   const ref = p.operation === "SEND" ? `fake-message:${p.operation_key}` : p.message_ref!;
