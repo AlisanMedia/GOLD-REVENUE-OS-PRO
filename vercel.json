@@ -26,7 +26,8 @@
       "codex/signal-source-recovery": false,
       "codex/signal-deterministic-parser": false,
       "codex/signal-independent-wave": false,
-      "codex/signal-review-pilot-readiness": false
+      "codex/signal-review-pilot-readiness": false,
+      "codex/polat-conversation-intelligence": false
     }
   },
   "framework": "nextjs",
