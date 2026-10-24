@@ -74,3 +74,5 @@ export * from "./signal-distribution";
 export * from "./signal-recovery";
 
 export * from "./signal-parser";
+
+export * from "./signal-wave";
