@@ -1,26 +1,10 @@
 import "server-only";
 import{polatRuntimeDraftSchema,POLAT_TEST_PROFILE,polatResponseCommandSchema,polatContactTicketSchema,type PolatRuntimeContext}from "@gold-revenue-os/contracts";
 import{createSupabaseAdminClient}from "@/lib/supabase/admin";
-import{preparePolatConversation,PolatFixtureProvider,renderPolatFixture,assessPolatDraft}from "@gold-revenue-os/domain";
-import{buildPolatSalesPreview}from "@gold-revenue-os/domain";
-import{FakePolatTransport,bindPolatReceipt,type AgentContext,type ModelProvider,type ModelRequest,type ModelResponse}from "@gold-revenue-os/domain";
+import{FakePolatTransport,bindPolatReceipt,preparePolatFixtureRuntime,type AgentContext}from "@gold-revenue-os/domain";
 export function polatTask(value:{model_provider:string;model_name:string}){return value.model_provider==="mock"&&value.model_name===POLAT_TEST_PROFILE;}
-export function preparePolatRuntimeProfile(polat:PolatRuntimeContext,context:AgentContext,runId:string){
- const p=preparePolatConversation(polat.input);p.request.requestId=runId;
- const commercial=context.commercial??{documents:[],conflict:false};
- if(commercial.documents.some(d=>!d.test_only))throw Error("POLAT_REAL_CATALOG_DENIED");
- const wantsSales=!['GREETING','ACKNOWLEDGEMENT','IDENTITY','MEMORY_QUERY','INJECTION','OPT_OUT'].includes(p.intent)&&commercial.documents.length>0;
- const sales=wantsSales?buildPolatSalesPreview({version:1,mode:"SYNTHETIC",conversation:polat.input,catalog:commercial.documents.map(d=>({...d,tenant_id:context.tenantId,conversation_id:context.conversationId,approval:"APPROVED_SYNTHETIC"})),catalog_conflict:commercial.conflict,style:"DIRECT"}):null;
- // Catalog evidence is server-owned; no financial action receipt enters this profile.
- if(sales)p.evidence.push(...(context.commercialEvidence??[]).filter(e=>e.category==="fact"));
- const fixture=new PolatFixtureProvider(p);
- const provider:ModelProvider={provider:"mock",model:POLAT_TEST_PROFILE,invoke:async(request:ModelRequest):Promise<ModelResponse>=>{
-  if(request.context.tenantId!==p.input.tenant_id||request.context.conversationId!==p.input.conversation_id)throw Error("POLAT_PROVIDER_SCOPE");
-  const response=await fixture.invoke({...request,...(request.rewriteFeedback?{...p.request}:{}),requestId:p.request.requestId});
-  return{...response,latencyMs:Math.max(0,Math.round(response.latencyMs)),model:POLAT_TEST_PROFILE,output:sales?.output??response.output};
- }};
- return{prepared:p,provider,request:p.request,assess:(output:unknown)=>sales?.quality??assessPolatDraft(p,output),preview:()=>sales?.output??renderPolatFixture(p)};
-}
+export function preparePolatRuntimeProfile(polat:PolatRuntimeContext,context:AgentContext,runId:string){return preparePolatFixtureRuntime(polat,context,runId);}
+
 async function rpc(name:string,args:Record<string,unknown>):Promise<unknown>{const{data,error}=await createSupabaseAdminClient().rpc(name,args);if(error)throw Error("POLAT_TEST_RPC:"+(error.code??"UNAVAILABLE"));return data;}
 export async function dispatchPolatTestProposal(tenantId:string,proposalId:string,transport:FakePolatTransport){
  if(!(transport instanceof FakePolatTransport))throw Error("POLAT_FAKE_TRANSPORT_REQUIRED");
