@@ -93,6 +93,10 @@ describe("source continuity and read-only operational review",()=>{
   expect(signalSearchSchema.safeParse({collection:"reviews",status:"UNKNOWN"}).success).toBe(false);
   expect((await signalOperations({collection:"reviews",size:"25",status:"UNKNOWN"})).error).toBe("cursor");expect(mocks.rpc).not.toHaveBeenCalled();
  });
+ it("a quarantined source observation is not labelled as no observation",()=>{
+  const html=render(h(AdminI18nProvider,{locale:"en-US"},h(SignalOperationsView,{query:{collection:"sources",size:"25"},page:{...page,collection:"sources",items:[{...sourceRow,state:"NO_OBSERVATION"}]},summary:null,error:null})));
+  expect(html).not.toContain("No observed event yet");expect(html).toContain("Manual review required");
+ });
  it("exposes only an expired-lease warning and no worker token",()=>{
   const html=render(h(AdminI18nProvider,{locale:"en-US"},h(SignalOperationsView,{query:{collection:"deliveries",size:"25"},page:{...page,items:[{...row,state:"RUNNING",lease_expired:true}]},summary:null,error:null})));
   expect(html).toContain("The worker lease expired.");expect(html).not.toContain("lease_token");

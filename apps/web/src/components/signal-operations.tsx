@@ -2,7 +2,12 @@
 import Link from "next/link";
 import { AdminDate,AdminDuration,AdminNumber,T,useAdminI18n } from "./admin-i18n";
 import { signalCollections,signalHref,signalStatuses,type SignalPage,type SignalRow,type SignalSearch,type SignalSummary } from "../lib/signals/read-model";
-function State({row}:{row:SignalRow}){return <span className={`badge ${["UNKNOWN","REVIEW","SOURCE_RESTRICTED","OPEN","BLOCKED"].includes(row.state)?"warning":""}`}><T k={`signal.${row.state}`}/></span>;}
+function State({row}:{row:SignalRow}){
+ const h=row.kind==="SOURCE"?row.source_health:undefined;
+ // A quarantined observation is still observed, even before event promotion.
+ const state=row.state==="NO_OBSERVATION"&&h?.last_activity_at?(h.state==="SOURCE_RESTRICTED"?"SOURCE_RESTRICTED":["GAP_DETECTED","RECOVERING","UNRECOVERABLE","CONFLICT","LIMITED","BLOCKED"].includes(h.state)?"REVIEW":"SIMULATED"):row.state;
+ return <span className={`badge ${["UNKNOWN","REVIEW","SOURCE_RESTRICTED","OPEN","BLOCKED"].includes(state)?"warning":""}`}><T k={`signal.${state}`}/></span>;
+}
 function SourceHealth({row:r}:{row:SignalRow}){
  const{t}=useAdminI18n();const h=r.source_health;if(!h)return null;
  return <section className="case-section" aria-label={t("signal.sourceHealth")}><h3><T k="signal.sourceHealth"/></h3><p><T k={`signal.health.${h.state}`}/></p>

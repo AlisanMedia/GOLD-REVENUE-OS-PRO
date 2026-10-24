@@ -25,14 +25,14 @@ New `admin_signal_page_v2` delegates accepted v1 auth/cursor/filter behavior, th
 ## Actual local evidence
 
 - 33 new domain tests:9 head-completeness and24 review validation/projection tests, all PASS; affected existing recovery tests preserved.
-- 39 actual component/server-route tests PASS. Full local suite **1535 PASS,0 FAIL,15 DB-context SKIP**. Skips are not SQL/provider acceptance; mandatory Database CI executes its database bridges/HTTP acceptance separately.
+- 40 actual component/server-route tests PASS. Full local suite **1536 PASS,0 FAIL,15 DB-context SKIP**. Skips are not SQL/provider acceptance; mandatory Database CI executes its database bridges/HTTP acceptance separately.
 - Disposable PostgreSQL17.11: **108 focused assertions PASS** (48 existing recovery,18 new head,42 review); **59 existing Admin assertions PASS**. Independent PostgreSQL backends prove source crash/replay and one-generation winner, review precommit invisibility, observed lock contention, stale-review rejection, real backend death rollback and same-command recovery/replay. No real provider is involved.
 - TR/EN actual-component SSR previews at320/390/768/1440px: **16/16 PASS**, horizontal overflow absent, native keyboard details toggle and44px summary targets verified; external browser networking blocked. These are synthetic component previews, not hosted/hydrated production acceptance or a full accessibility audit.
 - Lint, strict TypeScript and production build PASS. Focused authenticated local-only Supabase/Next HTTP cases were added for v2 source gaps, v1 compatibility, review route, tenant/RBAC denial, redaction and lease expiry. Their actual execution belongs to mandatory Database CI; no local authenticated HTTP PASS or hosted acceptance is claimed here.
 
 ## Preserved unsuccessful evidence
 
-The first new domain run had85 PASS/2 FAIL: whole recovery pages were incorrectly passed through the financial canonical helper's16KiB limit. Recovery byte validation was separated; the financial helper was not widened. The same focused suite then passed87/87; a further lease-visibility component test makes the final affected total88/88.
+The first new domain run had85 PASS/2 FAIL: whole recovery pages were incorrectly passed through the financial canonical helper's16KiB limit. Recovery byte validation was separated; the financial helper was not widened. The same focused suite then passed87/87; lease-visibility and quarantined-source badge regressions make the final affected total89/89.
 
 The first screenshot driver's Enter event lacked its native character and failed the toggle assertion; correct native key delivery passed16/16 without weakening overflow/touch/keyboard assertions.
 
