@@ -42,6 +42,9 @@ with evidence_rows as (
  union all select 'polat_runtime_profiles',to_jsonb(x)::text from private.polat_runtime_profiles x
  union all select 'polat_runtime_drafts',to_jsonb(x)::text from private.polat_runtime_drafts x
  union all select 'polat_runtime_steps',to_jsonb(x)::text from private.polat_runtime_steps x
+ union all select 'polat_escalation_controls',to_jsonb(x)::text from private.escalation_controls x where exists(select 1 from private.polat_runtime_profiles p where p.tenant_id=x.tenant_id)
+ union all select 'polat_contact_evidence',to_jsonb(x)::text from private.polat_contact_evidence x
+ union all select 'polat_contact_tickets',to_jsonb(x)::text from private.polat_contact_tickets x
  union all select 'polat_work_history',to_jsonb(x)::text from private.polat_work_history x
 ), row_hashes as (
  select k,encode(extensions.digest(v,'sha256'),'hex') h from evidence_rows

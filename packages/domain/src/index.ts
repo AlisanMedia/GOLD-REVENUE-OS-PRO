@@ -60,3 +60,4 @@ export * from "./polat-response";
 export * from "./polat-sales";
 
 export * from "./polat-evaluation";
+export * from "./polat-contact";

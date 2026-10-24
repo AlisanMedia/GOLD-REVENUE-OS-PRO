@@ -18,7 +18,7 @@ describe.runIf(Boolean(connection))("accepted orchestratorâ†’Polat TEST profileâ
  beforeAll(()=>{db=disposablePolatDatabase(connection!);expect(db.query("select to_jsonb(current_setting('server_version_num')::int/10000)")).toBe(17);fixture.client=polatSqlClient(db);});
  it("completes two real PostgreSQL turns without a real outbound or repeated AI introduction",async()=>{
   const n=3601,t=id(n);expect(db.query(`select to_jsonb(count(*))from public.tenants where id='${t}'`)).toBe(0);
-  db.execute(`begin;${readFileSync('supabase/tests/helpers/polat_inbound_fixtures.sql','utf8')}select pg_temp.polat_setup(${n});select private.polat_configure_runtime_fixture('${t}',pg_temp.polat_conv(${n}));commit;`);
+  db.execute(`begin;${readFileSync('supabase/tests/helpers/polat_inbound_fixtures.sql','utf8')}select pg_temp.polat_setup(${n});select private.polat_configure_runtime_fixture('${t}',pg_temp.polat_conv(${n}));select private.polat_contact_configure_fixture('${t}',pg_temp.polat_conv(${n}));commit;`);
   const c=db.query(`select to_jsonb(conversation_id)from private.polat_runtime_profiles where tenant_id='${t}'`)as string;
   const transport=new FakePolatTransport(['ACK','ACK']);
   try{
@@ -40,7 +40,7 @@ describe.runIf(Boolean(connection))("accepted orchestratorâ†’Polat TEST profileâ
    expect(db.query(`select to_jsonb(count(*))from public.agent_runs where tenant_id='${t}'and model_name='polat-test-runtime-v1'and total_tokens is not null`)).toBe(0);
   }finally{db.execute(`update private.polat_runtime_profiles set enabled=false where tenant_id='${t}';update private.polat_conversation_controls set enabled=false where tenant_id='${t}';update public.tenants set status='suspended'where id='${t}';`);}
  },60000);
- function setup(n:number){const t=id(n);db.execute(`begin;${readFileSync('supabase/tests/helpers/polat_inbound_fixtures.sql','utf8')}select pg_temp.polat_setup(${n});select private.polat_configure_runtime_fixture('${t}',pg_temp.polat_conv(${n}));commit;`);const c=db.query(`select to_jsonb(conversation_id)from private.polat_runtime_profiles where tenant_id='${t}'`)as string;return{t,c};}
+ function setup(n:number){const t=id(n);db.execute(`begin;${readFileSync('supabase/tests/helpers/polat_inbound_fixtures.sql','utf8')}select pg_temp.polat_setup(${n});select private.polat_configure_runtime_fixture('${t}',pg_temp.polat_conv(${n}));select private.polat_contact_configure_fixture('${t}',pg_temp.polat_conv(${n}));commit;`);const c=db.query(`select to_jsonb(conversation_id)from private.polat_runtime_profiles where tenant_id='${t}'`)as string;return{t,c};}
  function retire(t:string){db.execute(`update private.polat_runtime_profiles set enabled=false where tenant_id='${t}';update private.polat_conversation_controls set enabled=false where tenant_id='${t}';update public.tenants set status='suspended'where id='${t}';`);}
  async function cycle(t:string,c:string,transport:FakePolatTransport,n=4){for(let i=0;i<n;i++)await runDeterministicWorker({workerId:`runtime-fixture-${t.slice(-4)}-${i}`,conversation:{tenantId:t,conversationId:c},polatTest:{transport}});}
  it("keeps an unknown effect out of history, then reconciles independent fake evidence without resending",async()=>{
