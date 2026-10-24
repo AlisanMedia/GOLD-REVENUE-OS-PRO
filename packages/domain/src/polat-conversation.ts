@@ -103,6 +103,9 @@ export class PolatFixtureProvider implements ModelProvider{
  constructor(private readonly prepared:PreparedPolatConversation){}
  invoke(request:ModelRequest):Promise<ModelResponse>{
   if(requestFingerprint(request)!==requestFingerprint(this.prepared.request))return Promise.reject(new ModelProviderError("INVALID_OUTPUT","POLAT_REQUEST_SCOPE_CHANGED",false));
+  const fixtureSignal=request.context.recentMessages.at(-1)?.content;
+  if(fixtureSignal==="__SIMULATE_TIMEOUT__")return Promise.reject(new ModelProviderError("TIMEOUT","POLAT_FAKE_TIMEOUT",true));
+  if(fixtureSignal==="__SIMULATE_RATE_LIMIT__")return Promise.reject(new ModelProviderError("RATE_LIMIT","POLAT_FAKE_RATE_LIMIT",true,1000));
   const start=performance.now(),output=renderPolatFixture(this.prepared);
   return Promise.resolve({output,provider:this.provider,model:this.model,providerRequestId:null,latencyMs:performance.now()-start,usage:{inputTokens:null,outputTokens:null,totalTokens:null,billedAmount:null,billedCurrency:null}});
  }
