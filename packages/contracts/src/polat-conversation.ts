@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const POLAT_INTENTS = ["IDENTITY", "GREETING", "ACKNOWLEDGEMENT", "MEMORY_QUERY", "QUESTION", "PRICE", "TRUST", "INTEREST", "OBJECTION", "PAYMENT", "ACCESS", "REFUND", "CANCEL", "HUMAN", "OPT_OUT", "INJECTION", "UNKNOWN"] as const;
+export const POLAT_INTENTS = ["IDENTITY", "GREETING", "ACKNOWLEDGEMENT", "MEMORY_QUERY", "QUESTION", "PRICE", "TRUST", "INTEREST", "OBJECTION", "PAYMENT", "ACCESS", "REFUND", "CANCEL", "HUMAN", "OPT_OUT", "INJECTION", "UNKNOWN", "VULNERABILITY", "PROFITABILITY", "SUBSCRIPTION", "FRUSTRATION", "UNSUPPORTED_LANGUAGE", "COMPARISON", "PREFERENCE", "WAIT", "UNINTERESTED", "CONSENT_QUESTION"] as const;
 export const polatMessageSchema = z.strictObject({
   id:z.uuid(),tenant_id:z.uuid(),conversation_id:z.uuid(),direction:z.enum(["inbound","outbound"]),
   content:z.string().min(1).max(4096),occurred_at:z.iso.datetime({offset:true}),

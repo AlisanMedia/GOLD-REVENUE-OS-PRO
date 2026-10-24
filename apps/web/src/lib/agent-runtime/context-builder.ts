@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 
 import {
   CONTEXT_LIMITS,
+  POLAT_PROFILE,
   assertSafeContext,
   type BackendEvidence,
   messageEvidenceHandles,
@@ -196,7 +197,7 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
     ...(polat?{polat}:{}),
     context,
     manifest: {
-      ...(polat?{polat_profile:polat.profile,polat_generation:polat.generation,polat_observed_boundary:sourceBoundary,polat_history_basis:"MATCHED_FAKE_ACK_ONLY",polat_memory_sources:polat.input.memory.map(m=>m.source_message_id),polat_subscription_context:polat.subscription_context,financial_authority:"NONE",live_operations_authorized:false}:{}),
+      ...(polat?{polat_profile:polat.profile,polat_fixture_policy:POLAT_PROFILE.version,polat_generation:polat.generation,polat_observed_boundary:sourceBoundary,polat_history_basis:"MATCHED_FAKE_ACK_ONLY",polat_memory_sources:polat.input.memory.map(m=>m.source_message_id),polat_subscription_context:polat.subscription_context,financial_authority:"NONE",live_operations_authorized:false}:{}),
       context_version: 3,
       manifest_version: 2,
       retrieval_version: "source-bounded-v2",
