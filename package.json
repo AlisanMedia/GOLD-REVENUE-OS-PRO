@@ -17,6 +17,7 @@
     "test:unit": "vitest run packages",
     "test:integration": "vitest run tests/integration",
     "test:db": "supabase test db",
+    "eval:polat": "vitest run packages/domain/src/polat-multiturn-evaluation.test.ts packages/domain/src/polat-model-acceptance.test.ts",
     "db:start": "supabase start",
     "db:reset": "supabase db reset",
     "check": "pnpm lint && pnpm typecheck && pnpm test && pnpm build"

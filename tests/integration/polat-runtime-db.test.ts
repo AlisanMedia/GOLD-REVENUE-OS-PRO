@@ -38,6 +38,8 @@ describe.runIf(Boolean(connection))("accepted orchestratorâ†’Polat TEST profileâ
    expect(db.query(`select to_jsonb(count(*))from public.messages where tenant_id='${t}'and direction='outbound'`)).toBe(0);
    expect(db.query(`select to_jsonb(count(*))from public.model_invocations where tenant_id='${t}'and(input_tokens is not null or billed_amount is not null)`)).toBe(0);
    expect(db.query(`select to_jsonb(count(*))from public.agent_runs where tenant_id='${t}'and model_name='polat-test-runtime-v1'and total_tokens is not null`)).toBe(0);
+   const telemetry=db.query(`begin;set local role authenticated;do $$begin perform set_config('request.jwt.claim.sub','61b01000-0000-4000-8000-000000000001',true);end;$$;select public.admin_polat_model_summary_v1('${t}',current_date,current_date+1);commit;`);
+   expect(telemetry).toMatchObject({count:2,success:2,financial_authority:'NONE',tokens:{input:null,output:null},billing:{known:0,amount:null},versions:[{persona:'polat-ai-fixture-v2',count:2}]});
   }finally{db.execute(`update private.polat_runtime_profiles set enabled=false where tenant_id='${t}';update private.polat_conversation_controls set enabled=false where tenant_id='${t}';update public.tenants set status='suspended'where id='${t}';`);}
  },60000);
  function setup(n:number){const t=id(n);db.execute(`begin;${readFileSync('supabase/tests/helpers/polat_inbound_fixtures.sql','utf8')}select pg_temp.polat_setup(${n});select private.polat_configure_runtime_fixture('${t}',pg_temp.polat_conv(${n}));select private.polat_contact_configure_fixture('${t}',pg_temp.polat_conv(${n}));commit;`);const c=db.query(`select to_jsonb(conversation_id)from private.polat_runtime_profiles where tenant_id='${t}'`)as string;return{t,c};}

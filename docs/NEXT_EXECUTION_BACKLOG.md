@@ -6,17 +6,17 @@ Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea
 
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
-## Polat AI remaining gates — 2026-10-24
+## Polat AI remaining gates — integrated TEST batch, 2026-10-24
 
-The four-package Polat owner batch is repository-only; see [operations evidence](../POLAT_AI_SALES_OPERATIONS_REPORT.md). Existing code and source-bound synthetic tests replace no real-provider acceptance.
+A–D extend the existing runtime, consent/ownership evidence, fixed multi-turn evaluation and model readiness. See [runtime](../POLAT_TEST_RUNTIME_INTEGRATION_REPORT.md), [contact](../POLAT_CONSENT_OWNERSHIP_REPORT.md), [quality](../POLAT_MULTITURN_QUALITY_REPORT.md) and [readiness](../POLAT_MODEL_ACCEPTANCE_READINESS_REPORT.md). Exact CI/merge evidence is required; these reports do not authorize activation.
 
 | Priority | Remaining boundary | Exact acceptance / authority |
 |---|---|---|
-| P1 | Production-quality Polat model/profile adapter | Separate synthetic package can evaluate a bounded approved model adapter, per-turn identity/grounding, EN/TR dialogues and cost/latency coverage. Paid calls, credentials and live runtime activation require separate owner scope. Offline fixture success is not real model acceptance. |
-| P1 | Gateway-to-inbox provider coverage | Real authenticated inbound, media/unsupported messages, provider ordering, independent delivery reconciliation and takeover races require exact isolated destination, message-count and owner authorization. The current guarantee starts at persisted configured-fixture inbound. No real Polat session is configured. |
-| P1 | Durable consent/opt-out and presentation evidence | Source-bound, append-only consent/opt-out decisions and provider-delivered offer/message linkage need a separately bounded synthetic package before operational rates can be trusted. Existing contactability or an offer row does not establish marketing consent or presentation. No historic list import/outreach. |
-| P1 | Human usability and language acceptance | Evaluate operator triage/assignment, manual EN-default reply, safe return, failure recovery and customer-language independence with approved invented dialogues first. Genuine customer quality, CSAT and conversion remain unmeasured. |
-| External | Commercial activation | C01–C10 in [PILOT_ENTRY_v0.1](phases/PILOT_ENTRY_v0.1.md) remain independent gates: supplier/product/territory, merchant/payment rail, genuine receipt authority, terms, consent, operator coverage, isolated infrastructure/recovery and actual costs. No synthetic report grants GO. |
+| P1 | Controlled real-model quality | [Disabled manifest](phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md): owner-approved exact provider/model/SHA, data handling, request and spending cap, human reviewers and thresholds. Current paired 38-scenario results are deterministic fixture evidence; naturalness and conversion remain unmeasured. |
+| P1 | Genuine gateway coverage and reconciliation | Separately authorize an isolated integration, verified Polat/bot identity, exact destinations/message cap and secure session custody. Persisted configured-fixture inbound is covered; upstream unseen messages, real media and actual Telegram acceptance remain unverified. No blind resend of unknown outcomes. |
+| P1 | Genuine consent and human operations | Fixture-only append-only evidence, purpose separation, generation fences, opt-out and native takeover are implemented. Real lawful basis, source rights, retention, staffing, support scope and customer acceptance still require authoritative evidence. No historical import/outreach. |
+| P1 | Human language/usability review | Use the 38-scenario corpus and actual TR/EN role-safe Admin components; record independent human ratings and operator manual-reply/return usability. Do not describe heuristic PASS as human-rated quality. |
+| External | C01–C10 commercial entry | [PILOT_ENTRY_v0.1](phases/PILOT_ENTRY_v0.1.md): approved supplier/product/territory, merchant/payment rail, genuine receipts, terms, consent, operator coverage, isolated hosting/recovery, actual cost/budgets and separate release/10→25→50→100 authorization. Current commercial verdict NO_GO. |
 
 
 ## Dependency and execution order

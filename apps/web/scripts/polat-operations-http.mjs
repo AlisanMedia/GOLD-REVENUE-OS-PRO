@@ -28,6 +28,8 @@ try{
  r=await page('/admin/polat-operations',analyst);check('analyst-safe-read',r.status===200&&r.body.includes('Polat AI Operasyonları')&&!r.body.includes('PRIVATE-CUSTOMER-TEXT-NOT-IN-ADMIN'));
  r=await page('/admin/polat-operations?view=business',support);check('support-business-role-boundary',r.status===200&&r.body.includes('Bu rol finansal analitik okuyamaz'));
  r=await page('/admin/polat-operations?view=business',manager);check('actual-business-reuses-phase15',r.status===200&&r.body.includes('CRM &amp; source evidence')&&!r.body.includes('Evidence is unavailable'));
+ r=await page('/admin/polat-operations?view=model',manager);check('model-readiness-english-honest-empty',r.status===200&&r.body.includes('Synthetic model measurements')&&r.body.includes('Execution disabled')&&r.body.includes('Unknown'));
+ r=await page('/admin/polat-operations?view=model',support);check('model-readiness-support-cost-redaction',r.status===200&&r.body.includes('Rol kapsamında gösterilmez'));
  const args={target_tenant_id:t,page_size_value:25};let data=await manager.client.rpc('admin_polat_inbound_page_v1',args);check('authenticated-first-page',!data.error&&data.data.items.length===25&&data.data.has_more);
  const cursor=data.data.next_cursor;data=await manager.client.rpc('admin_polat_inbound_page_v1',{...args,cursor_value:cursor});check('authenticated-final-page',!data.error&&data.data.items.length===6&&!data.data.has_more);
  r=await page('/admin/polat-operations?cursor='+encodeURIComponent(JSON.stringify(cursor)),manager);check('actual-http-cursor-final',r.status===200&&r.body.includes('Current last page'));

@@ -1,7 +1,7 @@
 import{z}from "zod";
-import{POLAT_INBOUND_STATES,polatInboundPageSchema,polatSummarySchema}from "@gold-revenue-os/contracts";
-export{polatInboundPageSchema,polatSummarySchema};
-export const polatSearchSchema=z.strictObject({view:z.enum(["responses","business"]).default("responses"),days:z.enum(["7","30","90"]).default("30"),mode:z.enum(["LIVE","SANDBOX"]).default("LIVE"),state:z.enum(POLAT_INBOUND_STATES).optional(),conversation:z.uuid().optional(),size:z.enum(["25","50","100"]).default("25"),cursor:z.string().min(1).max(4096).optional()});
+import{POLAT_INBOUND_STATES,polatInboundPageSchema,polatSummarySchema,polatModelSummarySchema}from "@gold-revenue-os/contracts";
+export{polatInboundPageSchema,polatSummarySchema,polatModelSummarySchema};
+export const polatSearchSchema=z.strictObject({view:z.enum(["responses","business","model"]).default("responses"),days:z.enum(["7","30","90"]).default("30"),mode:z.enum(["LIVE","SANDBOX"]).default("LIVE"),state:z.enum(POLAT_INBOUND_STATES).optional(),conversation:z.uuid().optional(),size:z.enum(["25","50","100"]).default("25"),cursor:z.string().min(1).max(4096).optional()});
 export type PolatSearch=z.infer<typeof polatSearchSchema>;
 const cursorSchema=z.strictObject({v:z.literal(1),tenant:z.uuid(),user:z.uuid(),role:z.enum(["super_admin","manager","support","analyst"]),conversation:z.uuid().nullable(),state:z.enum(POLAT_INBOUND_STATES).nullable(),size:z.number().int().min(1).max(100),generation:z.string().regex(/^[0-9]{1,19}$/u),anchor:z.string().regex(/^[0-9]{1,19}$/u),before:z.string().regex(/^[1-9][0-9]{0,18}$/u),expires:z.iso.datetime({offset:true})});
 export function polatCursor(raw:string){return cursorSchema.parse(JSON.parse(raw));}

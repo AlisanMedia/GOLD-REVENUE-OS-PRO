@@ -9,12 +9,16 @@ import{polatSalesFixture}from './polat-sales.fixtures';
 import{FakePolatTransport}from './polat-response';
 import{commercialEvidence,type CommercialContext}from './commercial';
 import{ModelProviderError}from './agent-runtime';
+import{polatModelObservationSchema,type PolatModelObservation}from '@gold-revenue-os/contracts';
+import{polatFixtureMeasurement,summarizePolatModelObservations}from './polat-model-evaluation';
+import{POLAT_PROFILE}from './polat-conversation';
+import{CONVERSATION_QUALITY_VERSIONS}from './conversation-quality';
 import{POLAT_MULTITURN_CORPUS,POLAT_MULTITURN_CORPUS_VERSION}from './polat-multiturn-corpus';
 const sha=(s:string)=>createHash('sha256').update(s,'utf8').digest('hex');
 function uuid(s:string){const h=sha(s);return`${h.slice(0,8)}-${h.slice(8,12)}-4${h.slice(13,16)}-8${h.slice(17,20)}-${h.slice(20,32)}`;}
 export const polatMultiTurnCorpusHash=()=>sha(canonicalFinancialJson({version:POLAT_MULTITURN_CORPUS_VERSION,scenarios:POLAT_MULTITURN_CORPUS}));
 export async function evaluatePolatMultiTurn(){
- const variants=[];let totalRequests=0;
+ const variants=[],observations:PolatModelObservation[]=[];let totalRequests=0;
  for(const style of ['DIRECT','ONE_QUESTION']as const){const cases=[];
   for(const scenario of POLAT_MULTITURN_CORPUS){
    const messages:PolatConversationInput['messages']=[];let memory:PolatConversationInput['memory']=[],ownership:PolatConversationInput['runtime_mode']='AI_ACTIVE';
@@ -36,11 +40,13 @@ export async function evaluatePolatMultiTurn(){
     const context={...p.request.context,commercial,commercialEvidence:commercialEvidence(commercial,{tenantId:input.tenant_id,conversationId:input.conversation_id,boundary,locale:step.language??'en'})};
     const runtime:PolatRuntimeContext={version:1,mode:'SYNTHETIC',profile:POLAT_TEST_PROFILE,generation:String(index+1),input,subscription_context:[],financial_authority:'NONE',live_operations_authorized:false};
     const profile=preparePolatFixtureRuntime(runtime,context,uuid(`${scenario.id}:${index}:run`),style);
-    const started=performance.now();let latency:number|null=null;
+    const started=performance.now();let latency:number|null=null,modelStarted:number|null=null,observationIndex:number|null=null;
+    const measurementScope={tenantId:input.tenant_id,conversationId:input.conversation_id,invocationId:uuid(`${style}:${scenario.id}:${index}:invocation`),promptVersion:CONVERSATION_QUALITY_VERSIONS.prompt,personaVersion:POLAT_PROFILE.version};
     try{
      if(++totalRequests>512)throw Error('OFFLINE_REQUEST_CAP');requestCount++;
      if(step.delayMs)await new Promise(resolve=>setTimeout(resolve,step.delayMs));
-     const response=await profile.provider.invoke(profile.request);latency=performance.now()-started;
+     modelStarted=performance.now();const response=await profile.provider.invoke(profile.request);latency=performance.now()-started;
+     observationIndex=observations.length;observations.push(polatFixtureMeasurement(measurementScope,performance.now()-modelStarted,response,null));
      const output=step.unsafeModel?{...response.output,proposed_response:'Your payment has been verified.'}:response.output;
      const quality=profile.assess(output),safe=quality.action==='SAFE_PREVIEW',text=output.proposed_response;
      if(!['SAFE','HOLD'].includes(step.expected)||safe!==(step.expected==='SAFE'))failures.push('UNEXPECTED_QUALITY_DISPOSITION');
@@ -52,13 +58,14 @@ export async function evaluatePolatMultiTurn(){
      if(/saved your|recorded your|kaydedildi/iu.test(text))failures.push('UNCOMMITTED_SAVED_ACTION');
      let state='HUMAN_HANDOFF_PENDING';
      if(safe){const command={version:1 as const,mode:'SYNTHETIC' as const,tenant_id:input.tenant_id,conversation_id:input.conversation_id,message_id:sourceId,operation_id:uuid(`${scenario.id}:${index}:operation`),generation:String(index+1),source_hash:sha(step.text),body_hash:sha(text),actor:'AI' as const};const receipt=await transport.send(command,text,()=>Promise.resolve(true));if(receipt.result!=='FAKE_ACK')throw Error('OFFLINE_FAKE_ACK_REQUIRED');state='AI_RESPONDED';messages.push({id:uuid(`${scenario.id}:${index}:ack`),tenant_id:input.tenant_id,conversation_id:input.conversation_id,direction:'outbound',author:'AI',delivery:'FAKE_ACKNOWLEDGED',content:text,occurred_at:new Date(Date.parse(boundary)+1).toISOString()});}
+     if(observationIndex!==null)observations[observationIndex]=polatModelObservationSchema.parse({...observations[observationIndex],qa:safe?'APPROVED':'HELD',flags:[...(!safe?['HUMAN_ESCALATION']:[]),...(step.unsafeModel?['HALLUCINATED_COMMERCIAL_FACT','UNSAFE_FINANCIAL_CLAIM']:[]),...(text.length>600?['EXCESSIVE_LENGTH']:[])],completion:state==='AI_RESPONDED'?'FAKE_ACKNOWLEDGED':'NOT_COMPLETED'});
      owned.set(sourceId,state);
      turns.push({index,source_id:sourceId,state,objective_pass:failures.length===0,failures,quality_action:quality.action,quality_reasons:quality.reasons,reply_preview:text,characters:text.length,latency_ms:latency,model_status:'SUCCEEDED',dimensions:{correctness:failures.length===0,naturalness:{method:'DETERMINISTIC_INDICATORS',human_rating:null,values:quality.qa.naturalness.dimensions},question_relevance:!(failures.some(f=>f.startsWith('QUESTION_OR_CONTEXT'))),conciseness:text.length<=600,context_preservation:!(failures.some(f=>f.includes('CONTEXT'))),ai_disclosure:!failures.includes('AI_DISCLOSURE_MISSING'),grounding:!quality.qa.grounding.blocked,commercial_truthfulness:quality.qa.grounding.action_receipt_failures.length===0,sales_next_step:quality.action,objection_signal:p.signals.objection,repetition:quality.qa.scores.repetition,human_escalation:!safe,consent_compliance:!failures.includes('UNCOMMITTED_SAVED_ACTION'),financial_risk_disclosure:/risk|promise|verified performance|risk|garanti/iu.test(text)?'PRESENT':'NOT_APPLICABLE_OR_REVIEW',uncertainty_handling:quality.qa.grounding.factual_confidence}});
-    }catch(error){const status=error instanceof ModelProviderError?error.kind:'EVALUATION_ERROR';const expected=(status==='TIMEOUT'&&step.expected==='TIMEOUT')||(status==='INVALID_OUTPUT'&&step.expected==='INVALID');owned.set(sourceId,'HUMAN_HANDOFF_PENDING');turns.push({index,source_id:sourceId,state:'HUMAN_HANDOFF_PENDING',objective_pass:expected,failures:expected?[]:['MODEL_OR_EVALUATION_ERROR:'+status],quality_action:'NOT_GENERATED',quality_reasons:[],reply_preview:null,characters:0,latency_ms:performance.now()-started,model_status:status,dimensions:null});}
+    }catch(error){if(modelStarted!==null&&observationIndex===null)observations.push(polatFixtureMeasurement(measurementScope,performance.now()-modelStarted,null,error instanceof ModelProviderError?error:new ModelProviderError('PROVIDER_ERROR','FIXTURE_EVALUATION_FAILURE',false)));const status=error instanceof ModelProviderError?error.kind:'EVALUATION_ERROR';const expected=(status==='TIMEOUT'&&step.expected==='TIMEOUT')||(status==='INVALID_OUTPUT'&&step.expected==='INVALID');owned.set(sourceId,'HUMAN_HANDOFF_PENDING');turns.push({index,source_id:sourceId,state:'HUMAN_HANDOFF_PENDING',objective_pass:expected,failures:expected?[]:['MODEL_OR_EVALUATION_ERROR:'+status],quality_action:'NOT_GENERATED',quality_reasons:[],reply_preview:null,characters:0,latency_ms:performance.now()-started,model_status:status,dimensions:null});}
    }
    const failures=turns.flatMap(t=>t.failures);cases.push({id:scenario.id,turns,objective_pass:failures.length===0,request_count:requestCount,unique_inbound:owned.size,tracked_inbound:owned.size,tracking_states:[...owned.values()],fake_ack_count:transport.effects.length});
   }
   variants.push({style,cases,scenario_count:cases.length,objective_passed:cases.filter(c=>c.objective_pass).length,turn_count:cases.reduce((s,c)=>s+c.turns.length,0),request_count:cases.reduce((s,c)=>s+c.request_count,0)});
  }
- return{version:1,corpus_version:POLAT_MULTITURN_CORPUS_VERSION,corpus_hash:polatMultiTurnCorpusHash(),classification:'SYNTHETIC',method:'FIXED_PAIRED_MULTITURN_V1',provider:'mock',model:POLAT_TEST_PROFILE,variants,total_requests:totalRequests,valid_tracking_states:POLAT_INBOUND_STATES,history_basis:'OFFLINE_FAKE_ACK_AND_FIXTURE_SEQUENCE_CLOCK',database_acceptance:false,human_naturalness:'NOT_MEASURED',customer_satisfaction:null,live_conversion_rate:null,verified_revenue:null,actual_model_cost:null,input_tokens:null,output_tokens:null,financial_authority:'NONE',live_operations_authorized:false,commercial_verdict:'NO_GO',dispatch:'FAKE_ONLY'}as const;
+ return{model_observations:observations,model_summary:summarizePolatModelObservations(observations,polatFixture().tenant_id),version:1,corpus_version:POLAT_MULTITURN_CORPUS_VERSION,corpus_hash:polatMultiTurnCorpusHash(),classification:'SYNTHETIC',method:'FIXED_PAIRED_MULTITURN_V1',provider:'mock',model:POLAT_TEST_PROFILE,variants,total_requests:totalRequests,valid_tracking_states:POLAT_INBOUND_STATES,history_basis:'OFFLINE_FAKE_ACK_AND_FIXTURE_SEQUENCE_CLOCK',database_acceptance:false,human_naturalness:'NOT_MEASURED',customer_satisfaction:null,live_conversion_rate:null,verified_revenue:null,actual_model_cost:null,input_tokens:null,output_tokens:null,financial_authority:'NONE',live_operations_authorized:false,commercial_verdict:'NO_GO',dispatch:'FAKE_ONLY'}as const;
 }
