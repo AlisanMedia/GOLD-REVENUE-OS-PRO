@@ -1,5 +1,7 @@
 import{createHash}from "node:crypto";
-import{polatResponseCommandSchema,polatResponseReceiptSchema,polatInboundStateSchema,type PolatResponseCommand,type PolatResponseReceipt}from "@gold-revenue-os/contracts";
+import{polatResponseCommandSchema,polatResponseReceiptSchema,polatInboundStateSchema,type PolatResponseCommand,type PolatResponseReceipt,polatSalesInputSchema}from "@gold-revenue-os/contracts";
+import{buildPolatSalesPreview}from "./polat-sales";
+import{canonicalFinancialJson}from "./financial-source-canonical";
 import{preparePolatConversation,assessPolatDraft,PolatFixtureProvider}from "./polat-conversation";
 import{ModelProviderError,type ModelResponse}from "./agent-runtime";
 const digest=(text:string)=>createHash("sha256").update(text,"utf8").digest("hex");
@@ -36,17 +38,17 @@ class PolatFixtureTimeout extends Error{}
 function limited<T>(promise:Promise<T>,milliseconds:number):Promise<T>{
  return new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(new PolatFixtureTimeout("POLAT_FIXTURE_STEP_TIMEOUT")),milliseconds);promise.then(v=>{clearTimeout(timer);resolve(v);},e=>{clearTimeout(timer);reject(e instanceof Error?e:new Error("POLAT_FIXTURE_STEP_ERROR"));});});
 }
-export async function runPolatResponseFixture(args:{input:unknown;operationId:string;generation:string;store:PolatFixtureResponseStore;transport:FakePolatTransport;stepTimeoutMs?:number}){
+export async function runPolatResponseFixture(args:{input:unknown;operationId:string;generation:string;store:PolatFixtureResponseStore;transport:FakePolatTransport;stepTimeoutMs?:number;sales?:unknown}){
  const budget=args.stepTimeoutMs??1000;if(!Number.isInteger(budget)||budget<1||budget>1000)throw Error("POLAT_STEP_BUDGET_INVALID");
  let cancelled=false;
  if(args.store.mode!=="SYNTHETIC"||!(args.transport instanceof FakePolatTransport))throw Error("POLAT_FIXTURE_ONLY");
- const p=preparePolatConversation(args.input);let result:ModelResponse;
- try{result=await new PolatFixtureProvider(p).invoke(p.request);}catch(error){
+ const p=preparePolatConversation(args.input);const salesInput=args.sales===undefined?null:polatSalesInputSchema.parse(args.sales);if(salesInput&&canonicalFinancialJson(salesInput.conversation)!==canonicalFinancialJson(p.input))throw Error("POLAT_SALES_RESPONSE_SCOPE_MISMATCH");const salesStart=performance.now(),sales=salesInput?buildPolatSalesPreview(salesInput):null;let result:ModelResponse;
+ try{result=sales?{output:sales.output,provider:"mock",model:"polat-sales-fixture-v1",providerRequestId:null,latencyMs:performance.now()-salesStart,usage:{inputTokens:null,outputTokens:null,totalTokens:null,billedAmount:null,billedCurrency:null}}:await new PolatFixtureProvider(p).invoke(p.request);}catch(error){
   if(!(error instanceof ModelProviderError))throw error;
   let held:unknown;try{held=await limited(args.store.hold({tenant_id:p.input.tenant_id,message_id:p.input.source_message_id,generation:args.generation,reason:"MODEL_UNAVAILABLE"}),budget);}catch(e){if(!(e instanceof PolatFixtureTimeout))throw e;return{state:"AI_RESPONSE_PENDING",quality:null,delivery:"NOT_SENT",persistence:"UNCONFIRMED",financial_authority:"NONE",live_operations_authorized:false}as const;}
   return {state:polatInboundStateSchema.parse(held),quality:null,delivery:"NOT_SENT",model_failure:error.kind,financial_authority:"NONE",live_operations_authorized:false}as const;
  }
- const quality=assessPolatDraft(p,result.output);
+ const quality=sales?.quality??assessPolatDraft(p,result.output);
  if(quality.action!=="SAFE_PREVIEW"){
   let held:unknown;try{held=await limited(args.store.hold({tenant_id:p.input.tenant_id,message_id:p.input.source_message_id,generation:args.generation,reason:"QA_HOLD"}),budget);}catch(e){if(!(e instanceof PolatFixtureTimeout))throw e;return{state:"AI_RESPONSE_PENDING",quality,delivery:"NOT_SENT",persistence:"UNCONFIRMED",financial_authority:"NONE",live_operations_authorized:false}as const;}
   return {state:polatInboundStateSchema.parse(held),quality,delivery:"NOT_SENT",financial_authority:"NONE",live_operations_authorized:false}as const;
