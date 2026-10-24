@@ -405,6 +405,8 @@ jobs:
           echo "::add-mask::$polat_db_url"
           supabase test db supabase/tests/polat_inbound.test.sql | tee "$RUNNER_TEMP/polat-inbound-pgtap.log"
           supabase test db supabase/tests/polat_operations.test.sql | tee "$RUNNER_TEMP/polat-operations-pgtap.log"
+          supabase test db supabase/tests/polat_runtime.test.sql | tee "$RUNNER_TEMP/polat-runtime-pgtap.log"
+          POLAT_RUNTIME_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-runtime-db.test.ts | tee "$RUNNER_TEMP/polat-runtime-bridge.log"
           bash supabase/tests/polat_response_concurrency.sh "$polat_db_url" | tee "$RUNNER_TEMP/polat-response-concurrency.log"
           POLAT_DISPOSABLE_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-response-db.test.ts | tee "$RUNNER_TEMP/polat-response-bridge.log"
       - name: Verify synthetic fulfillment and offline recovery
@@ -482,6 +484,8 @@ jobs:
             ${{ runner.temp }}/polat-response-concurrency.log
             ${{ runner.temp }}/polat-response-bridge.log
             ${{ runner.temp }}/polat-operations-pgtap.log
+            ${{ runner.temp }}/polat-runtime-pgtap.log
+            ${{ runner.temp }}/polat-runtime-bridge.log
             ${{ runner.temp }}/polat-http-acceptance.json
           if-no-files-found: warn
           retention-days: 14
