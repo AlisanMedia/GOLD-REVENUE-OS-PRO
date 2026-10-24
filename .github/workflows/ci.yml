@@ -417,6 +417,7 @@ jobs:
           supabase test db supabase/tests/polat_inbound.test.sql | tee "$RUNNER_TEMP/polat-inbound-pgtap.log"
           supabase test db supabase/tests/polat_operations.test.sql | tee "$RUNNER_TEMP/polat-operations-pgtap.log"
           supabase test db supabase/tests/polat_runtime.test.sql | tee "$RUNNER_TEMP/polat-runtime-pgtap.log"
+          supabase test db supabase/tests/polat_model_readiness.test.sql | tee "$RUNNER_TEMP/polat-model-readiness-pgtap.log"
           supabase test db supabase/tests/polat_contact.test.sql | tee "$RUNNER_TEMP/polat-contact-pgtap.log"
           POLAT_RUNTIME_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-runtime-db.test.ts | tee "$RUNNER_TEMP/polat-runtime-bridge.log"
           POLAT_RUNTIME_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-contact-db.test.ts | tee "$RUNNER_TEMP/polat-contact-bridge.log"
@@ -500,6 +501,7 @@ jobs:
             ${{ runner.temp }}/polat-operations-pgtap.log
             ${{ runner.temp }}/polat-runtime-pgtap.log
             ${{ runner.temp }}/polat-runtime-bridge.log
+            ${{ runner.temp }}/polat-model-readiness-pgtap.log
             ${{ runner.temp }}/polat-contact-pgtap.log
             ${{ runner.temp }}/polat-contact-bridge.log
             ${{ runner.temp }}/polat-contact-concurrency.log

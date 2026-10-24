@@ -1,0 +1,36 @@
+# Polat model acceptance readiness — package D
+
+2026-10-24 · Repository-only synthetic scope. Overall Phase16C-1 OPEN; commercial NO_GO. Starting accepted main: `03735a2cc3f753ee2265f2d5ebf2ea1ff6633037` (package C, PR #127). Publication is conditional on exact-head Application and Database success and normal protected merge; the final consolidated owner artifact records actual head/merge/run/job IDs and post-merge results, not a prediction in this file.
+
+## Delivered
+
+- Strict versioned fixture observation contract: tenant/conversation/invocation identity, model/prompt/persona version, monotonic duration, provider duration, nullable first response, token/billing coverage, timeout/rate-limit/invalid-output/provider-error, retry disposition, QA flags, handoff and matching fake-ACK completion. Unexpected fields and LIVE authority are rejected. Safe diagnostics omit all scope IDs, source/output, raw errors and secrets; readonly denied, support billing redacted.
+- Existing ModelProvider and shared Polat runtime profile are reused. Offline replay uses the existing fixed 38-scenario / two-style corpus and no network. `pnpm eval:polat` runs the corpus plus disabled-manifest acceptance. `POLAT_MULTITURN_EVIDENCE=/safe/local/path.json` optionally retains fixture evidence. No external provider selection, credential loader, paid call or automatic retry exists.
+- 194 actual fixture calls, 190 returned outputs, four expected local timeout/invalid-output failures, 162 matching fake ACKs. Every attempted invocation has one observation; duplicate invocation records are deduplicated, conflicts rejected. Tenant mismatch and oversized sample are denied. Simulated decimal billing is exact and currency-separated; no FX or price estimate is substituted. Current fixture tokens and billing remain null. Human naturalness/CSAT/conversion are unmeasured.
+- New readonly `admin_polat_model_summary_v1` joins existing tenant-scoped `model_invocations`, runs, tasks, configured fixture profiles and quality evaluations. It does not read/add run billing or emit events. UTC windows are 1–90 days; 1,001-row lookahead, at most 1,000 invocations, ten version groups, snapshot consistency and explicit truncation. Truncated full-period quantiles/totals/coverage remain null. Native QA held/escalation counts use distinct runs, not messages or sales.
+- Existing `/admin/polat-operations?view=model` adds a third readonly TR/EN tab. Server session owns tenant/role; strict schemas validate data before client serialization. Support sees safe operational evidence and SQL-level billing redaction; readonly/anonymous/foreign tenant denied. No model-call, retry, sending or activation button. Missing evidence has an unavailable state; empty data has an honest empty state.
+- Future [real-model acceptance manifest](docs/phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md) and typed proposal specify corpus/hash, proposed request cap, exact owner approvals, secret/data custody, coverage, human rubric, spend/stop/rollback. **Authorized external requests 0**, provider/model/budget unknown. Proposed thresholds and request cap are not owner-approved live settings.
+
+## Actual synthetic acceptance
+
+New migration: `20261024132806_polat_model_readiness_summary.sql`, readonly function/execute grant only; no tables, writer or additional index. Previous migrations unchanged. Disposable PostgreSQL 17 only; not applied to hosted staging/production.
+
+40 focused pgTAP assertions pass: empty/unknown vs zero, invocation-only counting, error classification, latency, missing tokens/cost, prompt/persona provenance, raw-source exclusion, tenant and role rejection, minimum grants, 90-day bound, 1,005-source truncation and zero receipt/outbound/subscription writes. Actual native worker bridge additionally verifies two acknowledged turns yield exactly two recorded invocations with persona v2 and null tokens/cost; ten runtime/contact bridge tests pass on real local PG17.
+
+Synthetic query observation on the same 1,005-invocation fixture: sample 1,000, incomplete true, JSON 861 bytes; first function measurement 133.327 ms. Warm full CTE EXPLAIN ANALYZE planning 2.434 ms / execution 26.768 ms, existing `analytics_invocations_period` index used. This is not a production latency/capacity result and justifies no new index.
+
+Actual React components in existing Admin shell: 24 combinations (responses/business/model × TR/EN × 320/390/768/1440 px), external browser network blocked, no horizontal overflow, keyboard-reachable filter/details controls and screenshots. These are static component/keyboard previews, not authenticated hosted acceptance. Existing local authenticated HTTP script adds model empty-state and role-redaction checks; exact CI must execute them.
+
+Local final application regression: 1,932 PASS, zero FAIL, 27 environment-dependent DB skips; the affected ten actual runtime/contact PG tests separately pass. Lint and strict TypeScript pass. CI build/audit/HTTP/SQL outcomes and post-merge evidence belong in the final owner artifact. Original local webpack build failure in A and its superseded cancelled run remain preserved; exact accepted CI default build is independently required. No skipped DB test is labelled passed.
+
+## Failures and limitations retained
+
+The first new integration suite used a root workspace alias unavailable to the test resolver; corrected to the existing relative contract import. Two unnecessary test type assertions failed lint and were removed. Local branch reconciliation retained both C and D exports after an append conflict. No acceptance assertion or source corpus was weakened. All unsuccessful logs remain in the owner evidence bundle.
+
+This package does not certify real provider/model authentication, human ratings, paid billing, upstream Telegram receipt coverage, customer delivery/read status or commercial readiness. Current nonstreaming source cannot measure first-token time; unknown is intentional. A complete financial cost needs later independently reviewed provider/charge evidence; no actual profitability is inferred. Existing Phase15 formulas and financial truth remain unchanged.
+
+## Security and next gate
+
+`financial_authority=NONE`, `live_operations_authorized=false`, commercial `NO_GO`. No real customer/Telegram/model/provider operation, receipt, trusted live event, VIP, import, campaign, hosted migration or deployment. Existing kill switches, tenant roles, immutable history, Phase14 anonymous boundaries and protected main governance are unchanged. Exact feature branch `codex/polat-model-acceptance-readiness` must be `git.deploymentEnabled=false` before first push; preserve all other entries/crons. Passive Vercel inventory and accepted staging deployment/aliases must be read back at final acceptance.
+
+Smallest next boundary: separately authorize the manifest's exact approved provider/model, synthetic corpus, request/spend cap, data policy and named human reviewers. Actual Telegram acceptance requires its own identity/session/destination/message-count approval and isolated hosting scope. C01–C10 supplier/merchant/legal/consent/operations/infrastructure/economics/release decisions remain open. This report closes neither overall Phase16C-1 nor any commercial activation gate.
