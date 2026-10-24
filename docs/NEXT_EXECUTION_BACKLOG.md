@@ -6,6 +6,19 @@ Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea
 
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
+## Polat AI remaining gates — 2026-10-24
+
+The four-package Polat owner batch is repository-only; see [operations evidence](../POLAT_AI_SALES_OPERATIONS_REPORT.md). Existing code and source-bound synthetic tests replace no real-provider acceptance.
+
+| Priority | Remaining boundary | Exact acceptance / authority |
+|---|---|---|
+| P1 | Production-quality Polat model/profile adapter | Separate synthetic package can evaluate a bounded approved model adapter, per-turn identity/grounding, EN/TR dialogues and cost/latency coverage. Paid calls, credentials and live runtime activation require separate owner scope. Offline fixture success is not real model acceptance. |
+| P1 | Gateway-to-inbox provider coverage | Real authenticated inbound, media/unsupported messages, provider ordering, independent delivery reconciliation and takeover races require exact isolated destination, message-count and owner authorization. The current guarantee starts at persisted configured-fixture inbound. No real Polat session is configured. |
+| P1 | Durable consent/opt-out and presentation evidence | Source-bound, append-only consent/opt-out decisions and provider-delivered offer/message linkage need a separately bounded synthetic package before operational rates can be trusted. Existing contactability or an offer row does not establish marketing consent or presentation. No historic list import/outreach. |
+| P1 | Human usability and language acceptance | Evaluate operator triage/assignment, manual EN-default reply, safe return, failure recovery and customer-language independence with approved invented dialogues first. Genuine customer quality, CSAT and conversion remain unmeasured. |
+| External | Commercial activation | C01–C10 in [PILOT_ENTRY_v0.1](phases/PILOT_ENTRY_v0.1.md) remain independent gates: supplier/product/territory, merchant/payment rail, genuine receipt authority, terms, consent, operator coverage, isolated infrastructure/recovery and actual costs. No synthetic report grants GO. |
+
+
 ## Dependency and execution order
 
 1. Documentation handoff **B00** is complete in PR #89 (`10a79955be84b6bbb1ecd3463a35a183b27be07d`), with PR/main Application + Database PASS and no deployment. Protect release governance **B01**; review operational/security/commercial launch gates **B02–B04** without activating anything.

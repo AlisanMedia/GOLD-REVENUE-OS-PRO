@@ -34,6 +34,7 @@ export default async function ConversationDetailPage({ params }: { params: Promi
       <h1>{contact?.username ? `@${contact.username}` : <T k="Müşteri eşleştirmesi bekleniyor"/>}</h1>
       <p className="lede"><T k="Müşteri mesajlarını ve güncel görüşme durumunu buradan inceleyin."/></p>
     </div></div>
+    {hasAdminCapability(context.role,"agents.read")&&<Link className="secondary-button" href={`/admin/polat-operations?conversation=${conversation.id}`}><T k="Polat AI Operations"/></Link>}
     <div className="detail-grid">
       <section className="detail-card"><h2><T k="Müşteri bağlantısı"/></h2><dl>
         <div><dt><T k="İletişim izni"/></dt><dd>{contact?.contactability === "user_initiated" ? <T k="Müşteri görüşmeyi başlattı"/> : contact?.contactability === "allowed" ? <T k="İletişim izni var"/> : contact?.contactability === "blocked" ? <T k="İletişim engellendi"/> : <T k="İzin doğrulanmadı"/>}</dd></div>

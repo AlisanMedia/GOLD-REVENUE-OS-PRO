@@ -37,10 +37,10 @@ export function buildPolatSalesPreview(raw:unknown){
   if(trust)add(tr?"Doğrulanmış performans bilgim yok; kazanç garantisi veremem.":"I don't have verified performance details and can't promise trading profits.");
   if(plan&&chosen){
    if(price||p.intent==="INTEREST")fact(`${chosen.version_id}:fact:1`);
-   if(!price||/includ|benefit|içeri|kapsam/iu.test(text))for(let i=0;i<Math.min(plan.inclusions.length,2);i++)fact(`${chosen.version_id}:fact:${i+2}`);
+   if((!price&&p.intent!=="INTEREST")||/includ|benefit|içeri|kapsam/iu.test(text))for(let i=0;i<Math.min(plan.inclusions.length,2);i++)fact(`${chosen.version_id}:fact:${i+2}`);
    next=p.intent==="INTEREST"?"REQUEST_PURCHASE_REVIEW":"REVIEW_APPROVED_PLAN";
    if(p.intent==="INTEREST")add(tr?"Karar vermeden önce plan ayrıntılarını incelemek ister misin?":"Would you like to review the plan details before choosing?","question");
-   else if(v.style==="ONE_QUESTION"&&!trust)add(tr?"En çok hangi ayrıntıyı öğrenmek istersin?":"Which detail would help you decide?","question");
+   else if(v.style==="ONE_QUESTION"&&!trust&&segments.length<3)add(tr?"En çok hangi ayrıntıyı öğrenmek istersin?":"Which detail would help you decide?","question");
   }else{
    add(price?(tr?"Güncel fiyatı şu an doğrulayamıyorum.":"I don't have confirmed pricing details yet."):(tr?"Üyelik detaylarını şu an doğrulayamıyorum.":"I don't have confirmed membership details yet."));
    if(v.style==="ONE_QUESTION")add(tr?"Fiyatı mı, üyelik kapsamını mı öğrenmek istersin?":"Would you like pricing or membership details?","question");

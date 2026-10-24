@@ -14,7 +14,7 @@ const groups: { label: CopyKey; items: { href: string; label: CopyKey; capabilit
  { label:"Commerce",items:[{href:"/admin/catalog",label:"Products & Pricing",capability:"commercial.read",icon:"▧"},{href:"/admin/knowledge",label:"Knowledge Base",capability:"commercial.read",icon:"≡"},{href:"/admin/offers",label:"Offers",capability:"commercial.read",icon:"↗"}] },
  { label:"Payments & Subscriptions",items:[{href:"/admin/payments",label:"Payments",capability:"payments.read",icon:"▱"},{href:"/admin/subscriptions",label:"Subscriptions",capability:"entitlements.read",icon:"↻"},{href:"/admin/channel-access",label:"Channel Access",capability:"entitlements.read",icon:"▣"}] },
  { label:"Signal operations",items:[{href:"/admin/signals",label:"Signal operations",capability:"signals.read",icon:"⇄"}] },
- { label:"AI Operations",items:[{href:"/admin/agents",label:"AI Operations",capability:"agents.read",icon:"✦"},{href:"/admin/agent-quality",label:"Quality evidence",capability:"agents.read",icon:"◉"}] },
+ { label:"AI Operations",items:[{href:"/admin/polat-operations",label:"Polat AI Operations",capability:"agents.read",icon:"◌"},{href:"/admin/agents",label:"AI Operations",capability:"agents.read",icon:"✦"},{href:"/admin/agent-quality",label:"Quality evidence",capability:"agents.read",icon:"◉"}] },
  { label:"System & Settings",items:[{href:"/admin/system",label:"Control-plane health",capability:"health.read",icon:"⚙"},{href:"/admin/events",label:"Event timeline",capability:"events.read",icon:"≋"},{href:"/admin/audit",label:"Audit",capability:"audit.read",icon:"▤"},{href:"/admin/imports",label:"Import batches",capability:"imports.read",icon:"⇥"}] },
 ];
 function NavigationPending() {

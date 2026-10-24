@@ -37,6 +37,7 @@ export default async function ConversationsPage({
       <h1><T k="Conversations"/></h1>
       <p className="lede"><T k="Tenant-scoped Telegram conversations. Historical usernames alone never grant outbound contactability."/></p>
     </div></div>
+    <Link className="secondary-button" href="/admin/polat-operations"><T k="Polat AI Operations"/></Link>
     {hasAdminCapability(admin.role, "messaging.kill_switch") ? <OutboundKillSwitch initialEnabled={outboundEnabled} /> : <div className="warning-box"><strong><T k="Outbound:"/> {outboundEnabled ? "enabled" : "disabled"}</strong><p><T k="Only manager or super admin can change the tenant kill switch."/></p></div>}
     <form className="filter-panel" method="get">
       <label><T k="Status"/><select name="status" defaultValue={status ?? ""}><option value=""><T k="All"/></option><option value="open"><T k="open"/></option><option value="closed"><T k="closed"/></option><option value="blocked"><T k="blocked"/></option></select></label>
