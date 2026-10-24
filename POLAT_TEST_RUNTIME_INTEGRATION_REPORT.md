@@ -4,7 +4,7 @@ Repository-only package 1/4 of the owner-authorized operational batch. Baseline 
 
 ## Delivered path
 
-The **existing** `runDeterministicWorker`, event consumer/orchestrator, native tasks/runs/model invocations, context builder, Phase7 QA, Phase8/9 internal tasks, proposal queue and audit records are reused. Explicit scoped `polatTest` execution selects mock `polat-test-runtime-v1`; default worker/cron and existing LIVE sender behavior are unchanged. No second conversation engine or public activation route exists.
+The **existing** `runDeterministicWorker`, event consumer/orchestrator, native tasks/runs/model invocations, context builder, Phase7 QA, Phase8/9 internal tasks, proposal queue and audit records are reused. Explicit scoped `polatTest` execution selects mock `polat-test-runtime-v1`; default worker/cron and existing LIVE sender behavior are unchanged. No second conversation engine or public activation route exists. Scoped TEST claims exclude historical conversation tasks from a different profile version; those remain visible and cannot fall through to a legacy sender.
 
 Only a PostgreSQL-owned setup function can configure an active, outbound-disabled `polat-sandbox-*` fixture. Browser roles and service_role cannot activate it. Private profile/draft/stage tables use RLS, deny raw access, and immutable draft/stage triggers. Service-only RPCs revalidate the explicit fixture on every operation. Enabling outbound invalidates this TEST path.
 
