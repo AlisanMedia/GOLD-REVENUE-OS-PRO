@@ -35,7 +35,7 @@ p_case=C2
 p_first bridge-cap-first "$(p_reserve 8502)" 3
 p_sql -c "begin;set local application_name='bridge-cap-second';set local statement_timeout='8s';$(p_reserve 8502 2)commit;" >"$p_tmp/cap-second" 2>&1 &
 p_second=$!;p_wait bridge-cap-second Lock;wait "$p_first_pid"
-if wait "$p_second";then exit 1;fi;rg -q 54000 "$p_tmp/cap-second"
+if wait "$p_second";then exit 1;fi;grep -q 54000 "$p_tmp/cap-second"
 test "$(p_sql -c "select request_count::text||':'||reserved_liability::text from private.polat_experiment_runs where id='$(p_id 8502 2000)'")" = '1:0.02'
 echo 'PASS BRIDGE-C2: concurrent distinct requests cannot overshoot count or exact-decimal liability'
 p_case=C3
@@ -47,7 +47,7 @@ test "$(p_sql -c "select count(*)from public.audit_logs where tenant_id='$(p_id 
 p_sql -c "$(p_reserve 8503)" >"$p_tmp/recovered"
 p_sql -c "$(p_begin 8503)" >/dev/null
 p_sql -c "$(p_begin 8503)" >"$p_tmp/lost-ack-replay"
-rg -q '"dispatch": false' "$p_tmp/lost-ack-replay"
+grep -q '"dispatch": false' "$p_tmp/lost-ack-replay"
 test "$(p_sql -c "select count(*)from private.polat_experiment_evidence where run_id='$(p_id 8503 2000)'and stage='DISPATCH_STARTED'")" = 1
 test "$(p_sql -c "select request_count from private.polat_experiment_runs where id='$(p_id 8503 2000)'")" = 1
 echo 'PASS BRIDGE-C3: actual backend death rolls back attempt/counter/audit; lost committed start ACK never authorizes another send'
@@ -56,14 +56,14 @@ p_sql -c "$(p_reserve 8504)" >"$p_tmp/dispatch-reserved"
 p_first bridge-start-first "$(p_begin 8504)" 3
 p_sql -c "begin;set local application_name='bridge-start-second';set local statement_timeout='8s';$(p_begin 8504 9999)commit;" >"$p_tmp/start-second" 2>&1 &
 p_second=$!;p_wait bridge-start-second Lock;wait "$p_first_pid";wait "$p_second"
-rg -q '"dispatch": false' "$p_tmp/start-second"
+grep -q '"dispatch": false' "$p_tmp/start-second"
 test "$(p_sql -c "select count(*)from private.polat_experiment_evidence where run_id='$(p_id 8504 2000)'and stage='DISPATCH_STARTED'")" = 1
 echo 'PASS BRIDGE-C4: two workers cannot own the same dispatch; second key is never a completion capability'
 p_case=C5
 p_sql -c "$(p_reserve 8505)$(p_begin 8505)" >"$p_tmp/late-start"
 sleep .01
 { cat "$p_root/helpers/polat_experiment_fixtures.sql";printf "\nselect private.polat_experiment_record_fixture('%s','%s','%s',(select binding_hash from private.polat_experiment_runs where id='%s'),'%s',pg_temp.bridge_outcome(8505)::text);\n" "$(p_id 8505 1000)" "$(p_id 8505 2000)" "$(p_id 850501 3000)" "$(p_id 8505 2000)" "$(p_id 850501 4000)"; }|p_sql >"$p_tmp/late-result" 2>&1
-rg -q 'DELAYED_RESULT' "$p_tmp/late-result"
+grep -q 'DELAYED_RESULT' "$p_tmp/late-result"
 test "$(p_sql -c "select stop_reason from private.polat_experiment_runs where id='$(p_id 8505 2000)'")" = UNKNOWN_REMOTE_COMPLETION
 test "$(p_sql -c "select count(*)from private.polat_experiment_evidence where run_id='$(p_id 8505 2000)'and stage='PROVIDER_RESULT'")" = 0
 echo 'PASS BRIDGE-C5: expired attempt appends delayed evidence, remains blocked, never claims successful completion'
