@@ -38,7 +38,8 @@
       "codex/polat-v2-turkish-corpus": false,
       "codex/polat-independent-human-review": false,
       "codex/polat-model-decision-readiness": false,
-      "codex/polat-provider-decision-intelligence": false
+      "codex/polat-provider-decision-intelligence": false,
+      "codex/polat-offline-experiment-guards": false
     }
   },
   "framework": "nextjs",
