@@ -4,6 +4,12 @@ Living continuation index, initially reconstructed on **2026-10-16 UTC** and upd
 
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
 
+## Claude candidate adapter —2026-10-25, repository only
+
+The newer owner scope authorizes one isolated Claude Haiku5.5 readiness package. [Implementation checkpoint](../POLAT_CLAUDE_ADAPTER_IMPLEMENTATION_REPORT.md) documents the node-only Messages codec/ModelProvider, data-only fake HTTP, native evidence/QA, same guarded journal and additive offline observation/policy versions. No SDK, secret loader, network driver, route, worker, provider auto-selection or genuine inference is enabled. Existing v1 fixture contracts and historical corpus/review/financial evidence are preserved. Exact head/merge/CI is delivered in `POLAT_CLAUDE_ADAPTER_OWNER_REPORT.md` after protected verification.
+
+Candidate `claude-haiku-5-5` is not account/merchant selection. Default manifest fields stay null; full290 requests/5.00 USD remain NOT APPROVED. Genuine owner/account cap/billing/durable custody remain unverified and the readiness projection returns BLOCKED even for complete supplied JSON. Local journal integrity is not global spending authority. Real model and human acceptance remain pending; all live gates and overall Phase16C-1 OPEN/commercial NO_GO remain unchanged. No next package is automatically authorized.
+
 ## Current controlled-model preflight —2026-10-25, repository only
 
 The new owner scope authorizes public read-only research and missing offline safeguards, not inference or activation. [Official provider intelligence](phases/POLAT_PROVIDER_DECISION_INTELLIGENCE.md)/PR132 verifies current exact model IDs and dated pricing/data/version/spend sources. Recommended Haiku5.5 and alternative Luna are proposals; actual provider/account access and Turkish quality remain UNKNOWN. Research used free public HTTPS GET, no billed retrieval tool or model inference.
