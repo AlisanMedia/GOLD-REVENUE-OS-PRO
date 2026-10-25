@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { POLAT_CLAUDE_MODEL, POLAT_CLAUDE_ADAPTER_VERSION, POLAT_MODEL_STOP_CONDITIONS, polatOfflineClaudeObservationSchema, type PolatGuardPolicy } from "@gold-revenue-os/contracts";
@@ -78,6 +78,9 @@ describe("isolated Claude Messages codec / no network", () => {
   it("rejects unknown evidence, outbound-only customer proof and executable proposals", () => {
     const a=wire();a.claims[1]!.evidence_refs=["foreign-tenant-reference"];
     expect(()=>decodePolatClaudeResponse(JSON.stringify(envelope({content:[{type:"text",text:JSON.stringify(a)}]})),request(),512)).toThrow();
+    const r=request();r.context.recentMessages=[{id:"61a04000-0000-4000-8000-000000000002",direction:"outbound",content:"Synthetic earlier assistant text.",occurredAt:"2026-10-23T00:00:00Z"},...r.context.recentMessages];
+    const customerClaim=wire();customerClaim.claims[1]!.grounding="CUSTOMER_REPORTED";customerClaim.claims[1]!.evidence_refs=["EVIDENCE_MESSAGE_1"];
+    expect(()=>decodePolatClaudeResponse(JSON.stringify(envelope({content:[{type:"text",text:JSON.stringify(customerClaim)}]})),r,512)).toThrow("RESPONSE_INVALID");
     const b=wire(); const injected={...b,proposed_tool_calls:[{name:"payment.confirmed",version:1,arguments:{}}]};
     expect(()=>decodePolatClaudeResponse(JSON.stringify(envelope({content:[{type:"text",text:JSON.stringify(injected)}]})),request(),512)).toThrow("SCHEMA_INVALID");
   });
@@ -106,6 +109,7 @@ describe("isolated Claude Messages codec / no network", () => {
 });
 
 describe("Claude fake transport through the accepted accounting journal and QA",()=>{
+  it("cannot invoke even the fake HTTP driver if the write-ahead journal fails",async()=>{const s=setup(),g=openPolatOfflineExperiment({...s,create:true}),p=createPolatClaudeOfflineTransport(target(),config(),cost());writeFileSync(join(s.directory,"evidence.jsonl"),"SYNTHETIC_TAMPER");await expect(g.attempt(p,s.policy,p.request_hash)).rejects.toThrow("FILE_DRIFT");expect(polatOfflineTransportCalls(p)).toBe(0);expect(polatClaudeOfflineTransportEvidence(p).calls).toBe(0);g.close();});
   it("reuses the journal and actual native QA without invoking the safe fixture provider",async()=>{
     const s=setup(),g=openPolatOfflineExperiment({...s,create:true}),p=createPolatClaudeOfflineTransport(target(),config(),cost());
     const fixture=vi.spyOn(PolatFixtureProvider.prototype,"invoke");const qa=vi.spyOn(conversation,"assessPolatDraft");
