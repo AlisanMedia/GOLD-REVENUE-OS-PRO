@@ -1,0 +1,4 @@
+import { z } from "zod";
+export const messageCursorSchema=z.strictObject({v:z.literal(1),scope:z.string().regex(/^[a-f0-9]{64}$/u),anchor:z.string().max(64),before_time:z.string().max(64),before_id:z.uuid(),expires:z.string().max(64)});
+export const messagePageSchema=z.strictObject({version:z.literal(1),page_size:z.number().int().min(1).max(100),has_more:z.boolean(),next_cursor:messageCursorSchema.nullable(),items:z.array(z.strictObject({id:z.uuid(),direction:z.enum(["inbound","outbound"]),content:z.string().max(4096),status:z.string().max(40),failure_code:z.string().regex(/^TELEGRAM_[A-Z_]{1,80}$/u).nullable(),occurred_at:z.string().max(64),created_at:z.string().max(64)})).max(100)}).superRefine((v,c)=>{if(v.items.length>v.page_size||v.has_more!==(v.next_cursor!==null))c.addIssue({code:"custom",message:"MESSAGE_PAGE_INVALID"});});
+export const messageSearchSchema=z.strictObject({cursor:z.string().min(1).max(2048).optional()});

@@ -1,14 +1,6 @@
 import "server-only";
 
-import { mapTelegramSendResponse, type TelegramSendResult } from "@gold-revenue-os/domain";
-
-type TelegramApiResponse = {
-  ok?: boolean;
-  result?: { message_id?: number; chat?: { id?: number } };
-  error_code?: number;
-  description?: string;
-  parameters?: { retry_after?: number };
-};
+import { telegramDeliveryEvidence, type TelegramSendResult } from "@gold-revenue-os/domain";
 
 export async function sendTelegramText(input: {
   botToken: string;
@@ -16,6 +8,8 @@ export async function sendTelegramText(input: {
   text: string;
   replyToProviderMessageId?: string | null;
 }): Promise<{ result: TelegramSendResult; providerStatus: number }> {
+  if (!/^-?[1-9][0-9]{0,15}$/u.test(input.chatId) || !Number.isSafeInteger(Number(input.chatId)) || !input.text.trim() || input.text.length > 4096 || !input.botToken || input.botToken.length > 256)
+    return { result: { kind: "failed", errorCode: "TELEGRAM_REQUEST_INVALID", retryable: false }, providerStatus: 0 };
   const body: Record<string, unknown> = {
     chat_id: input.chatId,
     text: input.text,
@@ -31,18 +25,27 @@ export async function sendTelegramText(input: {
       headers: { "content-type": "application/json" },
       body: JSON.stringify(body),
       cache: "no-store",
+      redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
-    let payload: TelegramApiResponse = {};
+    let payload: unknown = null;
     try {
-      payload = await response.json() as TelegramApiResponse;
+      const reader = response.body?.getReader();
+      if (!reader) throw Error("TELEGRAM_RESPONSE_MISSING");
+      const chunks: Uint8Array[] = []; let bytes = 0;
+      try {
+        for (;;) { const part = await reader.read(); if (part.done) break; bytes += part.value.byteLength; if (bytes > 65536) { await reader.cancel(); throw Error("TELEGRAM_RESPONSE_BOUND"); } chunks.push(part.value); }
+      } finally { reader.releaseLock(); }
+      const joined = new Uint8Array(bytes); let offset = 0;
+      for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.byteLength; }
+      payload = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(joined)) as unknown;
     } catch {
-      payload = {};
+      payload = null;
     }
-    return { result: mapTelegramSendResponse(response.status, payload), providerStatus: response.status };
+    return { result: telegramDeliveryEvidence(response.status, payload, input.chatId), providerStatus: response.status };
   } catch {
     return {
-      result: { kind: "failed", errorCode: "TELEGRAM_NETWORK_FAILURE", retryable: true },
+      result: { kind: "failed", errorCode: "TELEGRAM_DELIVERY_UNCERTAIN", retryable: false },
       providerStatus: 0,
     };
   }

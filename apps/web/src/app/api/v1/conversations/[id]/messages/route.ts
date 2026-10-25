@@ -115,5 +115,7 @@ export async function POST(
   }
 
   const httpStatus = dbResult.result === "sent" ? 201 : dbResult.result === "retry_scheduled" ? 202 : 422;
-  return NextResponse.json({ message_id: messageId, status: dbResult.result, duplicate: false }, { status: httpStatus });
+  return NextResponse.json({ message_id: messageId, status: dbResult.result, duplicate: false,
+    ...(dbResult.error === "TELEGRAM_DELIVERY_UNCERTAIN" ? { delivery_evidence: "UNKNOWN", error: "DELIVERY_UNKNOWN_REVIEW_REQUIRED" } : {}),
+  }, { status: httpStatus });
 }

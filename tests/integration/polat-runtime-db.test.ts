@@ -2,6 +2,8 @@ import{readFileSync}from "node:fs";
 import{beforeAll,describe,it,expect,vi}from "vitest";
 import{disposablePolatDatabase,polatSqlClient}from "../helpers/polat-local-database";
 import{FakePolatTransport}from "../../packages/domain/src/polat-response";
+import { createPolatOfflineRuntimeModel, polatOfflineRuntimeEvidence } from "../../packages/domain/src/polat-runtime-model";
+import { polatClaudeCompleteEnvelope, polatClaudeFixtureWire } from "../helpers/polat-bridge-fixtures";
 const fixture=vi.hoisted(()=>({client:null as ReturnType<typeof polatSqlClient>|null}));
 vi.mock("server-only",()=>({}));
 vi.mock("@/lib/supabase/admin",()=>({createSupabaseAdminClient:()=>{if(!fixture.client)throw Error("LOCAL_FIXTURE_ONLY");return fixture.client;}}));
@@ -44,6 +46,43 @@ describe.runIf(Boolean(connection))("accepted orchestrator→Polat TEST profile�
  },60000);
  function setup(n:number){const t=id(n);db.execute(`begin;${readFileSync('supabase/tests/helpers/polat_inbound_fixtures.sql','utf8')}select pg_temp.polat_setup(${n});select private.polat_configure_runtime_fixture('${t}',pg_temp.polat_conv(${n}));select private.polat_contact_configure_fixture('${t}',pg_temp.polat_conv(${n}));commit;`);const c=db.query(`select to_jsonb(conversation_id)from private.polat_runtime_profiles where tenant_id='${t}'`)as string;return{t,c};}
  function retire(t:string){db.execute(`update private.polat_runtime_profiles set enabled=false where tenant_id='${t}';update private.polat_conversation_controls set enabled=false where tenant_id='${t}';update public.tenants set status='suspended'where id='${t}';`);}
+ const claudeFrame = (envelope:unknown) => ({adapter_version:"polat-claude-messages-v1",model:"claude-haiku-5-5",maximum_output_tokens:512,timeout_ms:1000,frame:{kind:"HTTP",status:200,body:JSON.stringify(envelope)}});
+ it("MASTER E01–E07: native inbound→Claude codec→exact QA→fake ACK→CRM across two turns",async()=>{
+  const{t,c}=setup(3610),transport=new FakePolatTransport(['ACK','ACK']);
+  const w=polatClaudeFixtureWire();w.classification="ACKNOWLEDGEMENT";w.proposed_response="You're welcome.";w.semantic_response={response_goal:"Acknowledge the thanks",key_points:["You're welcome."],factual_grounding:{classification:"unknown",evidence_refs:[],missing_information:["approved_scoped_fact"]}};w.claims=[{text:"You're welcome.",kind:"social",speech_act:"ACKNOWLEDGEMENT",capability:null,grounding:"GENERAL_SAFE_STATEMENT",evidence_refs:[],action_category:null}];
+  const model=createPolatOfflineRuntimeModel({version:1,mode:"OFFLINE_SYNTHETIC",tenant_id:t,conversation_id:c,frames:[claudeFrame(polatClaudeCompleteEnvelope({id:"msg_master_first"})),claudeFrame(polatClaudeCompleteEnvelope({id:"msg_master_second",content:[{type:"text",text:JSON.stringify(w),citations:null}]}))]});
+  const cycle=async()=>{for(let i=0;i<3;i++)await runDeterministicWorker({workerId:`master-claude-${i}`,conversation:{tenantId:t,conversationId:c},polatTest:{transport,model}});};
+  try{await cycle();expect(transport.effects).toHaveLength(1);
+   expect(db.query(`select to_jsonb(state)from private.polat_inbound_work where tenant_id='${t}'`)).toBe('AI_RESPONDED');
+   expect(db.query(`select to_jsonb(original_payload->>'proposed_response')from public.agent_proposals where tenant_id='${t}'limit 1`)).toBe("Hi! I'm Polat's AI assistant. What would you like to know?");
+   db.execute(`select public.ingest_telegram_message('${t}','master-thanks','2','7100003610','7100003610',null,'Synthetic',null,'Thanks',null,clock_timestamp());`);await cycle();
+   expect(transport.effects).toHaveLength(2);expect(polatOfflineRuntimeEvidence(model)).toMatchObject({calls:2,consumed:2,external_requests:0,actual_billed_cost:null});
+   expect(db.query(`select to_jsonb(count(*))from public.model_invocations where tenant_id='${t}'and provider='anthropic'and model='claude-haiku-5-5'`)).toBe(2);
+   const telemetry=db.query(`begin;do $$begin perform set_config('request.jwt.claim.sub','61b01000-0000-4000-8000-000000000001',true);end;$$;select public.admin_polat_model_summary_v1('${t}',current_date,current_date+1);commit;`);
+   expect(telemetry).toMatchObject({mode:'SYNTHETIC',count:2,billing:{amount:null}});
+   expect(db.query(`select to_jsonb(count(*))from private.verified_payment_receipts where tenant_id='${t}'`)).toBe(0);expect(db.query(`select to_jsonb(count(*))from public.messages where tenant_id='${t}'and direction='outbound'`)).toBe(0);
+  }finally{retire(t);}
+ },60000);
+ it("MASTER E12–E14: independent human takeover during native generation fences the reply",async()=>{
+  const{t,c}=setup(3612),transport=new FakePolatTransport(['ACK']),frame=claudeFrame(polatClaudeCompleteEnvelope());
+  const model=createPolatOfflineRuntimeModel({version:1,mode:"OFFLINE_SYNTHETIC",tenant_id:t,conversation_id:c,frames:[{...frame,frame:{...frame.frame,delay_ms:500}}]});
+  try{
+   const work=runDeterministicWorker({workerId:"master-native-human-race",conversation:{tenantId:t,conversationId:c},polatTest:{transport,model}});
+   for(let n=0;n<100&&polatOfflineRuntimeEvidence(model).consumed===0;n++)await new Promise(r=>setTimeout(r,5));
+   expect(polatOfflineRuntimeEvidence(model).consumed).toBe(1);
+   db.execute(`begin;select set_config('request.jwt.claim.sub','61b01000-0000-4000-8000-000000000001',true);select private.polat_claim_human_fixture('${t}','${c}',(select generation from private.polat_conversation_controls where tenant_id='${t}'));commit;`);
+   await work;expect(transport.effects).toHaveLength(0);expect(db.query(`select to_jsonb(state)from private.polat_inbound_work where tenant_id='${t}'`)).toBe('HUMAN_OWNED');
+   expect(db.query(`select to_jsonb(count(*))from private.polat_runtime_steps where tenant_id='${t}'and kind='FAKE_ACKNOWLEDGED'`)).toBe(0);
+  }finally{retire(t);}
+ },60000);
+ it("MASTER E08/E09: the exact unsafe Claude output is held, never replaced or delivered",async()=>{
+  const{t,c}=setup(3611),transport=new FakePolatTransport(['ACK']),w=polatClaudeFixtureWire();w.proposed_response="Your payment is verified and VIP access is active.";w.claims=[{text:w.proposed_response,kind:"fact",speech_act:"BUSINESS_FACT",capability:null,grounding:"UNKNOWN",evidence_refs:[],action_category:null}];
+  const model=createPolatOfflineRuntimeModel({version:1,mode:"OFFLINE_SYNTHETIC",tenant_id:t,conversation_id:c,frames:[claudeFrame(polatClaudeCompleteEnvelope({content:[{type:"text",text:JSON.stringify(w),citations:null}]}))]});
+  try{for(let i=0;i<3;i++)await runDeterministicWorker({workerId:`master-unsafe-${i}`,conversation:{tenantId:t,conversationId:c},polatTest:{transport,model}});
+   expect(transport.effects).toHaveLength(0);expect(db.query(`select to_jsonb(customer_facing_blocked)from public.conversation_quality_evaluations where tenant_id='${t}'limit 1`)).toBe(true);
+   expect(db.query(`select to_jsonb(state)from private.polat_inbound_work where tenant_id='${t}'`)).toBe('HUMAN_HANDOFF_PENDING');expect(polatOfflineRuntimeEvidence(model).calls).toBe(1);
+  }finally{retire(t);}
+ },60000);
  async function cycle(t:string,c:string,transport:FakePolatTransport,n=4){for(let i=0;i<n;i++)await runDeterministicWorker({workerId:`runtime-fixture-${t.slice(-4)}-${i}`,conversation:{tenantId:t,conversationId:c},polatTest:{transport}});}
  it("keeps an unknown effect out of history, then reconciles independent fake evidence without resending",async()=>{
   const{t,c}=setup(3602),transport=new FakePolatTransport(['UNKNOWN_AFTER_EFFECT']);try{

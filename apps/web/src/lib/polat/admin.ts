@@ -6,11 +6,17 @@ import{createSupabaseServerClient}from "@/lib/supabase/server";
 import{analyticsWorkspace}from "@/lib/analytics/server";
 import{polatCrmMetricEvidence}from "@gold-revenue-os/domain";
 import{polatSearchSchema,polatCursor,polatPeriod,polatInboundPageSchema,polatSummarySchema,polatModelSummarySchema,type PolatSearch}from "./read-model";
+import { experimentPageSchema, experimentCursor, type ExperimentPage } from "./experiment-read";
 const readContext=cache(async()=>({context:await requireAdminCapability("agents.read"),db:await createSupabaseServerClient()}));
 export async function requirePolatRead(){return(await readContext()).context;}
 export async function polatOperations(input:PolatSearch){
  const{context,db}=await readContext();let q:PolatSearch,cursor=null;
- try{q=polatSearchSchema.parse(input);cursor=q.cursor?polatCursor(q.cursor):null;}catch{return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error:"cursor"as const,summaryError:false};}
+ try{q=polatSearchSchema.parse(input);cursor=q.cursor?(q.view==="experiments"?experimentCursor(q.cursor):polatCursor(q.cursor)):null;}catch{return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error:"cursor"as const,summaryError:false};}
+ if(q.view==="experiments"){
+  let experiments:ExperimentPage|null=null;let error:"cursor"|"unavailable"|null=null;
+  try{const result=await db.rpc("admin_polat_experiment_page_v1",{target_tenant_id:context.tenantId,page_size_value:Number(q.size),cursor_value:cursor});const parsed=experimentPageSchema.safeParse(result.data);if(!result.error&&parsed.success&&parsed.data.page_size===Number(q.size))experiments=parsed.data;else error=result.error?.code==="22023"?"cursor":"unavailable";}catch{error="unavailable";}
+  return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error,summaryError:false,experiments};
+ }
  if(q.view==="business"){
   if(!hasAdminCapability(context.role,"analytics.read"))return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:true,error:null,summaryError:false};
   try{const{data}=await analyticsWorkspace({...polatPeriod(q.days),mode:q.mode});return{page:null,summary:null,model:null,business:polatCrmMetricEvidence(data),businessError:false,businessDenied:false,error:null,summaryError:false};}catch{return{page:null,summary:null,model:null,business:null,businessError:true,businessDenied:false,error:null,summaryError:false};}

@@ -2,6 +2,8 @@ import "server-only";
 
 import { requireAdminCapability, type PagedResult } from "@/lib/admin/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { messageCursorSchema, messagePageSchema, messageSearchSchema } from "./message-page";
+import { z } from "zod";
 
 export type ConversationListItem = {
   id: string;
@@ -78,6 +80,15 @@ export async function getConversationMessages(conversationId: string): Promise<M
   });
   if (error) throw new Error("CONVERSATION_MESSAGES_FAILED");
   return Array.isArray(data) ? data as MessageItem[] : [];
+}
+
+export async function getConversationMessagePage(conversationId:string,search:unknown){
+  const {tenantId}=await requireAdminCapability("messaging.read");
+  try{
+    z.uuid().parse(conversationId);const q=messageSearchSchema.parse(search),cursor=q.cursor?messageCursorSchema.parse(JSON.parse(q.cursor)):null;
+    const db=await createSupabaseServerClient(),r=await db.rpc("admin_conversation_message_page_v1",{target_tenant_id:tenantId,target_conversation_id:conversationId,page_size_value:25,cursor_value:cursor});
+    if(r.error)throw Error("MESSAGE_HISTORY_UNAVAILABLE");const page=messagePageSchema.parse(r.data);if(page.page_size!==25)throw Error("MESSAGE_PAGE_INVALID");return{page,error:false};
+  }catch{return{page:null,error:true};}
 }
 
 

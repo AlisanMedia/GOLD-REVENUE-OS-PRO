@@ -1,9 +1,9 @@
 import{POLAT_TEST_PROFILE,polatRuntimeContextSchema}from "@gold-revenue-os/contracts";
-import{preparePolatConversation,PolatFixtureProvider,renderPolatFixture,assessPolatDraft}from "./polat-conversation";
+import{preparePolatConversation,PolatFixtureProvider,renderPolatFixture,assessPolatDraft,polatIdentity}from "./polat-conversation";
 import{buildPolatSalesPreview}from "./polat-sales";
 import type{AgentContext,ModelProvider,ModelRequest,ModelResponse}from "./agent-runtime";
 // Shared with the native server worker and offline evaluator; never a sender or authority.
-export function preparePolatFixtureRuntime(raw:unknown,context:AgentContext,runId:string,style:"DIRECT"|"ONE_QUESTION"="DIRECT"){
+export function preparePolatFixtureRuntime(raw:unknown,context:AgentContext,runId:string,style:"DIRECT"|"ONE_QUESTION"="DIRECT",nativeCodec=false){
  const polat=polatRuntimeContextSchema.parse(raw);
  if(!["DIRECT","ONE_QUESTION"].includes(style)||! /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu.test(runId))throw Error("POLAT_PROFILE_REQUEST_INVALID");
  if(context.runtimeMode!==polat.input.runtime_mode)throw Error("POLAT_PROFILE_OWNERSHIP_SCOPE");
@@ -15,6 +15,13 @@ export function preparePolatFixtureRuntime(raw:unknown,context:AgentContext,runI
  const sales=wantsSales?buildPolatSalesPreview({version:1,mode:"SYNTHETIC",conversation:polat.input,catalog:commercial.documents.map(d=>({...d,tenant_id:context.tenantId,conversation_id:context.conversationId,approval:"APPROVED_SYNTHETIC"})),catalog_conflict:commercial.conflict,style}):null;
  // Catalog evidence is server-owned; no financial action receipt enters this profile.
  if(sales)p.evidence.push(...(context.commercialEvidence??[]).filter(e=>e.category==="fact"));
+ if(nativeCodec){
+  // Fixed server-reconstructable registry for the native codec; historical fixture/v1 paths are unchanged.
+  const identity=p.evidence.find(e=>e.id==="polat:identity:v1")!;
+  const denial={...identity,id:"polat:identity:denial:v1",statement:p.request.styleProfile?.language==="tr"?"Polat’ın kendisi değilim.":"I'm not Polat."};
+  p.evidence.splice(0,p.evidence.length,identity,denial,...(context.commercialEvidence??[]).filter(e=>e.category==="fact"&&!e.id.startsWith("polat:identity")));
+  if(!Object.values(polatIdentity).includes(identity.statement as typeof polatIdentity.en))throw Error("POLAT_IDENTITY_EVIDENCE_INVALID");
+ }
  const fixture=new PolatFixtureProvider(p);
  const provider:ModelProvider={provider:"mock",model:POLAT_TEST_PROFILE,invoke:async(request:ModelRequest):Promise<ModelResponse>=>{
   if(request.context.tenantId!==p.input.tenant_id||request.context.conversationId!==p.input.conversation_id)throw Error("POLAT_PROVIDER_SCOPE");
