@@ -39,7 +39,8 @@
       "codex/polat-independent-human-review": false,
       "codex/polat-model-decision-readiness": false,
       "codex/polat-provider-decision-intelligence": false,
-      "codex/polat-offline-experiment-guards": false
+      "codex/polat-offline-experiment-guards": false,
+      "codex/polat-preflight-owner-decisions": false
     }
   },
   "framework": "nextjs",
