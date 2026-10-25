@@ -126,7 +126,10 @@ integer SQL latency contract ile kesirli Claude duration uyumsuzluğu; generic
 SQL registry'nin Polat fake-ACK/persona handles'ını doğrulayamaması; telemetry
 test helper'ın iki JSON sonucu tek JSON sanması; history fixture'da yanlış
 actor enum/eksik idempotency key; stateful native DB'yi clean-fixture varsayan
-legacy QA seti için kullanma. Sonuncusu ayrı clean disposable database ile
+legacy QA seti için kullanma; release envanterinin ilk incelemesinde dört legacy
+12-digit migration'ın yalnız 14-digit filtre nedeniyle atlanması. Envanter artık
+tüm committed SQL listesini birebir doğrular ve bilinmeyen adı sessizce atlamaz.
+Clean-fixture uyumsuzluğu ayrı clean disposable database ile
 çözülür; assertion'lar değiştirilmez. Expected takeover-fence SQL denial log'u
 başarısız provider kabulü diye yorumlanmaz.
 

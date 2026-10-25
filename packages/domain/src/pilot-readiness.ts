@@ -66,7 +66,7 @@ export type PilotReadiness=ReturnType<typeof assessPilotReadiness>;
 export const masterReleaseInventorySchema=z.strictObject({
  version:z.literal(1),repository_sha:sha,classification:z.literal("REPOSITORY_ONLY"),
  staging:z.strictObject({team_id:z.literal("team_fOlNA2ASqhGzUplTDUFGCEDM"),project_id:z.literal("prj_iax5OhGUbLL3s6BemMLqQAHFDAHl"),preserved_deployment:z.literal("dpl_CawCdTno5JkGjB6b6w1ey1qrCDGw"),preserved_sha:z.literal("fe823267365d7f0c554737081a7ff667cc730ae1"),technical_target:z.literal("production"),commercial_production:z.literal(false)}),
- migrations:z.array(z.strictObject({path:z.string().regex(/^supabase\/migrations\/[0-9]{14}_[a-z0-9_]+\.sql$/u),sha256:z.string().regex(/^[a-f0-9]{64}$/u)})).min(1).max(256),
+ migrations:z.array(z.strictObject({path:z.string().regex(/^supabase\/migrations\/[0-9]{12}(?:[0-9]{2})?_[a-z0-9_]+\.sql$/u),sha256:z.string().regex(/^[a-f0-9]{64}$/u)})).min(1).max(256),
  // Null = an outstanding approval/evidence dependency, never an invented policy or budget.
  prerequisites:z.strictObject({hosted_release_approval:z.null(),hosted_migration_approval:z.null(),backup_restore_evidence:z.null(),approved_rpo_seconds:z.null(),approved_rto_seconds:z.null(),monitoring_owner:z.null(),backup_operator:z.null(),infrastructure_cost_cap:z.null(),account_controls:z.null(),anthropic_canary_grant:z.null(),telegram_allowlist_grant:z.null(),payment_provider_eligibility:z.null()}),
  financial_authority:z.literal("NONE"),live_operations_authorized:z.literal(false),model_requests:z.literal(0),telegram_sends:z.literal(0),deployment_enabled:z.literal(false),commercial_verdict:z.literal("NO_GO"),
