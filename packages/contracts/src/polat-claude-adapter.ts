@@ -8,9 +8,15 @@ const tokens = z.number().int().min(0).max(2147483647).nullable();
 export const polatClaudeUsageSchema = z.strictObject({
   input_tokens: tokens.optional(), output_tokens: tokens.optional(),
   cache_creation_input_tokens: tokens.optional(), cache_read_input_tokens: tokens.optional(),
-  cache_creation: z.strictObject({ ephemeral_1h_input_tokens: tokens.optional(), ephemeral_5m_input_tokens: tokens.optional() }).optional(),
-  output_tokens_details: z.strictObject({ thinking_tokens: tokens.optional() }).optional(),
-  inference_geo: z.enum(["global", "us"]).optional(), service_tier: z.enum(["standard", "priority", "batch"]).optional(),
+  cache_creation: z.strictObject({ ephemeral_1h_input_tokens: tokens.optional(), ephemeral_5m_input_tokens: tokens.optional() }).nullable().optional(),
+  output_tokens_details: z.strictObject({ thinking_tokens: tokens.optional() }).nullable().optional(),
+  inference_geo: z.string().regex(/^[A-Za-z0-9_-]{1,64}$/u).nullable().optional(),
+  service_tier: z.enum(["standard", "priority", "batch"]).nullable().optional(),
+  speed: z.enum(["standard", "fast"]).nullable().optional(),
+  server_tool_use: z.strictObject({ web_fetch_requests: tokens, web_search_requests: tokens }).nullable().optional(),
+}).superRefine((u,c) => {
+  if (u.output_tokens != null && u.output_tokens_details?.thinking_tokens != null && u.output_tokens_details.thinking_tokens > u.output_tokens)
+    c.addIssue({ code: "custom", message: "THINKING_USAGE_EXCEEDS_OUTPUT" });
 });
 export type PolatClaudeUsage = z.infer<typeof polatClaudeUsageSchema>;
 /** Data-only mock HTTP injection. There is no fetch/callback/credential argument. */

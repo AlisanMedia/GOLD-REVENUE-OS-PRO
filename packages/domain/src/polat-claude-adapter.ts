@@ -48,11 +48,17 @@ export function preparePolatClaudeRequest(request: ModelRequest, maximumOutputTo
   return { method: "POST" as const, path: "/v1/messages" as const, headers: { "content-type": "application/json", "anthropic-version": CLAUDE_MESSAGES_API_VERSION }, body, body_hash: digest("CLAUDE_MESSAGES_REQUEST_V1", serialized), request_hash: requestFingerprint(request), api_version: CLAUDE_MESSAGES_API_VERSION, maximum_output_tokens: maximum };
 }
 
+const diagnosticsSchema = z.strictObject({ cache_miss_reason: z.union([
+  z.strictObject({ type: z.enum(["model_changed", "system_changed", "tools_changed", "messages_changed"]), cache_missed_input_tokens: z.number().int().min(0).max(2147483647) }),
+  z.strictObject({ type: z.enum(["previous_message_not_found", "unavailable"]) }),
+]).nullable() });
 const envelopeSchema = z.strictObject({
   id: z.string().regex(/^msg_[A-Za-z0-9_-]{1,120}$/u), type: z.literal("message"), role: z.literal("assistant"), model: z.literal(POLAT_CLAUDE_MODEL),
-  stop_reason: z.enum(["end_turn", "max_tokens", "stop_sequence", "tool_use", "pause_turn", "refusal"]), stop_sequence: z.string().max(200).nullable().optional(),
+  stop_reason: z.enum(["end_turn", "max_tokens", "stop_sequence", "tool_use", "pause_turn", "refusal", "model_context_window_exceeded"]).nullable(), stop_sequence: z.string().max(200).nullable().optional(),
+  container: z.null().optional(), diagnostics: diagnosticsSchema.nullable().optional(),
+  stop_details: z.strictObject({ type: z.literal("refusal"), category: z.enum(["cyber", "bio", "frontier_llm", "reasoning_extraction", "general_harms"]).nullable(), explanation: z.string().max(4096).nullable() }).nullable().optional(),
   content: z.array(z.discriminatedUnion("type", [
-    z.strictObject({ type: z.literal("text"), text: z.string().min(1).max(16384), citations: z.null().optional() }),
+    z.strictObject({ type: z.literal("text"), text: z.string().min(1).max(16384), citations: z.array(z.never()).max(0).nullable().optional() }),
     z.strictObject({ type: z.literal("thinking"), thinking: z.string().max(49152), signature: z.string().max(8192) }),
     z.strictObject({ type: z.literal("redacted_thinking"), data: z.string().max(49152) }),
   ])).min(1).max(8),
@@ -67,7 +73,8 @@ export function decodePolatClaudeResponse(raw: string, request: ModelRequest, ma
     const envelope = envelopeSchema.safeParse(parsePolatClaudeJson(raw));
     if (!envelope.success) throw new PolatClaudeFailure("INVALID_OUTPUT", "CLAUDE_ENVELOPE_INVALID");
     const message = envelope.data;
-    if (message.stop_reason !== "end_turn" || message.stop_sequence) throw new PolatClaudeFailure("INVALID_OUTPUT", "CLAUDE_PARTIAL_OR_UNSUPPORTED_OUTPUT");
+    if (message.stop_reason !== "end_turn" || message.stop_sequence != null || message.stop_details != null) throw new PolatClaudeFailure("INVALID_OUTPUT", "CLAUDE_PARTIAL_OR_UNSUPPORTED_OUTPUT");
+    if (message.usage?.server_tool_use && Object.values(message.usage.server_tool_use).some(n => n === null || n > 0)) throw new PolatClaudeFailure("INVALID_OUTPUT", "CLAUDE_UNEXPECTED_TOOL_EFFECT");
     if (message.usage?.output_tokens !== null && message.usage?.output_tokens !== undefined && message.usage.output_tokens > tokenLimit.parse(maximumOutputTokens)) throw new PolatClaudeFailure("INVALID_OUTPUT", "CLAUDE_OUTPUT_LIMIT_BREACH");
     const texts = message.content.filter(p => p.type === "text");
     if (texts.length !== 1) throw new PolatClaudeFailure("INVALID_OUTPUT", "CLAUDE_OUTPUT_TEXT_INVALID");
@@ -80,7 +87,8 @@ export function decodePolatClaudeResponse(raw: string, request: ModelRequest, ma
       semantic_response: { ...wire.data.semantic_response, factual_grounding: { ...wire.data.semantic_response.factual_grounding, evidence_refs: resolveEvidenceHandles(wire.data.semantic_response.factual_grounding.evidence_refs, registry) } },
       memory_proposals: wire.data.memory_proposals.map(({ provenance_evidence_refs, ...p }) => ({ ...p, provenance_message_ids: resolveEvidenceHandles(provenance_evidence_refs, registry, true) })),
     });
-    return { output, evidenceResolution: { wireOutput: wire.data, registry, resolved: true as const }, providerRequestId: message.id, usage: message.usage ?? null, response_hash: digest("CLAUDE_MESSAGES_RESPONSE_V1", raw) };
+    return { output, evidenceResolution: { wireOutput: wire.data, registry, resolved: true as const }, providerRequestId: message.id, usage: message.usage ?? null,
+      metadata: { container: null, diagnostics: message.diagnostics ?? null, stop_details: null }, response_hash: digest("CLAUDE_MESSAGES_RESPONSE_V1", raw) };
   } catch (error) {
     if (error instanceof PolatClaudeFailure) throw error;
     throw new PolatClaudeFailure("INVALID_OUTPUT", "CLAUDE_RESPONSE_INVALID");
@@ -141,5 +149,5 @@ export function createPolatClaudeOfflineProvider(raw: unknown) {
 export function polatClaudeRealExecutionReadiness(raw?: unknown) {
   const manifest = polatModelAcceptanceManifest(raw);
   return { ...POLAT_CLAUDE_BOUNDARY, state: "BLOCKED" as const, adapter_version: POLAT_CLAUDE_ADAPTER_VERSION, candidate_model: POLAT_CLAUDE_MODEL, manifest_missing_fields: manifest.missing_fields,
-    independent_owner_authority: "NOT_VERIFIED", durable_run_custody: "NOT_VERIFIED", account_access_and_hard_cap: "UNKNOWN", billing_provenance: "UNKNOWN", credential_loader: "ABSENT", network_driver: "ABSENT", human_review: "HUMAN_REVIEW_PENDING", commercial_verdict: "NO_GO" };
+    independent_owner_authority: "NOT_VERIFIED", durable_run_custody: "NOT_VERIFIED", account_access_and_hard_cap: "UNKNOWN", billing_provenance: "UNKNOWN", credential_loader: "ABSENT", network_driver: "DORMANT_DISABLED", human_review: "HUMAN_REVIEW_PENDING", commercial_verdict: "NO_GO" };
 }

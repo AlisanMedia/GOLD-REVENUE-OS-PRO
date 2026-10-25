@@ -1,5 +1,7 @@
 # Polat real-model acceptance manifest — v2 / DECISIONS PENDING / EXECUTION DISABLED
 
+2026-10-25 continuation: the separately hashed [one-request Claude canary proposal](POLAT_CLAUDE_CANARY_v1.md) and [dormant bridge](../../POLAT_GENUINE_EXPERIMENT_BRIDGE_IMPLEMENTATION_REPORT.md) do not change this typed v2 manifest or its authority. Canary approval requires an explicitly reviewed versioned scope in this same contract with exact SHA/hash/model/protocol/limits and authentic owner/account/custody evidence. No JSON/hash/flag, valid synthetic signature or repository merge enables inference.290 requests/5.00 USD NOT APPROVED; authorized external requests0.
+
 ## Owner karar föyü —2026-10-25 / ÖNERİ, ONAY DEĞİL
 
 Bu bölüm aynı v2 karar sözleşmesinin okunabilir özetidir. Yeni bir onay sistemi veya aktif model seçimi değildir. Typed manifestte provider/model/account/budget/reviewer/SHA alanları hâlâ null/boş; authorized_external_requests=0 ve execution_enabled=false. [Resmî kaynak karşılaştırması](POLAT_PROVIDER_DECISION_INTELLIGENCE.md), [ortak offline korumalar](../../POLAT_OFFLINE_EXPERIMENT_GUARDS_REPORT.md).
