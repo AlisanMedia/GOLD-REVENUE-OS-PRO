@@ -90,4 +90,12 @@ select lives_ok($$select public.admin_conversation_message_page_v1('61b02000-000
 select lives_ok($$select public.admin_polat_experiment_page_v1('91cb1000-0000-4000-8000-000000008601')$$,'actual authenticated role can execute its experiment read');
 select throws_ok($$select * from private.polat_experiment_runs$$,'42501',null,'actual authenticated role cannot select raw private evidence');
 reset role;
+with seed as materialized(select * from public.messages where tenant_id=pg_temp.polat_id(6301,'2000')limit 1)
+insert into public.messages(id,tenant_id,conversation_id,messaging_contact_id,provider_connection_id,direction,content,status,provider_chat_id,idempotency_key,actor_type,correlation_id,occurred_at)
+select '91cc9000-0000-4000-8000-000000000001',tenant_id,conversation_id,messaging_contact_id,provider_connection_id,'outbound','Synthetic unknown reply','pending',provider_chat_id,'master-unknown-review','HUMAN',extensions.gen_random_uuid(),clock_timestamp()from seed;
+update public.conversations set attention_required=false where tenant_id=pg_temp.polat_id(6301,'2000');
+select public.record_outbound_message_result(pg_temp.polat_id(6301,'2000'),'91cc9000-0000-4000-8000-000000000001','failed',null,0,'TELEGRAM_DELIVERY_UNCERTAIN',null);
+select ok((select attention_required from public.conversations where tenant_id=pg_temp.polat_id(6301,'2000')),'unknown delivery is visible in the existing attention work list');
+select is((select count(*)from public.audit_logs where tenant_id=pg_temp.polat_id(6301,'2000')and action='messaging.delivery_review_required'),1::bigint,'review marker and sanitized audit commit with the result');
+select is((select retry_after_at from public.messages where id='91cc9000-0000-4000-8000-000000000001'),null::timestamptz,'review marker never schedules a blind retry');
 select * from finish();rollback;

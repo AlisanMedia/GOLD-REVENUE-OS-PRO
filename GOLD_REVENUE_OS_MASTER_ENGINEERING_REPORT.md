@@ -37,6 +37,8 @@ henüz oluşmamış CI veya merge PASS ilan edilmez; status-only PR açılmaz.
    64KiB, süre 10sn, sabit Telegram host, redirect yasak. Unknown transport
    sonucu SQL'de mevcut `failed` + `TELEGRAM_DELIVERY_UNCERTAIN` olarak saklanır;
    yeni DB status enum'u uydurulmaz. UI/API bunu **UNKNOWN/review** diye sunar.
+   Sonuç transaction'ı mevcut conversation attention bayrağını ve redacted audit'i
+   birlikte kaydeder; yeni retry/takeover/provider etkisi veya caller grant yoktur.
 5. **Bot/Business sınırı:** offline capability contract; bot, representative ve
    Business connection kimlikleri ayrı; permission/freshness/generation,
    24h private-chat penceresi; human observation, bot echo, edit ve deletion
@@ -106,7 +108,7 @@ belgesinin tamamlanması C01–C10'u geçirmez.
 - Native PostgreSQL→existing orchestrator→Claude fake codec→exact QA→fake
   transport→ACK→history/CRM: **8 passed**. Üretim sırasında bağımsız bağlantıda
   human takeover eski cevabı fence eder; model çıktısı gönderilmez.
-- Affected clean PG17: master reads **45**, QA **109**, catalog **67**, Polat
+- Affected clean PG17: master reads/review **48**, QA **109**, catalog **67**, Polat
   runtime **28**, model telemetry **40** assertions. All assertions koşu
   sonucunda ayrıca doğrulanır; psql exit0 tek başına pgTAP PASS sayılmaz.
 - Existing independent PostgreSQL contact concurrency: **C1–C4 PASS**;

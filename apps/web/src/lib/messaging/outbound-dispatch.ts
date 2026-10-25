@@ -38,7 +38,7 @@ export async function dispatchQueuedTelegramMessage(input: {
     text: String(message.content),
     replyToProviderMessageId: message.reply_to_provider_message_id,
   });
-  const result = (input.automatic || input.escalation) && provider.result.kind === "failed" && (provider.providerStatus === 0 || input.escalation && provider.providerStatus >= 500)
+  const result = (input.automatic || input.escalation) && provider.result.kind === "failed" && provider.result.errorCode !== "TELEGRAM_REQUEST_INVALID" && (provider.providerStatus === 0 || input.escalation && provider.providerStatus >= 500)
     ? { kind: "failed" as const, errorCode: "TELEGRAM_DELIVERY_UNCERTAIN", retryable: false }
     : provider.result;
   const mapped = result.kind === "sent"

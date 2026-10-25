@@ -176,4 +176,19 @@ end;$$;
 revoke all on function public.admin_conversation_message_page_v1(uuid,uuid,integer,jsonb)from public,anon,authenticated,service_role;
 grant execute on function public.admin_conversation_message_page_v1(uuid,uuid,integer,jsonb)to authenticated;
 
+-- Existing transport result transaction also makes UNKNOWN visible in the existing operator work list.
+-- No retry, takeover change, provider effect or new caller grant.
+create function private.mark_uncertain_message_review()returns trigger language plpgsql security definer set search_path=pg_catalog as $$
+declare conversation_value uuid;begin
+ if new.error_code is distinct from 'TELEGRAM_DELIVERY_UNCERTAIN'then return new;end if;
+ select conversation_id into conversation_value from public.messages where tenant_id=new.tenant_id and id=new.message_id and direction='outbound'and status='failed';
+ if conversation_value is not null then
+  update public.conversations set attention_required=true where tenant_id=new.tenant_id and id=conversation_value;
+  insert into public.audit_logs(tenant_id,actor_type,action,entity_type,entity_id,after_data)
+  values(new.tenant_id,'SYSTEM','messaging.delivery_review_required','messages',new.message_id::text,jsonb_build_object('delivery','UNKNOWN','automatic_retry',false,'attempt',new.attempt_number));
+ end if;return new;
+end;$$;
+revoke all on function private.mark_uncertain_message_review()from public,anon,authenticated,service_role;
+create trigger mark_uncertain_message_review after insert on public.message_delivery_attempts for each row execute function private.mark_uncertain_message_review();
+
 -- Action receipts, memory provenance and all QA thresholds remain unchanged.
