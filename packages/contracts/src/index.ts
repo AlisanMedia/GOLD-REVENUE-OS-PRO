@@ -96,3 +96,4 @@ export * from "./polat-model-acceptance";
 
 export * from "./polat-experiment-guard";
 export * from "./polat-claude-adapter";
+export * from "./polat-experiment-bridge";
