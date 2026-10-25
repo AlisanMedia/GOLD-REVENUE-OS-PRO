@@ -6,6 +6,18 @@ Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea
 
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
+## Controlled real-model preflight —2026-10-25
+
+[Official comparison](phases/POLAT_PROVIDER_DECISION_INTELLIGENCE.md), [offline guard report](../POLAT_OFFLINE_EXPERIMENT_GUARDS_REPORT.md), [same disabled decision sheet](phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md) and [decision report](../POLAT_REAL_MODEL_DECISIONS_REPORT.md). Current owner scope is three repository-only packages; no real inference, hosted operation or commercial entry is authorized.
+
+| Priority | Implemented/reused evidence | Remaining separate boundary |
+| --- | --- | --- |
+| P1 experiment mechanics | Existing corpus/hash/manifest/ModelProvider/QA/observation and human-review contracts reused; new per-journal count/reservation, policy/account/money/model fences, no hidden retries/regeneration, cancellation, durable local evidence and process locking | Exact CI gates required. Only registered offline fake transport; genuine SDK/adapter, raw request instrumentation, cross-run evidence custody and real provider acceptance need separate exact scope |
+| P1 owner experiment decision | Dated official model IDs/prices/policies, proposed Haiku primary/Luna fallback,290 full requests and5.00 USD NOT APPROVED | Real provider/model/account availability, exact SHA/hash, region/terms, secret access, enforced spend/billing, monitoring owner/two reviewers, thresholds/stop/recovery and authentic owner record. Current runtime fields still null; external authority0 |
+| P0 commercial dependencies | C01 rights/product, C02 merchant/channel, C05 legal/tax, C07 staff and C09 actual economics separated in the same decision sheet | Genuine contracts/eligible channel/legal terms/people/real cost and receipts, not generated approval documents. Other C03/C04/C06/C08/C10 gates unchanged; pilot NO_GO |
+
+TECHNICAL_PREFLIGHT_READY is limited to tested offline guards after protected publication; REAL_MODEL_NOT_TESTED and HUMAN_REVIEW_PENDING remain. No fourth package or genuine activation follows automatically. Existing Phase16C-1 OPEN.
+
 ## Polat v2 evaluation and owner decisions —2026-10-24
 
 Latest three-package scope: [corpus](../POLAT_V2_CORPUS_REPORT.md)/PR129, [offline independent human review](../POLAT_INDEPENDENT_HUMAN_REVIEW_REPORT.md)/PR130 and [disabled-model decision/commercial pack](../POLAT_MODEL_DECISION_READINESS_REPORT.md). Preserve exact CI/merge evidence; historical v1 corpus/190 proposed requests do not authorize current v2/290 proposed requests.
