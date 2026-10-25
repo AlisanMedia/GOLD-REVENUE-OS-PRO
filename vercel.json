@@ -42,7 +42,8 @@
       "codex/polat-offline-experiment-guards": false,
       "codex/polat-preflight-owner-decisions": false,
       "codex/polat-claude-offline-adapter": false,
-      "codex/polat-genuine-experiment-bridge": false
+      "codex/polat-genuine-experiment-bridge": false,
+      "codex/master-operational-readiness": false
     }
   },
   "framework": "nextjs",

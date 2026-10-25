@@ -7,19 +7,20 @@ import { notFound } from "next/navigation";
 import { ManualMessageReply } from "@/components/manual-message-reply";
 import { hasAdminCapability } from "@/lib/admin/permissions";
 import { requireAdminCapability } from "@/lib/admin/server";
-import { getConversationDetail, getConversationMessages } from "@/lib/messaging/server";
+import { getConversationDetail, getConversationMessagePage } from "@/lib/messaging/server";
 import { getLeadIntelligence } from "@/lib/agent-runtime/lead-admin";
 import { escalationList } from "@/lib/escalations/admin";
 import {conversationCommercial} from "@/lib/commercial/admin";
 
-export default async function ConversationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ConversationDetailPage({ params,searchParams }: { params: Promise<{ id: string }>;searchParams:Promise<Record<string,string|string[]|undefined>> }) {
   const { id } = await params;
   const context = await requireAdminCapability("messaging.read");
-  const [conversation, messages] = await Promise.all([
+  const [conversation, history] = await Promise.all([
     getConversationDetail(id),
-    getConversationMessages(id),
+    getConversationMessagePage(id,await searchParams),
   ]);
   if (!conversation) notFound();
+  const messages=history.page?.items??[];
   const contact = conversation.messaging_contacts;
   const escalations = await escalationList(undefined, id);
   const activeCase = escalations.cases.find(c => c.status !== "RESOLVED");
@@ -55,12 +56,15 @@ export default async function ConversationDetailPage({ params }: { params: Promi
       <p className="muted"><T k="Yalnızca bu görüşme ve yeni mesajlar için geçerlidir. Marka gönderim kısıtları ve yanıt kalite kontrolleri korunur."/></p>
     </section> : null}
     {canReply ? <section className="form-panel" id="customer-reply"><h2><T k="Müşteriye Yanıt Ver"/></h2><p className="muted"><T k="Gönderim izni, vaka sahipliği ve müşteriyle iletişim izni backend tarafından yeniden doğrulanır."/></p><ManualMessageReply conversationId={conversation.id} /></section> : null}
-    <section className="detail-card full-width-card"><h2><T k="Müşteri mesajları"/></h2>
+    <section className="detail-card full-width-card"><h2 id="conversation-history-heading"><T k="Müşteri mesajları"/></h2>
+      <p className="muted"><T k="messaging.historyBasis"/></p>
+      {history.error&&<p className="warning-box" role="status"><T k="messaging.pageError"/></p>}
       <ul>{messages.map((message) => <li key={message.id}>
-        <strong>{message.direction === "inbound" ? <T k="Müşteri"/> : <T k="Temsilci"/>} · {<OperatorText value={messageDeliveryLabel(message.status)}/>}</strong>
+        <strong>{message.direction === "inbound" ? <T k="Müşteri"/> : <T k="Temsilci"/>} · {<OperatorText value={messageDeliveryLabel(message.status,message.failure_code)}/>}</strong>
         <span>{message.content}</span>
         <small>{<AdminDate value={message.occurred_at}/>}{message.failure_code ? ` · ${message.failure_code}` : ""}</small>
-      </li>)}{messages.length === 0 ? <li className="empty-state"><T k="Henüz mesaj yok."/></li> : null}</ul>
+      </li>)}{messages.length === 0&&!history.error ? <li className="empty-state"><T k="Henüz mesaj yok."/></li> : null}</ul>
+      <nav className="pagination" aria-labelledby="conversation-history-heading"><Link href={`/admin/conversations/${id}`}><T k="messaging.latest"/></Link>{history.page?.next_cursor&&<Link href={`/admin/conversations/${id}?${new URLSearchParams({cursor:JSON.stringify(history.page.next_cursor)})}`}><T k="messaging.older"/></Link>}</nav>
     </section>
     <details className="case-panel case-technical"><summary><T k="Satış önerisi ve müşteri analizi · Teknik ayrıntılar"/></summary>
     {commercial?<section className="detail-card"><h2><T k="Commercial recommendation"/></h2><p>{<AdminEnum value={commercial.status}/>}{commercial.failure?" · Attention: "+commercial.failure:""}</p><p>{commercial.result?.action} · {commercial.result?.reason}</p><p><T k="Plan version:"/> {commercial.result?.plan_version_id??<T k="No eligible plan selected"/>} · {commercial.result?.offer_id?<Link href="/admin/offers"><T k="Offer proposal"/></Link>:<T k="No offer prepared"/>}</p>{commercial.run_id&&<Link href={"/admin/agent-runs/"+commercial.run_id}><T k="Source and task evidence"/></Link>}<p><T k="Follow-up:"/> {commercial.result?.follow_up?.action??<T k="WAIT"/>} · {commercial.result?.follow_up?.reason??<T k="No follow-up proposed"/>}<T k=". No independent delivery."/></p></section>:null}

@@ -13,6 +13,7 @@ export { createPolatExperimentPgFixtureStore } from "./polat-experiment-store";
 export { polatClaudeCanaryPlan } from "./polat-claude-canary";
 export { polatGenuineExecutionGate } from "./polat-experiment-execution-gate";
 export { sendPolatClaudeHttpsOnce } from "./polat-claude-https-boundary";
+export { createPolatProviderControlPlane, polatAccountControlSigningBytes, polatAccountControlEvidenceSchema } from "./polat-provider-control";
 
 /** Offline integration of the accepted codec/QA with the durable journal backend. No alternate approval engine. */
 export async function openPolatDurableOfflineCanary(args:{store:PolatExperimentFixtureStore;run_id:string;binding:unknown}) {

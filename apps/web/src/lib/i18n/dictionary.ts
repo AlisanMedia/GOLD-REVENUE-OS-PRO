@@ -3913,5 +3913,29 @@ export const copy = {
   "Critical priority": [
     "Kritik öncelik",
     "Critical priority"
-  ]
+  ],
+
+  "polat.experiment.title": ["Deney kanıtları", "Experiment evidence"],
+  "polat.experiment.disabled": ["Gerçek model çağrıları kapalı. Bu kayıtlar yalnızca çevrimdışı simülasyonları gösterir.", "Real model requests are disabled. These records show offline simulations only."],
+  "polat.experiment.basis": ["Canary ve tam değerlendirme ayrı izin gerektirir. Ayrılan tutar gerçek fatura veya harcama değildir.", "Canary and full evaluation need separate approval. Reserved liability is neither an actual bill nor spending."],
+  "polat.experiment.refresh": ["Yeni deneyler için yenileyin. Sıra sabittir; mevcut deneylerin durumu ilerleyebilir.", "Refresh for new experiments. Ordering is stable; existing experiment states may advance."],
+  "polat.experiment.empty": ["Henüz kayıtlı deney yok. Gerçek model testi ayrıca yetkilendirilmelidir.", "No recorded experiments yet. A real model test needs separate authorization."],
+  "polat.experiment.canary": ["Tek istek doğrulaması", "Single-request canary"],
+  "polat.experiment.full": ["Tam değerlendirme", "Full evaluation"],
+  "polat.experiment.simulated": ["SİMÜLASYON", "SIMULATED"],
+  "polat.experiment.unknown": ["Sonuç belirsiz. Yeniden göndermeden önce bağımsız kanıt incelenmeli.", "Outcome unknown. Review independent evidence before any resend."],
+  "polat.experiment.held": ["QA yanıtı durdurdu. Müşteriye teslim edilmiş sayılmaz.", "QA held the response. It does not count as delivered to a customer."],
+  "polat.experiment.billing": ["Harcama doğrulanmadı. Deney durduruldu; maliyet sıfır kabul edilmez.", "Billing is unverified. The experiment stopped; cost is not assumed to be zero."],
+  "polat.experiment.pending": ["Yalnızca çevrimdışı deney kaydı. Gerçek gönderim yetkisi yok.", "Offline experiment record only. No genuine dispatch authority."],
+  "polat.experiment.requests": ["Ayrılan deneme / sınır", "Reserved attempts / limit"],
+  "polat.experiment.evidence": ["Kaydedilen kanıt", "Recorded evidence"],
+  "polat.experiment.reserved": ["Simülasyonda ayrılan tutar", "Simulated reserved liability"],
+  "polat.experiment.next": ["Kanıtları inceleyin; bilinmeyen sonucu başarıya çevirmeyin ve otomatik yeniden denemeyin.", "Review evidence; never turn an unknown result into success or retry automatically."],
+  "polat.experiment.commit": ["Kaynak commit", "Source commit"],
+  "Teslimat sonucu belirsiz · inceleme gerekli": ["Teslimat sonucu belirsiz · inceleme gerekli", "Delivery outcome unknown · review required"],
+  "Teslimat sonucu belirsiz. Otomatik yeniden deneme yapılmaz; yeni mesajdan önce bağımsız teslim kanıtını inceleyin.": ["Teslimat sonucu belirsiz. Otomatik yeniden deneme yapılmaz; yeni mesajdan önce bağımsız teslim kanıtını inceleyin.", "Delivery outcome is unknown. No automatic retry; inspect independent delivery evidence before sending another message."],
+  "messaging.older": ["Önceki mesajlar", "Older messages"],
+  "messaging.latest": ["En yeni mesajlar", "Latest messages"],
+  "messaging.historyBasis": ["Her sayfa en fazla 25 mesaj gösterir. Yeni veya sonradan gelen mesajlar için yenileyin.", "Each page shows up to 25 messages. Refresh for new or late-arriving messages."],
+  "messaging.pageError": ["Mesaj geçmişi yüklenemedi veya sayfa bağlantısı geçersiz. En yeni mesajlara dönün.", "Message history is unavailable or the page link is invalid. Return to the latest messages."],
 } as const;

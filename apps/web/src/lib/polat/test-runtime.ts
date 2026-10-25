@@ -3,7 +3,7 @@ import{polatRuntimeDraftSchema,POLAT_TEST_PROFILE,polatResponseCommandSchema,pol
 import{createSupabaseAdminClient}from "@/lib/supabase/admin";
 import{FakePolatTransport,bindPolatReceipt,preparePolatFixtureRuntime,type AgentContext}from "@gold-revenue-os/domain";
 export function polatTask(value:{model_provider:string;model_name:string}){return value.model_provider==="mock"&&value.model_name===POLAT_TEST_PROFILE;}
-export function preparePolatRuntimeProfile(polat:PolatRuntimeContext,context:AgentContext,runId:string){return preparePolatFixtureRuntime(polat,context,runId);}
+export function preparePolatRuntimeProfile(polat:PolatRuntimeContext,context:AgentContext,runId:string,nativeCodec=false){return preparePolatFixtureRuntime(polat,context,runId,"DIRECT",nativeCodec);}
 
 async function rpc(name:string,args:Record<string,unknown>):Promise<unknown>{const{data,error}=await createSupabaseAdminClient().rpc(name,args);if(error)throw Error("POLAT_TEST_RPC:"+(error.code??"UNAVAILABLE"));return data;}
 export async function dispatchPolatTestProposal(tenantId:string,proposalId:string,transport:FakePolatTransport){

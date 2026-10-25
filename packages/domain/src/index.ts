@@ -24,6 +24,8 @@ export * from "./customer-os";
 export * from "./state-event-engine";
 
 export * from "./messaging";
+export * from "./telegram-delivery-evidence";
+export * from "./telegram-operational-capability";
 export * from "./agent-runtime";
 export * from "./conversation-quality";
 

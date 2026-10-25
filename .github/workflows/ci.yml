@@ -421,6 +421,7 @@ jobs:
           supabase test db supabase/tests/polat_operations.test.sql | tee "$RUNNER_TEMP/polat-operations-pgtap.log"
           supabase test db supabase/tests/polat_runtime.test.sql | tee "$RUNNER_TEMP/polat-runtime-pgtap.log"
           supabase test db supabase/tests/polat_model_readiness.test.sql | tee "$RUNNER_TEMP/polat-model-readiness-pgtap.log"
+          supabase test db supabase/tests/master_operational_reads.test.sql | tee "$RUNNER_TEMP/master-operational-reads-pgtap.log"
           supabase test db supabase/tests/polat_experiment_bridge.test.sql | tee "$RUNNER_TEMP/polat-experiment-bridge-pgtap.log"
           POLAT_BRIDGE_DISPOSABLE_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-experiment-bridge-db.test.ts | tee "$RUNNER_TEMP/polat-experiment-bridge-db.log"
           bash supabase/tests/polat_experiment_concurrency.sh "$polat_db_url" | tee "$RUNNER_TEMP/polat-experiment-concurrency.log"
@@ -508,6 +509,7 @@ jobs:
             ${{ runner.temp }}/polat-runtime-pgtap.log
             ${{ runner.temp }}/polat-runtime-bridge.log
             ${{ runner.temp }}/polat-model-readiness-pgtap.log
+            ${{ runner.temp }}/master-operational-reads-pgtap.log
             ${{ runner.temp }}/polat-experiment-bridge-pgtap.log
             ${{ runner.temp }}/polat-experiment-bridge-db.log
             ${{ runner.temp }}/polat-experiment-concurrency.log

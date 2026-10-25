@@ -61,6 +61,20 @@ export function assessPilotReadiness(raw:unknown,localRaw:unknown,now:string){
  };
 }
 export type PilotReadiness=ReturnType<typeof assessPilotReadiness>;
+
+/** Inventory of the existing release, not a new approval engine. No JSON field can authorize execution. */
+export const masterReleaseInventorySchema=z.strictObject({
+ version:z.literal(1),repository_sha:sha,classification:z.literal("REPOSITORY_ONLY"),
+ staging:z.strictObject({team_id:z.literal("team_fOlNA2ASqhGzUplTDUFGCEDM"),project_id:z.literal("prj_iax5OhGUbLL3s6BemMLqQAHFDAHl"),preserved_deployment:z.literal("dpl_CawCdTno5JkGjB6b6w1ey1qrCDGw"),preserved_sha:z.literal("fe823267365d7f0c554737081a7ff667cc730ae1"),technical_target:z.literal("production"),commercial_production:z.literal(false)}),
+ migrations:z.array(z.strictObject({path:z.string().regex(/^supabase\/migrations\/[0-9]{12}(?:[0-9]{2})?_[a-z0-9_]+\.sql$/u),sha256:z.string().regex(/^[a-f0-9]{64}$/u)})).min(1).max(256),
+ // Null = an outstanding approval/evidence dependency, never an invented policy or budget.
+ prerequisites:z.strictObject({hosted_release_approval:z.null(),hosted_migration_approval:z.null(),backup_restore_evidence:z.null(),approved_rpo_seconds:z.null(),approved_rto_seconds:z.null(),monitoring_owner:z.null(),backup_operator:z.null(),infrastructure_cost_cap:z.null(),account_controls:z.null(),anthropic_canary_grant:z.null(),telegram_allowlist_grant:z.null(),payment_provider_eligibility:z.null()}),
+ financial_authority:z.literal("NONE"),live_operations_authorized:z.literal(false),model_requests:z.literal(0),telegram_sends:z.literal(0),deployment_enabled:z.literal(false),commercial_verdict:z.literal("NO_GO"),
+}).superRefine((v,c)=>{if(new Set(v.migrations.map(m=>m.path)).size!==v.migrations.length||v.migrations.some((m,i)=>i>0&&v.migrations[i-1]!.path>=m.path))c.addIssue({code:"custom",message:"RELEASE_MIGRATION_ORDER_INVALID"});});
+export function masterReleaseInventory(repositorySha:string,migrations:Array<{path:string;sha256:string}>){
+ return masterReleaseInventorySchema.parse({version:1,repository_sha:repositorySha,classification:"REPOSITORY_ONLY",staging:{team_id:"team_fOlNA2ASqhGzUplTDUFGCEDM",project_id:"prj_iax5OhGUbLL3s6BemMLqQAHFDAHl",preserved_deployment:"dpl_CawCdTno5JkGjB6b6w1ey1qrCDGw",preserved_sha:"fe823267365d7f0c554737081a7ff667cc730ae1",technical_target:"production",commercial_production:false},migrations,
+ prerequisites:{hosted_release_approval:null,hosted_migration_approval:null,backup_restore_evidence:null,approved_rpo_seconds:null,approved_rto_seconds:null,monitoring_owner:null,backup_operator:null,infrastructure_cost_cap:null,account_controls:null,anthropic_canary_grant:null,telegram_allowlist_grant:null,payment_provider_eligibility:null},financial_authority:"NONE",live_operations_authorized:false,model_requests:0,telegram_sends:0,deployment_enabled:false,commercial_verdict:"NO_GO"});
+}
 export function pilotReadinessMarkdown(report:PilotReadiness):string{
  return ["# GOLD REVENUE OS — Pilot giriş kanıtı","",`Commit: \`${report.target_sha}\``, `Değerlendirme: ${report.evaluated_at}`,
  "","Bu çıktı çevrimdışı girdi tutarlılığı kontrolüdür. GitHub/Vercel veya hukuki/finansal dış kaynak kimlik doğrulaması yerine geçmez.",

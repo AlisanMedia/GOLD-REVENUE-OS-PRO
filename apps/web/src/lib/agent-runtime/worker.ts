@@ -1,5 +1,6 @@
 import "server-only";
 import{polatTask,preparePolatRuntimeProfile,dispatchPolatTestProposal,holdPolatTestSource,recoverPolatTestConversation}from "@/lib/polat/test-runtime";
+import { polatOfflineRuntimeProvider, type PolatOfflineRuntimeModel } from "../polat/test-model";
 import{FakePolatTransport}from "@gold-revenue-os/domain";
 
 import {
@@ -148,9 +149,10 @@ async function processEvent(event: ClaimedEvent, workerId: string): Promise<bool
   }
 }
 
-async function processTask(task: ClaimedTask, workerId: string,polatTransport?:FakePolatTransport): Promise<boolean> {
+async function processTask(task: ClaimedTask, workerId: string,polatTransport?:FakePolatTransport,polatModel?:PolatOfflineRuntimeModel): Promise<boolean> {
   let runId: string | null = null;
   let activeRequest: ModelRequest | null = null;
+  let activeProvider: { provider: string; model: string } | null = null;
   try {
     if (task.task_type === "lead.intelligence") {
       const scope = await invokeRpc<{ source_id: string; observed_at: string; customer_state: string | null; runtime_mode: string; outbound_enabled: boolean; contactability: string; prior: unknown }>("phase8_task_context", { target_tenant_id: task.tenant_id, target_task_id: task.task_id, worker_id_value: workerId });
@@ -176,19 +178,20 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
       throw new ModelProviderError("PROVIDER_ERROR", "PHASE7_HUMAN_REVIEW_TASK_REQUIRED", false);
     }
     if(polatTask(task)&&!polatTransport)throw new ModelProviderError("PROVIDER_ERROR","POLAT_EXPLICIT_TEST_WORKER_REQUIRED",false);
+    if(polatModel&&polatTask(task))polatOfflineRuntimeProvider(polatModel,task.tenant_id,task.conversation_id);
     const built = await buildAgentContext({
       tenant_id: task.tenant_id,
       customer_id: task.customer_id,
       conversation_id: task.conversation_id,
       source_event_id: task.source_event_id ?? "",
-    },polatTask(task)?{polatTest:true}:undefined);
+    },polatTask(task)?{polatTest:true,polatClaudeOffline:!!polatModel}:undefined);
     runId = await invokeRpc<string>("begin_agent_run", {
       target_tenant_id: task.tenant_id,
       target_task_id: task.task_id,
       worker_id_value: workerId,
       context_manifest_value: built.manifest,
     });
-    const polat=polatTask(task)&&built.polat?preparePolatRuntimeProfile(built.polat,built.context,runId):null;
+    const polat=polatTask(task)&&built.polat?preparePolatRuntimeProfile(built.polat,built.context,runId,!!polatModel):null;
     if(polat)built.context.commercialEvidence=polat.prepared.evidence;
     const styleProfile = polat?.request.styleProfile??inferStyleProfile(built.context.recentMessages,built.context.verifiedCustomerLanguage);
     const sourceText = built.context.recentMessages.at(-1)?.content ?? "";
@@ -215,7 +218,8 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
       styleProfile,
       versions: CONVERSATION_QUALITY_VERSIONS,
     };
-    const provider = polat?.provider??providerFor(task);
+    const provider = polat && polatModel ? polatOfflineRuntimeProvider(polatModel, task.tenant_id, task.conversation_id) : polat?.provider??providerFor(task);
+    activeProvider = provider;
     const responses: ModelResponse[] = [];
     const requests: ModelRequest[] = [];
     activeRequest = request;
@@ -234,7 +238,7 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
       input_tokens_value: response.usage.inputTokens,
       output_tokens_value: response.usage.outputTokens,
       total_tokens_value: response.usage.totalTokens,
-      latency_ms_value: response.latencyMs,
+      latency_ms_value: Math.ceil(response.latencyMs),
       error_code_value: null,
       request_fingerprint_value: requestFingerprint(request),
     });
@@ -299,7 +303,7 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
         input_tokens_value: response.usage.inputTokens,
         output_tokens_value: response.usage.outputTokens,
         total_tokens_value: response.usage.totalTokens,
-        latency_ms_value: response.latencyMs,
+        latency_ms_value: Math.ceil(response.latencyMs),
         error_code_value: null,
         request_fingerprint_value: requestFingerprint(rewriteRequest),
       });
@@ -323,7 +327,7 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
       reasons: [...evaluation.reasons, "REWRITE_BUDGET_EXHAUSTED"] };
     const inputTokens = responses.reduce<number | null>((total, item) => item.usage.inputTokens === null ? total : (total ?? 0) + item.usage.inputTokens, null);
     const outputTokens = responses.reduce<number | null>((total, item) => item.usage.outputTokens === null ? total : (total ?? 0) + item.usage.outputTokens, null);
-    const latencyMs = responses.reduce((total, item) => total + item.latencyMs, 0);
+    const latencyMs = responses.reduce((total, item) => total + Math.ceil(item.latencyMs), 0);
     const completed = await invokeRpc<{ proposal_id: string }>("complete_quality_agent_run", {
       target_tenant_id: task.tenant_id,
       target_run_id: runId,
@@ -368,8 +372,8 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
         target_run_id: runId,
         invocation_sequence_value: activeRequest.rewriteFeedback ? 2 : 1,
         purpose_value: activeRequest.rewriteFeedback ? "qa_rewrite" : "generation",
-        provider_value: task.model_provider,
-        model_value: task.model_name,
+        provider_value: activeProvider?.provider ?? task.model_provider,
+        model_value: activeProvider?.model ?? task.model_name,
         status_value: failure.kind === "TIMEOUT" ? "TIMED_OUT"
           : failure.kind === "RATE_LIMIT" ? "RATE_LIMITED"
             : failure.kind === "INVALID_OUTPUT" ? "INVALID_OUTPUT" : "FAILED",
@@ -394,7 +398,7 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
   }
 }
 
-export async function runDeterministicWorker(input?: { workerId?: string; deploymentRef?: string; conversation?: { tenantId: string; conversationId: string };polatTest?:{transport:FakePolatTransport} }): Promise<WorkerResult> {
+export async function runDeterministicWorker(input?: { workerId?: string; deploymentRef?: string; conversation?: { tenantId: string; conversationId: string };polatTest?:{transport:FakePolatTransport;model?:PolatOfflineRuntimeModel} }): Promise<WorkerResult> {
   const workerId = input?.workerId ?? `vercel-${crypto.randomUUID()}`;
   const result: WorkerResult = {
     workerId,
@@ -428,7 +432,7 @@ export async function runDeterministicWorker(input?: { workerId?: string; deploy
     }));
     result.tasksClaimed = claimedTasks.length;
     for (const task of claimedTasks) {
-      if (await processTask(task, workerId,input?.polatTest?.transport)) {
+      if (await processTask(task, workerId,input?.polatTest?.transport,input?.polatTest?.model)) {
         if (task.task_type === "lead.intelligence") result.leadTasksCompleted += 1;
         else if(task.task_type==="conversion.prepare")result.conversionTasksCompleted+=1;
         else result.tasksWaitingApproval += 1;

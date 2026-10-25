@@ -5,6 +5,7 @@ import { createHash } from "node:crypto";
 import {
   CONTEXT_LIMITS,
   POLAT_PROFILE,
+  preparePolatFixtureRuntime,
   assertSafeContext,
   type BackendEvidence,
   messageEvidenceHandles,
@@ -37,7 +38,7 @@ export type ContextBuildResult = {
   manifest: Record<string, unknown>;
 };
 
-export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:true}): Promise<ContextBuildResult> {
+export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:true;polatClaudeOffline?:boolean}): Promise<ContextBuildResult> {
   const supabase = createSupabaseAdminClient();
   const { data: conversationData, error: conversationError } = await supabase
     .from("conversations")
@@ -192,6 +193,7 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
     return items;
   });
   context.commercialEvidence=[...(context.commercialEvidence??[]),...(polat?[]:receiptEvidence)];
+  const nativeProfile=polat&&options?.polatClaudeOffline?preparePolatFixtureRuntime(polat,context,"00000000-0000-4000-8000-000000000001","DIRECT",true):null;
   assertSafeContext(context);
   return {
     ...(polat?{polat}:{}),
@@ -219,7 +221,8 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
       commercial_conflict:context.commercial?.conflict??false,
       conversion_run_id:context.conversion?.run_id??null,
       commercial_fact_ids:context.commercialEvidence?.map(f=>f.id)??[],
-      evidence_handle_registry: messageEvidenceHandles(context),
+      evidence_handle_registry: messageEvidenceHandles(nativeProfile?.request.context??context),
+      ...(nativeProfile?{polat_offline_codec:"claude-messages-v1"}:{}),
       source_event_id: task.source_event_id,
       source_message_id: sourceMessageId,
       source_message_created_at: sourceMessage.created_at,
