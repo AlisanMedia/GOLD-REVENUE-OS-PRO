@@ -131,6 +131,12 @@ actor enum/eksik idempotency key; stateful native DB'yi clean-fixture varsayan
 legacy QA seti için kullanma; release envanterinin ilk incelemesinde dört legacy
 12-digit migration'ın yalnız 14-digit filtre nedeniyle atlanması. Envanter artık
 tüm committed SQL listesini birebir doğrular ve bilinmeyen adı sessizce atlamaz.
+Mandatory Database CI `40245203882`, job `121325461485`, yeni master pgTAP'ta
+dört loop assertion'ının `PERFORM is(...)` ile sayılıp TAP client'a yazılmadığını
+yakaladı: plan48/visible44, out-of-sequence FAIL. Sonuçlar temp tabloya alınıp
+aynı dört assertion dışarıda `SELECT is(...)` ile yayınlanır; assertion sayısı
+ve beklenen 252/252 değerleri değişmez. Yerel kabulde gerçek TAP parser şarttır;
+yalnız psql exit0/"not ok" yokluğu PASS kabul edilmez. Failed run/artifact korunur.
 Clean-fixture uyumsuzluğu ayrı clean disposable database ile
 çözülür; assertion'lar değiştirilmez. Expected takeover-fence SQL denial log'u
 başarısız provider kabulü diye yorumlanmaz.

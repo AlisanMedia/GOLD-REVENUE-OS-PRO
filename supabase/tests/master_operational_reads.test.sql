@@ -42,15 +42,17 @@ select throws_ok($$select pg_temp.experiments(25,jsonb_set((select page->'next_c
 select throws_ok($$select pg_temp.experiments(25,jsonb_set((select page->'next_cursor'from exp_pages),'{role}','"support"'))$$,'22023','POLAT_EXPERIMENT_CURSOR_INVALID','cursor cannot cross role');
 select throws_ok($$select pg_temp.experiments(25,jsonb_set((select page->'next_cursor'from exp_pages),'{tenant}','"ffffffff-0000-4000-8000-000000000001"'))$$,'22023','POLAT_EXPERIMENT_CURSOR_INVALID','cursor cannot cross tenant');
 select throws_ok($$select pg_temp.experiments(25,'{}')$$,'22023','POLAT_EXPERIMENT_CURSOR_INVALID','incomplete cursor denied');
+create temp table experiment_seen(ids uuid[]);
 do $$declare p jsonb;seen uuid[]:='{}';k integer:=0;begin
  p:=pg_temp.experiments();loop
   seen:=seen||array(select(x->>'id')::uuid from jsonb_array_elements(p->'items')x);k:=k+1;
   exit when not(p->>'has_more')::boolean;if k>11 then raise exception 'unbounded pagination';end if;
   p:=pg_temp.experiments(25,p->'next_cursor');
  end loop;
- perform extensions.is(cardinality(seen),252,'all historical runs remain reachable');
- perform extensions.is((select count(distinct x)::integer from unnest(seen)x),252,'tie-breaking never duplicates or skips a run');
+ insert into experiment_seen values(seen);
 end;$$;
+select is(cardinality(ids),252,'all historical runs remain reachable')from experiment_seen;
+select is((select count(distinct x)::integer from unnest(ids)x),252,'tie-breaking never duplicates or skips a run')from experiment_seen;
 select ok(octet_length(pg_temp.experiments()::text)<30000,'bounded response size');
 do $$declare plan jsonb;begin
  execute format('explain(analyze,buffers,format json)select id from private.polat_experiment_runs where tenant_id=%L order by created_at desc,id desc limit 26',pg_temp.bridge_id(8601,'1000'))into plan;
@@ -69,14 +71,16 @@ select ok(not(pg_temp.message_page()::text~'provider_user_id|provider_chat_id|pr
 select throws_ok($$select public.admin_conversation_message_page_v1(pg_temp.polat_id(6301,'2000'),pg_temp.polat_conv(6301),101)$$,'22023','MESSAGE_CURSOR_INVALID','message maximum enforced');
 select throws_ok($$select public.admin_conversation_message_page_v1(pg_temp.polat_id(6301,'2000'),'ffffffff-0000-4000-8000-000000000001')$$,'42501','MESSAGE_HISTORY_UNAVAILABLE','foreign conversation uniformly unavailable');
 select throws_ok($$select pg_temp.message_page(jsonb_set(pg_temp.message_page()->'next_cursor','{scope}',to_jsonb(repeat('0',64))))$$,'22023','MESSAGE_CURSOR_INVALID','message cursor cannot change scope');
+create temp table message_seen(ids uuid[]);
 do $$declare p jsonb;seen uuid[]:='{}';k integer:=0;begin
  p:=pg_temp.message_page();loop
   seen:=seen||array(select(x->>'id')::uuid from jsonb_array_elements(p->'items')x);k:=k+1;
   exit when not(p->>'has_more')::boolean;if k>11 then raise exception 'unbounded message pagination';end if;p:=pg_temp.message_page(p->'next_cursor');
  end loop;
- perform extensions.is(cardinality(seen),252,'all 252 messages retained across pages');
- perform extensions.is((select count(distinct x)::integer from unnest(seen)x),252,'equal occurred_at never duplicates or skips messages');
+ insert into message_seen values(seen);
 end;$$;
+select is(cardinality(ids),252,'all 252 messages retained across pages')from message_seen;
+select is((select count(distinct x)::integer from unnest(ids)x),252,'equal occurred_at never duplicates or skips messages')from message_seen;
 select set_config('request.jwt.claim.sub','61b01000-0000-4000-8000-000000000002',true);
 select lives_ok($$select pg_temp.message_page()$$,'support retains authorized conversation context');
 select set_config('request.jwt.claim.sub','61b01000-0000-4000-8000-000000000003',true);
