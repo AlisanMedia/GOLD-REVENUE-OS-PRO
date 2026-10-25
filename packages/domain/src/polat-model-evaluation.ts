@@ -1,12 +1,21 @@
-import{polatModelObservationSchema,type PolatModelObservation}from "@gold-revenue-os/contracts";
+import{polatModelObservationSchema,polatOfflineClaudeObservationSchema,POLAT_CLAUDE_MODEL,type PolatModelObservation,type PolatClaudeUsage}from "@gold-revenue-os/contracts";
 import{ModelProviderError,type ModelRequest,type ModelResponse}from "./agent-runtime";
 import{PolatFixtureProvider,type PreparedPolatConversation}from "./polat-conversation";
 
 export function polatFixtureMeasurement(scope:{tenantId:string;conversationId:string;invocationId:string;promptVersion:string;personaVersion:string},elapsedMs:number,response:ModelResponse|null,failure:ModelProviderError|null):PolatModelObservation{
  if(response&&(response.provider!=="mock"||!["polat-fixture-v1","polat-test-runtime-v1"].includes(response.model)))throw Error("POLAT_EXTERNAL_OBSERVATION_DENIED");
+ return polatModelObservationSchema.parse({...modelMeasurement(scope,elapsedMs,response,failure),version:1,source:"FIXTURE_PROVIDER",provider:"mock",model:response?.model??"polat-test-runtime-v1"});
+}
+function modelMeasurement(scope:Parameters<typeof polatFixtureMeasurement>[0],elapsedMs:number,response:ModelResponse|null,failure:ModelProviderError|null){
  const status=failure?.kind==="TIMEOUT"?"TIMED_OUT":failure?.kind==="RATE_LIMIT"?"RATE_LIMITED":failure?.kind==="INVALID_OUTPUT"?"INVALID_OUTPUT":failure?"PROVIDER_ERROR":"SUCCEEDED";
  if(!response&&!failure)throw Error("POLAT_MODEL_RESULT_MISSING");
- return polatModelObservationSchema.parse({version:1,mode:"SYNTHETIC",financial_authority:"NONE",live_operations_authorized:false,tenant_id:scope.tenantId,conversation_id:scope.conversationId,invocation_id:scope.invocationId,source:"FIXTURE_PROVIDER",provider:"mock",model:response?.model??"polat-test-runtime-v1",prompt_version:scope.promptVersion,persona_version:scope.personaVersion,status,retry:failure?.retryable?"BOUNDED_BACKOFF":failure?"REVIEW":"NONE",elapsed_ms:elapsedMs,provider_latency_ms:response?.latencyMs??null,time_to_first_response_ms:null,usage:{input_tokens:response?.usage.inputTokens??null,output_tokens:response?.usage.outputTokens??null,total_tokens:response?.usage.totalTokens??null},billing:null,qa:"NOT_EVALUATED",flags:[],completion:"NOT_COMPLETED"});
+ return {mode:"SYNTHETIC",financial_authority:"NONE",live_operations_authorized:false,tenant_id:scope.tenantId,conversation_id:scope.conversationId,invocation_id:scope.invocationId,prompt_version:scope.promptVersion,persona_version:scope.personaVersion,status,retry:failure?.retryable?"BOUNDED_BACKOFF":failure?"REVIEW":"NONE",elapsed_ms:elapsedMs,provider_latency_ms:response?.latencyMs??null,time_to_first_response_ms:null,usage:{input_tokens:response?.usage.inputTokens??null,output_tokens:response?.usage.outputTokens??null,total_tokens:response?.usage.totalTokens??null},billing:null,qa:"NOT_EVALUATED",flags:[],completion:"NOT_COMPLETED"};
+}
+
+/** Reuse fixture measurement normalization while keeping the actual response identity and counters. */
+export function polatOfflineClaudeMeasurement(scope:Parameters<typeof polatFixtureMeasurement>[0],elapsedMs:number,response:ModelResponse|null,failure:ModelProviderError|null,extra:{provider_usage:PolatClaudeUsage|null;response_hash:string|null}){
+ if(response&&(response.provider!=="anthropic"||response.model!==POLAT_CLAUDE_MODEL))throw Error("POLAT_CLAUDE_OBSERVATION_IDENTITY_DENIED");
+ return polatOfflineClaudeObservationSchema.parse({...modelMeasurement(scope,elapsedMs,response,failure),version:2,source:"OFFLINE_CLAUDE_HTTP",provider:"anthropic",model:POLAT_CLAUDE_MODEL,real_model_execution:false,retry:"NONE",provider_usage:extra.provider_usage,response_hash:extra.response_hash});
 }
 
 /** Construct the fixture internally. This runner cannot select an external provider. */

@@ -1,12 +1,13 @@
 import { randomUUID } from "node:crypto";
-import { polatGuardPolicySchema, polatOfflineTransportScriptSchema, polatModelObservationSchema, type PolatGuardPolicy, type PolatOfflineScript, type PolatGuardJournalRecord } from "@gold-revenue-os/contracts";
+import { polatGuardPolicySchema, polatOfflineTransportScriptSchema, polatModelObservationSchema, polatOfflineClaudeObservationSchema, type PolatGuardPolicy, type PolatOfflineScript, type PolatGuardJournalRecord } from "@gold-revenue-os/contracts";
 import { polatModelAcceptanceManifest } from "./polat-model-acceptance";
 import { POLAT_MULTITURN_V2_CORPUS, polatV2CorpusPlan } from "./polat-multiturn-v2-corpus";
 import { preparePolatConversation, PolatFixtureProvider, assessPolatDraft, POLAT_PROFILE } from "./polat-conversation";
 import { polatFixture } from "./polat-conversation.fixtures";
 import { assertSafeContext, requestFingerprint, ModelProviderError, type ModelRequest, type ModelResponse } from "./agent-runtime";
-import { polatFixtureMeasurement } from "./polat-model-evaluation";
+import { polatFixtureMeasurement, polatOfflineClaudeMeasurement } from "./polat-model-evaluation";
 import { openPolatExperimentJournal, polatGuardDigest } from "./polat-experiment-journal";
+import { createPolatClaudeOfflineProvider, preparePolatClaudeRequest, PolatClaudeFailure } from "./polat-claude-adapter";
 /** Versioned nonfinancial measurement hash; monetary/financial canonical rules remain untouched. */
 function modelEvidenceHash(value: unknown): string {
     const numbersAsTypedStrings = (v: unknown): unknown => {
@@ -53,7 +54,7 @@ export function polatGuardInvocationTargets() {
     return Object.freeze(targets);
 }
 export type OfflinePolatTransport = Readonly<{
-    kind: "REGISTERED_OFFLINE_FIXTURE";
+    kind: "REGISTERED_OFFLINE_FIXTURE" | "REGISTERED_OFFLINE_CLAUDE_HTTP";
     target_hash: string;
     request_hash: string;
 }>;
@@ -63,6 +64,8 @@ type Port = {
     calls: number;
     prepared: ReturnType<typeof preparePolatConversation>;
     invoke: (signal: AbortSignal) => Promise<ModelResponse>;
+    claude?: ReturnType<typeof createPolatClaudeOfflineProvider>;
+    wire_request_hash?: string;
 };
 const offlinePorts = new WeakMap<object, Port>();
 /** Accepts data, never an arbitrary callable/SDK. Internally reuses the accepted fixture ModelProvider. */
@@ -105,9 +108,29 @@ export function polatOfflineTransportCalls(port: OfflinePolatTransport) {
         throw Error("POLAT_GUARD_UNREGISTERED_TRANSPORT");
     return p.calls;
 }
+/** Same registered-port and fsynced-journal path. The only driver is a data-only fake HTTP frame. */
+export function createPolatClaudeOfflineTransport(targetHash: string, rawConfig: unknown, simulatedBilledCost: unknown = null): OfflinePolatTransport {
+    const target = polatGuardInvocationTargets().find(t => t.target_hash === targetHash);
+    if (!target) throw Error("POLAT_GUARD_TARGET_DENIED");
+    const scenario = POLAT_MULTITURN_V2_CORPUS.find(s => s.id === target.scenario)!, turn = scenario.turns[target.turn]!;
+    const prepared = preparePolatConversation(polatFixture(turn.text, turn.language ?? "en"));
+    prepared.request.requestId = "polat-guard:" + targetHash;
+    const request = structuredClone(prepared.request), claude = createPolatClaudeOfflineProvider(rawConfig);
+    const wire = preparePolatClaudeRequest(request, claude.config.maximum_output_tokens);
+    const publicPort = Object.freeze({ kind: "REGISTERED_OFFLINE_CLAUDE_HTTP" as const, target_hash: targetHash, request_hash: requestFingerprint(request) });
+    const port: Port = { request, prepared, script: polatOfflineTransportScriptSchema.parse({ status: "SUCCESS", billed_cost: simulatedBilledCost }), calls: 0, claude, wire_request_hash: wire.body_hash,
+        invoke: (signal) => { port.calls++; return claude.provider.invoke(request, signal); } };
+    offlinePorts.set(publicPort, port);
+    return publicPort;
+}
+export function polatClaudeOfflineTransportEvidence(transport: OfflinePolatTransport) {
+    const port = offlinePorts.get(transport);
+    if (!port?.claude) throw Error("POLAT_GUARD_CLAUDE_PORT_REQUIRED");
+    return port.claude.evidence();
+}
 function validateBinding(manifest: ReturnType<typeof polatModelAcceptanceManifest>, raw: unknown) {
     const p = polatGuardPolicySchema.parse(raw), f = manifest.fields;
-    if (manifest.missing_fields.length || p.manifest_hash !== manifest.proposal_hash || p.repository_sha !== f.approved_repository_sha || p.corpus_hash !== manifest.corpus_hash || p.corpus_version !== manifest.corpus_version || p.provider !== f.provider || p.model !== f.model || p.model_version !== f.model_version || p.model_version !== POLAT_PROFILE.version || p.currency !== f.budget.currency || p.simulation_request_limit > f.budget.maximum_requests! || units(p.maximum_attempt_liability) > units(f.budget.maximum_decimal_spend!))
+    if (manifest.missing_fields.length || p.manifest_hash !== manifest.proposal_hash || p.repository_sha !== f.approved_repository_sha || p.corpus_hash !== manifest.corpus_hash || p.corpus_version !== manifest.corpus_version || p.provider !== f.provider || p.model !== f.model || p.model_version !== f.model_version || (p.version === 1 ? p.model_version : p.profile_version) !== POLAT_PROFILE.version || p.currency !== f.budget.currency || p.simulation_request_limit > f.budget.maximum_requests! || units(p.maximum_attempt_liability) > units(f.budget.maximum_decimal_spend!))
         throw Error("POLAT_GUARD_BINDING_DENIED");
     if (p.account_state !== "SIMULATED_ENFORCED" || !p.account_cap_evidence_hash || !p.account_cap_amount || p.account_cap_evidence_hash !== f.budget.cap_enforcement_evidence?.sha256 || p.policy_evidence_hash !== f.data_policy.data_handling_approval?.sha256 || units(p.account_cap_amount) !== units(f.budget.maximum_decimal_spend!) || Date.parse(p.valid_until) <= Date.now() || Date.parse(p.valid_until) > Date.now() + 30 * 60 * 1000)
         throw Error("POLAT_GUARD_POLICY_UNAVAILABLE");
@@ -228,6 +251,10 @@ export function openPolatOfflineExperiment(args: {
                 stop("POLICY_DRIFT");
                 return { ...authority, disposition: "STOPPED", summary: summary(), observation: null, response: null };
             }
+            if (latest.version === 2 ? !port.claude || port.claude.config.model !== latest.model || port.claude.config.adapter_version !== latest.adapter_version || port.claude.config.maximum_output_tokens !== latest.maximum_output_tokens || port.claude.config.timeout_ms !== latest.timeout_ms || preparePolatClaudeRequest(port.request, latest.maximum_output_tokens).body_hash !== port.wire_request_hash : Boolean(port.claude)) {
+                stop("POLICY_DRIFT");
+                return { ...authority, disposition: "STOPPED", summary: summary(), observation: null, response: null };
+            }
             if (state.attempts.size >= state.header.maximum_requests) {
                 stop("REQUEST_LIMIT_REACHED");
                 return { ...authority, disposition: "STOPPED", summary: summary(), observation: null, response: null };
@@ -241,7 +268,7 @@ export function openPolatOfflineExperiment(args: {
             controller = new AbortController();
             const attemptId = randomUUID();
             try {
-                journal.append({ kind: "RESERVED", attempt_id: attemptId, target_hash: transport.target_hash, request_hash: polatGuardDigest({ fingerprint: transport.request_hash, timeout_ms: policy.timeout_ms, model_version: policy.model_version }), liability: policy.maximum_attempt_liability });
+                journal.append({ kind: "RESERVED", attempt_id: attemptId, target_hash: transport.target_hash, request_hash: polatGuardDigest({ fingerprint: transport.request_hash, timeout_ms: policy.timeout_ms, model_version: policy.model_version, ...(policy.version === 2 ? { adapter_version: policy.adapter_version, maximum_output_tokens: policy.maximum_output_tokens, wire_request_hash: port.wire_request_hash } : {}) }), liability: policy.maximum_attempt_liability });
                 const started = performance.now();
                 let response: ModelResponse | null = null, failure: ModelProviderError | null = null, unknown = false;
                 let timer: ReturnType<typeof setTimeout> | undefined;
@@ -251,7 +278,7 @@ export function openPolatOfflineExperiment(args: {
                 }
                 catch (error) {
                     failure = error instanceof ModelProviderError ? error : new ModelProviderError("PROVIDER_ERROR", "OFFLINE_FAILURE_REDACTED", false);
-                    unknown ||= failure.code === "OFFLINE_RESULT_UNKNOWN" || failure.kind === "TIMEOUT";
+                    unknown ||= failure.code === "OFFLINE_RESULT_UNKNOWN" || failure.kind === "TIMEOUT" || error instanceof PolatClaudeFailure && error.outcome_unknown;
                 }
                 finally {
                     if (timer)
@@ -276,6 +303,12 @@ export function openPolatOfflineExperiment(args: {
                     failure = new ModelProviderError("INVALID_OUTPUT", "OFFLINE_MODEL_MISMATCH", false);
                     response = null;
                 }
+                const responseIdentity = policy.version === 2 && response?.providerRequestId ? modelEvidenceHash([response.provider, response.providerRequestId]) : null;
+                if (responseIdentity && [...snapshot.attempts.values()].some(a => a.result?.response_identity_hash === responseIdentity)) {
+                    reason = "RESPONSE_ID_REUSE";
+                    failure = new ModelProviderError("INVALID_OUTPUT", "CLAUDE_RESPONSE_REPLAY", false);
+                    response = null;
+                }
                 const cost = unknown || reason === "OWNER_CANCELLED" ? null : port.script.billed_cost;
                 if (!reason) {
                     if (!cost)
@@ -286,14 +319,15 @@ export function openPolatOfflineExperiment(args: {
                         reason = "COST_BOUND_BREACH";
                 }
                 const scope = { tenantId: port.prepared.input.tenant_id, conversationId: port.prepared.input.conversation_id, invocationId: attemptId, promptVersion: port.request.versions?.prompt ?? "unknown", personaVersion: POLAT_PROFILE.version };
-                let observation = polatFixtureMeasurement(scope, Math.max(0, Number.isFinite(elapsed) ? elapsed : 0), response, failure);
+                const parser = policy.version === 2 ? polatOfflineClaudeObservationSchema : polatModelObservationSchema;
+                let observation = policy.version === 2 ? polatOfflineClaudeMeasurement(scope, Math.max(0, Number.isFinite(elapsed) ? elapsed : 0), response, failure, port.claude!.evidence()) : polatFixtureMeasurement(scope, Math.max(0, Number.isFinite(elapsed) ? elapsed : 0), response, failure);
                 const quality = response ? assessPolatDraft(port.prepared, response.output) : null;
                 const target = polatGuardInvocationTargets().find(t => t.target_hash === transport.target_hash)!;
                 const expected = POLAT_MULTITURN_V2_CORPUS.find(s => s.id === target.scenario)!.turns[target.turn]!.expected;
                 const critical = quality && (quality.qa.grounding.blocked || quality.reasons.some(r => ["POLAT_AI_DISCLOSURE_REQUIRED", "POLAT_IMPERSONATION_OR_FAMILIARITY", "POLAT_ACTION_PROPOSAL_DENIED", "POLAT_SECRET_OUTPUT_DENIED", "POLAT_OWNERSHIP_OR_CONTACT_BLOCK"].includes(r)));
                 if (!reason && response && (critical || quality?.action !== "SAFE_PREVIEW" && expected !== "HOLD"))
                     reason = "QA_REVIEW_REQUIRED";
-                observation = polatModelObservationSchema.parse({ ...observation, elapsed_ms: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null, retry: "NONE", qa: quality?.action === "SAFE_PREVIEW" ? "APPROVED" : quality ? "HELD" : "NOT_EVALUATED", billing: cost && cost.currency === policy.currency ? { amount: cost.amount, currency: cost.currency, basis: "SIMULATED_PROVIDER_REPORT" } : null });
+                observation = parser.parse({ ...observation, elapsed_ms: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null, retry: "NONE", qa: quality?.action === "SAFE_PREVIEW" ? "APPROVED" : quality ? "HELD" : "NOT_EVALUATED", billing: cost && cost.currency === policy.currency ? { amount: cost.amount, currency: cost.currency, basis: "SIMULATED_PROVIDER_REPORT" } : null });
                 const earlier = [...snapshot.attempts.values()].flatMap(a => a.result ? [a.result] : []);
                 const errors = earlier.filter(r => r.status !== "SUCCEEDED").length + (observation.status === "SUCCEEDED" ? 0 : 1);
                 const held = earlier.filter(r => r.qa === "HELD").length + (observation.qa === "HELD" ? 1 : 0);
@@ -302,7 +336,7 @@ export function openPolatOfflineExperiment(args: {
                     reason = "ERROR_THRESHOLD_REACHED";
                 if (!reason && evaluated > 0 && held * 10000 > manifest.fields.thresholds.qa_holds_max_basis_points! * evaluated)
                     reason = "QA_THRESHOLD_REACHED";
-                journal.append({ kind: "RESULT", attempt_id: attemptId, status: unknown ? "UNKNOWN" : observation.status, elapsed_ms: Number.isFinite(elapsed) && elapsed >= 0 ? String(elapsed) : null, observation_hash: modelEvidenceHash(observation), output_hash: response ? modelEvidenceHash(response.output) : null, pricing_estimate: port.script.pricing_estimate, billed_cost: cost, stop_reason: reason, qa: observation.qa, retry: "NONE" });
+                journal.append({ kind: "RESULT", attempt_id: attemptId, status: unknown ? "UNKNOWN" : observation.status, elapsed_ms: Number.isFinite(elapsed) && elapsed >= 0 ? String(elapsed) : null, observation_hash: modelEvidenceHash(observation), output_hash: response ? modelEvidenceHash(response.output) : null, pricing_estimate: port.script.pricing_estimate, billed_cost: cost, stop_reason: reason, qa: observation.qa, retry: "NONE", ...(responseIdentity ? { response_identity_hash: responseIdentity } : {}) });
                 return { ...authority, disposition: reason ? "STOPPED" : "RECORDED", summary: summary(), observation, response: reason ? null : response };
             }
             finally {

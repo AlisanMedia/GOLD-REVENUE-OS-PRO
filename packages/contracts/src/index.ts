@@ -95,3 +95,4 @@ export * from "./polat-human-review";
 export * from "./polat-model-acceptance";
 
 export * from "./polat-experiment-guard";
+export * from "./polat-claude-adapter";

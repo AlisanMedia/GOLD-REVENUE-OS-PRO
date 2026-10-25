@@ -6,6 +6,12 @@ Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea
 
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
+## Claude candidate adapter —2026-10-25
+
+[Implementation checkpoint](../POLAT_CLAUDE_ADAPTER_IMPLEMENTATION_REPORT.md): one owner-authorized isolated adapter, deterministic fake HTTP and existing guard/journal/native QA integration. Explicit node-only import; no browser/runtime auto-selection, credential loader, SDK/default retry or real network path. Local/CI evidence is synthetic; exact protected publication outcomes belong in the final owner artifact. No genuine model acceptance is claimed.
+
+Next independent gate is owner/account/data/billing-cap/people/quality approval plus a separately reviewed durable genuine runner/transport. Same SHA/hash/run identity, exact liabilities, bounded requests/output and unknown-result reconciliation must precede any genuine dispatch. A hosted store/migration, first inference window and any smaller subset require separate scope/approval. Current manifest authority0, full290/5.00 USD NOT APPROVED, HUMAN_REVIEW_PENDING, financial NONE, commercial NO_GO and Phase16C-1 OPEN. C01–C10 statuses do not change through adapter completion.
+
 ## Controlled real-model preflight —2026-10-25
 
 [Official comparison](phases/POLAT_PROVIDER_DECISION_INTELLIGENCE.md), [offline guard report](../POLAT_OFFLINE_EXPERIMENT_GUARDS_REPORT.md), [same disabled decision sheet](phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md) and [decision report](../POLAT_REAL_MODEL_DECISIONS_REPORT.md). Current owner scope is three repository-only packages; no real inference, hosted operation or commercial entry is authorized.
