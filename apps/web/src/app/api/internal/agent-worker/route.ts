@@ -4,6 +4,7 @@ import { drainAutomaticReplies } from "@/lib/messaging/automatic-replies";
 import { timingSafeEqual } from "node:crypto";
 import { runDeterministicWorker } from "@/lib/agent-runtime/worker";
 import { drainEscalations } from "@/lib/escalations/service";
+import { privateBetaIsolationActive } from "../../../../lib/polat/private-beta-isolation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,6 +23,11 @@ export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: "UNAUTHORIZED" }, { status: 401 });
   try {
     const workload = new URL(request.url).searchParams.get("workload");
+    if (privateBetaIsolationActive()) {
+      if (workload) return Response.json({ error: "LEGACY_WORKLOAD_ISOLATED" }, { status: 423 });
+      const { drainPrivateBetaRecovery } = await import("@/lib/polat/private-beta-runtime");
+      return Response.json({ status: "ok", private_beta: await drainPrivateBetaRecovery() });
+    }
     if (workload && workload !== "customer-success" && workload !== "surveys") return Response.json({ error: "INVALID_WORKLOAD" }, { status: 400 });
     if (workload === "surveys") return Response.json({ status: "ok", surveys: await drainSurveys() });
     if (workload === "customer-success") return Response.json({ status: "ok", customer_success: await drainCustomerSuccess() });

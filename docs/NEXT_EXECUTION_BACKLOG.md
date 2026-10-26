@@ -7,6 +7,23 @@ Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
 
+## Private-beta UAT —26 October2026, current founder scope
+
+Implementation proceeds as one consolidated package. Reuse the native runtime,
+QA, journal, human attention and Admin. Genuine stages are prerequisite-driven:
+reviewed exact-SHA backup/restore/release → authenticated canary1 and independent
+billing → founder BOT messages → consenting invited friends → operator acceptance
+→ separate Telegram Stars TEST network. They are not completed by offline PASS.
+
+Remaining external inputs are protected bot/model credentials, verified account
+spend/data/region/pricing evidence, actual staff MFA/roles, explicit UTC/retention
+configuration and TEST bot/channel/XTR evidence. Never turn read-only account
+observations into an approval, reuse general bot credentials for Stars TEST, or
+activate commercial receipt/VIP authority. Supplier rights and C01–C10 still block
+paying customers, not fictional free conversation UAT. The release and recovery
+procedures are in [private-beta-release.md](../infra/runbooks/private-beta-release.md).
+
+
 ## Master program sonrası genuine kabul sınırı — 25 Ekim 2026
 
 Repository-only boşluklar ve native/offline kabul [master checkpoint](../GOLD_REVENUE_OS_MASTER_ENGINEERING_REPORT.md)

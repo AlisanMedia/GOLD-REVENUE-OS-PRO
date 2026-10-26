@@ -2,7 +2,7 @@ export function messageDeliveryLabel(status: string, failureCode?: string | null
   if (failureCode === "TELEGRAM_DELIVERY_UNCERTAIN") return "Teslimat sonucu belirsiz · inceleme gerekli";
   switch (status) {
     case "received": return "Gelen mesaj";
-    case "sent": return "Telegram teslimi doğrulandı";
+    case "sent": return "Telegram API onayı alındı";
     case "pending": return "Gönderim sırada";
     case "sending": return "Gönderim deneniyor";
     case "retry_scheduled": return "Yeniden deneme bekliyor";
@@ -12,7 +12,7 @@ export function messageDeliveryLabel(status: string, failureCode?: string | null
   }
 }
 export function manualReplyResult(ok: boolean, result: { status?: string; error?: string }): string {
-  if (ok && result.status === "sent") return "Telegram teslimi doğrulandı. Müşterinin okuduğu doğrulanmadı.";
+  if (ok && result.status === "sent") return "Telegram API onayı alındı. Müşterinin okuduğu doğrulanmadı.";
   if (ok && ["pending", "queued", "sending", "retry_scheduled"].includes(result.status ?? "")) return "Mesaj sıraya alındı. Teslim henüz doğrulanmadı; görüşmedeki teslim durumunu takip edin.";
   const errors: Record<string, string> = {
     AUTH_REQUIRED: "Oturumunuzu yenileyip yeniden giriş yapın.",

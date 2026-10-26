@@ -1,0 +1,1 @@
+export function parsePrivateBetaAccountProgram(value: unknown, programId: string, sha: string): Readonly<{ program_id: string; tenant_id: string; repository_sha: string; starts_at: string; expires_at: string; stage: string }>;

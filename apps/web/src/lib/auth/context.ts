@@ -1,6 +1,8 @@
 import type { AppRole, TenantSummary } from "@gold-revenue-os/contracts";
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { cookies } from "next/headers";
+import { ADMIN_TENANT_COOKIE, selectAuthorizedTenant } from "./tenant-selection";
 
 type MembershipRow = { tenant_id: string; role: AppRole; status: string };
 type TenantRow = { id: string; name: string; slug: string };
@@ -25,7 +27,8 @@ export async function getUserContext() {
     const role = roleByTenant.get(tenant.id);
     return role ? [{ ...tenant, role }] : [];
   });
-  return { user, tenants };
+  const cookie = (await cookies()).get(ADMIN_TENANT_COOKIE)?.value;
+  return { user, tenants: selectAuthorizedTenant(tenants, user.id, cookie) };
 }
 
 export async function requireUserContext() {

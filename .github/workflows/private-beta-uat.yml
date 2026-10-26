@@ -1,0 +1,356 @@
+name: Private Beta UAT Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Disabled release, read-only account evidence or protected bot identity binding (never inference)
+        required: true
+        default: release_disabled
+        type: choice
+        options:
+          - release_disabled
+          - account_preflight
+          - verify_bot
+      validated_commit_sha:
+        description: Exact current protected main SHA with Application and Database SUCCESS
+        required: true
+        type: string
+      backup_retention_days:
+        description: Founder-approved encrypted recovery artifact retention (1–30 days)
+        required: true
+        type: number
+      program_id:
+        description: Existing MFA-created private UAT program UUID (account_preflight or verify_bot)
+        required: false
+        type: string
+      anthropic_workspace_id:
+        description: Exact approved Anthropic workspace ID (account_preflight only; not a secret)
+        required: false
+        type: string
+      anthropic_spend_limit_id:
+        description: Actual provider spend-limit object ID (account_preflight only; not proof by itself)
+        required: false
+        type: string
+      anthropic_api_key_id:
+        description: Actual workspace API-key object ID (not the key value)
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  checks: read
+  actions: read
+
+concurrency:
+  group: staging-validation
+  cancel-in-progress: false
+
+jobs:
+  release_disabled_beta:
+    name: Reviewed isolated staging release (provider activation disabled)
+    if: ${{ inputs.operation == 'release_disabled' && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    environment: staging
+    env:
+      VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+      DO_NOT_TRACK: 1
+      VERCEL_ORG_ID: team_fOlNA2ASqhGzUplTDUFGCEDM
+      VERCEL_PROJECT_ID: prj_iax5OhGUbLL3s6BemMLqQAHFDAHl
+      VERCEL_SCOPE: gold-revenue-os-staging
+    steps:
+      # Reviewed official action commits; toolchain matches mandatory CI.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify exact SHA, mandatory checks and protected environment
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]
+          node scripts/private-beta-release-gate.mjs
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1
+        with:
+          version: 2.117.0
+      - name: Verify Vercel identity and retain the prior staging deployment
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: node scripts/private-beta-release-vercel.mjs baseline
+      - name: Verify database and backup custody inputs before hosted work
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+          STAGING_SUPABASE_PROJECT_ID: ${{ secrets.STAGING_SUPABASE_PROJECT_ID }}
+          STAGING_BACKUP_PASSPHRASE: ${{ secrets.STAGING_BACKUP_PASSPHRASE }}
+          STAGING_SUPABASE_SSL_ROOT_CERT: ${{ secrets.STAGING_SUPABASE_SSL_ROOT_CERT }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD STAGING_SUPABASE_PROJECT_ID STAGING_BACKUP_PASSPHRASE STAGING_SUPABASE_SSL_ROOT_CERT NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY SUPABASE_SECRET_KEY; do
+            test -n "${!name:-}" || { echo "Required protected staging field is missing: $name" >&2; exit 1; }
+          done
+          test "$STAGING_SUPABASE_PROJECT_ID" = xqvwkghpmezcpgugetqc
+          test "$NEXT_PUBLIC_SUPABASE_URL" = https://xqvwkghpmezcpgugetqc.supabase.co
+          test "${#STAGING_BACKUP_PASSPHRASE}" -ge 32
+          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/master-release-manifest.mjs >"$RUNNER_TEMP/private-beta-release-inventory.json"
+          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/master-release-manifest.mjs --check "$RUNNER_TEMP/private-beta-release-inventory.json"
+      - name: Start only disposable local infrastructure for recovery verification
+        run: supabase start
+      - name: Link exact existing staging database
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref xqvwkghpmezcpgugetqc
+      - name: Read-only hosted backup and independent disposable restore
+        id: backup
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+          STAGING_SUPABASE_PROJECT_ID: xqvwkghpmezcpgugetqc
+          STAGING_BACKUP_PASSPHRASE: ${{ secrets.STAGING_BACKUP_PASSPHRASE }}
+          STAGING_SUPABASE_SSL_ROOT_CERT: ${{ secrets.STAGING_SUPABASE_SSL_ROOT_CERT }}
+        run: bash scripts/private-beta-staging-backup.sh
+      - name: Retain encrypted recoverable backup before migration
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: private-beta-staging-recovery-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/private-beta-staging.dump.enc
+            ${{ runner.temp }}/private-beta-backup-encryption.json
+            ${{ runner.temp }}/private-beta-backup-evidence.json
+          if-no-files-found: error
+          retention-days: ${{ inputs.backup_retention_days }}
+
+      - name: Reverify main and reviewed migration inventory immediately before migration
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/private-beta-release-gate.mjs
+          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/master-release-manifest.mjs --check "$RUNNER_TEMP/private-beta-release-inventory.json"
+          test -s "$RUNNER_TEMP/private-beta-backup-evidence.json"
+          test -s "$RUNNER_TEMP/private-beta-staging.dump.enc"
+      - name: Apply only reviewed pending staging migrations (no seed or Vault writes)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase db push --linked --dry-run --skip-vault
+          supabase db push --linked --skip-vault --yes
+          supabase migration list --linked >"$RUNNER_TEMP/private-beta-staging-migration-history.txt"
+          supabase db lint --linked --level error --fail-on error
+      - name: Pull build configuration from only the existing isolated Vercel project
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: pnpm dlx vercel@59.16.0 pull --yes --environment=production --scope="$VERCEL_SCOPE"
+      - name: Replace pulled build environment with public-only build inputs
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+        run: node scripts/private-beta-release-vercel.mjs build-env
+      - name: Build exact accepted application without model, bot or account credentials
+        run: pnpm dlx vercel@59.16.0 build --prod --scope="$VERCEL_SCOPE"
+      - name: Attach the narrowly scoped runtime configuration after the build
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          POLAT_UAT_ANTHROPIC_API_KEY: ${{ secrets.POLAT_UAT_ANTHROPIC_API_KEY }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+          POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET }}
+          POLAT_UAT_RELAY_SECRET: ${{ secrets.POLAT_UAT_RELAY_SECRET }}
+          POLAT_UAT_STARS_TEST_BOT_TOKEN: ${{ secrets.POLAT_UAT_STARS_TEST_BOT_TOKEN }}
+          POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET }}
+          POLAT_UAT_STARS_RELAY_SECRET: ${{ secrets.POLAT_UAT_STARS_RELAY_SECRET }}
+          POLAT_UAT_TENANT_ID: ${{ vars.POLAT_UAT_TENANT_ID }}
+          POLAT_UAT_PROGRAM_ID: ${{ vars.POLAT_UAT_PROGRAM_ID }}
+        run: node scripts/private-beta-release-vercel.mjs runtime-env
+      - name: Reverify protected main before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/private-beta-release-gate.mjs
+      - name: Stage the technical production-target deployment without moving domains
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          url=$(pnpm dlx vercel@59.16.0 deploy --prebuilt --prod --skip-domain --scope="$VERCEL_SCOPE" --meta "githubCommitSha=$VALIDATED_SHA")
+          PRIVATE_BETA_DEPLOYMENT_URL="$url" node --input-type=module <<'NODE'
+          import { appendFileSync } from 'node:fs';
+          const raw=process.env.PRIVATE_BETA_DEPLOYMENT_URL,url=new URL(raw);
+          if(url.protocol!=='https:'||url.pathname!=='/'||url.search||url.hash||url.username||url.password||!url.hostname.endsWith('.vercel.app'))throw Error('INVALID_DEPLOYMENT_URL');
+          appendFileSync(process.env.GITHUB_OUTPUT,'url='+url.origin+'\n');
+          NODE
+      - name: Verify the staged deployment SHA and unchanged protection
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PRIVATE_BETA_DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: node scripts/private-beta-release-vercel.mjs staged
+      - name: Authenticated infrastructure smoke; application authentication must remain required
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PRIVATE_BETA_DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          vc_curl(){ pnpm dlx vercel@59.16.0 curl "$1" --deployment "$PRIVATE_BETA_DEPLOYMENT_URL" --scope="$VERCEL_SCOPE"; }
+          vc_curl /api/health/live | grep -q '"status":"ok"'
+          vc_curl /api/health/ready | grep -q '"status":"ready"'
+          vc_curl /login >/dev/null
+          status=$(pnpm dlx vercel@59.16.0 curl /admin --deployment "$PRIVATE_BETA_DEPLOYMENT_URL" --scope="$VERCEL_SCOPE" -- --output /dev/null --write-out '%{http_code}')
+          test "$status" = 307 -o "$status" = 302 -o "$status" = 303
+          echo 'PASS: authenticated Vercel smoke; anonymous app request still redirects to login. Actual founder/operator MFA login acceptance is not claimed.' >>"$GITHUB_STEP_SUMMARY"
+      - name: Promote only the verified isolated staging build
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PRIVATE_BETA_DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: pnpm dlx vercel@59.16.0 promote "$PRIVATE_BETA_DEPLOYMENT_URL" --scope="$VERCEL_SCOPE" --yes
+      - name: Verify both canonical staging aliases, exact SHA and protection after promotion
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          PRIVATE_BETA_DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
+        run: node scripts/private-beta-release-vercel.mjs published
+      - name: Retain sanitized release evidence and encrypted failure evidence
+        if: ${{ always() && steps.gate.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: private-beta-release-evidence-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/private-beta-release-gate.json
+            ${{ runner.temp }}/private-beta-release-inventory.json
+            ${{ runner.temp }}/private-beta-vercel-before.json
+            ${{ runner.temp }}/private-beta-vercel-staged.json
+            ${{ runner.temp }}/private-beta-vercel-published.json
+            ${{ runner.temp }}/private-beta-runtime-env-names.json
+            ${{ runner.temp }}/private-beta-staging-migration-history.txt
+            ${{ runner.temp }}/private-beta-backup-failure.json
+            ${{ runner.temp }}/private-beta-backup-failure.enc
+          if-no-files-found: warn
+          retention-days: ${{ inputs.backup_retention_days }}
+      - name: Remove private runner material and stop only disposable local infrastructure
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f .vercel/.env.production.local .vercel/.env.preview.local
+          supabase stop --no-backup || true
+          echo 'This release does not register a webhook, invoke a model, issue an invoice, send Telegram messages or enable commercial sales.' >>"$GITHUB_STEP_SUMMARY"
+
+  account_preflight:
+    name: Protected read-only Anthropic account evidence (zero inference)
+    if: ${{ inputs.operation == 'account_preflight' && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: staging
+    env:
+      VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+      DO_NOT_TRACK: 1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify protected exact main and reviewer before credential use
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]
+          node scripts/private-beta-release-gate.mjs
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Read actual account controls without inference or authority fabrication
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          ANTHROPIC_UAT_WORKSPACE_ID: ${{ inputs.anthropic_workspace_id }}
+          ANTHROPIC_UAT_SPEND_LIMIT_ID: ${{ inputs.anthropic_spend_limit_id }}
+          ANTHROPIC_UAT_API_KEY_ID: ${{ inputs.anthropic_api_key_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          POLAT_UAT_ANTHROPIC_ADMIN_KEY: ${{ secrets.POLAT_UAT_ANTHROPIC_ADMIN_KEY }}
+          POLAT_UAT_ANTHROPIC_API_KEY: ${{ secrets.POLAT_UAT_ANTHROPIC_API_KEY }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-account.mjs
+      - name: Preserve read-only account observation (not a signed activation grant)
+        if: ${{ always() && steps.gate.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: private-beta-account-observation-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/private-beta-release-gate.json
+            ${{ runner.temp }}/private-beta-anthropic-account-observation.json
+          if-no-files-found: warn
+          retention-days: ${{ inputs.backup_retention_days }}
+
+  verify_bot:
+    name: Protected dedicated UAT bot identity (zero messages)
+    if: ${{ inputs.operation == 'verify_bot' && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    env:
+      VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+      DO_NOT_TRACK: 1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+      - name: Reverify exact main and real reviewer controls before bot custody
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]
+          node scripts/private-beta-release-gate.mjs
+      - name: Verify real getMe and persist only its scoped numeric identity
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+        run: node --experimental-transform-types scripts/private-beta-release-bot.mjs
+      - name: Preserve sanitized bot control and separate read-back evidence
+        if: ${{ always() && steps.gate.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: private-beta-bot-control-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/private-beta-release-gate.json
+            ${{ runner.temp }}/private-beta-bot-control.json
+          if-no-files-found: warn
+          retention-days: ${{ inputs.backup_retention_days }}

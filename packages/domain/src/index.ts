@@ -57,6 +57,7 @@ export * from "./signal-wave";
 
 export * from "./signal-review";
 export * from "./polat-conversation";
+export * from "./polat-private-beta-runtime";
 export * from "./polat-response";
 
 export * from "./polat-sales";

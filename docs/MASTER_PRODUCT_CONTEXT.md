@@ -5,6 +5,37 @@ Living continuation index, initially reconstructed on **2026-10-16 UTC** and upd
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
 
 
+## 26 Ekim 2026 — founder-authorized private-beta UAT program
+
+The newer founder directive authorizes a bounded private beta, subject to actual
+external prerequisites. It supersedes older no-provider/no-hosting prohibitions
+only for this isolated UAT. Existing full290-request evaluation remains disabled.
+The new versioned PRIVATE_BETA_UAT path reuses the native runtime, Phase7 QA,
+PostgreSQL attempt journal, Phase12 handoff and Admin; one canary, founder20,
+up to10 consenting friends at30 each, global350 initiated attempts and total5.00USD
+are hard ceilings, not guaranteed usable quotas or completed acceptance.
+
+Implementation includes MFA owner/operator controls, one-use numeric invitations,
+committed notice/consent/opt-out, account/release/source/ownership fences, one-shot
+Claude dispatch and fixed authenticated BOT ingress, immutable cost/attempt
+observations and safe delivery recovery. Dedicated Telegram TEST-network Stars
+uses independently verified TEST evidence and the existing TEST lifecycle; it does
+not confer live financial or VIP authority. Ordinary bot mode and Telegram TEST
+credentials remain separate. The protected release workflow verifies backup and
+independent restore before migrations/publication; no deployment occurs on push.
+See [private beta release](../infra/runbooks/private-beta-release.md),
+[MFA](../infra/runbooks/private-beta-mfa.md) and
+[Stars TEST](../infra/runbooks/private-beta-stars-test.md).
+
+Local/CI evidence is separate from hosted/provider acceptance. Real credential
+custody, effective account controls/data policy, independent canary billing,
+protected environment approval, genuine operator MFA, opted-in participants and
+TEST-network/payment configuration must be independently verified. A configured
+secret, JSON statement or report grants none of these. The final consolidated
+owner artifact records exact CI, publication and genuine-UAT results; this living
+checkpoint does not claim an unobserved release or model call. Commercial gates
+C01–C10 remain NO_GO, financial authority NONE and overall Phase16C-1 OPEN.
+
 ## 25 Ekim 2026 — master repository engineering program
 
 Owner master directive kapsamında native Claude fake-codec TEST worker bağlantısı,

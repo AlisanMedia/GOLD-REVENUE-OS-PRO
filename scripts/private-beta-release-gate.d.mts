@@ -1,0 +1,2 @@
+export const PRIVATE_BETA_RELEASE_TARGET: Readonly<{ repository: string; ref: string; ruleset: number; actionsApp: number }>;
+export function validatePrivateBetaReleaseGate(value: unknown): Readonly<{ version: number; repository: string; sha: string; ref: string; required_checks: ReadonlyArray<{ name: string; id: number; app_id: number; head_sha: string; conclusion: string; url: string }>; ruleset_id: number; staging_reviewer: string; admins_bypass: boolean; financial_authority: string; commercial_pilot: string }>;

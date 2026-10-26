@@ -62,15 +62,20 @@ export function preparePolatConversation(value:unknown){
 }
 export type PreparedPolatConversation=ReturnType<typeof preparePolatConversation>;
 export function assessPolatDraft(p:PreparedPolatConversation,raw:unknown){
+ return assessPolatResponsePolicy({request:p.request,tenant_id:p.input.tenant_id,conversation_id:p.input.conversation_id,boundary:p.input.boundary,runtime_mode:p.input.runtime_mode,contactability:p.input.contactability,intent:p.intent,disclosureRequired:p.disclosureRequired,evidence:p.evidence},raw);
+}
+/** The same Polat identity/QA policy is shared by fixtures and authenticated UAT.
+ * Pure assessment does not grant model, messaging, financial or access authority. */
+export function assessPolatResponsePolicy(p:{request:ModelRequest;tenant_id:string;conversation_id:string;boundary:string;runtime_mode:string;contactability:string;intent:PolatIntent;disclosureRequired:boolean;evidence:BackendEvidence[]},raw:unknown){
  const output=conversationModelOutputSchema.parse(raw),text=output.proposed_response;
- const qa=evaluateConversationQuality({response:text,output,director:p.request.director!,style:p.request.styleProfile!,recentMessages:p.request.context.recentMessages,tenantId:p.input.tenant_id,conversationId:p.input.conversation_id,boundary:p.input.boundary,backendEvidence:p.evidence});
+ const qa=evaluateConversationQuality({response:text,output,director:p.request.director!,style:p.request.styleProfile!,recentMessages:p.request.context.recentMessages,tenantId:p.tenant_id,conversationId:p.conversation_id,boundary:p.boundary,backendEvidence:p.evidence});
  const reasons=[...qa.reasons];const identity=polatIdentity[p.request.styleProfile!.language as keyof typeof polatIdentity];
  if(p.disclosureRequired&&(!identity||!text.includes(identity)))reasons.push("POLAT_AI_DISCLOSURE_REQUIRED");
  const withoutDisclosure=Object.values(polatIdentity).reduce((v,s)=>v.replaceAll(s,""),text);
  if(/(?:^|[.!?]\s)(?:I'm|I am|this is) Polat\b|\bBen Polat[.!\s]|\bPolat benim\b|we (?:spoke|talked) (?:before|last)|seni hatırlıyorum|daha önce konuşmuştuk/iu.test(withoutDisclosure))reasons.push("POLAT_IMPERSONATION_OR_FAMILIARITY");
  if(text.length>600)reasons.push("POLAT_EXCESSIVE_LENGTH");if((text.match(/\?/gu)?.length??0)>1)reasons.push("POLAT_TOO_MANY_QUESTIONS");
  if(output.proposed_tool_calls.length||output.memory_proposals.length)reasons.push("POLAT_ACTION_PROPOSAL_DENIED");
- if(p.input.runtime_mode!=="AI_ACTIVE"||p.input.contactability!=="contactable")reasons.push("POLAT_OWNERSHIP_OR_CONTACT_BLOCK");
+ if(p.runtime_mode!=="AI_ACTIVE"||p.contactability!=="contactable")reasons.push("POLAT_OWNERSHIP_OR_CONTACT_BLOCK");
  if(["PAYMENT","ACCESS","REFUND","CANCEL","HUMAN","VULNERABILITY","PROFITABILITY","SUBSCRIPTION","FRUSTRATION","UNSUPPORTED_LANGUAGE"].includes(p.intent))reasons.push("POLAT_HUMAN_REVIEW_REQUIRED");
  if(secret.test(text))reasons.push("POLAT_SECRET_OUTPUT_DENIED");
  return {action:reasons.length?"HOLD":"SAFE_PREVIEW",reasons:[...new Set(reasons)],qa,delivery:"NOT_SENT",financial_authority:"NONE",live_operations_authorized:false} as const;

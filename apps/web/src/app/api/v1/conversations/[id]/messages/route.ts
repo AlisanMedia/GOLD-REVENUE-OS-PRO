@@ -5,6 +5,8 @@ import { getUserContext } from "@/lib/auth/context";
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
 import { sendTelegramText } from "@/lib/messaging/telegram-adapter";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { dispatchPrivateBetaMessage, privateBetaConversation } from "@/lib/polat/private-beta-runtime";
+import { privateBetaIsolationActive } from "@/lib/polat/private-beta-isolation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,16 +28,6 @@ export async function POST(
     return NextResponse.json({ error: "MESSAGING_SEND_DENIED" }, { status: 403 });
   }
 
-  let env: ReturnType<typeof telegramServerEnv>;
-  try {
-    env = telegramServerEnv();
-  } catch {
-    return NextResponse.json({ error: "TELEGRAM_NOT_CONFIGURED" }, { status: 503 });
-  }
-  if (tenant.id !== env.tenantId) {
-    return NextResponse.json({ error: "TENANT_PROVIDER_NOT_CONFIGURED" }, { status: 403 });
-  }
-
   const idempotencyKey = request.headers.get("idempotency-key")?.trim();
   if (!idempotencyKey || idempotencyKey.length > 240) {
     return NextResponse.json({ error: "IDEMPOTENCY_KEY_REQUIRED" }, { status: 400 });
@@ -54,6 +46,24 @@ export async function POST(
   }
 
   const supabase = await createSupabaseServerClient();
+  // The authenticated membership determines the tenant. The beta RPC additionally
+  // verifies fresh MFA, the named operator, committed takeover and participation.
+  if (privateBetaIsolationActive()) {
+    try {
+      const beta = await privateBetaConversation(tenant.id, conversationId);
+      if (!beta) return NextResponse.json({ error: "LEGACY_MESSAGING_ISOLATED" }, { status: 423 });
+      const { data, error } = await supabase.rpc("admin_private_beta_queue_manual_v1", { target_tenant_id: tenant.id, target_conversation_id: conversationId, content_value: input.content, idempotency_key_value: idempotencyKey, correlation_id_value: input.correlation_id, reply_to_message_id_value: input.reply_to_message_id ?? null });
+      if (error) return NextResponse.json({ error: "PRIVATE_BETA_OPERATOR_OR_OWNERSHIP_REQUIRED" }, { status: 423 });
+      const queued = z.strictObject({ message_id: z.uuid(), status: z.string(), duplicate: z.boolean() }).parse(data);
+      if (queued.duplicate) return NextResponse.json(queued);
+      const outcome = await dispatchPrivateBetaMessage(tenant.id, beta.program_id, queued.message_id);
+      return NextResponse.json({ ...outcome, duplicate: false, ...(outcome.status === "unknown" ? { delivery_evidence: "UNKNOWN", error: "DELIVERY_UNKNOWN_REVIEW_REQUIRED" } : {}) }, { status: outcome.status === "sent" ? 201 : outcome.status === "retry_scheduled" ? 202 : 422 });
+    } catch { return NextResponse.json({ error: "PRIVATE_BETA_MANUAL_REPLY_HELD" }, { status: 503 }); }
+  }
+
+  let env: ReturnType<typeof telegramServerEnv>;
+  try { env = telegramServerEnv(); } catch { return NextResponse.json({ error: "TELEGRAM_NOT_CONFIGURED" }, { status: 503 }); }
+  if (tenant.id !== env.tenantId) return NextResponse.json({ error: "TENANT_PROVIDER_NOT_CONFIGURED" }, { status: 403 });
   const { data: queuedData, error: queueError } = await supabase.rpc("queue_outbound_message", {
     target_tenant_id: tenant.id,
     target_conversation_id: conversationId,
