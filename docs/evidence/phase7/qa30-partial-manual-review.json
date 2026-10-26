@@ -1,0 +1,147 @@
+{
+  "source_sha": "dbb82dd589e005793dfa4a215d1fbf7bd52f5923",
+  "cases": [
+    {
+      "case": 1,
+      "input": "Hi",
+      "reply": "Hi. What can I help you with?",
+      "pass": true,
+      "provider": "685",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 2,
+      "input": "I’m looking into membership. What can you help me clarify?",
+      "reply": "I can help clarify membership questions, but I don’t have the exact membership details available right now.",
+      "pass": true,
+      "provider": "687",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 3,
+      "input": "How much is the membership, and what does it include? Please answer in English with no emojis.",
+      "reply": "I don’t have the exact membership price or inclusions available right now.",
+      "pass": true,
+      "provider": "689",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 4,
+      "input": "Please reply only in English from now on, and do not use emojis.",
+      "reply": "Understood. I’ll reply in English and won’t use emojis.",
+      "pass": true,
+      "provider": "691",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 5,
+      "input": "Merhaba",
+      "reply": "Merhaba. Size nasıl yardımcı olabilirim?",
+      "pass": true,
+      "provider": "693",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 6,
+      "input": "Üyeliğin fiyatı ve içeriği nedir? Türkçe cevap ver.",
+      "reply": "Üyeliğin fiyatı ve içeriği şu an net değil.",
+      "pass": true,
+      "provider": "695",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 7,
+      "input": "Üyeliğin fiyatı ve içeriği nedir? Net bilgin yoksa şu iki cümleyle cevap ver: “Üyeliğin fiyatı ve içeriğiyle ilgili net bilgiye şu an sahip değilim. İstersen bunun için kısa bir inceleme notu hazırlayabilirim.” Henüz not hazırlanmış veya gönderilmiş gibi söyleme.",
+      "reply": "Üyeliğin fiyatı ve içeriğiyle ilgili net bilgiye şu an sahip değilim. İstersen bunun için kısa bir inceleme notu hazırlayabilirim.",
+      "pass": true,
+      "provider": "697",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 8,
+      "input": "ما سعر الاشتراك وما الذي يشمله؟ أجب بالعربية.",
+      "reply": "لا تتوفر لديّ الآن تفاصيل دقيقة عن سعر الاشتراك وما يشمله.",
+      "pass": true,
+      "provider": "699",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 9,
+      "input": "Сколько стоит подписка и что в неё входит? Ответь по-русски.",
+      "reply": "У меня сейчас нет точных данных о стоимости подписки и том, что в неё входит.",
+      "pass": true,
+      "provider": "701",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 10,
+      "input": "Hi",
+      "reply": "Hi. What can I help you with?",
+      "pass": true,
+      "provider": "705",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 11,
+      "input": "How much is it?",
+      "reply": "I don’t have the exact price available right now.",
+      "pass": true,
+      "provider": "706",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 12,
+      "input": "No, I meant the monthly option.",
+      "reply": "Understood — you mean the monthly option. I don’t have the exact monthly price or inclusions available right now.",
+      "pass": true,
+      "provider": "707",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 13,
+      "input": "For that option, I mainly need the price and what is included. Can you summarize what I am asking about?",
+      "reply": "You’re asking about the monthly option, specifically its price and what’s included.",
+      "pass": true,
+      "provider": "709",
+      "qa": "approve",
+      "note": "Manually reviewed original and rendered response."
+    },
+    {
+      "case": 14,
+      "input": "Yes, just the monthly option, not the annual one. Keep the answer brief.",
+      "reply": "Got it — the monthly option only, not the annual one. I don’t have the exact monthly price or what’s included right now.",
+      "pass": false,
+      "provider": null,
+      "qa": "block",
+      "note": "Source-supported selection with 'only' after 'monthly option' falsely blocked after one legitimate repeated-closing rewrite. PR65 regression reproduced it."
+    }
+  ],
+  "stagesReviewed": 15,
+  "untestedCases": "15–33",
+  "actualBurst": {
+    "sourceProviders": [
+      "702",
+      "703",
+      "704"
+    ],
+    "sendProviders": [
+      "705",
+      "706",
+      "707"
+    ],
+    "spanSeconds": 0.56956
+  },
+  "branchObservation": "Case14 stage1 exact original PR61 typed Understood/FACT/CUSTOMER_REPORTED branch was grounded successfully live (70); final rewrite was falsely blocked, so the case overall FAIL."
+}

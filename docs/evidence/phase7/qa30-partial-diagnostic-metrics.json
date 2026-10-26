@@ -1,0 +1,320 @@
+{
+  "cases": 14,
+  "runs": 14,
+  "sent": 13,
+  "qa_actions": {
+    "approve": 13,
+    "block": 1
+  },
+  "qa_versions": {
+    "conversation-qa-v30": 14
+  },
+  "stage_versions": {
+    "{\"context\": 3, \"director\": \"conversation-director-v4\", \"evaluationSet\": \"phase7-balanced-v31\", \"outputSchema\": 4, \"prompt\": \"conversation-quality-prompt-v25\", \"qa\": \"conversation-qa-v30\", \"renderer\": \"natural-renderer-v5\"}": 15
+  },
+  "model_calls": 15,
+  "failed_model_calls": 0,
+  "rewrite_sources": [
+    "710"
+  ],
+  "successful_single_rewrite_sources": [],
+  "provider_delivery_attempts": 13,
+  "delivery_statuses": {
+    "200": 13
+  },
+  "delivery_errors": [],
+  "human_reviewed": 0,
+  "sent_actor_types": {
+    "SYSTEM": 13
+  },
+  "blocked_sent": [],
+  "reply_link_errors": [],
+  "duplicate_reply_provider_ids": 0,
+  "sent_event_errors": [],
+  "system_approval_errors": [],
+  "detected_languages": {
+    "en": 9,
+    "tr": 3,
+    "ar": 1,
+    "ru": 1
+  },
+  "unavailable_capability_sources": [],
+  "anchor_errors": [],
+  "wire_reference_errors": [],
+  "memory_accepted": 3,
+  "memory_rejected": 0,
+  "original_rendered_changes": 0,
+  "receive_to_send_seconds": {
+    "sample_size": 13,
+    "minimum": 4.266093,
+    "median": 5.967124,
+    "p95_linear_interpolation": null,
+    "maximum": 14.789092
+  },
+  "model_call_ms": {
+    "median": 1726,
+    "maximum": 2354
+  },
+  "receive_to_quality_completion_seconds": {
+    "sample_size": 14,
+    "minimum": 3.492102,
+    "median": 5.263408500000001,
+    "p95_linear_interpolation": null,
+    "maximum": 14.022476
+  },
+  "blocked_receive_to_quality_completion_seconds": {
+    "sample_size": 1,
+    "minimum": 7.1486,
+    "median": 7.1486,
+    "p95_linear_interpolation": null,
+    "maximum": 7.1486
+  },
+  "latency_contributions_seconds": {
+    "receive_to_run_start": {
+      "sample_size": 13,
+      "minimum": 1.513517,
+      "median": 2.820018,
+      "p95_linear_interpolation": null,
+      "maximum": 11.813548
+    },
+    "receive_to_task_created": {
+      "sample_size": 13,
+      "minimum": 0.493557,
+      "median": 0.949949,
+      "p95_linear_interpolation": null,
+      "maximum": 2.701374
+    },
+    "task_created_to_run_start": {
+      "sample_size": 13,
+      "minimum": 0.987078,
+      "median": 1.543997,
+      "p95_linear_interpolation": null,
+      "maximum": 11.213882
+    },
+    "model_seconds": {
+      "sample_size": 13,
+      "minimum": 1.313,
+      "median": 1.628,
+      "p95_linear_interpolation": null,
+      "maximum": 2.354
+    },
+    "run_non_model": {
+      "sample_size": 13,
+      "minimum": 0.36558500000000005,
+      "median": 0.45656600000000025,
+      "p95_linear_interpolation": null,
+      "maximum": 0.8045599999999999
+    },
+    "run_completion_to_outbound_created": {
+      "sample_size": 13,
+      "minimum": 0.119436,
+      "median": 0.133348,
+      "p95_linear_interpolation": null,
+      "maximum": 0.346327
+    },
+    "outbound_created_to_sent": {
+      "sample_size": 13,
+      "minimum": 0.642278,
+      "median": 0.647039,
+      "p95_linear_interpolation": null,
+      "maximum": 1.309483
+    }
+  },
+  "per_send_contributions": [
+    {
+      "source_provider": "684",
+      "receive_to_send": 7.934569,
+      "receive_to_run_start": 3.721564,
+      "receive_to_task_created": 1.428949,
+      "task_created_to_run_start": 2.292615,
+      "model_calls": 1,
+      "model_seconds": 2.068,
+      "run_non_model": 0.6830750000000001,
+      "run_completion_to_outbound_created": 0.152447,
+      "outbound_created_to_sent": 1.309483
+    },
+    {
+      "source_provider": "686",
+      "receive_to_send": 5.665325,
+      "receive_to_run_start": 2.818479,
+      "receive_to_task_created": 0.949949,
+      "task_created_to_run_start": 1.86853,
+      "model_calls": 1,
+      "model_seconds": 1.408,
+      "run_non_model": 0.41209300000000004,
+      "run_completion_to_outbound_created": 0.143282,
+      "outbound_created_to_sent": 0.883471
+    },
+    {
+      "source_provider": "688",
+      "receive_to_send": 5.736485,
+      "receive_to_run_start": 2.222209,
+      "receive_to_task_created": 0.712184,
+      "task_created_to_run_start": 1.510025,
+      "model_calls": 1,
+      "model_seconds": 2.354,
+      "run_non_model": 0.3787959999999999,
+      "run_completion_to_outbound_created": 0.135482,
+      "outbound_created_to_sent": 0.645998
+    },
+    {
+      "source_provider": "690",
+      "receive_to_send": 5.110043,
+      "receive_to_run_start": 2.422609,
+      "receive_to_task_created": 1.071655,
+      "task_created_to_run_start": 1.350954,
+      "model_calls": 1,
+      "model_seconds": 1.313,
+      "run_non_model": 0.559812,
+      "run_completion_to_outbound_created": 0.124478,
+      "outbound_created_to_sent": 0.690144
+    },
+    {
+      "source_provider": "692",
+      "receive_to_send": 5.967124,
+      "receive_to_run_start": 3.196739,
+      "receive_to_task_created": 0.903982,
+      "task_created_to_run_start": 2.292757,
+      "model_calls": 1,
+      "model_seconds": 1.595,
+      "run_non_model": 0.3937090000000001,
+      "run_completion_to_outbound_created": 0.134637,
+      "outbound_created_to_sent": 0.647039
+    },
+    {
+      "source_provider": "694",
+      "receive_to_send": 4.976577,
+      "receive_to_run_start": 1.667046,
+      "receive_to_task_created": 0.493557,
+      "task_created_to_run_start": 1.173489,
+      "model_calls": 1,
+      "model_seconds": 1.96,
+      "run_non_model": 0.5787059999999999,
+      "run_completion_to_outbound_created": 0.123,
+      "outbound_created_to_sent": 0.647825
+    },
+    {
+      "source_provider": "696",
+      "receive_to_send": 6.389202,
+      "receive_to_run_start": 2.820018,
+      "receive_to_task_created": 1.11731,
+      "task_created_to_run_start": 1.702708,
+      "model_calls": 1,
+      "model_seconds": 1.767,
+      "run_non_model": 0.8045599999999999,
+      "run_completion_to_outbound_created": 0.135129,
+      "outbound_created_to_sent": 0.862495
+    },
+    {
+      "source_provider": "698",
+      "receive_to_send": 7.491542,
+      "receive_to_run_start": 4.245371,
+      "receive_to_task_created": 2.701374,
+      "task_created_to_run_start": 1.543997,
+      "model_calls": 1,
+      "model_seconds": 1.801,
+      "run_non_model": 0.45656600000000025,
+      "run_completion_to_outbound_created": 0.346327,
+      "outbound_created_to_sent": 0.642278
+    },
+    {
+      "source_provider": "700",
+      "receive_to_send": 4.266093,
+      "receive_to_run_start": 1.513517,
+      "receive_to_task_created": 0.526439,
+      "task_created_to_run_start": 0.987078,
+      "model_calls": 1,
+      "model_seconds": 1.613,
+      "run_non_model": 0.36558500000000005,
+      "run_completion_to_outbound_created": 0.13053,
+      "outbound_created_to_sent": 0.643461
+    },
+    {
+      "source_provider": "702",
+      "receive_to_send": 4.795891,
+      "receive_to_run_start": 2.336066,
+      "receive_to_task_created": 0.929273,
+      "task_created_to_run_start": 1.406793,
+      "model_calls": 1,
+      "model_seconds": 1.327,
+      "run_non_model": 0.367993,
+      "run_completion_to_outbound_created": 0.119436,
+      "outbound_created_to_sent": 0.645396
+    },
+    {
+      "source_provider": "703",
+      "receive_to_send": 10.536264,
+      "receive_to_run_start": 7.808915,
+      "receive_to_task_created": 1.937451,
+      "task_created_to_run_start": 5.871464,
+      "model_calls": 1,
+      "model_seconds": 1.568,
+      "run_non_model": 0.38428700000000005,
+      "run_completion_to_outbound_created": 0.129985,
+      "outbound_created_to_sent": 0.645077
+    },
+    {
+      "source_provider": "704",
+      "receive_to_send": 14.789092,
+      "receive_to_run_start": 11.813548,
+      "receive_to_task_created": 0.599666,
+      "task_created_to_run_start": 11.213882,
+      "model_calls": 1,
+      "model_seconds": 1.628,
+      "run_non_model": 0.5809279999999999,
+      "run_completion_to_outbound_created": 0.122793,
+      "outbound_created_to_sent": 0.643823
+    },
+    {
+      "source_provider": "708",
+      "receive_to_send": 6.142823,
+      "receive_to_run_start": 2.956177,
+      "receive_to_task_created": 1.561017,
+      "task_created_to_run_start": 1.39516,
+      "model_calls": 1,
+      "model_seconds": 1.827,
+      "run_non_model": 0.558192,
+      "run_completion_to_outbound_created": 0.133348,
+      "outbound_created_to_sent": 0.668106
+    }
+  ],
+  "outliers": [
+    {
+      "source_provider": "704",
+      "receive_to_send": 14.789092,
+      "receive_to_run_start": 11.813548,
+      "receive_to_task_created": 0.599666,
+      "task_created_to_run_start": 11.213882,
+      "model_calls": 1,
+      "model_seconds": 1.628,
+      "run_non_model": 0.5809279999999999,
+      "run_completion_to_outbound_created": 0.122793,
+      "outbound_created_to_sent": 0.643823
+    },
+    {
+      "source_provider": "703",
+      "receive_to_send": 10.536264,
+      "receive_to_run_start": 7.808915,
+      "receive_to_task_created": 1.937451,
+      "task_created_to_run_start": 5.871464,
+      "model_calls": 1,
+      "model_seconds": 1.568,
+      "run_non_model": 0.38428700000000005,
+      "run_completion_to_outbound_created": 0.129985,
+      "outbound_created_to_sent": 0.645077
+    },
+    {
+      "source_provider": "684",
+      "receive_to_send": 7.934569,
+      "receive_to_run_start": 3.721564,
+      "receive_to_task_created": 1.428949,
+      "task_created_to_run_start": 2.292615,
+      "model_calls": 1,
+      "model_seconds": 2.068,
+      "run_non_model": 0.6830750000000001,
+      "run_completion_to_outbound_created": 0.152447,
+      "outbound_created_to_sent": 1.309483
+    }
+  ],
+  "retry_attempts": []
+}

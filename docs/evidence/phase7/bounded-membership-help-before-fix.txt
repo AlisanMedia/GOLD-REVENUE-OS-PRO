@@ -1,0 +1,26 @@
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (183 tests | 1 failed | 182 skipped) 41ms
+   ❯ Final acceptance safe-response regressions (50)
+     × accepts bounded membership help without treating it as verified catalog knowledge 39ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > accepts bounded membership help without treating it as verified catalog knowledge
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:28:50
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 182 skipped (183)
+   Start at  23:09:35
+   Duration  405ms (transform 53%, import 31%, tests 15%, worker 2%)
+

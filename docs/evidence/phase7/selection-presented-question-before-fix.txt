@@ -1,0 +1,38 @@
+
+ RUN  v5.0.0 /workspace/scratch/c326cfdb78de/phase7-final-owner-acceptance
+
+ ❯ packages/domain/src/qa-precision.test.ts (181 tests | 2 failed | 179 skipped) 53ms
+   ❯ Final acceptance safe-response regressions (48)
+     × reviews the live source-grounded monthly selection without hard blocking its repeated limitation 43ms
+     × grounds the live visibly presented quoted review question with its real preparation capability 9ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > reviews the live source-grounded monthly selection without hard blocking its repeated limitation
+AssertionError: expected 'block' to be 'rewrite' // Object.is equality
+
+Expected: "rewrite"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:29:96
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > grounds the live visibly presented quoted review question with its real preparation capability
+AssertionError: expected 'block' to be 'approve' // Object.is equality
+
+Expected: "approve"
+Received: "block"
+
+ ❯ packages/domain/src/qa-precision.test.ts:40:51
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 179 skipped (181)
+   Start at  22:22:40
+   Duration  402ms (transform 47%, import 32%, tests 19%, worker 1%)
+

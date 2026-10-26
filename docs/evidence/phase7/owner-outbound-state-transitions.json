@@ -1,0 +1,377 @@
+{
+  "observation": "Audit timestamps are actual state-change timestamps; prior flags-query times are later read observations, not mutations.",
+  "changes": [
+    {
+      "id": 187,
+      "created_at": "2026-10-10 14:40:09.708504+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 193,
+      "created_at": "2026-10-10 14:43:38.415292+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 211,
+      "created_at": "2026-10-10 15:06:28.131788+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 217,
+      "created_at": "2026-10-10 15:09:55.301742+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 237,
+      "created_at": "2026-10-10 15:33:49.157611+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 244,
+      "created_at": "2026-10-10 15:37:04.707339+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 253,
+      "created_at": "2026-10-10 15:55:31.59115+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 259,
+      "created_at": "2026-10-10 15:58:17.923725+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 279,
+      "created_at": "2026-10-10 16:24:07.621367+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 289,
+      "created_at": "2026-10-10 16:49:59.650804+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 292,
+      "created_at": "2026-10-10 16:52:28.998772+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 298,
+      "created_at": "2026-10-10 17:01:32.985068+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 320,
+      "created_at": "2026-10-10 17:12:44.238113+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 326,
+      "created_at": "2026-10-10 17:25:00.913818+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 348,
+      "created_at": "2026-10-10 17:40:50.249093+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 354,
+      "created_at": "2026-10-10 17:57:29.017128+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 357,
+      "created_at": "2026-10-10 18:00:17.870034+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 363,
+      "created_at": "2026-10-10 18:12:25.258726+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 370,
+      "created_at": "2026-10-10 18:16:56.101825+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 376,
+      "created_at": "2026-10-10 18:32:16.763544+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 395,
+      "created_at": "2026-10-10 18:40:29.095228+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 401,
+      "created_at": "2026-10-10 19:01:03.286784+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 425,
+      "created_at": "2026-10-10 19:14:37.135969+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 431,
+      "created_at": "2026-10-10 19:37:22.484714+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 457,
+      "created_at": "2026-10-10 19:52:20.205632+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 463,
+      "created_at": "2026-10-10 20:09:56.757834+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 489,
+      "created_at": "2026-10-10 20:22:05.834383+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 495,
+      "created_at": "2026-10-10 20:32:51.988704+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 502,
+      "created_at": "2026-10-10 20:37:14.515602+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 508,
+      "created_at": "2026-10-10 20:47:56.769744+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": false
+      },
+      "after_data": {
+        "outbound_messaging_enabled": true
+      },
+      "actor_type": "HUMAN"
+    },
+    {
+      "id": 536,
+      "created_at": "2026-10-10 21:09:48.365885+00",
+      "action": "messaging.kill_switch_changed",
+      "before_data": {
+        "outbound_messaging_enabled": true
+      },
+      "after_data": {
+        "outbound_messaging_enabled": false
+      },
+      "actor_type": "HUMAN"
+    }
+  ]
+}

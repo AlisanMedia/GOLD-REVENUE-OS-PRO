@@ -1,0 +1,26 @@
+ ❯ packages/domain/src/qa-precision.test.ts (145 tests | 1 failed) 125ms
+   ❯ Final acceptance safe-response regressions (21)
+     × does not let a social identity label authorize invented biography or human identity 31ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  packages/domain/src/qa-precision.test.ts > Final acceptance safe-response regressions > does not let a social identity label authorize invented biography or human identity
+AssertionError: expected false to be true // Object.is equality
+
+- Expected
++ Received
+
+- true
++ false
+
+ ❯ packages/domain/src/qa-precision.test.ts:29:104
+
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 144 passed (145)
+   Start at  18:31:58
+   Duration  459ms (tests 38%, transform 35%, import 26%, worker 1%)
+
