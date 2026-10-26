@@ -305,3 +305,11 @@ input[type="file"] { padding: 10px; }
 .polat-distribution meter{width:100%;height:14px;accent-color:var(--gold,#d4af37)}
 .polat-operations .metric-card{min-width:0}.polat-operations .metric-card span{overflow-wrap:anywhere}
 @media(max-width:767px){.polat-columns,.polat-work-list{grid-template-columns:minmax(0,1fr)}.polat-actions>a{min-height:44px}.polat-distribution{font-size:.85rem}.polat-operations .filter-panel>label{min-width:0}.polat-operations .filter-panel select{max-width:100%}}
+
+/* A new private-beta tenant remains within the existing authenticated shell. */
+.tenant-switcher { display:flex;align-items:center;gap:6px;max-width:100%; }
+.tenant-switcher select { min-height:44px;max-width:140px;width:clamp(90px,14vw,140px);font-size:12px;padding:8px;border-radius:8px; }
+.tenant-switcher button { min-height:44px;min-width:44px;padding:8px;font-size:12px; }
+.topbar-multi-tenant { flex-wrap:wrap; }
+.topbar-multi-tenant .topbar-user { flex-wrap:wrap;justify-content:flex-end;min-width:0; }
+@media(max-width:600px){.topbar-multi-tenant .topbar-user { flex:1 1 200px; }}

@@ -9,6 +9,7 @@ import {
 import { runImmediateConversationReplies } from "@/lib/agent-runtime/immediate-replies";
 import { drainEscalations } from "@/lib/escalations/service";
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
+import { privateBetaIsolationActive } from "@/lib/polat/private-beta-isolation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +25,7 @@ function safeSecretEqual(received: string | null, expected: string): boolean {
 }
 
 export async function POST(request: Request) {
+  if (privateBetaIsolationActive()) return NextResponse.json({ error: "LEGACY_WEBHOOK_ISOLATED" }, { status: 423 });
   let env: ReturnType<typeof telegramServerEnv>;
   try {
     env = telegramServerEnv();

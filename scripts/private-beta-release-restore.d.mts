@@ -1,0 +1,1 @@
+export function privateBetaRestorePlan(toc: string, source: unknown): Readonly<{ toc: string; owner_sql: string; database_owner: string; public_schema_owner: string; skipped_schema_creation_entries: number }>;

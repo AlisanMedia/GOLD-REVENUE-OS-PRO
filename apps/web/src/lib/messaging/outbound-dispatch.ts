@@ -2,6 +2,7 @@ import "server-only";
 
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
 import { sendTelegramText } from "@/lib/messaging/telegram-adapter";
+import { privateBetaIsolationActive } from "../polat/private-beta-isolation";
 
 export type OutboundDispatchResult = {
   messageId: string;
@@ -15,6 +16,7 @@ export async function dispatchQueuedTelegramMessage(input: {
   automatic?: boolean;
   escalation?: boolean;
 }): Promise<OutboundDispatchResult> {
+  if (privateBetaIsolationActive()) return { messageId: input.messageId, result: "blocked", providerStatus: 0 };
   const env = telegramServerEnv();
   if (env.tenantId !== input.tenantId) throw new Error("TENANT_PROVIDER_NOT_CONFIGURED");
   const admin = createSupabaseAdminClient();

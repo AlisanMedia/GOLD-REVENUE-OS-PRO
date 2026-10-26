@@ -103,6 +103,8 @@ jobs:
           supabase migration list --db-url "$db_url"
       - name: Lint database
         run: supabase db lint --level error --fail-on error
+      - name: Verify independent offline backup recovery before UAT fixtures
+        run: bash supabase/tests/private_beta_release_recovery.sh
       - name: Run foundation pgTAP tests
         shell: bash
         run: |
@@ -216,6 +218,27 @@ jobs:
           test -n "$db_url"
           echo "::add-mask::$db_url"
           bash supabase/tests/phase8_concurrency.sh "$db_url"
+      - name: Verify private beta authority, native runtime and dedicated TEST Stars offline
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/private-beta-db.env"
+          beta_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/private-beta-db.env")
+          test -n "$beta_db_url"
+          echo "::add-mask::$beta_db_url"
+          supabase test db supabase/tests/private_beta_uat.test.sql supabase/tests/private_beta_uat_pagination.test.sql supabase/tests/private_beta_native_runtime.test.sql supabase/tests/private_beta_stars.test.sql | tee "$RUNNER_TEMP/private-beta-pgtap.log"
+          bash supabase/tests/private_beta_uat_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-concurrency.log"
+          bash supabase/tests/private_beta_stars_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-stars-concurrency.log"
+          POLAT_BETA_MODEL_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/polat-private-beta-provider-db.test.ts | tee "$RUNNER_TEMP/private-beta-provider-db.log"
+          POLAT_BETA_RUNTIME_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-runtime-db.test.ts | tee "$RUNNER_TEMP/private-beta-runtime-db.log"
+      - name: Retain private beta offline acceptance evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: private-beta-offline-${{ github.sha }}
+          path: ${{ runner.temp }}/private-beta-*.log
+          if-no-files-found: warn
+          retention-days: 14
       - name: Export local Auth credentials safely
         shell: bash
         run: |

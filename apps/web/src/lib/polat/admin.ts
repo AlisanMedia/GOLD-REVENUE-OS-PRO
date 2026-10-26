@@ -7,11 +7,26 @@ import{analyticsWorkspace}from "@/lib/analytics/server";
 import{polatCrmMetricEvidence}from "@gold-revenue-os/domain";
 import{polatSearchSchema,polatCursor,polatPeriod,polatInboundPageSchema,polatSummarySchema,polatModelSummarySchema,type PolatSearch}from "./read-model";
 import { experimentPageSchema, experimentCursor, type ExperimentPage } from "./experiment-read";
+import { privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, parsePrivateBetaWorkspace, parsePrivateBetaOperators, type PrivateBetaWorkspace, type PrivateBetaNotesPage } from "./private-beta-read";
 const readContext=cache(async()=>({context:await requireAdminCapability("agents.read"),db:await createSupabaseServerClient()}));
 export async function requirePolatRead(){return(await readContext()).context;}
 export async function polatOperations(input:PolatSearch){
  const{context,db}=await readContext();let q:PolatSearch,cursor=null;
- try{q=polatSearchSchema.parse(input);cursor=q.cursor?(q.view==="experiments"?experimentCursor(q.cursor):polatCursor(q.cursor)):null;}catch{return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error:"cursor"as const,summaryError:false};}
+ try{q=polatSearchSchema.parse(input);cursor=q.cursor?(q.view==="experiments"?experimentCursor(q.cursor):q.view==="beta"?q.beta_collection==="notes"?privateBetaNotesCursor(q.cursor):privateBetaCursor(q.cursor):polatCursor(q.cursor)):null;}catch{return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error:"cursor"as const,summaryError:false};}
+ if(q.view==="beta"){
+  if(!["super_admin","manager","support"].includes(context.role))return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error:null,summaryError:false,beta:null,betaDenied:true};
+  let beta:PrivateBetaWorkspace|null=null;let error:"cursor"|"unavailable"|null=null;
+  try{const result=await db.rpc("admin_private_beta_workspace_v1",{target_tenant_id:context.tenantId,page_size_value:Number(q.size),cursor_value:q.beta_collection==="notes"?null:cursor});if(result.error)error=result.error.code==="22023"?"cursor":"unavailable";else{const parsed=parsePrivateBetaWorkspace(result.data);if(parsed.page_size!==Number(q.size))throw Error("BETA_PAGE_SIZE");beta=parsed;}}catch{error="unavailable";}
+  let betaNotes:PrivateBetaNotesPage|null=null;
+  if(beta?.program&&q.beta_collection==="notes"){
+   try{const result=await db.rpc("admin_private_beta_notes_page_v1",{target_tenant_id:context.tenantId,page_size_value:Number(q.size),cursor_value:cursor});if(result.error)error=result.error.code==="22023"?"cursor":"unavailable";else{const parsed=parsePrivateBetaNotesPage(result.data);if(parsed.page_size!==Number(q.size)||parsed.program_id!==beta.program.id||parsed.program_generation!==beta.program.generation)error="cursor";else betaNotes=parsed;}}catch{error="unavailable";}
+  }
+  let betaOperators:{id:string;role:string;current:boolean}[]|null=null;
+  if(beta&&context.role==="super_admin"&&(!beta.program||beta.program.stage==="DRAFT")){
+   try{const members=await db.from("tenant_members").select("user_id,role").eq("tenant_id",context.tenantId).eq("status","active").in("role",["super_admin","manager"]).order("user_id").limit(100);if(!members.error)betaOperators=parsePrivateBetaOperators(members.data,context.userId);}catch{betaOperators=null;}
+  }
+  return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error,summaryError:false,beta,betaNotes,betaDenied:false,betaCanConfigure:context.role==="super_admin",betaCanNote:["super_admin","manager","support"].includes(context.role),betaCanAcceptOperator:["super_admin","manager"].includes(context.role),betaStarsCommandId:context.role==="super_admin"&&beta?.program?crypto.randomUUID():null,betaOperators};
+ }
  if(q.view==="experiments"){
   let experiments:ExperimentPage|null=null;let error:"cursor"|"unavailable"|null=null;
   try{const result=await db.rpc("admin_polat_experiment_page_v1",{target_tenant_id:context.tenantId,page_size_value:Number(q.size),cursor_value:cursor});const parsed=experimentPageSchema.safeParse(result.data);if(!result.error&&parsed.success&&parsed.data.page_size===Number(q.size))experiments=parsed.data;else error=result.error?.code==="22023"?"cursor":"unavailable";}catch{error="unavailable";}

@@ -7,7 +7,7 @@ import { type ModelRequest, type ModelResponse } from "./agent-runtime";
 
 export const POLAT_ANTHROPIC_ENDPOINT="https://api.anthropic.com/v1/messages" as const;
 const consumedContexts=new WeakSet<object>();
-/** Dormant HTTPS implementation. Tests mock node:https and the gate; no real permit can be issued. */
+/** Fixed HTTPS implementation. No default permit exists; only independently verified private-UAT authority may issue one. Tests replace the node:https boundary. */
 export async function sendPolatClaudeHttpsOnce(permit: unknown, request: ModelRequest, signal?: AbortSignal) {
   const context=requirePolatNetworkPermit(permit); // Before credential use, codec, timer or socket creation.
   if(consumedContexts.has(context))throw new PolatClaudeFailure("PROVIDER_ERROR","CLAUDE_RESERVED_ATTEMPT_REPLAY_DENIED");
@@ -29,6 +29,7 @@ export async function sendPolatClaudeHttpsOnce(permit: unknown, request: ModelRe
       const status=response.statusCode??0;
       if(status!==200){response.resume();finish(new PolatClaudeFailure(status===429?"RATE_LIMIT":status===408||status===504?"TIMEOUT":"PROVIDER_ERROR",status>=300&&status<400?"CLAUDE_REDIRECT_DENIED":status===401||status===403?"CLAUDE_AUTH_DENIED":status===429?"CLAUDE_RATE_LIMIT":"CLAUDE_HTTP_FAILURE",status>=500||status===408));return;}
       const echoed=response.headers["x-client-request-id"], contentType=response.headers["content-type"];
+      if(context.workspace_id!==undefined&&response.headers["anthropic-workspace-id"]!==context.workspace_id){response.resume();finish(new PolatClaudeFailure("INVALID_OUTPUT","CLAUDE_RESPONSE_WORKSPACE_INVALID",true));return;}
       if(echoed!==undefined&&echoed!==context.attempt_id||typeof contentType!=="string"||!/^application\/json(?:\s*;|$)/iu.test(contentType)){response.resume();finish(new PolatClaudeFailure("INVALID_OUTPUT","CLAUDE_RESPONSE_CORRELATION_INVALID",true));return;}
       const chunks:Buffer[]=[];let bytes=0;
       response.on("data",(chunk:Buffer)=>{if(settled)return;bytes+=chunk.length;if(bytes>65536){finish(new PolatClaudeFailure("INVALID_OUTPUT","CLAUDE_RESPONSE_BOUND",true));return;}chunks.push(chunk);});

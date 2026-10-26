@@ -87,6 +87,7 @@ export * from "./polat-operations";
 
 export * from "./polat-runtime";
 export * from "./polat-contact";
+export * from "./private-beta-uat";
 
 export * from "./polat-model-evaluation";
 

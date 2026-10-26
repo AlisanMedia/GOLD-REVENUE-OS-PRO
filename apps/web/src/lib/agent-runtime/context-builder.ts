@@ -6,6 +6,7 @@ import {
   CONTEXT_LIMITS,
   POLAT_PROFILE,
   preparePolatFixtureRuntime,
+  preparePolatPrivateBetaRuntime,
   assertSafeContext,
   type BackendEvidence,
   messageEvidenceHandles,
@@ -38,7 +39,7 @@ export type ContextBuildResult = {
   manifest: Record<string, unknown>;
 };
 
-export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:true;polatClaudeOffline?:boolean}): Promise<ContextBuildResult> {
+export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest?:true;polatClaudeOffline?:boolean;polatPrivateBeta?:Parameters<typeof preparePolatPrivateBetaRuntime>[2]}): Promise<ContextBuildResult> {
   const supabase = createSupabaseAdminClient();
   const { data: conversationData, error: conversationError } = await supabase
     .from("conversations")
@@ -86,11 +87,12 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
   const sourceBoundary=polat?.input.boundary??sourceMessage.created_at;
   const [messagesResult, profileResult, memoryResult, eventsResult, customerResult] = await Promise.all([
     polat?Promise.resolve({data:[...polat.input.messages].reverse().map(m=>({...m,created_at:m.occurred_at})),error:null}):supabase.from("messages")
-      .select("id,direction,content,occurred_at,created_at")
+      .select("id,direction,content,occurred_at,created_at,status")
       .eq("tenant_id", task.tenant_id)
       .eq("conversation_id", task.conversation_id)
       .lte("created_at", sourceMessage.created_at)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(CONTEXT_LIMITS.messages),
     !polat&&task.customer_id ? supabase.from("customer_profiles")
       .select("updated_at,experience_level,primary_instrument,trading_style,risk_preference,preferred_signal_frequency,communication_style,price_sensitivity,trust_level,pain_points,objections,next_best_action")
@@ -117,12 +119,13 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
   if (messagesResult.error || profileResult.error || memoryResult.error || eventsResult.error || customerResult.error) {
     throw new Error("CONTEXT_QUERY_FAILED");
   }
-  if (!polat&&(messagesResult.data ?? []).some((row: { id: string; created_at: string }) => row.id !== sourceMessageId && row.created_at === sourceMessage.created_at)) {
+  if (!polat&&!options?.polatPrivateBeta&&(messagesResult.data ?? []).some((row: { id: string; created_at: string }) => row.id !== sourceMessageId && row.created_at === sourceMessage.created_at)) {
     throw new Error("CONTEXT_TIMESTAMP_AMBIGUOUS");
   }
 
   let remainingCharacters = CONTEXT_LIMITS.totalMessageCharacters;
   const messages = ([...(messagesResult.data ?? [])] as Array<Record<string, unknown>>)
+    .filter(row=>!options?.polatPrivateBeta||((row.direction==="inbound"||row.status==="sent")&&(Date.parse(String(row.created_at))<Date.parse(sourceMessage.created_at)||(Date.parse(String(row.created_at))===Date.parse(sourceMessage.created_at)&&String(row.id)<=sourceMessageId))))
     .flatMap((row): ContextMessage[] => {
       const raw = typeof row.content === "string" ? row.content : "";
       const content = raw.slice(0, Math.min(CONTEXT_LIMITS.messageCharacters, remainingCharacters));
@@ -152,7 +155,10 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
     customerId: task.customer_id,
     conversationId: task.conversation_id,
     lifecycleState: customerResult.data && typeof customerResult.data.state === "string" ? customerResult.data.state : null,
-    contactability: conversation.messaging_contacts?.contactability ?? "unknown",
+    // Only the separately source-authorized beta profile uses the profile-level
+    // normalized vocabulary. The persisted gateway contactability is unchanged.
+    contactability: options?.polatPrivateBeta && ["user_initiated", "allowed"].includes(conversation.messaging_contacts?.contactability ?? "")
+      ? "contactable" : conversation.messaging_contacts?.contactability ?? "unknown",
     runtimeMode: conversation.runtime_mode,
     profile: profileResult.data as Record<string, unknown> | null,
     memory,
@@ -192,13 +198,15 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
     if(r.membership==="MEMBER"&&r.membership_checked_at&&Date.parse(r.membership_checked_at)<=Date.parse(sourceMessage.created_at))items.push({...scope,occurredAt:r.membership_checked_at,id:r.id+":access",category:"access_active",statement:{en:"Your VIP access is active.",tr:"VIP erişiminiz aktif.",ar:"وصولك إلى VIP نشط.",ru:"Доступ к VIP активен."}[commercialLocale]});
     return items;
   });
-  context.commercialEvidence=[...(context.commercialEvidence??[]),...(polat?[]:receiptEvidence)];
+  context.commercialEvidence=[...(context.commercialEvidence??[]),...(polat||options?.polatPrivateBeta?[]:receiptEvidence)];
   const nativeProfile=polat&&options?.polatClaudeOffline?preparePolatFixtureRuntime(polat,context,"00000000-0000-4000-8000-000000000001","DIRECT",true):null;
+  const betaProfile=options?.polatPrivateBeta?preparePolatPrivateBetaRuntime(context,"00000000-0000-4000-8000-000000000001",options.polatPrivateBeta):null;
   assertSafeContext(context);
   return {
     ...(polat?{polat}:{}),
     context,
     manifest: {
+      ...(betaProfile?{polat_profile:"polat-private-beta-v1",private_beta_profile:"polat-private-beta-v1",private_beta_codec:"claude-messages-v1",private_beta_program_id:betaProfile.scope.program_id,private_beta_participant_id:betaProfile.scope.participant_id,private_beta_revision:String(betaProfile.scope.revision),private_beta_history_basis:"PROVIDER_ACK_ONLY",financial_authority:"NONE",commercial_sales:false}:{}),
       ...(polat?{polat_profile:polat.profile,polat_fixture_policy:POLAT_PROFILE.version,polat_generation:polat.generation,polat_observed_boundary:sourceBoundary,polat_history_basis:"MATCHED_FAKE_ACK_ONLY",polat_memory_sources:polat.input.memory.map(m=>m.source_message_id),polat_subscription_context:polat.subscription_context,financial_authority:"NONE",live_operations_authorized:false}:{}),
       context_version: 3,
       manifest_version: 2,
@@ -221,7 +229,7 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest:t
       commercial_conflict:context.commercial?.conflict??false,
       conversion_run_id:context.conversion?.run_id??null,
       commercial_fact_ids:context.commercialEvidence?.map(f=>f.id)??[],
-      evidence_handle_registry: messageEvidenceHandles(nativeProfile?.request.context??context),
+      evidence_handle_registry: messageEvidenceHandles(betaProfile?.request.context??nativeProfile?.request.context??context),
       ...(nativeProfile?{polat_offline_codec:"claude-messages-v1"}:{}),
       source_event_id: task.source_event_id,
       source_message_id: sourceMessageId,
