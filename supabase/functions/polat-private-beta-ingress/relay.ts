@@ -27,8 +27,18 @@ export async function handlePrivateBetaRelay(request: Request, config: PrivateBe
   let body: string;
   try {
     const reader = request.body?.getReader(); if (!reader) return reply(400, "BODY_REQUIRED");
-    const chunks: Uint8Array[] = []; let bytes = 0;
-    for (;;) { const { value, done } = await reader.read(); if (done) break; bytes += value.length; if (bytes > MAX_BYTES) { await reader.cancel(); return reply(413, "PAYLOAD_TOO_LARGE"); } chunks.push(value); }
+    const chunks: Uint8Array[] = []; let bytes = 0; let ended = false; const deadline = performance.now() + 5000;
+    try {
+      for (let index = 0; index < 1024; index++) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const part = await Promise.race([reader.read(), new Promise<never>((_resolve, reject) => { timer = setTimeout(() => reject(Error("BODY_TIMEOUT")), Math.max(1, deadline - performance.now())); })]).finally(() => clearTimeout(timer));
+        if (part.done) { ended = true; break; }
+        bytes += part.value.length; if (bytes > MAX_BYTES) { void reader.cancel().catch(() => undefined); return reply(413, "PAYLOAD_TOO_LARGE"); }
+        if (performance.now() > deadline) throw Error("BODY_TIMEOUT"); chunks.push(part.value);
+      }
+      if (!ended) throw Error("BODY_CHUNK_BOUND");
+    } catch { void reader.cancel().catch(() => undefined); return reply(400, "BODY_INVALID"); }
+    finally { reader.releaseLock(); }
     const joined = new Uint8Array(bytes); let offset = 0; for (const chunk of chunks) { joined.set(chunk, offset); offset += chunk.length; }
     body = new TextDecoder("utf-8", { fatal: true }).decode(joined);
   } catch { return reply(400, "BODY_INVALID"); }

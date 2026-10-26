@@ -1,7 +1,8 @@
 import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
-import { parseFinancialJson, parseTelegramPrivateText, type TelegramUpdate } from "@gold-revenue-os/domain";
+import { parseTelegramPrivateText, type TelegramUpdate } from "@gold-revenue-os/domain";
 import { z } from "zod";
+import { parsePolatClaudeJson } from "../../../../../packages/domain/src/polat-claude-json";
 
 export const privateBetaWebhookConfiguration = z.strictObject({
   tenantId: z.uuid(), programId: z.uuid(), releaseSha: z.string().regex(/^[a-f0-9]{40}$/u),
@@ -37,9 +38,15 @@ export async function authenticatePrivateBetaUpdate(request: Request, rawConfig:
   const joined = Buffer.concat(chunks, bytes);
   const expected = createHmac("sha256", config.relaySecret).update(JSON.stringify(["POLAT_UAT_RELAY1", timestamp, createHash("sha256").update(joined).digest("hex")])).digest("hex");
   if (!privateBetaSecretMatches(request.headers.get("x-polat-uat-signature"), expected)) throw Error("PRIVATE_BETA_WEBHOOK_DENIED");
-  const raw = parseFinancialJson(joined) as TelegramUpdate;
-  const envelope = parseTelegramPrivateText(raw);
-  const sender = z.object({ message: z.object({ from: z.object({ is_bot: z.literal(false) }) }) }).parse(raw);
+  // Reuse the strict nonfinancial metadata parser: Telegram locations may have
+  // decimal coordinates. These values never become financial or model facts.
+  const raw = parsePolatClaudeJson(new TextDecoder("utf-8", { fatal: true }).decode(joined), 16384);
+  const sender = z.object({ message: z.object({ text: z.string().optional(), caption: z.string().max(4096).optional(), from: z.object({ is_bot: z.literal(false) }) }).passthrough() }).parse(raw);
+  const unsupported = sender.message.text === undefined;
+  const kind = ["photo", "voice", "audio", "video", "document", "sticker", "animation", "video_note", "location", "contact"].find(key => key in sender.message) ?? "non_text";
+  const caption = sender.message.caption?.replace(/\/start\s+[a-f0-9]{48}/gu, "/start [invitation redacted]");
+  const normalized = unsupported ? { ...(raw as TelegramUpdate), message: { ...sender.message, ...(raw as TelegramUpdate).message, text: `/unsupported ${kind}\n[Text-only beta: attachment content was not fetched or interpreted; source SHA256 ${createHash("sha256").update(joined).digest("hex")}]${caption ? "\nOriginal caption: " + caption.slice(0,3000) : ""}` } } : raw;
+  const envelope = parseTelegramPrivateText(normalized as TelegramUpdate);
   if (sender.message.from.is_bot || envelope.providerUserId !== envelope.providerChatId || !/^[1-9][0-9]{0,15}$/u.test(envelope.providerUserId)) throw Error("PRIVATE_BETA_WEBHOOK_INVALID");
-  return { config, envelope };
+  return { config, envelope, unsupported };
 }

@@ -4,6 +4,12 @@ import { handlePrivateBetaRelay, privateBetaRelaySignature } from "../../supabas
 const config = { webhookSecret: "offline_webhook_".padEnd(48, "x"), relaySecret: "offline_relay_".padEnd(48, "y"), vercelBypass: "offline_project_only_fixture" };
 const inbound = (body = '{"update_id":1}', headers: Record<string, string> = {}) => new Request("https://fixture.invalid/ingress?target=https://attacker.invalid", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": config.webhookSecret, ...headers }, body });
 describe("private beta fixed, authenticated ingress (offline)", () => {
+  it("bounds streamed work even when an authenticated source sends empty chunks", async () => {
+    const network = vi.fn<typeof fetch>();
+    const stream = new ReadableStream<Uint8Array>({ start(controller) { for (let n = 0; n < 1025; n++) controller.enqueue(new Uint8Array()); controller.close(); } });
+    const request = new Request("https://fixture.invalid/ingress", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": config.webhookSecret }, body: stream, duplex: "half" } as RequestInit & { duplex: "half" });
+    expect((await handlePrivateBetaRelay(request, config, network)).status).toBe(400); expect(network).not.toHaveBeenCalled();
+  });
   it("forwards only to the fixed staging webhook with a separate payload-bound MAC", async () => {
     const network = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ raw: "must not reflect" }));
     const body = '{"update_id":1}', time = 1793000000000;

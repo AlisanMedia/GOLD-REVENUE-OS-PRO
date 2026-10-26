@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   try {
     verified = await authenticatePrivateBetaUpdate(request, { tenantId: process.env.POLAT_UAT_TENANT_ID, programId: process.env.POLAT_UAT_PROGRAM_ID, releaseSha: process.env.POLAT_UAT_RELEASE_SHA, webhookSecret: process.env.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET, relaySecret: process.env.POLAT_UAT_RELAY_SECRET });
   } catch { return NextResponse.json({ error: "PRIVATE_BETA_INGRESS_DENIED" }, { status: 401 }); }
-  const { config, envelope } = verified;
+  const { config, envelope, unsupported } = verified;
   try {
     const scope = await privateBetaTransportScope(config.tenantId, config.programId);
     const common = { target_tenant_id: config.tenantId, bot_id_value: scope.bot_id, provider_user_id_value: envelope.providerUserId, provider_chat_id_value: envelope.providerChatId };
@@ -41,6 +41,9 @@ export async function POST(request: Request) {
     else if (accepted.status === "ACTIVE") {
       await privateBetaRpc("private_beta_bind_conversation_v1", { target_tenant_id: config.tenantId, participant_id_value: accepted.participant_id, target_conversation_id: source.conversation_id });
       await privateBetaRpc("private_beta_track_source_v1", { target_tenant_id: config.tenantId, target_conversation_id: source.conversation_id, source_message_id_value: source.message_id });
+      // The common durable source tracker records unsupported input in the
+      // existing human-attention workflow, including a crash/replay after bind.
+      if (unsupported) return ok(source.duplicate);
       if (source.duplicate && !control && !text.startsWith("/feedback")) return ok(true);
       if (text === "/agree") notice = "AGREED";
       const feedback = /^\/feedback ([1-5]) ([1-5]) ([1-5]) ([1-5])$/u.exec(text);

@@ -77,6 +77,6 @@ export async function drainPrivateBetaRecovery() {
   }
   return { conversations: targets.length, tasks_claimed: claimed };
 }
-export async function holdPrivateBetaSource(tenantId: string, conversationId: string, eventId: string, reason: "MODEL_UNAVAILABLE" | "QA_HELD" | "SOURCE_CHANGED" | "DELIVERY_UNKNOWN") {
+export async function holdPrivateBetaSource(tenantId: string, conversationId: string, eventId: string, reason: "MODEL_UNAVAILABLE" | "QA_HELD" | "SOURCE_CHANGED" | "DELIVERY_UNKNOWN" | "UNSUPPORTED_INPUT") {
   await privateBetaRpc("private_beta_hold_source_v1", { target_tenant_id: tenantId, target_conversation_id: conversationId, target_event_id: eventId, reason_value: reason });
 }

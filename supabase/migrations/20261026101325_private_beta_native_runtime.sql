@@ -213,7 +213,11 @@ declare a private.private_beta_participants;p private.private_beta_programs;m pu
  select * into p from private.private_beta_programs where id=a.program_id;
  select * into c from public.conversations where tenant_id=source_event.tenant_id and id=a.conversation_id;
  select * into m from public.messages where tenant_id=source_event.tenant_id and conversation_id=c.id and id::text=source_event.payload->>'message_id'and direction='inbound';
- if m.id is null or m.content~'^/(start|agree|stop|delete|feedback)([[:space:]]|$)'then return;end if;
+ if m.id is null then return;end if;
+ if a.status='ACTIVE'and m.content~'^/unsupported 'then
+  perform public.private_beta_hold_source_v1(source_event.tenant_id,c.id,source_event.id,'UNSUPPORTED_INPUT');return;
+ end if;
+ if m.content~'^/(start|agree|stop|delete|feedback)([[:space:]]|$)'then return;end if;
  select av.* into v from public.agent_versions av join public.agent_definitions ad on ad.tenant_id=av.tenant_id and ad.id=av.agent_definition_id where av.tenant_id=source_event.tenant_id and ad.agent_type='conversation_shadow'and av.model_provider='anthropic'and av.model_name='claude-haiku-5-5'and av.superseded_at is null order by av.version desc limit 1;
  if v.id is null then raise exception 'PRIVATE_BETA_RUNTIME_NOT_PREPARED'using errcode='55000';end if;
  reason:=case when a.status<>'ACTIVE'or not private.private_beta_live_window(p)then 'PARTICIPATION_OR_WINDOW_BLOCKED'when c.runtime_mode<>'AI_ACTIVE'or c.human_takeover then 'HUMAN_OWNS_SOURCE'when not((a.kind='FOUNDER'and p.stage in('FOUNDER','FRIENDS'))or(a.kind='FRIEND'and p.stage='FRIENDS'))then 'STAGE_NOT_ENABLED'else null end;
@@ -258,7 +262,7 @@ declare a private.private_beta_participants;p private.private_beta_programs;item
  end loop;end;$$;
 
 create function public.private_beta_hold_source_v1(target_tenant_id uuid,target_conversation_id uuid,target_event_id uuid,reason_value text)returns boolean language plpgsql security definer set search_path=pg_catalog as $$declare mid uuid;begin
- if reason_value not in('MODEL_UNAVAILABLE','QA_HELD','SOURCE_CHANGED','DELIVERY_UNKNOWN')or not exists(select 1 from private.private_beta_participants where tenant_id=target_tenant_id and conversation_id=target_conversation_id)then raise exception 'PRIVATE_BETA_UNAVAILABLE'using errcode='42501';end if;
+ if reason_value not in('MODEL_UNAVAILABLE','QA_HELD','SOURCE_CHANGED','DELIVERY_UNKNOWN','UNSUPPORTED_INPUT')or not exists(select 1 from private.private_beta_participants where tenant_id=target_tenant_id and conversation_id=target_conversation_id)then raise exception 'PRIVATE_BETA_UNAVAILABLE'using errcode='42501';end if;
  select m.id into mid from public.messages m join public.domain_events e on e.tenant_id=m.tenant_id and e.payload->>'message_id'=m.id::text where e.tenant_id=target_tenant_id and e.id=target_event_id and m.conversation_id=target_conversation_id and m.direction='inbound';
  if mid is null then raise exception 'PRIVATE_BETA_UNAVAILABLE'using errcode='42501';end if;
  perform private.escalation_open(target_tenant_id,mid,'general_review','HIGH','en','quality',target_event_id);

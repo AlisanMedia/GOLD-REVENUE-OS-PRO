@@ -38,5 +38,11 @@ select ok(exists(select 1 from public.messages where tenant_id=pg_temp.beta_id(1
 select is((select count(*)::int from public.subscriptions where tenant_id=pg_temp.beta_id(1901,'2000')),0,'native conversations create no subscription authority');
 select is((select count(*)::int from private.verified_payment_receipts where tenant_id=pg_temp.beta_id(1901,'2000')),0,'native conversations create no genuine financial receipts');
 select is((select outbound_messaging_enabled from public.tenants where id=pg_temp.beta_id(1901,'2000')),false,'general tenant outbound switch remains disabled');
+-- Authenticated unsupported media is durable human work, never a model retry.
+select pg_temp.beta_enroll(1902);
+update private_beta_cases set ingest=public.ingest_telegram_message(pg_temp.beta_id(1902,'2000'),'native-unsupported-1902','55',(5000000+1902)::text,(5000000+1902)::text,null,null,null,'/unsupported photo [attachment not fetched or interpreted; synthetic source hash only]',null,clock_timestamp())where n=1902;
+select ok(exists(select 1 from public.escalation_cases where tenant_id=pg_temp.beta_id(1902,'2000')and status<>'RESOLVED'),'unsupported input persists a human-attention obligation');
+select is((select count(*)::int from public.agent_tasks where tenant_id=pg_temp.beta_id(1902,'2000')and source_event_id=(select(ingest->>'event_id')::uuid from private_beta_cases where n=1902)),0,'unsupported input cannot create a paid generation task');
+select is((select runtime_mode::text from public.conversations where tenant_id=pg_temp.beta_id(1902,'2000')),'HUMAN_TAKEOVER','unsupported input is visibly owned by human support');
 select * from finish();
 rollback;

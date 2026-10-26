@@ -66,6 +66,19 @@ describe("actual private beta webhook authentication, offline requests only", ()
     await expect(authenticatePrivateBetaUpdate(signedRequest(JSON.stringify(update())), { ...config, verified: true })).rejects.toThrow();
     await expect(authenticatePrivateBetaUpdate(signedRequest(JSON.stringify(update())), { ...config, tenantId: undefined })).rejects.toThrow();
   });
+  it("preserves a photo caption and source hash without fetching media or leaking file identifiers", async () => {
+    const original = update(), { text: _text, ...message } = original.message, invitation = "a".repeat(48);
+    const body = JSON.stringify({ ...original, message: { ...message, photo: [{ file_id: "OFFLINE_PRIVATE_FILE_ID", file_unique_id: "OFFLINE_PRIVATE_UNIQUE_ID", width: 320, height: 200 }], caption: `Please review this attachment. /start ${invitation}` } });
+    const result = await authenticatePrivateBetaUpdate(signedRequest(body), config);
+    expect(result.unsupported).toBe(true); expect(result.envelope.text).toMatch(/^\/unsupported photo\n/u); expect(result.envelope.text).toContain("attachment content was not fetched or interpreted"); expect(result.envelope.text).toContain(createHash("sha256").update(body).digest("hex"));
+    expect(result.envelope.text).toContain("Original caption: Please review this attachment. /start [invitation redacted]"); expect(result.envelope.text).not.toContain("OFFLINE_PRIVATE_FILE_ID"); expect(result.envelope.text).not.toContain("OFFLINE_PRIVATE_UNIQUE_ID"); expect(result.envelope.text).not.toContain(invitation); expect(mocks.worker).not.toHaveBeenCalled();
+  });
+  it("accepts authenticated decimal location metadata only as unsupported input, never financial or model facts", async () => {
+    const original = update(), { text: _text, ...message } = original.message;
+    const body = JSON.stringify({ ...original, message: { ...message, location: { latitude: 41.015137, longitude: 28.97953, horizontal_accuracy: 3.25 } } });
+    const result = await authenticatePrivateBetaUpdate(signedRequest(body), config);
+    expect(result.unsupported).toBe(true); expect(result.envelope.text).toMatch(/^\/unsupported location\n/u); expect(result.envelope.text).toContain("not fetched or interpreted"); expect(result.envelope.text).not.toContain("41.015137"); expect(result.envelope.text).not.toContain("28.97953"); expect(mocks.rpc).not.toHaveBeenCalled(); expect(mocks.worker).not.toHaveBeenCalled();
+  });
 });
 
 describe("actual private beta BOT route with injected offline persistence and dispatch", () => {
@@ -170,5 +183,28 @@ describe("actual private beta BOT route with injected offline persistence and di
   });
   it("an unknown slash command cannot turn into model or send authority", async () => {
     expect((await POST(signedRequest(JSON.stringify(update("/force-send verified=true"))))).status).toBe(200); expect(mocks.after).not.toHaveBeenCalled(); expect(mocks.worker).not.toHaveBeenCalled();
+  });
+  it("ACTIVE unsupported media is acknowledged after durable binding and tracking with zero model or outbound work", async () => {
+    const original = update(), { text: _text, ...message } = original.message;
+    const body = JSON.stringify({ ...original, message: { ...message, photo: [{ file_id: "OFFLINE_NO_MODEL_FILE", width: 100, height: 100 }], caption: "Please ask a human to review this." } });
+    const response = await POST(signedRequest(body)); expect(response.status).toBe(200); expect(await response.json()).toEqual({ ok: true, duplicate: false });
+    expect(mocks.rpc).toHaveBeenCalledWith("private_beta_bind_conversation_v1", { target_tenant_id: tenantId, participant_id_value: participantId, target_conversation_id: conversationId });
+    expect(mocks.rpc).toHaveBeenCalledWith("private_beta_track_source_v1", { target_tenant_id: tenantId, target_conversation_id: conversationId, source_message_id_value: messageId });
+    const ingested = mocks.rpc.mock.calls.find(([name]) => name === "ingest_telegram_message")![1]; expect(ingested.content_value).toContain("/unsupported photo"); expect(ingested.content_value).toContain("Original caption: Please ask a human to review this."); expect(JSON.stringify(ingested)).not.toContain("OFFLINE_NO_MODEL_FILE");
+    expect(mocks.after).not.toHaveBeenCalled(); expect(mocks.worker).not.toHaveBeenCalled(); expect(mocks.queue).not.toHaveBeenCalled(); expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+  it("duplicate unsupported media repairs an interrupted bind and durable review tracking without any paid or outbound attempt", async () => {
+    let persisted = false, interrupted = true;
+    mocks.rpc.mockImplementation(async name => {
+      if (name === "ingest_telegram_message") { const duplicate = persisted; persisted = true; return source(duplicate); }
+      if (name === "private_beta_bind_conversation_v1" && interrupted) { interrupted = false; throw Error("OFFLINE_MEDIA_BIND_CRASH"); }
+      return name === "private_beta_track_source_v1" ? true : accepted();
+    });
+    const original = update(), { text: _text, ...message } = original.message;
+    const body = JSON.stringify({ ...original, message: { ...message, document: { file_id: "OFFLINE_REPLAY_FILE", file_name: "synthetic-test.pdf" }, caption: "Original test caption" } });
+    expect((await POST(signedRequest(body))).status).toBe(503); expect(mocks.after).not.toHaveBeenCalled();
+    const replay = await POST(signedRequest(body)); expect(replay.status).toBe(200); expect(await replay.json()).toEqual({ ok: true, duplicate: true });
+    expect(mocks.rpc).toHaveBeenCalledWith("private_beta_track_source_v1", { target_tenant_id: tenantId, target_conversation_id: conversationId, source_message_id_value: messageId });
+    expect(mocks.after).not.toHaveBeenCalled(); expect(mocks.worker).not.toHaveBeenCalled(); expect(mocks.queue).not.toHaveBeenCalled(); expect(mocks.dispatch).not.toHaveBeenCalled();
   });
 });
