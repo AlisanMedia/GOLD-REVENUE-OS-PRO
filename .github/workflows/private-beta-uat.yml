@@ -22,7 +22,7 @@ on:
       backup_retention_days:
         description: Founder-approved encrypted recovery artifact retention (1–30 days)
         required: true
-        type: number
+        type: string
       program_id:
         description: Existing MFA-created private UAT program UUID (account_preflight or verify_bot)
         required: false

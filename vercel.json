@@ -45,7 +45,8 @@
       "codex/polat-genuine-experiment-bridge": false,
       "codex/master-operational-readiness": false,
       "codex/private-beta-uat": false,
-      "codex/polat-openai-business-uat": false
+      "codex/polat-openai-business-uat": false,
+      "codex/fix-beta-retention-input": false
     }
   },
   "framework": "nextjs",
