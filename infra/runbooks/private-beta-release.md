@@ -38,13 +38,13 @@ GitHub Settings → Environments → staging içinde mevcut release secret'ları
 `STAGING_SUPABASE_PROJECT_ID`, `STAGING_SUPABASE_URL`,
 `STAGING_SUPABASE_PUBLISHABLE_KEY`, `STAGING_SUPABASE_SECRET_KEY`, `VERCEL_TOKEN`.
 
-Yeni recovery alanları: `STAGING_BACKUP_PASSPHRASE` (en az32 karakter bağımsız
+Genuine release için recovery alanları: `STAGING_BACKUP_PASSPHRASE` (en az32 karakter bağımsız
 yüksek entropili secret; parola yöneticisinde ayrı saklanır) ve
 `STAGING_SUPABASE_SSL_ROOT_CERT` (Supabase Dashboard Database SSL bağlantı
 ayarlarından indirilen gerçek kaynak CA sertifikası; TLS verify-full).
 
 UAT runtime'a yalnız varsa eklenen secret adları:
-`POLAT_UAT_ANTHROPIC_API_KEY`, `POLAT_UAT_TELEGRAM_BOT_TOKEN`,
+`OPENAI_API_KEY` (yeni OpenAI programı) veya `POLAT_UAT_ANTHROPIC_API_KEY` (eski Claude programı), `POLAT_UAT_TELEGRAM_BOT_TOKEN`,
 `POLAT_UAT_TELEGRAM_WEBHOOK_SECRET`, `POLAT_UAT_RELAY_SECRET`.
 Varsa ayrı Stars TEST credential'ları `POLAT_UAT_STARS_TEST_BOT_TOKEN`,
 `POLAT_UAT_STARS_TEST_WEBHOOK_SECRET`, `POLAT_UAT_STARS_RELAY_SECRET` yalnız aynı
@@ -58,8 +58,9 @@ MFA ile oluşturulmuş gerçek program/tenant UUID'leridir; tek başına yetki d
 `POLAT_UAT_RELEASE_SHA` korumalı job'ın exact SHA'sından otomatik bağlanır. Bu alan
 yeni private-beta deployment'ında eski genel webhook/cron/provider dispatch
 yollarını yalnız kısıtlar; DB kill switch'lerini gevşetmez veya eski deployment
-yetkilerini değiştirmez. OpenAI anahtarı veya genel provider activation flag'i bu
-workflow ile yüklenmez. Secret adının mevcut olması genuine account kontrolü veya dispatch
+yetkilerini değiştirmez. Mevcut `OPENAI_API_KEY` yalnız build sonrası dar runtime
+allowlist ile aktarılabilir; genel `OPENAI_MODEL` değiştirilmez veya UAT yetkisi
+sayılmaz. Seçili programın model/account/custody kanıtı hâlâ zorunludur. Secret adının mevcut olması genuine account kontrolü veya dispatch
 yetkisi değildir. Eksik alanlar ilgili stage'i BLOCKED bırakır.
 
 ## Backup → migration → publication
@@ -195,7 +196,7 @@ vermez. Gate, bot, revision veya read-back eksikse sanitized BLOCKED artifact
 sağlanmazsa bu yol kapalı kalır; service-role grant eklenmez.
 
 Gelecek webhook kurulumu için `privateBetaBotWebhookRequest(secret)` yalnız sabit
-Edge URL'si, `allowed_updates=[message]`, tek connection ve
+Edge URL'si, `allowed_updates=[message]` (BOT) veya yalnız reviewed BUSINESS event listesi, tek connection ve
 `drop_pending_updates=false` payload'unu hazırlar; bir execution grant veya
 çalıştırılabilir activation entrypoint değildir. Gerçek kurulum sırası:
 
@@ -220,3 +221,76 @@ Referanslar: [Telegram getMe](https://core.telegram.org/bots/api#getme),
 [getWebhookInfo](https://core.telegram.org/bots/api#getwebhookinfo) ve
 [Supabase Management SQL](https://supabase.com/docs/reference/api/v1-run-a-query).
 API sözleşmesi, account/secret/custody doğrulamasının yerine geçmez.
+
+
+## 27 Ekim 2026 — OpenAI ve Polat BUSINESS ilk test bağlantısı
+
+Yeni owner kararı OpenAI kullanılmasıdır. Önerilen/seçilebilir exact model
+`gpt-6.1-sol`; ücretli hesap/model erişimi yalnız gerçek account preflight ile
+kanıtlanabilir. Genel `OPENAI_MODEL` secret'ı eski kullanım için korunur.
+Admin → Polat İşlemleri → Özel Beta → DRAFT programında güncel MFA ile OpenAI
+seçilir. Bu seçim eski Claude manifest/notice/planını yeniden kullanmaz; notice
+`polat-private-beta-notice-openai-v1`, provider/account/canary hash'leri sürümlenir.
+İlk canary Hi/en/DIRECT/1/512 token/10 saniye; tam v2 290-request ayrı kalır.
+18 USD bakiye yalnız owner beyanıdır; verified spend cap veya harcama yetkisi değildir.
+Bu UAT'ın toplam üst sınırı yine5.00 USD, otomatik retry/fallback/regeneration0'dır.
+
+`operation=openai_account_preflight` exact main ve staging reviewer kapısıyla
+`openai_organization_id` ve `openai_project_id` metadata alanlarını, mevcut
+`OPENAI_API_KEY` custody'sini kullanır. Sabit OpenAI model GET + sabit Supabase
+program SELECT dışında hiçbir inference veya authority yazımı yapmaz. `OBSERVED`
+model metadata gözlemidir; efektif per-experiment monetary cap, veri politikası,
+region/retention/training, tam pricing ve bağımsız billing kanıtı değildir.
+Eksik proof genuine inference'ı BLOCKED tutar. Normal project budget alert'i
+transactional hard cap diye kabul edilmez.
+
+27 Ekim official Standard kısa bağlam fiyatı input2/output10 USD/1M token'dır.
+Ancak model >272K input için bütün istekte input2× / output1.5× belirtir.
+1050000 tam bağlam / max512 output için koruyucu reservation input4/output15
+ile4.20768 USD'dir; actual charge değildir. İlk isteğin gerçek billing'i
+bağımsız uzlaştırılmadan reservation serbest bırakılmaz. Account surcharge,
+caching, tier veya kullanım belirsizliği hâlâ fail-closed'dur. Bu konservatif sınır
+350 request veya20/30 reply kotasının kullanılabileceğine dair garanti vermez.
+Fiyat kaynağı: https://developers.openai.com/api/docs/models/gpt-6.1-sol ve
+https://developers.openai.com/api/docs/pricing (kontrol:2026-10-27).
+
+### Polat hesabında yalnız kurucunun seçili özel sohbeti
+
+Normal bot ve BUSINESS modları ayrıdır. Telegram BotFather → Bot Settings →
+Secretary Mode açık; Polat Telegram Business → Chatbots → Only selected chats
+altında yalnız kurucunun özel sohbeti. Bot permissions: yalnız reply; para/Stars,
+gift, story, profile, delete/read-mark ve diğer ek haklar kapalı. Normal kanal
+üyeliği sinyal okuma/yeniden dağıtım yetkisi değildir; bu bağlantı kanal erişimi açmaz.
+Gerçek token, kod, secret veya session string chat/rapor/CI artifact'e yazılmaz.
+
+1. Yeni dedicated bot için `operation=verify_bot` ile exact numeric getMe,
+   credential hash ve current program/tenant/SHA/gen bağımsız okunur.
+2. DRAFT programında, webhook henüz kurulu değilken, kurucu kendi hesabından
+   seçili Polat sohbetine gönüllü test mesajı gönderir. `discover_business` en fazla10
+   update okur; offset/ACK/drop yapmaz. getUpdates allowed_updates filtresinin
+   Telegram'da kalıcı etkisi olabileceği için eski/üretim botunda kullanılmaz.
+   Webhook409 varsa otomatik silme/yeniden kurma yapılmaz, sonuç BLOCKED'dır.
+3. Depo public olduğu için numeric founder/representative/connection adayları
+   normal Actions artifact'ine çıkarılmaz. Minimal candidate kanıtı private DB'de,
+   fresh-MFA owner-only Admin'de, en fazla5 dakika geçerlidir. Artifact yalnız
+   hash/count/time/scope içerir. Süre sonu fiziksel silme iddiası değildir;
+   private-beta retention/deletion politikası ayrıca uygulanır.
+4. Admin'de tek aday/tek kurucu varsa yalnız öneri olarak form doldurulur. Owner
+   güncel MFA ile exact bağlantı ve tek founder chat'ı kaydeder. Aday gözlemi
+   bağımsız getBusinessConnection izni veya consent değildir.
+5. `verify_business` actual enabled connection, exact bot/key/user ve yalnız
+   can_reply haklarını okur; korunmuş writer+read-back doğrulanır. Callback
+   pozitif permission authority değildir. Her gerçek send öncesinde yeniden sabit
+   getBusinessConnection okunur; permission drift gönderimi durdurur.
+6. Exact deployed SHA/notice/window/canary-accounting/operator şartlarından sonra
+   founder invitation oluşturulur. `/start <one-time-code>` Polat ile seçili
+   özel sohbetten gönderilir; notice kabul edilmeden model çağrısı yoktur.
+   İlk BUSINESS yolu yalnız founder'dır;10-friend BOT akışı genişletilmez.
+7. Provider-observed insan yanıtı eski AI draft'larını bloke eder; belirsiz send
+   success veya delivered sayılmaz. Yeniden doğrulama yalnız yeni evidence nesli
+   açar; blind resend, unknown ACK veya otomatik AI resume üretmez.
+
+Tüm external operations için gerçek protected environment approval ve confirmed
+prerequisites gerekir. Bu runbook, gerçekleşmemiş deployment/canary/discovery veya
+Telegram konuşması için PASS beyanı değildir. GitHub secret isimlerinin varlığı
+runtime custody veya model/account kabulünün yerine geçmez.

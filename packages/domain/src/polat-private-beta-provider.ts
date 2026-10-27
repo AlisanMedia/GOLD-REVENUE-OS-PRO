@@ -6,7 +6,9 @@ import { polatBridgeHashSchema, polatBridgeMoneySchema } from "@gold-revenue-os/
 import { ModelProviderError, type ModelProvider, type ModelRequest, type ModelResponse } from "./agent-runtime";
 import { preparePolatClaudeRequest, PolatClaudeFailure } from "./polat-claude-adapter";
 import { sendPolatClaudeHttpsOnce } from "./polat-claude-https-boundary";
-import { polatPrivateBetaBindingSchema, type createPolatPrivateBetaNetworkAuthority } from "./polat-experiment-execution-gate";
+import { sendPolatOpenAIHttpsOnce } from "./polat-openai-https-boundary";
+import { PolatOpenAIFailure } from "./polat-openai-adapter";
+import { polatPrivateBetaBindingSchema, preparePolatPrivateBetaWire, type createPolatPrivateBetaNetworkAuthority } from "./polat-experiment-execution-gate";
 import { polatGuardDigest } from "./polat-experiment-journal";
 import { parsePolatClaudeJson } from "./polat-claude-json";
 
@@ -22,6 +24,11 @@ const liabilityPricingProof = z.strictObject({
   maximum_input_tokens: z.literal(1000000), maximum_input_usd_per_million: z.literal("0.50"), maximum_output_usd_per_million: z.literal("2.50"),
   observed_at: z.iso.datetime({ offset: true }), expires_at: z.iso.datetime({ offset: true }), all_billable_components_covered: z.literal(true),
 });
+const openaiLiabilityPricingProof = liabilityPricingProof.omit({ version: true, model: true, source_url: true, maximum_input_tokens: true, maximum_input_usd_per_million: true, maximum_output_usd_per_million: true }).extend({
+  version: z.literal(2), model: z.literal("gpt-6.1-sol"), source_url: z.enum(["https://developers.openai.com/api/docs/models/gpt-6.1-sol", "https://developers.openai.com/api/docs/pricing"]),
+  maximum_input_tokens: z.literal(1050000), maximum_input_usd_per_million: polatBridgeMoneySchema, maximum_output_usd_per_million: polatBridgeMoneySchema,
+});
+const amountUnits = (value: string) => { const [whole, fraction = ""] = value.split("."); return BigInt(whole!) * 10n ** 18n + BigInt(fraction.padEnd(18, "0")); };
 /** Conservative liability bound, never an actual bill or an entitlement. Uses the model's full documented input limit rather than an estimated tokenizer count. */
 export function boundPolatPrivateBetaLiability(request: ModelRequest, maximumOutputTokens: number, rawPricingProof: unknown, now = Date.now()) {
   const wire = preparePolatClaudeRequest(request, maximumOutputTokens);
@@ -29,6 +36,18 @@ export function boundPolatPrivateBetaLiability(request: ModelRequest, maximumOut
 }
 /** Same deterministic bound for a wire binding obtained internally from preparePolatClaudeRequest, never a client-provided hash approval. */
 export function boundPolatPrivateBetaWireLiability(rawWire: { request_hash: string; body_hash: string; maximum_output_tokens: number }, rawPricingProof: unknown, now = Date.now()) {
+  if (rawPricingProof && typeof rawPricingProof === "object" && "version" in rawPricingProof && rawPricingProof.version === 2) {
+    const pricing = openaiLiabilityPricingProof.parse(rawPricingProof), wire = z.strictObject({ request_hash: polatBridgeHashSchema, body_hash: polatBridgeHashSchema, maximum_output_tokens: z.number().int().min(1).max(512) }).parse(rawWire);
+    if (!Number.isFinite(now) || Date.parse(pricing.observed_at) > now || now - Date.parse(pricing.observed_at) > 86400000 || Date.parse(pricing.expires_at) <= now || Date.parse(pricing.expires_at) > Date.parse(pricing.observed_at) + 86400000) throw Error("POLAT_UAT_PRICING_STALE");
+    const inputRate = amountUnits(pricing.maximum_input_usd_per_million), outputRate = amountUnits(pricing.maximum_output_usd_per_million);
+    // Full capacity exceeds the documented 272K threshold: the ENTIRE request
+    // uses 2x standard input and 1.5x standard output rates. A short-context
+    // 2/10 price is not a full-window liability proof.
+    if (inputRate < amountUnits("4") || outputRate < amountUnits("15")) throw Error("POLAT_UAT_PRICING_BOUND_UNVERIFIED");
+    // Round liability UP at the 18-decimal atomic boundary; never round away a possible charge.
+    const liability = (inputRate * BigInt(pricing.maximum_input_tokens) + outputRate * BigInt(wire.maximum_output_tokens) + 999999n) / 1000000n;
+    return Object.freeze({ ...wire, maximum_possible_charge: usdString(liability), pricing_evidence_hash: polatGuardDigest(pricing), valid_until: new Date(Math.min(Date.parse(pricing.expires_at), now + 300000)).toISOString() });
+  }
   const pricing = liabilityPricingProof.parse(rawPricingProof), wire = z.strictObject({ request_hash: polatBridgeHashSchema, body_hash: polatBridgeHashSchema, maximum_output_tokens: z.number().int().min(1).max(512) }).parse(rawWire), maximumOutputTokens = wire.maximum_output_tokens;
   if (!Number.isFinite(now) || Date.parse(pricing.observed_at) > now || now - Date.parse(pricing.observed_at) > 86400000 || Date.parse(pricing.expires_at) <= now || Date.parse(pricing.expires_at) > Date.parse(pricing.observed_at) + 86400000) throw Error("POLAT_UAT_PRICING_STALE");
   const liability = (500000000000000000n * BigInt(pricing.maximum_input_tokens) + 2500000000000000000n * BigInt(maximumOutputTokens)) / 1000000n;
@@ -81,16 +100,16 @@ export function createPolatPrivateBetaProvider(dependencies: Readonly<{
   const binding = polatPrivateBetaBindingSchema.parse(dependencies.binding), pending = new Set<string>();
   let last: Readonly<{ attempt_id: string; outcome: PolatPrivateBetaProviderOutcome }> | null = null;
   const provider: ModelProvider = Object.freeze({
-    provider: "anthropic", model: binding.model,
+    provider: binding.provider, model: binding.model,
     async invoke(raw: ModelRequest): Promise<ModelResponse> {
       const request = structuredClone(raw);
       if (request.timeoutMs !== binding.timeout_ms || request.context.tenantId !== binding.tenant_id || pending.has(request.requestId)) throw new ModelProviderError("PROVIDER_ERROR", "POLAT_UAT_SCOPE_OR_CONCURRENT_REPLAY_DENIED", false);
       if ((await dependencies.authority.preflight(binding)).state !== "READY") throw new ModelProviderError("PROVIDER_ERROR", "POLAT_UAT_OWNER_ACCOUNT_PREFLIGHT_BLOCKED", false);
-      const wire = preparePolatClaudeRequest(request, binding.maximum_output_tokens);
+      const wire = preparePolatPrivateBetaWire(request, binding);
       pending.add(request.requestId);
       let reservation: PolatPrivateBetaReservation;
       try {
-        reservation = polatPrivateBetaReservationSchema.parse(await dependencies.store.reserve({ program_id: binding.program_id, native_run_id: request.requestId, conversation_id: request.context.conversationId, request_hash: wire.request_hash, body_hash: wire.body_hash, source_message_id: binding.corpus_version === "polat-claude-canary-v1" ? null : request.context.recentMessages.at(-1)?.id ?? null }));
+        reservation = polatPrivateBetaReservationSchema.parse(await dependencies.store.reserve({ program_id: binding.program_id, native_run_id: request.requestId, conversation_id: request.context.conversationId, request_hash: wire.request_hash, body_hash: wire.body_hash, source_message_id: binding.corpus_version === "polat-claude-canary-v1" || binding.corpus_version === "polat-openai-canary-v1" ? null : request.context.recentMessages.at(-1)?.id ?? null }));
         if (reservation.program_id !== binding.program_id || reservation.tenant_id !== binding.tenant_id || reservation.native_run_id !== request.requestId || reservation.binding_hash !== polatGuardDigest(binding) || reservation.request_hash !== wire.request_hash || reservation.body_hash !== wire.body_hash || reservation.liability !== binding.maximum_attempt_liability || reservation.replay || reservation.dispatch_started) throw Error("RESERVATION_DENIED");
         if (!(await dependencies.store.begin(reservation)).dispatch) throw Error("ALREADY_STARTED");
       } catch {
@@ -103,7 +122,7 @@ export function createPolatPrivateBetaProvider(dependencies: Readonly<{
       const start = performance.now();
       try {
         const permit = await dependencies.authority.issue({ binding, run_id: reservation.run_id, attempt_id: reservation.attempt_id, request });
-        const result = await sendPolatClaudeHttpsOnce(permit, request);
+        const result = binding.provider === "openai" ? await sendPolatOpenAIHttpsOnce(permit, request) : await sendPolatClaudeHttpsOnce(permit, request);
         response = result.response;
         const usageMissing = response.usage.inputTokens === null || response.usage.outputTokens === null;
         const qa = await dependencies.assess(request, response);
@@ -113,10 +132,10 @@ export function createPolatPrivateBetaProvider(dependencies: Readonly<{
           qa: usageMissing ? "HELD" : qa, actual_billed_amount: null, actual_billed_currency: null, financial_authority: "NONE",
           error_code: usageMissing ? "POLAT_UAT_USAGE_UNAVAILABLE" : null, provider_usage_hash: createHash("sha256").update(JSON.stringify(result.provider_usage), "utf8").digest("hex") };
       } catch (error) {
-        const elapsed = performance.now() - start, unknown = error instanceof PolatClaudeFailure && error.outcome_unknown;
+        const elapsed = performance.now() - start, unknown = (error instanceof PolatClaudeFailure || error instanceof PolatOpenAIFailure) && error.outcome_unknown;
         outcome = { version: 1, stage: unknown ? "RESULT_UNKNOWN" : "PROVIDER_RESULT", status: unknown ? "UNKNOWN" : "FAILED", response_hash: null, response_identity_hash: null,
           elapsed_ms: Number.isFinite(elapsed) && elapsed >= 0 ? elapsed.toFixed(6) : null, input_tokens: null, output_tokens: null, qa: "NOT_EVALUATED",
-          actual_billed_amount: null, actual_billed_currency: null, financial_authority: "NONE", error_code: error instanceof ModelProviderError && /^(?:CLAUDE|POLAT_UAT)_[A-Z0-9_]{1,100}$/u.test(error.code) ? error.code : "POLAT_UAT_AUTHORITY_OR_PROVIDER_UNAVAILABLE", provider_usage_hash: null };
+          actual_billed_amount: null, actual_billed_currency: null, financial_authority: "NONE", error_code: error instanceof ModelProviderError && /^(?:CLAUDE|OPENAI_UAT|POLAT_UAT)_[A-Z0-9_]{1,100}$/u.test(error.code) ? error.code : "POLAT_UAT_AUTHORITY_OR_PROVIDER_UNAVAILABLE", provider_usage_hash: null };
       }
       try { await dependencies.store.record(reservation, outcome); }
       catch { throw new ModelProviderError("PROVIDER_ERROR", "POLAT_UAT_EVIDENCE_COMMIT_UNKNOWN_REVIEW_REQUIRED", false); }

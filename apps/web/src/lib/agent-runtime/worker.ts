@@ -35,6 +35,7 @@ import { buildAgentContext } from "@/lib/agent-runtime/context-builder";
 import { openAIProviderFromEnvironment } from "@/lib/agent-runtime/providers/openai-responses";
 import { dispatchQueuedTelegramMessage } from "@/lib/messaging/outbound-dispatch";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { privateBetaIsolationActive } from "../polat/private-beta-isolation";
 
 const EVENT_CONSUMER = "agent-runtime.v1";
 const EVENT_BATCH_SIZE = 25;
@@ -83,6 +84,7 @@ function providerFor(task: ClaimedTask): ModelProvider {
     return new DeterministicShadowProvider();
   }
   if (task.model_provider === "openai") {
+    if (privateBetaIsolationActive()) throw new ModelProviderError("PROVIDER_ERROR", "POLAT_UAT_SCOPED_PROVIDER_REQUIRED", false);
     const provider = openAIProviderFromEnvironment();
     if (provider.model !== task.model_name) {
       throw new ModelProviderError("PROVIDER_ERROR", "OPENAI_MODEL_CONFIGURATION_MISMATCH", false);
@@ -182,7 +184,7 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
     }
     if(polatTask(task)&&!polatTransport)throw new ModelProviderError("PROVIDER_ERROR","POLAT_EXPLICIT_TEST_WORKER_REQUIRED",false);
     const isUat=task.task_type==="private_beta.reply";
-    if(isUat&&(!privateBeta||task.model_provider!=="anthropic"||task.model_name!=="claude-haiku-5-5"))throw new ModelProviderError("PROVIDER_ERROR","POLAT_UAT_EXPLICIT_SCOPED_WORKER_REQUIRED",false);
+    if(isUat&&(!privateBeta||!(task.model_provider==="anthropic"&&task.model_name==="claude-haiku-5-5"||task.model_provider==="openai"&&task.model_name==="gpt-6.1-sol")))throw new ModelProviderError("PROVIDER_ERROR","POLAT_UAT_EXPLICIT_SCOPED_WORKER_REQUIRED",false);
     const betaScope=isUat?await readPrivateBetaSource(task.tenant_id,task.conversation_id,task.source_event_id??""):null;
     if(betaScope&&betaScope.program_id!==privateBeta?.programId)throw new ModelProviderError("PROVIDER_ERROR","POLAT_UAT_PROGRAM_SCOPE_DENIED",false);
     if(polatModel&&polatTask(task))polatOfflineRuntimeProvider(polatModel,task.tenant_id,task.conversation_id);
@@ -191,7 +193,7 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
       customer_id: task.customer_id,
       conversation_id: task.conversation_id,
       source_event_id: task.source_event_id ?? "",
-    },betaScope?{polatPrivateBeta:betaScope}:polatTask(task)?{polatTest:true,polatClaudeOffline:!!polatModel}:undefined);
+    },betaScope?{polatPrivateBeta:betaScope,polatPrivateBetaCodec:task.model_provider==="openai"?"openai-responses-v1":"claude-messages-v1"}:polatTask(task)?{polatTest:true,polatClaudeOffline:!!polatModel}:undefined);
     runId = await invokeRpc<string>("begin_agent_run", {
       target_tenant_id: task.tenant_id,
       target_task_id: task.task_id,
@@ -228,6 +230,7 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
       versions: CONVERSATION_QUALITY_VERSIONS,
     };
     const uatModel=uat?await createPrivateBetaProviderFromDatabase({tenantId:task.tenant_id,programId:uat.scope.program_id,scope:"CONVERSATION",assess:(_request,response)=>uat.assess(response.output).action==="SAFE_PREVIEW"?"APPROVED":"HELD"}):null;
+    if(uatModel&&(uatModel.provider.provider!==task.model_provider||uatModel.provider.model!==task.model_name))throw new ModelProviderError("PROVIDER_ERROR","POLAT_UAT_MODEL_BINDING_MISMATCH",false);
     const provider = uatModel?.provider??(polat && polatModel ? polatOfflineRuntimeProvider(polatModel, task.tenant_id, task.conversation_id) : polat?.provider??providerFor(task));
     activeProvider = provider;
     const responses: ModelResponse[] = [];
@@ -429,6 +432,7 @@ export async function runDeterministicWorker(input?: { workerId?: string; deploy
     conversionTasksCompleted: 0,
   };
   try {
+    if(privateBetaIsolationActive()&&!input?.polatUat&&!input?.polatTest)throw Error("POLAT_UAT_SCOPED_WORKER_REQUIRED");
     if(input?.polatTest&&(!input.conversation||!(input.polatTest.transport instanceof FakePolatTransport)))throw Error("POLAT_SCOPED_FAKE_WORKER_REQUIRED");
     if(input?.polatUat&&(!input.conversation||input.polatTest))throw Error("POLAT_UAT_SCOPED_WORKER_REQUIRED");
     if(input?.polatTest)await recoverPolatTestConversation(input.conversation!.tenantId,input.conversation!.conversationId,input.polatTest.transport);

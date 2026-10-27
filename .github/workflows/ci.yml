@@ -226,11 +226,14 @@ jobs:
           beta_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/private-beta-db.env")
           test -n "$beta_db_url"
           echo "::add-mask::$beta_db_url"
-          supabase test db supabase/tests/private_beta_uat.test.sql supabase/tests/private_beta_uat_pagination.test.sql supabase/tests/private_beta_native_runtime.test.sql supabase/tests/private_beta_stars.test.sql | tee "$RUNNER_TEMP/private-beta-pgtap.log"
+          supabase test db supabase/tests/private_beta_uat.test.sql supabase/tests/private_beta_uat_pagination.test.sql supabase/tests/private_beta_native_runtime.test.sql supabase/tests/private_beta_stars.test.sql supabase/tests/private_beta_openai.test.sql supabase/tests/private_beta_business.test.sql supabase/tests/private_beta_business_discovery.test.sql | tee "$RUNNER_TEMP/private-beta-pgtap.log"
           bash supabase/tests/private_beta_uat_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-concurrency.log"
           bash supabase/tests/private_beta_stars_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-stars-concurrency.log"
-          POLAT_BETA_MODEL_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/polat-private-beta-provider-db.test.ts | tee "$RUNNER_TEMP/private-beta-provider-db.log"
+          bash supabase/tests/private_beta_business_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-business-concurrency.log"
+          POLAT_BETA_MODEL_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/polat-private-beta-provider-db.test.ts tests/integration/polat-openai-private-beta-provider-db.test.ts | tee "$RUNNER_TEMP/private-beta-provider-db.log"
+          POLAT_BETA_BUSINESS_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-business-db.test.ts | tee "$RUNNER_TEMP/private-beta-business-db.log"
           POLAT_BETA_RUNTIME_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-runtime-db.test.ts | tee "$RUNNER_TEMP/private-beta-runtime-db.log"
+          POLAT_BETA_OPENAI_BUSINESS_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-openai-business-runtime-db.test.ts | tee "$RUNNER_TEMP/private-beta-openai-business-runtime-db.log"
       - name: Retain private beta offline acceptance evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

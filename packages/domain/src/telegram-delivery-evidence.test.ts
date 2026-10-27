@@ -21,3 +21,11 @@ describe("exact Telegram ACK correlation and no blind retry", () => {
     expect(telegramDeliveryEvidence(400, { ok: false, error_code: 400, description: "PRIVATE_PROVIDER_TEXT" }, "7")).toEqual({ kind: "failed", errorCode: "TELEGRAM_REJECTED", retryable: false });
   });
 });
+
+describe("BUSINESS acknowledgement correlation", () => {
+  const result = { message_id: 19, chat: { id: 8327046095, type: "private" }, business_connection_id: "OPAQUE_BUSINESS_FIXTURE" };
+  it("only the exact business connection and chat establish provider acknowledgement", () => {
+    expect(telegramDeliveryEvidence(200, { ok: true, result }, "8327046095", "OPAQUE_BUSINESS_FIXTURE")).toMatchObject({ kind: "sent", providerMessageId: "19" });
+    for (const changed of [{ ...result, business_connection_id: "FOREIGN" }, { ...result, business_connection_id: undefined }, { ...result, chat: { id: 7 } }]) expect(telegramDeliveryEvidence(200, { ok: true, result: changed }, "8327046095", "OPAQUE_BUSINESS_FIXTURE")).toMatchObject({ errorCode: "TELEGRAM_DELIVERY_UNCERTAIN", retryable: false });
+  });
+});

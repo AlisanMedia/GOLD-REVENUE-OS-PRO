@@ -7,7 +7,7 @@ import{analyticsWorkspace}from "@/lib/analytics/server";
 import{polatCrmMetricEvidence}from "@gold-revenue-os/domain";
 import{polatSearchSchema,polatCursor,polatPeriod,polatInboundPageSchema,polatSummarySchema,polatModelSummarySchema,type PolatSearch}from "./read-model";
 import { experimentPageSchema, experimentCursor, type ExperimentPage } from "./experiment-read";
-import { privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, parsePrivateBetaWorkspace, parsePrivateBetaOperators, type PrivateBetaWorkspace, type PrivateBetaNotesPage } from "./private-beta-read";
+import { privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, parsePrivateBetaWorkspace, parsePrivateBetaOperators, parsePrivateBetaBusinessScope, parsePrivateBetaBusinessDiscovery, type PrivateBetaWorkspace, type PrivateBetaNotesPage, type PrivateBetaBusinessScope, type PrivateBetaBusinessDiscovery } from "./private-beta-read";
 const readContext=cache(async()=>({context:await requireAdminCapability("agents.read"),db:await createSupabaseServerClient()}));
 export async function requirePolatRead(){return(await readContext()).context;}
 export async function polatOperations(input:PolatSearch){
@@ -25,7 +25,15 @@ export async function polatOperations(input:PolatSearch){
   if(beta&&context.role==="super_admin"&&(!beta.program||beta.program.stage==="DRAFT")){
    try{const members=await db.from("tenant_members").select("user_id,role").eq("tenant_id",context.tenantId).eq("status","active").in("role",["super_admin","manager"]).order("user_id").limit(100);if(!members.error)betaOperators=parsePrivateBetaOperators(members.data,context.userId);}catch{betaOperators=null;}
   }
-  return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error,summaryError:false,beta,betaNotes,betaDenied:false,betaCanConfigure:context.role==="super_admin",betaCanNote:["super_admin","manager","support"].includes(context.role),betaCanAcceptOperator:["super_admin","manager"].includes(context.role),betaStarsCommandId:context.role==="super_admin"&&beta?.program?crypto.randomUUID():null,betaOperators};
+  let betaBusinessScope:PrivateBetaBusinessScope|null=null,betaBusinessUnavailable=false;
+  let betaBusinessDiscovery:PrivateBetaBusinessDiscovery|null=null,betaBusinessDiscoveryUnavailable=false;
+  if(beta?.program&&context.role==="super_admin"){
+   try{const result=await db.rpc("admin_private_beta_business_scope_v1",{target_tenant_id:context.tenantId,program_id_value:beta.program.id});if(result.error)betaBusinessUnavailable=true;else betaBusinessScope=parsePrivateBetaBusinessScope(result.data,beta.program.id,beta.program.generation);}catch{betaBusinessUnavailable=true;}
+  }
+  if(beta?.program?.stage==="DRAFT"&&context.role==="super_admin"){
+   try{const result=await db.rpc("admin_private_beta_business_discovery_v1",{target_tenant_id:context.tenantId,program_id_value:beta.program.id});if(result.error)betaBusinessDiscoveryUnavailable=true;else betaBusinessDiscovery=parsePrivateBetaBusinessDiscovery(result.data,{tenantId:context.tenantId,programId:beta.program.id,generation:beta.program.generation,repositorySha:beta.program.repository_sha});}catch{betaBusinessDiscoveryUnavailable=true;}
+  }
+  return{page:null,summary:null,model:null,business:null,businessError:false,businessDenied:false,error,summaryError:false,beta,betaNotes,betaBusinessScope,betaBusinessUnavailable,betaBusinessDiscovery,betaBusinessDiscoveryUnavailable,betaDenied:false,betaCanConfigure:context.role==="super_admin",betaCanNote:["super_admin","manager","support"].includes(context.role),betaCanAcceptOperator:["super_admin","manager"].includes(context.role),betaStarsCommandId:context.role==="super_admin"&&beta?.program?crypto.randomUUID():null,betaOperators};
  }
  if(q.view==="experiments"){
   let experiments:ExperimentPage|null=null;let error:"cursor"|"unavailable"|null=null;

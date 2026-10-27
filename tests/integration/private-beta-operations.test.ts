@@ -8,8 +8,8 @@ import { PolatOperationsView } from "../../apps/web/src/components/polat-operati
 import { PolatPrivateBeta, privateBetaText } from "../../apps/web/src/components/polat-private-beta";
 import { polatOperations } from "../../apps/web/src/lib/polat/admin";
 import { polatSearchSchema } from "../../apps/web/src/lib/polat/read-model";
-import { parsePrivateBetaCanaryResult, parsePrivateBetaStarsInvoiceResult, submitPrivateBetaOwnerForm, parsePrivateBetaOperators, parsePrivateBetaWorkspace, privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, privateBetaFeedback, privateBetaHref } from "../../apps/web/src/lib/polat/private-beta-read";
-import { acceptPrivateBetaOperator, configurePrivateBeta, createPrivateBetaInvitation, createPrivateBetaTenant, recordPrivateBetaNote } from "../../apps/web/src/app/admin/polat-operations/beta-actions";
+import { parsePrivateBetaCanaryResult, parsePrivateBetaBusinessScope, parsePrivateBetaBusinessDiscovery, parsePrivateBetaStarsInvoiceResult, submitPrivateBetaOwnerForm, parsePrivateBetaOperators, parsePrivateBetaWorkspace, privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, privateBetaFeedback, privateBetaHref } from "../../apps/web/src/lib/polat/private-beta-read";
+import { acceptPrivateBetaOperator, configurePrivateBeta, configurePrivateBetaBusiness, createPrivateBetaInvitation, createPrivateBetaTenant, recordPrivateBetaNote, reverifyPrivateBetaBusiness, selectPrivateBetaOpenAI } from "../../apps/web/src/app/admin/polat-operations/beta-actions";
 import { messageDeliveryLabel, manualReplyResult } from "../../apps/web/src/lib/escalations/manual-reply";
 
 const mocks = vi.hoisted(() => ({ require: vi.fn(), rpc: vi.fn(), from: vi.fn(), revalidate: vi.fn(), analytics: vi.fn() }));
@@ -227,5 +227,76 @@ describe("Private beta authenticated append-only configuration actions", () => {
     expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_operator_accept_v1", { target_tenant_id: tenant, program_id_value: program });
     mocks.require.mockResolvedValue({ tenantId: tenant, userId: user, role: "support" }); mocks.rpc.mockClear();
     expect((await acceptPrivateBetaOperator(idle, form({ program_id: program }))).kind).toBe("error"); expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("OpenAI and founder-only account setup reuse authenticated private-beta controls", () => {
+  const discovery = () => ({ version: 1 as const, program_id: program, tenant_id: tenant, repository_sha: "a".repeat(40), program_generation: "1", bot_id: "88001000", source_hash: "b".repeat(64), observed_at: at, expires_at: "2026-10-26T10:05:00Z", candidates: [{ business_connection_id: "synthetic_private_connection", representative_user_id: "88001001", update_id: "1", source_hash: "c".repeat(64), founder_chat_ids: ["88001002"] }] });
+  it("binds private discovery to tenant, program, SHA, generation and bounded validity without credential exposure", () => {
+    const expected = { tenantId: tenant, programId: program, generation: "1", repositorySha: "a".repeat(40) };
+    expect(parsePrivateBetaBusinessDiscovery(discovery(), expected)?.candidates).toHaveLength(1);
+    for (const replacement of [{ tenantId: item }, { programId: item }, { generation: "2" }, { repositorySha: "f".repeat(40) }]) expect(() => parsePrivateBetaBusinessDiscovery(discovery(), { ...expected, ...replacement })).toThrow();
+    expect(() => parsePrivateBetaBusinessDiscovery({ ...discovery(), credential_sha256: "d".repeat(64) }, expected)).toThrow();
+    expect(() => parsePrivateBetaBusinessDiscovery({ ...discovery(), raw_body: "NOT_ALLOWED" }, expected)).toThrow();
+    expect(() => parsePrivateBetaBusinessDiscovery({ ...discovery(), expires_at: "2026-10-26T10:05:01Z" }, expected)).toThrow();
+  });
+  it.each(["manager", "support"])("%s never requests or receives private account candidate discovery", async role => {
+    mocks.require.mockResolvedValue({ tenantId: tenant, userId: user, role });
+    const result = await polatOperations(query());
+    expect("betaBusinessDiscovery" in result && result.betaBusinessDiscovery).toBeNull();
+    expect(mocks.rpc.mock.calls.some(([name]) => name === "admin_private_beta_business_discovery_v1" || name === "admin_private_beta_business_scope_v1")).toBe(false);
+  });
+  it.each(["tr-TR", "en-US"] as const)("%s shows candidates only in the owner form and never as verified authority", locale => {
+    const workspace = fixture();
+    const props = { workspace, invalid: false, denied: false, size: "25", canNote: false, canConversation: true, operators: null, businessDiscovery: discovery() };
+    const html = render(h(AdminI18nProvider, { locale }, h(PolatPrivateBeta, { ...props, canConfigure: true })));
+    expect(html).toContain("synthetic_private_connection");
+    expect(html).toContain("88001001");
+    expect(html).toContain("88001002");
+    expect(html).toContain(locale === "tr-TR" ? "bağlantı veya gönderim yetkisi değildir" : "not connection or sending authority");
+    expect(html).not.toContain("credential_sha256");
+    const restricted = render(h(AdminI18nProvider, { locale }, h(PolatPrivateBeta, { ...props, canConfigure: false })));
+    expect(restricted).not.toContain("synthetic_private_connection");
+    expect(restricted).not.toContain("88001001");
+    expect(restricted).not.toContain("88001002");
+  });
+  it("selects the exact model only through the owner/MFA RPC and authenticated tenant", async () => {
+    mocks.rpc.mockResolvedValue({ data: { program_id: program, provider: "openai", model: "gpt-6.1-sol", generation: "2" }, error: null });
+    expect(await selectPrivateBetaOpenAI(idle, form({ program_id: program, expected_generation: "1" }))).toEqual({ kind: "success", code: "SAVED" });
+    expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_select_openai_v1", { target_tenant_id: tenant, program_id_value: program, expected_generation_value: 1 });
+    mocks.rpc.mockClear(); mocks.require.mockResolvedValue({ tenantId: tenant, userId: user, role: "support" });
+    expect((await selectPrivateBetaOpenAI(idle, form({ program_id: program, expected_generation: "1" }))).code).toBe("DENIED"); expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("preserves selected OpenAI notice and model on ordinary draft saves", async () => {
+    mocks.rpc.mockResolvedValue({ data: { program_id: program, stage: "DRAFT", generation: "2" }, error: null });
+    await configurePrivateBeta(idle, form({ program_id: program, model_provider: "openai", model_name: "gpt-6.1-sol", retention_days: "7" }));
+    const args = mocks.rpc.mock.calls[0]![1]; const config = JSON.parse(args.configuration_value);
+    expect(config).toMatchObject({ model_provider: "openai", model_name: "gpt-6.1-sol", notice_version: "polat-private-beta-notice-openai-v1" });
+    expect(args.target_tenant_id).toBe(tenant);
+    mocks.rpc.mockClear(); await configurePrivateBeta(idle, form({ program_id: program, model_provider: "openai", model_name: "gpt-6-luna" })); expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("only configures numeric founder/representative scope; recording it is not provider verification", async () => {
+    mocks.rpc.mockResolvedValue({ data: { program_id: program, mode: "BUSINESS", business_generation: "1", program_generation: "2", state: "UNVERIFIED" }, error: null });
+    const values = { program_id: program, expected_generation: "1", representative_user_id: "88001001", founder_chat_id: "88001002", business_connection_id: "synthetic_connection_only" };
+    expect(await configurePrivateBetaBusiness(idle, form(values))).toEqual({ kind: "success", code: "SAVED" });
+    expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_business_configure_v1", { target_tenant_id: tenant, program_id_value: program, expected_generation_value: 1, configuration_value: JSON.stringify({ representative_user_id: "88001001", founder_chat_id: "88001002", business_connection_id: "synthetic_connection_only" }) });
+    mocks.rpc.mockClear(); await configurePrivateBetaBusiness(idle, form({ ...values, representative_user_id: "@not_identity" })); expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("reverification is a separately tracked requirement, not an ACK, resend or automatic AI return", async () => {
+    mocks.rpc.mockResolvedValue({ data: { program_id: program, business_generation: "3", state: "INDEPENDENT_REVERIFICATION_REQUIRED" }, error: null });
+    expect((await reverifyPrivateBetaBusiness(idle, form({ program_id: program, business_generation: "2" }))).code).toBe("SAVED");
+    expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual(["admin_private_beta_business_reverify_v1"]);
+  });
+  it("business projections reject wrong programs and secret/authority additions", () => {
+    const scope = { version: 1, mode: "BUSINESS", program_id: program, business_generation: "1", program_generation: "2", state: "CONFIGURED_UNVERIFIED", representative_user_id: "88001001", founder_chat_id: "88001002", connection_hash: "a".repeat(64), configured_at: at, observed_at: null, expires_at: null, last_inbound_at: null, restriction_reason: null, financial_authority: "NONE" };
+    expect(parsePrivateBetaBusinessScope(scope, program)?.state).toBe("CONFIGURED_UNVERIFIED");
+    expect(() => parsePrivateBetaBusinessScope(scope, item)).toThrow();
+    expect(() => parsePrivateBetaBusinessScope({ ...scope, token: "NOT_FOR_CLIENT" }, program)).toThrow();
+  });
+  it("OpenAI canary presentation accepts only its exact model and preserves unknown billing", () => {
+    const output = { ...canaryFixture(), provider: "openai", model: "gpt-6.1-sol", provider_response_id: "resp_offline_ui" };
+    expect(parsePrivateBetaCanaryResult(output, program, "a".repeat(40)).actual_billed_amount).toBeNull();
+    expect(() => parsePrivateBetaCanaryResult({ ...output, model: "claude-haiku-5-5" }, program, "a".repeat(40))).toThrow();
   });
 });

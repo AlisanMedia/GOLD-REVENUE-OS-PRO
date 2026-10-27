@@ -11,7 +11,10 @@ on:
         options:
           - release_disabled
           - account_preflight
+          - openai_account_preflight
           - verify_bot
+          - discover_business
+          - verify_business
       validated_commit_sha:
         description: Exact current protected main SHA with Application and Database SUCCESS
         required: true
@@ -22,6 +25,14 @@ on:
         type: number
       program_id:
         description: Existing MFA-created private UAT program UUID (account_preflight or verify_bot)
+        required: false
+        type: string
+      openai_organization_id:
+        description: Exact existing OpenAI organization ID (metadata only; not a secret or authority)
+        required: false
+        type: string
+      openai_project_id:
+        description: Exact existing OpenAI project ID associated with the protected API key
         required: false
         type: string
       anthropic_workspace_id:
@@ -175,6 +186,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           POLAT_UAT_ANTHROPIC_API_KEY: ${{ secrets.POLAT_UAT_ANTHROPIC_API_KEY }}
           POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
           POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET }}
@@ -311,9 +323,61 @@ jobs:
           if-no-files-found: warn
           retention-days: ${{ inputs.backup_retention_days }}
 
+
+  openai_account_preflight:
+    name: Read-only OpenAI model observation (no inference or authority)
+    if: ${{ inputs.operation == 'openai_account_preflight' && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: staging
+    env:
+      VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+      DO_NOT_TRACK: 1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify protected exact main and reviewer before existing-key custody
+        id: gate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]
+          node scripts/private-beta-release-gate.mjs
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.19.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Observe existing OpenAI project/model without inference or cap fabrication
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
+          OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-openai-account.mjs
+      - name: Preserve observation separately from actual model and billing acceptance
+        if: ${{ always() && steps.gate.outcome == 'success' }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: private-beta-openai-account-observation-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/private-beta-release-gate.json
+            ${{ runner.temp }}/private-beta-openai-account-observation.json
+          if-no-files-found: warn
+          retention-days: ${{ inputs.backup_retention_days }}
+
   verify_bot:
     name: Protected dedicated UAT bot identity (zero messages)
-    if: ${{ inputs.operation == 'verify_bot' && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    if: ${{ (inputs.operation == 'verify_bot' || inputs.operation == 'discover_business' || inputs.operation == 'verify_business') && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: staging
@@ -338,8 +402,9 @@ jobs:
           set -euo pipefail
           [[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]
           node scripts/private-beta-release-gate.mjs
-      - name: Verify real getMe and persist only its scoped numeric identity
+      - name: Verify the narrowly selected bot or Business operation
         env:
+          PRIVATE_BETA_BOT_OPERATION: ${{ inputs.operation }}
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}

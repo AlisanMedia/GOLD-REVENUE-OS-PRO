@@ -10,6 +10,7 @@ const consumedContexts=new WeakSet<object>();
 /** Fixed HTTPS implementation. No default permit exists; only independently verified private-UAT authority may issue one. Tests replace the node:https boundary. */
 export async function sendPolatClaudeHttpsOnce(permit: unknown, request: ModelRequest, signal?: AbortSignal) {
   const context=requirePolatNetworkPermit(permit); // Before credential use, codec, timer or socket creation.
+  if (context.binding.provider !== "anthropic") throw new PolatClaudeFailure("PROVIDER_ERROR", "CLAUDE_RESERVED_PROVIDER_MISMATCH");
   if(consumedContexts.has(context))throw new PolatClaudeFailure("PROVIDER_ERROR","CLAUDE_RESERVED_ATTEMPT_REPLAY_DENIED");
   consumedContexts.add(context); // Failure/unknown result never makes this one-shot context reusable.
   const snapshot=structuredClone(request),wire=preparePolatClaudeRequest(snapshot,context.binding.maximum_output_tokens);

@@ -5,6 +5,26 @@ Living continuation index, initially reconstructed on **2026-10-16 UTC** and upd
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
 
 
+## 27 Ekim 2026 — OpenAI ve seçili Polat özel sohbeti
+
+Yeni owner seçimi OpenAI'dir. Tek scoped engineering package, eski Claude v1'i
+koruyarak `gpt-6.1-sol` / version2 account-binding / native Phase7 QA ve aynı
+PostgreSQL budget journal yolunu ekler. Yeni OpenAI notice/canary hash'leri ayrı;
+genel OPENAI_MODEL değişmez. Mevcut OPENAI_API_KEY yalnız protected runtime
+custody ve bağımsız account proof sonrasında kullanılabilir.
+
+Telegram BUSINESS yolu exact representative + tek founder chat ile sınırlıdır;
+her send öncesi fresh permissions, generation fencing, HUMAN_TAKEOVER, UNKNOWN
+ve replay korumaları korunur. Kimlik discovery adayları public CI artifact'lerine
+çıkarılmaz; private DB/fresh-MFA owner Admin read ve kısa validity kullanılır.
+Adaylar veya Secretary Mode tek başına dispatch/consent authority değildir.
+
+[OpenAI/BUSINESS implementation evidence](../POLAT_OPENAI_BUSINESS_UAT_IMPLEMENTATION_REPORT.md)
+ve [release procedure](../infra/runbooks/private-beta-release.md). Offline/PG PASS
+hosted veya genuine account/Telegram kabulü değildir.5.00USD total cap; owner'ın
+18USD bakiye beyanı hard cap sayılmaz. Commercial NO_GO, financial NONE,
+overall Phase16C-1 OPEN. Tarihsel Claude/fikstür kabulü aynen korunur.
+
 ## 26 Ekim 2026 — founder-authorized private-beta UAT program
 
 The newer founder directive authorizes a bounded private beta, subject to actual
