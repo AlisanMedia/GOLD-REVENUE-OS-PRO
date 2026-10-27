@@ -7,14 +7,17 @@ export async function sendTelegramText(input: {
   chatId: string;
   text: string;
   replyToProviderMessageId?: string | null;
+  businessConnectionId?: string;
 }): Promise<{ result: TelegramSendResult; providerStatus: number }> {
   if (!/^-?[1-9][0-9]{0,15}$/u.test(input.chatId) || !Number.isSafeInteger(Number(input.chatId)) || !input.text.trim() || input.text.length > 4096 || !input.botToken || input.botToken.length > 256)
     return { result: { kind: "failed", errorCode: "TELEGRAM_REQUEST_INVALID", retryable: false }, providerStatus: 0 };
+  if (input.businessConnectionId !== undefined && (typeof input.businessConnectionId !== "string" || input.businessConnectionId.length < 1 || input.businessConnectionId.length > 160)) return { result: { kind: "failed", errorCode: "TELEGRAM_REQUEST_INVALID", retryable: false }, providerStatus: 0 };
   const body: Record<string, unknown> = {
     chat_id: input.chatId,
     text: input.text,
     disable_web_page_preview: true,
   };
+  if (input.businessConnectionId !== undefined) body.business_connection_id = input.businessConnectionId;
   if (input.replyToProviderMessageId) {
     body.reply_parameters = { message_id: Number(input.replyToProviderMessageId), allow_sending_without_reply: true };
   }
@@ -42,7 +45,7 @@ export async function sendTelegramText(input: {
     } catch {
       payload = null;
     }
-    return { result: telegramDeliveryEvidence(response.status, payload, input.chatId), providerStatus: response.status };
+    return { result: telegramDeliveryEvidence(response.status, payload, input.chatId, input.businessConnectionId), providerStatus: response.status };
   } catch {
     return {
       result: { kind: "failed", errorCode: "TELEGRAM_DELIVERY_UNCERTAIN", retryable: false },

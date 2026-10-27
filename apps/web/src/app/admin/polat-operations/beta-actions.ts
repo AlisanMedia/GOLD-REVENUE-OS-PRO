@@ -49,10 +49,11 @@ export async function configurePrivateBeta(_previous: BetaActionState, form: For
   try {
     const program = field(form, "program_id");
     const rawRetention = field(form, "retention_days");
+    const modelProvider = field(form, "model_provider"), modelName = field(form, "model_name");
     if (rawRetention !== null && !/^[1-9][0-9]?$/u.test(rawRetention)) throw new Error("INVALID");
     input = {
       programId: commandSchema.parse(program ?? field(form, "command_id")), creating: program === null,
-      config: privateBetaConfigurationSchema.parse({ repository_sha: field(form, "repository_sha"), starts_at: field(form, "starts_at"), expires_at: field(form, "expires_at"), retention_days: rawRetention === null ? null : Number(rawRetention), notice_version: "polat-private-beta-notice-v1", primary_operator: field(form, "primary_operator"), backup_operator: field(form, "backup_operator") }),
+      config: privateBetaConfigurationSchema.parse({ repository_sha: field(form, "repository_sha"), starts_at: field(form, "starts_at"), expires_at: field(form, "expires_at"), retention_days: rawRetention === null ? null : Number(rawRetention), notice_version: modelProvider === "openai" ? "polat-private-beta-notice-openai-v1" : "polat-private-beta-notice-v1", primary_operator: field(form, "primary_operator"), backup_operator: field(form, "backup_operator"), ...(modelProvider !== null || modelName !== null ? { model_provider: modelProvider, model_name: modelName } : {}) }),
     };
     if (input.config.starts_at && input.config.expires_at && Date.parse(input.config.expires_at) <= Date.parse(input.config.starts_at)) throw new Error("INVALID");
     if (input.config.primary_operator && input.config.backup_operator && input.config.primary_operator === input.config.backup_operator) throw new Error("INVALID");
@@ -60,6 +61,51 @@ export async function configurePrivateBeta(_previous: BetaActionState, form: For
   const result = await auth.db.rpc(input.creating ? "admin_private_beta_create_v1" : "admin_private_beta_configure_v1", { target_tenant_id: auth.context.tenantId, program_id_value: input.programId, configuration_value: JSON.stringify(input.config) });
   const parsed = z.strictObject({ program_id: z.uuid(), stage: z.literal("DRAFT"), generation: z.string().regex(/^[1-9][0-9]*$/u) }).safeParse(result.data);
   if (result.error || !parsed.success) return denied(result.error?.code);
+  refresh();
+  return { kind: "success", code: "SAVED" };
+}
+
+/** Only DRAFT, fresh-MFA owner selection; this does not invoke a provider or change a global key/model. */
+export async function selectPrivateBetaOpenAI(_previous: BetaActionState, form: FormData): Promise<BetaActionState> {
+  const auth = await writeContext(true);
+  if (!auth) return denied("42501");
+  let program: string, generation: number;
+  try {
+    program = commandSchema.parse(field(form, "program_id"));
+    const raw = z.string().regex(/^[1-9][0-9]{0,8}$/u).parse(field(form, "expected_generation"));
+    generation = Number(raw);
+  } catch { return denied("22023"); }
+  const result = await auth.db.rpc("admin_private_beta_select_openai_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program, expected_generation_value: generation });
+  const parsed = z.strictObject({ program_id: z.uuid(), provider: z.literal("openai"), model: z.literal("gpt-6.1-sol"), generation: z.string().regex(/^[1-9][0-9]{0,8}$/u) }).safeParse(result.data);
+  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code);
+  refresh();
+  return { kind: "success", code: "SAVED" };
+}
+
+export async function configurePrivateBetaBusiness(_previous: BetaActionState, form: FormData): Promise<BetaActionState> {
+  const auth = await writeContext(true);
+  if (!auth) return denied("42501");
+  let program: string, generation: number, config: { representative_user_id: string; founder_chat_id: string; business_connection_id: string };
+  try {
+    program = commandSchema.parse(field(form, "program_id"));
+    generation = Number(z.string().regex(/^[1-9][0-9]{0,8}$/u).parse(field(form, "expected_generation")));
+    config = z.strictObject({ representative_user_id: z.string().regex(/^[1-9][0-9]{0,18}$/u), founder_chat_id: z.string().regex(/^[1-9][0-9]{0,18}$/u), business_connection_id: z.string().regex(/^[\x21-\x7e]{1,160}$/u) }).parse({ representative_user_id: field(form, "representative_user_id"), founder_chat_id: field(form, "founder_chat_id"), business_connection_id: field(form, "business_connection_id") });
+  } catch { return denied("22023"); }
+  const result = await auth.db.rpc("admin_private_beta_business_configure_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program, configuration_value: JSON.stringify(config), expected_generation_value: generation });
+  const parsed = z.strictObject({ program_id: z.uuid(), mode: z.literal("BUSINESS"), business_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u), program_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u), state: z.enum(["UNVERIFIED", "BLOCKED", "INDEPENDENTLY_OBSERVED"]) }).safeParse(result.data);
+  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code);
+  refresh();
+  return { kind: "success", code: "SAVED" };
+}
+
+export async function reverifyPrivateBetaBusiness(_previous: BetaActionState, form: FormData): Promise<BetaActionState> {
+  const auth = await writeContext(true);
+  if (!auth) return denied("42501");
+  let program: string, generation: number;
+  try { program = commandSchema.parse(field(form, "program_id")); generation = Number(z.string().regex(/^[1-9][0-9]{0,8}$/u).parse(field(form, "business_generation"))); } catch { return denied("22023"); }
+  const result = await auth.db.rpc("admin_private_beta_business_reverify_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program, expected_generation_value: generation });
+  const parsed = z.strictObject({ program_id: z.uuid(), business_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u), state: z.literal("INDEPENDENT_REVERIFICATION_REQUIRED") }).safeParse(result.data);
+  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code);
   refresh();
   return { kind: "success", code: "SAVED" };
 }

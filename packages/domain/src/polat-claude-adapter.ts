@@ -2,30 +2,20 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { POLAT_CLAUDE_MODEL, POLAT_CLAUDE_ADAPTER_VERSION, CLAUDE_MESSAGES_API_VERSION, polatClaudeOfflineConfigSchema, polatClaudeUsageSchema, type PolatClaudeUsage } from "@gold-revenue-os/contracts";
 import { ModelProviderError, assertSafeContext, requestFingerprint, type ModelProvider, type ModelRequest, type ModelResponse } from "./agent-runtime";
-import { conversationModelOutputSchema, memoryProposalSchema, CONVERSATION_QUALITY_VERSIONS } from "./conversation-quality";
-import { responseClaimSchema } from "./conversation-evidence";
+import { conversationModelOutputSchema, CONVERSATION_QUALITY_VERSIONS } from "./conversation-quality";
 import { messageEvidenceHandles, providerEvidenceContext, resolveEvidenceHandles } from "./evidence-handles";
-import { SPEECH_ACTS, CONVERSATION_CAPABILITIES } from "./speech-acts";
+import { polatNativeWireOutputSchema, polatSupportedNativeSchema } from "./polat-native-wire";
 import { polatModelAcceptanceManifest } from "./polat-model-acceptance";
 import { parsePolatClaudeJson } from "./polat-claude-json";
 
 // Explicit node-only package entry; deliberately absent from the shared browser barrel.
 export const POLAT_CLAUDE_BOUNDARY = Object.freeze({ mode: "OFFLINE_SYNTHETIC", real_model_execution: false, execution_enabled: false, authorized_external_requests: 0, financial_authority: "NONE", live_operations_authorized: false, automatic_retries: 0, automatic_fallbacks: 0, qa_regenerations: 0 } as const);
-export const claudeWireOutputSchema = conversationModelOutputSchema.omit({ memory_proposals: true }).extend({
-  claims: z.array(responseClaimSchema.extend({ speech_act: z.enum(SPEECH_ACTS), capability: z.enum(CONVERSATION_CAPABILITIES).nullable() })).min(1).max(16),
-  memory_proposals: z.array(memoryProposalSchema.omit({ provenance_message_ids: true }).extend({ provenance_evidence_refs: z.array(z.string().min(1).max(160)).min(1).max(8) })).max(8),
-  proposed_tool_calls: z.array(z.strictObject({ name: z.string(), version: z.number().int(), arguments: z.strictObject({}) })).max(0),
-});
+export const claudeWireOutputSchema = polatNativeWireOutputSchema;
 const tokenLimit = z.number().int().min(1).max(4096);
 const digest = (kind: string, raw: string) => createHash("sha256").update(JSON.stringify([kind, raw]), "utf8").digest("hex");
 
 /** Same documented constraint simplification as SDK helpers, with strict local validation retained. */
-function supportedSchema(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(supportedSchema);
-  if (!value || typeof value !== "object") return value;
-  const omitted = new Set(["$schema", "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "multipleOf", "minLength", "maxLength", "maxItems", "format"]);
-  return Object.fromEntries(Object.entries(value).filter(([key, v]) => !omitted.has(key) && !(key === "minItems" && v !== 0 && v !== 1)).map(([key, v]) => [key, supportedSchema(v)]));
-}
+const supportedSchema = polatSupportedNativeSchema;
 
 /** Pure request codec. Contains synthetic input in memory; never log or persist its body. No URL, credential or network driver. */
 export function preparePolatClaudeRequest(request: ModelRequest, maximumOutputTokens: number) {

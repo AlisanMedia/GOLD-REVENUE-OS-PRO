@@ -4,9 +4,10 @@ import { z } from "zod";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { polatIdentity, assessPolatResponsePolicy, directConversation, inferStyleProfile, CONVERSATION_QUALITY_VERSIONS, type AgentContext, type ModelRequest } from "@gold-revenue-os/domain";
 import { polatClaudeCanaryPlan } from "../../../../../packages/domain/src/polat-claude-canary";
+import { polatOpenAICanaryPlan } from "../../../../../packages/domain/src/polat-openai-canary";
 import { createPrivateBetaProviderFromDatabase } from "./private-beta-provider";
 
-const authorizedScope = z.strictObject({ program_id: z.uuid(), tenant_id: z.uuid(), stage: z.literal("CANARY"), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u) });
+const authorizedScope = z.strictObject({ program_id: z.uuid(), tenant_id: z.uuid(), stage: z.literal("CANARY"), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u), provider: z.literal("openai").optional(), model: z.literal("gpt-6.1-sol").optional() }).refine(value => (value.provider === "openai") === (value.model === "gpt-6.1-sol"));
 /** One fixed synthetic-input genuine canary. Existing MFA owner grant, independent
  * account proof and committed reservation are still required by the actual provider.
  * No customer, Telegram transport, fixture response, retry or automatic phase advance. */
@@ -17,7 +18,7 @@ export async function runPrivateBetaCanaryForOwner(input: { tenantId: string; pr
   if (guarded.error) throw Error("PRIVATE_BETA_CANARY_OWNER_OR_ACCOUNT_REQUIRED");
   const scope = authorizedScope.parse(guarded.data);
   if (scope.tenant_id !== ids.tenantId || scope.program_id !== ids.programId || process.env.POLAT_UAT_RELEASE_SHA !== scope.repository_sha) throw Error("PRIVATE_BETA_CANARY_RELEASE_SCOPE_DENIED");
-  const canary = polatClaudeCanaryPlan(), sample = canary.plan.cases[0];
+  const canary = scope.provider === "openai" ? polatOpenAICanaryPlan() : polatClaudeCanaryPlan(), sample = canary.plan.cases[0];
   if (sample.text !== "Hi" || sample.language !== "en" || sample.style !== "DIRECT" || canary.plan.maximum_requests !== 1 || canary.plan.proposed_maximum_output_tokens !== 512 || canary.plan.proposed_timeout_ms !== 10000) throw Error("PRIVATE_BETA_CANARY_PLAN_DRIFT");
   const now = new Date().toISOString(), conversationId = randomUUID(), sourceId = randomUUID();
   const identity = { id: "polat:uat:identity:v1", tenantId: ids.tenantId, conversationId, occurredAt: now, status: "completed" as const, category: "fact" as const, statement: polatIdentity.en };

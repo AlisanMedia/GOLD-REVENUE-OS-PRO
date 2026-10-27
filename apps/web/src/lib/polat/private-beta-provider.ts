@@ -1,5 +1,5 @@
 import "server-only";
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createPolatPrivateBetaProvider, boundPolatPrivateBetaWireLiability, type PolatPrivateBetaAttemptStore } from "../../../../../packages/domain/src/polat-private-beta-provider";
@@ -61,10 +61,15 @@ export async function createPrivateBetaProviderFromDatabase(input: {
       if (!proof || typeof proof !== "object" || !("dispatch_nonce" in proof) || proof.dispatch_nonce !== nonce.get(attemptId)) throw Error("PRIVATE_BETA_OWNED_DISPATCH_REQUIRED");
       return proof;
     },
-    resolveCredential: accountScopeHash => {
+    resolveCredential: async accountScopeHash => {
       if (accountScopeHash !== binding.account_scope_hash) return Promise.reject(Error("PRIVATE_BETA_SCOPE_DENIED"));
       // Only reached after independent owner/account/committed-reservation checks. Never loaded during module import or setup views.
-      const key = process.env.POLAT_UAT_ANTHROPIC_API_KEY;
+      const key = binding.provider === "openai" ? process.env.OPENAI_API_KEY : process.env.POLAT_UAT_ANTHROPIC_API_KEY;
+      if (binding.provider === "openai") {
+        const sealed = z.strictObject({ payload: polatPrivateBetaAccountEvidenceSchema, pricing: z.unknown() }).parse(await rpc("private_beta_account_control_v1", {}));
+        if (sealed.payload.provider !== "openai" || sealed.payload.account_scope_hash !== accountScopeHash || !key
+          || createHash("sha256").update(key, "utf8").digest("hex") !== sealed.payload.credential_sha256) throw Error("PRIVATE_BETA_OPENAI_CREDENTIAL_UNVERIFIED");
+      }
       return key ? Promise.resolve(key) : Promise.reject(Error("PRIVATE_BETA_PROVIDER_CREDENTIAL_UNAVAILABLE"));
     },
   });

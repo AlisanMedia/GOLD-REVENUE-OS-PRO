@@ -39,7 +39,9 @@ export type ContextBuildResult = {
   manifest: Record<string, unknown>;
 };
 
-export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest?:true;polatClaudeOffline?:boolean;polatPrivateBeta?:Parameters<typeof preparePolatPrivateBetaRuntime>[2]}): Promise<ContextBuildResult> {
+export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest?:true;polatClaudeOffline?:boolean;polatPrivateBeta?:Parameters<typeof preparePolatPrivateBetaRuntime>[2];polatPrivateBetaCodec?:"claude-messages-v1"|"openai-responses-v1"}): Promise<ContextBuildResult> {
+  if(options?.polatPrivateBetaCodec&&!options.polatPrivateBeta)throw Error("POLAT_UAT_SCOPED_CODEC_REQUIRED");
+  if(options?.polatPrivateBetaCodec&&!(["claude-messages-v1","openai-responses-v1"] as const).includes(options.polatPrivateBetaCodec))throw Error("POLAT_UAT_SCOPED_CODEC_REQUIRED");
   const supabase = createSupabaseAdminClient();
   const { data: conversationData, error: conversationError } = await supabase
     .from("conversations")
@@ -206,7 +208,7 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatTest?:
     ...(polat?{polat}:{}),
     context,
     manifest: {
-      ...(betaProfile?{polat_profile:"polat-private-beta-v1",private_beta_profile:"polat-private-beta-v1",private_beta_codec:"claude-messages-v1",private_beta_program_id:betaProfile.scope.program_id,private_beta_participant_id:betaProfile.scope.participant_id,private_beta_revision:String(betaProfile.scope.revision),private_beta_history_basis:"PROVIDER_ACK_ONLY",financial_authority:"NONE",commercial_sales:false}:{}),
+      ...(betaProfile?{polat_profile:"polat-private-beta-v1",private_beta_profile:"polat-private-beta-v1",private_beta_codec:options?.polatPrivateBetaCodec??"claude-messages-v1",private_beta_program_id:betaProfile.scope.program_id,private_beta_participant_id:betaProfile.scope.participant_id,private_beta_revision:String(betaProfile.scope.revision),private_beta_history_basis:"PROVIDER_ACK_ONLY",financial_authority:"NONE",commercial_sales:false}:{}),
       ...(polat?{polat_profile:polat.profile,polat_fixture_policy:POLAT_PROFILE.version,polat_generation:polat.generation,polat_observed_boundary:sourceBoundary,polat_history_basis:"MATCHED_FAKE_ACK_ONLY",polat_memory_sources:polat.input.memory.map(m=>m.source_message_id),polat_subscription_context:polat.subscription_context,financial_authority:"NONE",live_operations_authorized:false}:{}),
       context_version: 3,
       manifest_version: 2,

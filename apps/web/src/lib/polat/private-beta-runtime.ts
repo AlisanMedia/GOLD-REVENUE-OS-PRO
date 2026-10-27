@@ -3,13 +3,14 @@ import { createHash } from "node:crypto";
 import { z } from "zod";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { sendTelegramText } from "../messaging/telegram-adapter";
+import { privateBetaBusinessScopeSchema, verifyPrivateBetaBusinessSend, consumePrivateBetaBusinessSendPermit } from "./private-beta-business";
 
 export const privateBetaSourceSchema = z.strictObject({ program_id: z.uuid(), participant_id: z.uuid(), tenant_id: z.uuid(), conversation_id: z.uuid(), source_message_id: z.uuid(), revision: z.number().int().positive(), boundary: z.iso.datetime({ offset: true }) });
 export type PrivateBetaSource = z.infer<typeof privateBetaSourceSchema>;
 export async function privateBetaRpc(name: string, args: Record<string, unknown>): Promise<unknown> {
-  const { data, error } = await createSupabaseAdminClient().rpc(name, args);
-  if (error) throw Error("PRIVATE_BETA_DB_UNAVAILABLE");
-  return data;
+  const result = z.object({ data: z.unknown(), error: z.unknown() }).parse(await createSupabaseAdminClient().rpc(name, args));
+  if (result.error) throw Error("PRIVATE_BETA_DB_UNAVAILABLE");
+  return result.data;
 }
 export async function readPrivateBetaSource(tenantId: string, conversationId: string, eventId: string) {
   return privateBetaSourceSchema.parse(await privateBetaRpc("private_beta_source_scope_v1", { target_tenant_id: tenantId, target_conversation_id: conversationId, target_event_id: eventId }));
@@ -19,7 +20,7 @@ export async function privateBetaConversation(tenantId: string, conversationId: 
   const raw = await privateBetaRpc("private_beta_conversation_scope_v1", { target_tenant_id: tenantId, target_conversation_id: conversationId });
   return raw === null ? null : conversationScope.parse(raw);
 }
-const transportConfig = z.strictObject({ version: z.literal(1), program_id: z.uuid(), tenant_id: z.uuid(), bot_id: z.string().regex(/^[1-9][0-9]{0,18}$/u), api_environment: z.literal("production"), credential_sha256: z.string().regex(/^[a-f0-9]{64}$/u), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u) });
+const transportConfig = z.union([z.strictObject({ version: z.literal(1), program_id: z.uuid(), tenant_id: z.uuid(), bot_id: z.string().regex(/^[1-9][0-9]{0,18}$/u), api_environment: z.literal("production"), credential_sha256: z.string().regex(/^[a-f0-9]{64}$/u), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u) }), privateBetaBusinessScopeSchema]);
 export async function privateBetaTransportScope(tenantId: string, programId: string) {
   const scope = transportConfig.parse(await privateBetaRpc("private_beta_transport_config_v1", { target_tenant_id: tenantId, program_id_value: programId }));
   if (scope.tenant_id !== tenantId || scope.program_id !== programId) throw Error("PRIVATE_BETA_BOT_SCOPE_DENIED");
@@ -32,13 +33,36 @@ async function privateBetaBot(tenantId: string, programId: string) {
   if (!key || createHash("sha256").update(key, "utf8").digest("hex") !== scope.credential_sha256 || key.split(":")[0] !== scope.bot_id) throw Error("PRIVATE_BETA_BOT_CREDENTIAL_UNVERIFIED");
   return { scope, key };
 }
-const claim = z.discriminatedUnion("dispatch", [z.strictObject({ dispatch: z.literal(false) }), z.strictObject({ dispatch: z.literal(true), message_id: z.uuid(), program_id: z.uuid(), bot_id: z.string(), chat_id: z.string().regex(/^[1-9][0-9]{0,18}$/u), body: z.string().min(1).max(4096), reply_to_provider_message_id: z.string().nullable() })]);
+const claimedReply = z.strictObject({ dispatch: z.literal(true), message_id: z.uuid(), program_id: z.uuid(), bot_id: z.string(), chat_id: z.string().regex(/^[1-9][0-9]{0,18}$/u), body: z.string().min(1).max(4096), reply_to_provider_message_id: z.string().nullable() });
+const claim = z.union([z.strictObject({ dispatch: z.literal(false) }), claimedReply, claimedReply.extend({ mode: z.literal("BUSINESS"), business_connection_id: z.string().min(1).max(160), business_generation: z.string().regex(/^[1-9][0-9]{0,18}$/u) })]);
 export async function dispatchPrivateBetaMessage(tenantId: string, programId: string, messageId: string) {
   const bot = await privateBetaBot(tenantId, programId);
+  let businessPermit: Awaited<ReturnType<typeof verifyPrivateBetaBusinessSend>> | null = null;
+  if (bot.scope.version === 2) {
+    try { businessPermit = await verifyPrivateBetaBusinessSend(bot.scope, bot.key); }
+    catch {
+      await privateBetaRpc("private_beta_business_transport_hold_v1", { target_tenant_id: tenantId, program_id_value: programId, target_message_id: messageId, reason_value: "PERMISSION_READ_UNVERIFIED" });
+      return { status: "blocked" as const, message_id: messageId };
+    }
+  }
   const prepared = claim.parse(await privateBetaRpc("private_beta_claim_reply_v1", { target_tenant_id: tenantId, target_message_id: messageId }));
   if (!prepared.dispatch) return { status: "blocked" as const, message_id: messageId };
   if (prepared.program_id !== programId || prepared.bot_id !== bot.scope.bot_id || prepared.message_id !== messageId) throw Error("PRIVATE_BETA_DISPATCH_SCOPE_DENIED");
-  const provider = await sendTelegramText({ botToken: bot.key, chatId: prepared.chat_id, text: prepared.body, replyToProviderMessageId: prepared.reply_to_provider_message_id });
+  let businessConnectionId: string | undefined;
+  try {
+    if (bot.scope.version === 2) {
+      if (!("mode" in prepared) || prepared.mode !== "BUSINESS") throw Error("PRIVATE_BETA_BUSINESS_SCOPE_CHANGED");
+      const current = await privateBetaTransportScope(tenantId, programId);
+      consumePrivateBetaBusinessSendPermit(businessPermit, current, prepared);
+      businessConnectionId = prepared.business_connection_id;
+    } else if ("mode" in prepared) throw Error("PRIVATE_BETA_BUSINESS_SCOPE_CHANGED");
+  } catch {
+    // No send occurred: this is a known local fence denial, not a fabricated ACK.
+    await privateBetaRpc("record_outbound_message_result", { target_tenant_id: tenantId, target_message_id: messageId, result_value: "blocked", provider_message_id_value: null, provider_status_value: 0, error_code_value: "PRIVATE_BETA_BUSINESS_SCOPE_CHANGED", retry_after_seconds_value: null });
+    if (bot.scope.version === 2) await privateBetaRpc("private_beta_business_transport_hold_v1", { target_tenant_id: tenantId, program_id_value: programId, target_message_id: messageId, reason_value: "SCOPE_CHANGED" });
+    return { status: "blocked" as const, message_id: messageId };
+  }
+  const provider = await sendTelegramText({ botToken: bot.key, chatId: prepared.chat_id, text: prepared.body, replyToProviderMessageId: prepared.reply_to_provider_message_id, ...(businessConnectionId ? { businessConnectionId } : {}) });
   const result = provider.result;
   const mapped = result.kind === "sent" ? { result: "sent", providerId: result.providerMessageId, error: null, retryAfter: null }
     : result.kind === "retry" ? { result: "retry_scheduled", providerId: null, error: result.errorCode, retryAfter: result.retryAfterSeconds }

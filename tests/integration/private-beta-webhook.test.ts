@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({ rpc: vi.fn(), scope: vi.fn(), queue: vi.fn(), 
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", async importOriginal => ({ ...await importOriginal<typeof import("next/server")>(), after: mocks.after }));
 vi.mock("@/lib/polat/private-beta-webhook", () => import("../../apps/web/src/lib/polat/private-beta-webhook"));
+vi.mock("@/lib/polat/private-beta-business", () => import("../../apps/web/src/lib/polat/private-beta-business"));
 vi.mock("@/lib/polat/private-beta-runtime", () => ({ privateBetaRpc: mocks.rpc, privateBetaTransportScope: mocks.scope, queuePrivateBetaNotice: mocks.queue, dispatchPrivateBetaMessage: mocks.dispatch }));
 vi.mock("@/lib/agent-runtime/worker", () => ({ runDeterministicWorker: mocks.worker }));
 import { POST } from "../../apps/web/src/app/api/webhooks/private-beta/telegram/route";
@@ -208,3 +209,56 @@ describe("actual private beta BOT route with injected offline persistence and di
     expect(mocks.after).not.toHaveBeenCalled(); expect(mocks.worker).not.toHaveBeenCalled(); expect(mocks.queue).not.toHaveBeenCalled(); expect(mocks.dispatch).not.toHaveBeenCalled();
   });
 });
+
+function businessScope() { return { version: 2, mode: "BUSINESS", program_id: programId, tenant_id: tenantId, bot_id: "900000001", api_environment: "production", credential_sha256: "a".repeat(64), repository_sha: config.releaseSha, representative_user_id: "9123456790", business_connection_id: "BUSINESS_FIXTURE_OPAQUE", founder_chat_id: String(numericId), business_generation: "2", enabled: true, can_reply: true, observed_at: new Date().toISOString(), expires_at: new Date(Date.now() + 600000).toISOString() }; }
+function businessUpdate(text = "Synthetic Business test", changes: Record<string, unknown> = {}) { const original = update(text); return { update_id: original.update_id, business_message: { ...original.message, business_connection_id: businessScope().business_connection_id, ...changes } }; }
+describe("BUSINESS private-beta ingress uses only the existing native runtime after scoped durable evidence", () => {
+  beforeEach(() => {
+    mocks.scope.mockResolvedValue(businessScope());
+    mocks.rpc.mockImplementation(async name => name === "private_beta_business_event_v1" ? { accepted: true, duplicate: false, action: "INBOUND", business_generation: "2" } : name === "ingest_telegram_message" ? source() : name === "private_beta_track_source_v1" ? true : name === "private_beta_bind_conversation_v1" || name === "private_beta_feedback_v1" ? { recorded: true } : accepted());
+  });
+  it("a founder inbound is durably scoped before generic ingestion and namespaces the delivery identity", async () => {
+    expect((await POST(signedRequest(JSON.stringify(businessUpdate())))).status).toBe(200);
+    expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual(["private_beta_business_event_v1", "private_beta_participant_for_chat_v1", "ingest_telegram_message", "private_beta_bind_conversation_v1", "private_beta_track_source_v1"]);
+    const event = JSON.parse(mocks.rpc.mock.calls[0][1].event_value); expect(event).toMatchObject({ kind: "INBOUND", update_id: "91001", provider_chat_id: String(numericId), provider_user_id: String(numericId), business_connection_id: businessScope().business_connection_id, content: null });
+    const stored = mocks.rpc.mock.calls.find(([name]) => name === "ingest_telegram_message")![1]; expect(stored.provider_update_id_value).toMatch(/^business:[a-f0-9]{64}:91001$/u); expect(stored.provider_message_id_value).toBe("91002");
+    await flushAfter(); expect(mocks.worker).toHaveBeenCalledTimes(1); expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+  it.each(["connection", "chat", "sender", "normal-bot"])("%s mismatch creates no task or model work", async kind => {
+    const raw = kind === "normal-bot" ? update() : businessUpdate("Synthetic denied", kind === "connection" ? { business_connection_id: "FOREIGN_BUSINESS_FIXTURE" } : kind === "chat" ? { chat: { id: numericId + 8, type: "private" } } : { from: { id: numericId + 8, is_bot: false } });
+    expect((await POST(signedRequest(JSON.stringify(raw)))).status).toBe(200); expect(mocks.rpc).not.toHaveBeenCalled(); expect(mocks.after).not.toHaveBeenCalled();
+  });
+  it("a BOT-configured program does not silently accept Business messages", async () => { mocks.scope.mockResolvedValue({ bot_id: "900000001" }); expect((await POST(signedRequest(JSON.stringify(businessUpdate())))).status).toBe(200); expect(mocks.rpc).not.toHaveBeenCalled(); expect(mocks.worker).not.toHaveBeenCalled(); });
+  it.each(["human", "bot-echo", "edit"])("%s is a separate durable control, never an eligible customer/model turn", async kind => {
+    const raw = businessUpdate("Observed private staff fixture", kind === "human" ? { from: { id: Number(businessScope().representative_user_id), is_bot: false } } : kind === "bot-echo" ? { sender_business_bot: { id: 900000001 } } : {});
+    const actual = kind === "edit" ? { update_id: raw.update_id, edited_business_message: raw.business_message } : raw;
+    expect((await POST(signedRequest(JSON.stringify(actual)))).status).toBe(200); expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    const e = JSON.parse(mocks.rpc.mock.calls[0][1].event_value); expect(e.kind).toBe(kind === "human" ? "HUMAN_REPLY" : kind === "bot-echo" ? "BOT_ECHO" : "EDIT"); expect(e.content).toBe(kind === "human" ? "Observed private staff fixture" : null); expect(e).not.toHaveProperty("auth_uid"); expect(mocks.after).not.toHaveBeenCalled(); expect(mocks.worker).not.toHaveBeenCalled();
+  });
+  it.each([true, false])("connection is_enabled=%s cannot confer callback authority", async is_enabled => {
+    const raw = { update_id: 91001, business_connection: { id: businessScope().business_connection_id, user: { id: Number(businessScope().representative_user_id), is_bot: false }, is_enabled, rights: { can_reply: true } } };
+    expect((await POST(signedRequest(JSON.stringify(raw)))).status).toBe(200); const e = JSON.parse(mocks.rpc.mock.calls[0][1].event_value); expect(e.kind).toBe(is_enabled ? "CONNECTION_OBSERVED" : "CONNECTION_DISABLED"); expect(e).not.toHaveProperty("enabled"); expect(e).not.toHaveProperty("can_reply"); expect(mocks.worker).not.toHaveBeenCalled(); expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+  it("each deleted message has distinct bounded durable evidence", async () => {
+    const raw = { update_id: 91001, deleted_business_messages: { business_connection_id: businessScope().business_connection_id, chat: { id: numericId, type: "private" }, message_ids: [91002, 91003] } };
+    expect((await POST(signedRequest(JSON.stringify(raw)))).status).toBe(200); expect(mocks.rpc).toHaveBeenCalledTimes(2); expect(mocks.rpc.mock.calls.map(([, args]) => JSON.parse(args.event_value).provider_message_id)).toEqual(["91002", "91003"]); expect(mocks.after).not.toHaveBeenCalled();
+  });
+  it("event persistence followed by an ingestion crash can resume without a silent lost message", async () => {
+    let seen = false, crash = true;
+    mocks.rpc.mockImplementation(async name => {
+      if (name === "private_beta_business_event_v1") { const duplicate = seen; seen = true; return { accepted: true, duplicate, action: "INBOUND", business_generation: "2" }; }
+      if (name === "ingest_telegram_message") { if (crash) { crash = false; throw Error("OFFLINE_INGEST_CRASH"); } return source(); }
+      return name === "private_beta_track_source_v1" ? true : accepted();
+    });
+    const body = JSON.stringify(businessUpdate()); expect((await POST(signedRequest(body))).status).toBe(503); expect(mocks.after).not.toHaveBeenCalled();
+    expect((await POST(signedRequest(body))).status).toBe(200); await flushAfter(); expect(mocks.worker).toHaveBeenCalledTimes(1);
+  });
+  it("a stale generation or DB hold cannot fall back to BOT processing", async () => {
+    mocks.rpc.mockResolvedValue({ accepted: true, duplicate: false, action: "HELD", business_generation: "3" }); expect((await POST(signedRequest(JSON.stringify(businessUpdate())))).status).toBe(200); expect(mocks.rpc).toHaveBeenCalledTimes(1); expect(mocks.after).not.toHaveBeenCalled(); expect(mocks.dispatch).not.toHaveBeenCalled();
+  });
+});
+
+ it("a BUSINESS zero-generation wrong-scope denial stays a uniform acknowledgement without model work", async () => {
+   mocks.scope.mockResolvedValue(businessScope()); mocks.rpc.mockResolvedValue({ accepted: false, duplicate: false, action: "IGNORED", business_generation: "0" });
+   expect(await (await POST(signedRequest(JSON.stringify(businessUpdate())))).json()).toEqual({ ok: true, duplicate: false }); expect(mocks.rpc).toHaveBeenCalledTimes(1); expect(mocks.after).not.toHaveBeenCalled();
+ });

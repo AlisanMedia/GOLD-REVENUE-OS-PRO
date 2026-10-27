@@ -42,7 +42,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
         const required = ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'SUPABASE_SECRET_KEY'];
         privateBetaBuildEnvironment(env); assert(required.every(k => env[k]), 'STAGING_RUNTIME_CONFIGURATION_REQUIRED');
         // This closed allowlist never transfers account-admin, backup, unrelated bot or production secrets.
-        const optional = ['POLAT_UAT_ANTHROPIC_API_KEY', 'POLAT_UAT_TELEGRAM_BOT_TOKEN', 'POLAT_UAT_TELEGRAM_WEBHOOK_SECRET', 'POLAT_UAT_RELAY_SECRET', 'POLAT_UAT_STARS_TEST_BOT_TOKEN', 'POLAT_UAT_STARS_TEST_WEBHOOK_SECRET', 'POLAT_UAT_STARS_RELAY_SECRET'];
+        const optional = ['OPENAI_API_KEY', 'POLAT_UAT_ANTHROPIC_API_KEY', 'POLAT_UAT_TELEGRAM_BOT_TOKEN', 'POLAT_UAT_TELEGRAM_WEBHOOK_SECRET', 'POLAT_UAT_RELAY_SECRET', 'POLAT_UAT_STARS_TEST_BOT_TOKEN', 'POLAT_UAT_STARS_TEST_WEBHOOK_SECRET', 'POLAT_UAT_STARS_RELAY_SECRET'];
         const ids = ['POLAT_UAT_TENANT_ID', 'POLAT_UAT_PROGRAM_ID'];
         assert(ids.every(k => !env[k]) || ids.every(k => /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu.test(env[k] ?? '')), 'UAT_SCOPE_CONFIGURATION_INVALID');
         const names = ['NEXT_PUBLIC_APP_URL', ...required, ...optional.filter(k => env[k]), ...ids.filter(k => env[k]), 'POLAT_UAT_RELEASE_SHA'];

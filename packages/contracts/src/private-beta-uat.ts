@@ -2,16 +2,32 @@ import { z } from "zod";
 
 const id = z.uuid();
 const timestamp = z.iso.datetime({ offset: true });
+/** Founder-chat UAT needs reply authority only, not account deletion, gifts or Stars authority.
+ * Unknown future rights fail closed; this schema grants nothing by itself. */
+export const privateBetaBusinessRightsSchema = z.strictObject({
+  can_reply: z.literal(true), can_read_messages: z.boolean().optional(), can_delete_sent_messages: z.boolean().optional(), can_delete_all_messages: z.boolean().optional(),
+  can_edit_name: z.boolean().optional(), can_edit_bio: z.boolean().optional(), can_edit_profile_photo: z.boolean().optional(), can_edit_username: z.boolean().optional(),
+  can_change_gift_settings: z.boolean().optional(), can_view_gifts_and_stars: z.boolean().optional(), can_convert_gifts_to_stars: z.boolean().optional(),
+  can_transfer_and_upgrade_gifts: z.boolean().optional(), can_transfer_stars: z.boolean().optional(), can_manage_stories: z.boolean().optional(),
+}).superRefine((rights, context) => {
+  if (Object.entries(rights).some(([name, enabled]) => name !== "can_reply" && enabled === true)) context.addIssue({ code: "custom", message: "PRIVATE_BETA_EXCESS_BUSINESS_RIGHTS" });
+});
 export const privateBetaConfigurationSchema = z.strictObject({
   repository_sha: z.string().regex(/^[a-f0-9]{40}$/u).nullable(), starts_at: timestamp.nullable(), expires_at: timestamp.nullable(),
-  retention_days: z.number().int().min(1).max(30).nullable(), notice_version: z.literal("polat-private-beta-notice-v1"),
+  retention_days: z.number().int().min(1).max(30).nullable(), notice_version: z.enum(["polat-private-beta-notice-v1", "polat-private-beta-notice-openai-v1"]),
   primary_operator: id.nullable(), backup_operator: id.nullable(),
+  model_provider: z.literal("openai").optional(), model_name: z.literal("gpt-6.1-sol").optional(),
+}).superRefine((value, context) => {
+  const openai = value.model_provider === "openai" && value.model_name === "gpt-6.1-sol";
+  if ((value.model_provider !== undefined || value.model_name !== undefined || value.notice_version === "polat-private-beta-notice-openai-v1") && !openai
+    || openai && value.notice_version !== "polat-private-beta-notice-openai-v1") context.addIssue({ code: "custom", message: "PRIVATE_BETA_MODEL_NOTICE_MISMATCH" });
 });
 export const privateBetaWorkspaceSchema = z.strictObject({
   version: z.literal(1), mode: z.literal("PRIVATE_BETA_UAT"),
   program: z.strictObject({ id, stage: z.enum(["DRAFT", "CANARY", "FOUNDER", "FRIENDS", "STOPPED"]), generation: z.string().regex(/^[1-9][0-9]*$/u),
     repository_sha: z.string().regex(/^[a-f0-9]{40}$/u).nullable(), starts_at: timestamp.nullable(), expires_at: timestamp.nullable(), retention_days: z.number().int().min(1).max(30).nullable(), notice_version: z.string(),
     configuration_complete: z.boolean(), account_state: z.enum(["MISSING", "OBSERVED", "STALE", "BLOCKED"]), canary_state: z.enum(["NOT_STARTED", "PENDING", "REVIEW", "RECONCILED"]),
+    model_provider: z.literal("openai").optional(), model_name: z.literal("gpt-6.1-sol").optional(),
     global_requests: z.number().int().min(0).max(350), maximum_requests: z.literal(350), reserved_liability: z.string().nullable(), currency: z.literal("USD").nullable(), actual_billed_amount: z.string().regex(/^(0|[1-9][0-9]*)(\.[0-9]{1,18})?$/u).nullable(), billing_status: z.enum(["UNKNOWN", "INDEPENDENTLY_RECONCILED", "ROLE_RESTRICTED"]),
     founder_limit: z.literal(20), friend_limit: z.literal(30), friend_limit_count: z.literal(10), primary_operator_configured: z.boolean(), backup_operator_configured: z.boolean(),
   }).nullable(),

@@ -8,12 +8,12 @@ const feedback = z.strictObject({ review_kind: z.literal("INFORMAL_UAT_FEEDBACK"
 const canaryResult = z.strictObject({
   version: z.literal(1), stage: z.literal("CANARY"), status: z.enum(["CANARY_ACCOUNTING_RECONCILIATION_PENDING", "CANARY_HELD"]),
   program_id: z.uuid(), attempt_id: z.uuid(), request_id: z.uuid(), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u),
-  plan_hash: z.string().regex(/^[a-f0-9]{64}$/u), corpus_hash: z.string().regex(/^[a-f0-9]{64}$/u), provider: z.literal("anthropic"), model: z.literal("claude-haiku-5-5"),
+  plan_hash: z.string().regex(/^[a-f0-9]{64}$/u), corpus_hash: z.string().regex(/^[a-f0-9]{64}$/u), provider: z.enum(["anthropic", "openai"]), model: z.enum(["claude-haiku-5-5", "gpt-6.1-sol"]),
   provider_response_id: z.string().min(1).max(160), response_hash: z.string().regex(/^[a-f0-9]{64}$/u), elapsed_ms: z.string().regex(/^(0|[1-9][0-9]{0,7})(?:\.[0-9]{1,8})?$/u).nullable(),
   input_tokens: z.number().int().min(0).max(2147483647).nullable(), output_tokens: z.number().int().min(0).max(2147483647).nullable(), qa: z.enum(["APPROVED", "HELD"]), response_preview: z.string().min(1).max(600).nullable(),
   actual_billed_amount: z.null(), actual_billed_currency: z.null(), billing_status: z.literal("UNKNOWN_REQUIRES_INDEPENDENT_RECONCILIATION"),
   automatic_retries: z.literal(0), telegram_messages: z.literal(0), financial_authority: z.literal("NONE"), founder_testing_enabled: z.literal(false),
-});
+}).refine(value => value.provider === "openai" ? value.model === "gpt-6.1-sol" : value.model === "claude-haiku-5-5");
 export function parsePrivateBetaCanaryResult(raw: unknown, programId: string, repositorySha: string) {
   const result = canaryResult.parse(raw);
   if (result.program_id !== programId || result.repository_sha !== repositorySha) throw new Error("BETA_CANARY_RESPONSE_SCOPE");
@@ -21,6 +21,31 @@ export function parsePrivateBetaCanaryResult(raw: unknown, programId: string, re
   return result;
 }
 export type PrivateBetaCanaryResult = z.infer<typeof canaryResult>;
+const privateBetaBusinessScopeSchema = z.strictObject({
+  version: z.literal(1), mode: z.literal("BUSINESS"), program_id: z.uuid(), business_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u), program_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u),
+  state: z.enum(["CONFIGURED_UNVERIFIED", "READY_FOR_FRESH_PROVIDER_READ", "BLOCKED", "EXPIRED"]), representative_user_id: z.string().regex(/^[1-9][0-9]{0,18}$/u), founder_chat_id: z.string().regex(/^[1-9][0-9]{0,18}$/u), connection_hash: z.string().regex(/^[a-f0-9]{64}$/u),
+  configured_at: z.iso.datetime({ offset: true }), observed_at: z.iso.datetime({ offset: true }).nullable(), expires_at: z.iso.datetime({ offset: true }).nullable(), last_inbound_at: z.iso.datetime({ offset: true }).nullable(), restriction_reason: z.string().max(120).nullable(), financial_authority: z.literal("NONE"),
+});
+export type PrivateBetaBusinessScope = z.infer<typeof privateBetaBusinessScopeSchema>;
+export function parsePrivateBetaBusinessScope(raw: unknown, programId: string, generation?: string) {
+  if (raw === null) return null;
+  const parsed = privateBetaBusinessScopeSchema.parse(raw);
+  if (parsed.program_id !== programId || generation !== undefined && parsed.program_generation !== generation) throw Error("PRIVATE_BETA_BUSINESS_SCOPE_MISMATCH");
+  return parsed;
+}
+const discoveryId = z.string().regex(/^[1-9][0-9]{0,18}$/u);
+const privateBetaBusinessDiscoverySchema = z.strictObject({
+  version: z.literal(1), program_id: z.uuid(), tenant_id: z.uuid(), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u), program_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u), bot_id: discoveryId,
+  source_hash: z.string().regex(/^[a-f0-9]{64}$/u), observed_at: z.iso.datetime({ offset: true }), expires_at: z.iso.datetime({ offset: true }),
+  candidates: z.array(z.strictObject({ business_connection_id: z.string().regex(/^[\x21-\x7e]{1,160}$/u), representative_user_id: discoveryId, update_id: z.string().regex(/^[0-9]{1,18}$/u), source_hash: z.string().regex(/^[a-f0-9]{64}$/u), founder_chat_ids: z.array(discoveryId).max(10) })).max(10),
+}).refine(value => Date.parse(value.expires_at) > Date.parse(value.observed_at) && Date.parse(value.expires_at) <= Date.parse(value.observed_at) + 300000);
+export type PrivateBetaBusinessDiscovery = z.infer<typeof privateBetaBusinessDiscoverySchema>;
+export function parsePrivateBetaBusinessDiscovery(raw: unknown, expected: { tenantId: string; programId: string; generation: string; repositorySha: string | null }) {
+  if (raw === null) return null;
+  const value = privateBetaBusinessDiscoverySchema.parse(raw);
+  if (value.tenant_id !== expected.tenantId || value.program_id !== expected.programId || value.program_generation !== expected.generation || value.repository_sha !== expected.repositorySha) throw Error("PRIVATE_BETA_DISCOVERY_SCOPE_MISMATCH");
+  return value;
+}
 const starsInvoiceResult = z.discriminatedUnion("status", [
   z.strictObject({ status: z.literal("TEST_INVOICE_ACKNOWLEDGED"), invoice_id: z.uuid(), origin: z.literal("TELEGRAM_DEDICATED_TEST"), financial_authority: z.literal("NONE"), receipt_created: z.literal(false) }),
   z.strictObject({ status: z.literal("EXISTING_TEST_INVOICE_REVIEW"), invoice_id: z.uuid().nullable(), origin: z.literal("TELEGRAM_DEDICATED_TEST"), financial_authority: z.literal("NONE") }),

@@ -7,6 +7,22 @@ Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
 
+## Current OpenAI / Polat BUSINESS continuation —27 October2026
+
+Reuse [OpenAI/BUSINESS implementation](../POLAT_OPENAI_BUSINESS_UAT_IMPLEMENTATION_REPORT.md).
+Repository code now supports a versioned scoped OpenAI candidate and founder-only
+selected BUSINESS chat without replacing the accepted BOT/Claude paths. The next
+external sequence is verified backup/restore/exact-SHA staging release → real MFA
+owner/operator configuration → dedicated bot/connection and OpenAI metadata
+read-back → independently evidenced account policy/effective5USD cap → canary1
+and actual billing reconciliation → voluntary founder opt-in conversation.
+No channel ingestion, historical list use, real payment or commercial pilot follows.
+
+Public Actions artifacts must not contain private operator/tester/connection IDs;
+use the private fresh-MFA Admin discovery projection. Missing hosted/account
+requirements block their dependent stage, not completed offline engineering.
+Current acceptance evidence and external unknowns must remain distinct.
+
 ## Private-beta UAT —26 October2026, current founder scope
 
 Implementation proceeds as one consolidated package. Reuse the native runtime,
