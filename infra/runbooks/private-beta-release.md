@@ -20,6 +20,55 @@ branch policy ve admin bypass yasağı yeniden okunur. Read-back erişimi403/eks
 job hosted işlemden önce durur; ayar veya zorunlu CI düşürülmez. Workflow onayı
 founder tarafından güvenli GitHub arayüzünden verilir; Codex bunu bypass etmez.
 
+### GitHub governance read-back kimliği —28 Ekim2026
+
+GitHub'ın [Get a repository ruleset](https://docs.github.com/en/rest/repos/rules?apiVersion=2022-11-28#get-a-repository-ruleset)
+belgesi, `bypass_actors` alanının yalnız ruleset üzerinde write erişimi olan
+kimliğe döndüğünü belirtir. Normal Actions token'ının read yetkisi bu alanın
+görünürlüğünü kanıtlamaz. Alanın olmaması boş bypass listesi sayılmaz.
+Run40781664388 doğru `14` girdisinden sonra `MAIN_RULESET_REQUIRED` ile durmuştur;
+o run'ın ham API gövdesi kaydedilmediği için eksik alanın doğrudan gözlendiği
+iddia edilmez. Sonraki run'lar görünmeyen listeyi
+`MAIN_RULESET_BYPASS_VISIBILITY_REQUIRED`, gerçek bypass aktörünü
+`MAIN_RULESET_BYPASS_FORBIDDEN` olarak ayırır.
+
+Kurucu, GitHub güvenli arayüzünde yalnız bu repository için kısa ömürlü bir
+fine-grained token oluşturup **staging environment secret** olarak
+`STAGING_GITHUB_GOVERNANCE_TOKEN` adıyla kaydeder. Gereken yetkiler:
+`Administration: Read` ve
+`Actions: Read` ([environment](https://docs.github.com/en/rest/deployments/environments?apiVersion=2022-11-28#get-an-environment)
+ve [branch-policy](https://docs.github.com/en/rest/deployments/branch-policies?apiVersion=2022-11-28#list-deployment-branch-policies)
+okumaları); zorunlu Metadata read otomatik gelir. Contents/Workflows write,
+başka repository veya organizasyon kapsamı eklenmez. Gerçek API read-back'i
+başarılı olmadan bu kimlik doğrulanmış sayılmaz.
+
+Token, ruleset'i incelemeye yetkili gerçek repository sahibi/yöneticisinin
+kimliğiyle sınırlandırılır. Resmî belgedeki ruleset write-access koşulu ile token'ın
+API izin kapsamı aynı şey varsayılmaz: read-only credential'ın bypass listesini
+gerçekten gösterebildiği henüz UAT'ta doğrulanmamıştır. Liste gizli kalırsa release
+BLOCKED kalır; `Administration: Read and write` gibi daha güçlü bir credential'a
+otomatik geçilmez. Böyle bir hesap/yetki artışı gerekirse exact ihtiyaç ve risk
+ayrı kurucu kararıdır. Boş liste kanıtı olmadan mevcut gate gevşetilmez.
+Token oluşturma/saklama ve süresini belirleme kurucunun güvenli hesap işlemidir;
+değeri chate, loga, artifact'e veya runtime'a verilmez. Codex mevcut kimliği
+okumaz, token üretmez veya repository/environment korumalarını değiştirmez.
+
+Workflow secret'ı yalnız mevcut altı gate step'inin env alanına alır. Script
+bu kimliği sabit repository'deki ruleset ve iki staging environment endpoint'ine
+GET için gönderir. Main/SHA/CI okumaları normal read-only `github.token` ile
+yapılır. Checkout, install, build, backup, deploy ve uygulama runtime'ı yeni
+token'ı almaz. Workflow'un `contents/checks/actions: read` izinleri korunur;
+provider credential'ı bu izinlere veya diğer step'lere aktarılmaz.
+Eksik secret HTTP'den önce `GITHUB_GOVERNANCE_TOKEN_REQUIRED` ile durur;
+403/timeout/redirect/bozuk veya aşırı büyük cevapta retry ya da token fallback
+olmaz. Bilinmeyen koruma bilgisiyle release devam etmez.
+
+Secret hazırlandıktan sonra kurucu yeni bir `Run workflow` açar, yeni exact
+protected main SHA'yı ve canonical integer `14` gibi onaylı retention girdisini
+kullanır; mevcut staging reviewer onayını verir. Eski failed run'ın yeniden
+çalıştırılması eski SHA/girdileri korur. Bu kod değişikliği workflow dispatch,
+deployment, hosted migration veya genuine provider testi başlatmaz.
+
 Hedefler kodda sabittir:
 
 - Vercel team `team_fOlNA2ASqhGzUplTDUFGCEDM` /

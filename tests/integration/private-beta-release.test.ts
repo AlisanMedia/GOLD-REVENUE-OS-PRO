@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
-import { validatePrivateBetaReleaseGate } from "../../scripts/private-beta-release-gate.mjs";
+import { readPrivateBetaReleaseGovernance, validatePrivateBetaReleaseGate } from "../../scripts/private-beta-release-gate.mjs";
 import { PRIVATE_BETA_VERCEL, privateBetaBuildEnvironment, validatePrivateBetaDeployment, validatePrivateBetaVercelProject } from "../../scripts/private-beta-release-vercel.mjs";
 import { parsePrivateBetaAccountProgram } from "../../scripts/private-beta-release-account.mjs";
 import { privateBetaRestorePlan } from "../../scripts/private-beta-release-restore.mjs";
@@ -9,9 +9,117 @@ const sha = "a".repeat(40);
 const gate = () => ({ sha, workflow_sha: sha, repository: "AlisanMedia/GOLD-REVENUE-OS-PRO", ref: "refs/heads/main", repositoryInfo: { default_branch: "main" }, main: { protected: true, commit: { sha } }, ruleset: { id: 25348710, enforcement: "active", bypass_actors: [], conditions: { ref_name: { include: ["~DEFAULT_BRANCH"], exclude: [] } }, rules: [{ type: "deletion" }, { type: "non_fast_forward" }, { type: "pull_request", parameters: { required_approving_review_count: 0, dismiss_stale_reviews_on_push: true, required_review_thread_resolution: true } }, { type: "required_status_checks", parameters: { strict_required_status_checks_policy: true, required_status_checks: [{ context: "Application", integration_id: 15368 }, { context: "Database", integration_id: 15368 }] } }] }, checks: { check_runs: ["Application", "Database"].map((name, i) => ({ name, id: i + 1, app: { id: 15368 }, head_sha: sha, status: "completed", conclusion: "success", details_url: "https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO/actions/runs/1/job/" + i })) }, environment: { name: "staging", can_admins_bypass: false, protection_rules: [{ type: "required_reviewers", prevent_self_review: false, reviewers: [{ type: "User", reviewer: { login: "AlisanMedia" } }] }], deployment_branch_policy: { custom_branch_policies: true } }, branchPolicies: { branch_policies: [{ name: "main", type: "branch" }] } });
 const project = () => ({ id: PRIVATE_BETA_VERCEL.project, name: PRIVATE_BETA_VERCEL.name, accountId: PRIVATE_BETA_VERCEL.team, ssoProtection: { enabled: true, deploymentType: "all_except_custom_domains" }, link: { type: "github", org: "AlisanMedia", repo: "GOLD-REVENUE-OS-PRO" }, targets: { production: { id: "dpl_previous" } } });
 const team = { id: PRIVATE_BETA_VERCEL.team, slug: PRIVATE_BETA_VERCEL.name };
+describe("protected release governance credential boundary (offline HTTP only)", () => {
+  const token = "fixture_actions_read_token", governanceToken = "fixture_protected_governance_token";
+  const root = "https://api.github.com/repos/AlisanMedia/GOLD-REVENUE-OS-PRO";
+  const paths = ["", "/branches/main", "/rulesets/25348710", `/commits/${sha}/check-runs?filter=latest&per_page=100`, "/environments/staging", "/environments/staging/deployment-branch-policies?per_page=100"];
+  const errors = ["GITHUB_REPOSITORY_READ_UNAVAILABLE", "GITHUB_MAIN_READ_UNAVAILABLE", "GITHUB_RULESET_READ_UNAVAILABLE", "GITHUB_CHECKS_READ_UNAVAILABLE", "GITHUB_ENVIRONMENT_READ_UNAVAILABLE", "GITHUB_BRANCH_POLICY_READ_UNAVAILABLE"];
+  const fixture = gate();
+  const documents = [fixture.repositoryInfo, fixture.main, fixture.ruleset, fixture.checks, fixture.environment, fixture.branchPolicies];
+  function fake(override?: (index: number) => Response | Promise<Response>) {
+    const network = vi.fn(async (url: string | URL | Request, init?: RequestInit) => {
+      const index = paths.findIndex(path => root + path === String(url));
+      expect(index).toBeGreaterThanOrEqual(0);
+      expect(init).toMatchObject({ method: "GET", redirect: "error" });
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      return override ? override(index) : Response.json(documents[index]);
+    });
+    return network;
+  }
+  const read = (network: typeof fetch) => readPrivateBetaReleaseGovernance({ sha, token, governanceToken, network });
+  it("uses the protected credential only for ruleset/environment reads, and retains the read-only Actions token for SHA/CI", async () => {
+    const network = fake(), result = await read(network);
+    expect(validatePrivateBetaReleaseGate({ ...fixture, ...result })).toMatchObject({ sha, admins_bypass: false });
+    expect(network).toHaveBeenCalledTimes(6);
+    for (const [url, init] of network.mock.calls) {
+      const index = paths.indexOf(String(url).slice(root.length));
+      expect(init?.headers).toMatchObject({ authorization: "Bearer " + ([2, 4, 5].includes(index) ? governanceToken : token), "x-github-api-version": "2022-11-28" });
+    }
+    expect(JSON.stringify(result)).not.toContain(token);
+    expect(JSON.stringify(result)).not.toContain(governanceToken);
+  });
+  it.each([undefined, "", " ", "fixture\nsecret", "fixture\u0000secret", "x".repeat(4097)])("requires a safe, independently configured governance credential before any HTTP (%j)", async governance => {
+    const network = fake();
+    await expect(readPrivateBetaReleaseGovernance({ sha, token, governanceToken: governance, network })).rejects.toThrow("GITHUB_GOVERNANCE_TOKEN_REQUIRED");
+    expect(network).not.toHaveBeenCalled();
+  });
+  it.each(["", "../rulesets/another", "a".repeat(39), "a".repeat(40) + "?override=true"])("rejects an invalid release SHA before HTTP: %s", async invalidSha => {
+    const network = fake();
+    await expect(readPrivateBetaReleaseGovernance({ sha: invalidSha, token, governanceToken, network })).rejects.toThrow("RELEASE_CONFIGURATION_REQUIRED");
+    expect(network).not.toHaveBeenCalled();
+  });
+  it.each(paths.map((path, index) => ({ path, index })))("reports the exact denied read without exposing provider response data: $path", async ({ index }) => {
+    const network = fake(i => i === index ? new Response(governanceToken + " private provider response", { status: 403 }) : Response.json(documents[i]));
+    await expect(read(network)).rejects.toThrow(errors[index]);
+    expect(network).toHaveBeenCalledTimes(6); // Every fixed endpoint once, never a retry/fallback.
+  });
+  it.each([401, 429, 500, 302])("does not retry or fall back after ruleset HTTP %s", async status => {
+    const network = fake(i => i === 2 ? new Response("not evidence", { status, headers: { location: "https://untrusted.invalid/" } }) : Response.json(documents[i]));
+    await expect(read(network)).rejects.toThrow("GITHUB_RULESET_READ_UNAVAILABLE");
+    expect(network).toHaveBeenCalledTimes(6);
+  });
+  it.each(["malformed", "null", "[]", "false"])("rejects invalid JSON/object metadata (%s)", async raw => {
+    const network = fake(i => i === 2 ? new Response(raw) : Response.json(documents[i]));
+    await expect(read(network)).rejects.toThrow("GITHUB_RULESET_READ_UNAVAILABLE");
+  });
+  it.each(["Error", "TimeoutError", "AbortError"])("redacts transport failures including token-bearing %s messages", async name => {
+    const network = fake(i => { if (i === 2) throw new DOMException(governanceToken + " private data", name); return Response.json(documents[i]); });
+    await expect(read(network)).rejects.toThrow(/^GITHUB_RULESET_READ_UNAVAILABLE$/u);
+    expect(network).toHaveBeenCalledTimes(6);
+  });
+  it("cancels an oversized response stream without reading or retaining an unrestricted body", async () => {
+    let cancelled = false;
+    const stream = new ReadableStream<Uint8Array>({ start(controller) { controller.enqueue(new Uint8Array(1048577)); }, cancel() { cancelled = true; } });
+    const network = fake(i => i === 2 ? new Response(stream) : Response.json(documents[i]));
+    await expect(read(network)).rejects.toThrow("GITHUB_RULESET_READ_UNAVAILABLE");
+    expect(cancelled).toBe(true);
+  });
+  it("keeps an omitted bypass list blocked even after a successful authenticated read", async () => {
+    const network = fake(i => i === 2 ? Response.json({ ...fixture.ruleset, bypass_actors: undefined }) : Response.json(documents[i]));
+    const readback = await read(network);
+    expect(() => validatePrivateBetaReleaseGate({ ...fixture, ...readback })).toThrow("MAIN_RULESET_BYPASS_VISIBILITY_REQUIRED");
+  });
+  it.each([
+    { name: "inactive ruleset", change: (g: ReturnType<typeof gate>) => { g.ruleset.enforcement = "disabled"; } },
+    { name: "wrong ruleset", change: (g: ReturnType<typeof gate>) => { g.ruleset.id = 1; } },
+    { name: "missing PR requirement", change: (g: ReturnType<typeof gate>) => { g.ruleset.rules = g.ruleset.rules.filter(r => r.type !== "pull_request"); } },
+    { name: "foreign CI app", change: (g: ReturnType<typeof gate>) => { g.checks.check_runs[1]!.app.id = 1; } },
+    { name: "admin environment bypass", change: (g: ReturnType<typeof gate>) => { g.environment.can_admins_bypass = true; } },
+    { name: "missing reviewer", change: (g: ReturnType<typeof gate>) => { g.environment.protection_rules[0]!.reviewers = []; } },
+    { name: "extra branch", change: (g: ReturnType<typeof gate>) => { g.branchPolicies.branch_policies.push({ name: "*", type: "branch" }); } },
+    { name: "changed main", change: (g: ReturnType<typeof gate>) => { g.main.commit.sha = "b".repeat(40); } },
+  ])("a configured credential never overrides $name", async ({ change }) => {
+    const changed = gate(); change(changed);
+    const rows = [changed.repositoryInfo, changed.main, changed.ruleset, changed.checks, changed.environment, changed.branchPolicies];
+    const readback = await read(fake(i => Response.json(rows[i])));
+    expect(() => validatePrivateBetaReleaseGate({ ...fixture, ...readback })).toThrow();
+  });
+  it("scopes credential custody to every existing gate step without granting Actions write or adding dispatch triggers", () => {
+    const workflow = readFileSync(".github/workflows/private-beta-uat.yml", "utf8");
+    expect(workflow.match(/^          GH_TOKEN: \$\{\{ github.token \}\}$/gmu)).toHaveLength(6);
+    expect(workflow.match(/^          GH_GOVERNANCE_TOKEN: \$\{\{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN \}\}$/gmu)).toHaveLength(6);
+    expect(workflow.match(/STAGING_GITHUB_GOVERNANCE_TOKEN/gu)).toHaveLength(6);
+    expect(workflow).not.toMatch(/(?:contents|checks|actions|administration): write/iu);
+    expect(workflow).not.toMatch(/workflow_run:|pull_request_target:|schedule:/u);
+    const steps = workflow.split(/^      - /mu).filter(step => step.includes("GH_GOVERNANCE_TOKEN:"));
+    expect(steps).toHaveLength(6);
+    for (const step of steps) {
+      expect(step).toContain("node scripts/private-beta-release-gate.mjs");
+      expect(step).not.toMatch(/pnpm |vercel@|SUPABASE_ACCESS_TOKEN|curl |db push/u);
+    }
+  });
+});
 describe("private-beta protected release gates (offline only)", () => {
   it("requires exact current main, both independent Actions checks and the existing owner environment", () => {
     expect(validatePrivateBetaReleaseGate(gate())).toMatchObject({ sha, admins_bypass: false, financial_authority: "NONE", commercial_pilot: "NO_GO" });
+  });
+  it.each([undefined, null, {}, "[]", 0])("holds an unreadable bypass list (%j) rather than treating it as empty", bypass_actors => {
+    const input = { ...gate(), ruleset: { ...gate().ruleset, bypass_actors } };
+    expect(() => validatePrivateBetaReleaseGate(input)).toThrow("MAIN_RULESET_BYPASS_VISIBILITY_REQUIRED");
+  });
+  it("still rejects a genuinely configured ruleset bypass actor", () => {
+    const input = { ...gate(), ruleset: { ...gate().ruleset, bypass_actors: [{ actor_type: "Integration", actor_id: 15368, bypass_mode: "always" }] } };
+    expect(() => validatePrivateBetaReleaseGate(input)).toThrow("MAIN_RULESET_BYPASS_FORBIDDEN");
   });
   it.each(["pending", "failure", "cancelled", "skipped", null])("never accepts Database conclusion %s", conclusion => {
     const input = gate(); input.checks.check_runs[1]!.conclusion = conclusion as string;

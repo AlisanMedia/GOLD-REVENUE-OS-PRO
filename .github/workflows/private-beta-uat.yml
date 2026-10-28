@@ -80,6 +80,7 @@ jobs:
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
           BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
         shell: bash
         run: |
@@ -151,6 +152,7 @@ jobs:
       - name: Reverify main and reviewed migration inventory immediately before migration
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -200,6 +202,7 @@ jobs:
       - name: Reverify protected main before publication
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
         run: node scripts/private-beta-release-gate.mjs
       - name: Stage the technical production-target deployment without moving domains
         id: deploy
@@ -288,6 +291,7 @@ jobs:
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
           BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
         shell: bash
         run: |
@@ -342,6 +346,7 @@ jobs:
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
           BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
         shell: bash
         run: |
@@ -396,6 +401,7 @@ jobs:
         id: gate
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
           BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
         shell: bash
         run: |

@@ -10,7 +10,11 @@ export function validatePrivateBetaReleaseGate(value) {
   const { sha, workflow_sha, repository, ref, repositoryInfo, main, ruleset, checks, environment, branchPolicies } = value;
   assert(repository === PRIVATE_BETA_RELEASE_TARGET.repository && ref === PRIVATE_BETA_RELEASE_TARGET.ref, 'PROTECTED_MAIN_REQUIRED');
   assert(typeof sha === 'string' && /^[a-f0-9]{40}$/u.test(sha) && sha === workflow_sha && sha === main?.commit?.sha && main?.protected === true, 'EXACT_CURRENT_MAIN_REQUIRED');
-  assert(ruleset?.id === 25348710 && ruleset.enforcement === 'active' && Array.isArray(ruleset.bypass_actors) && ruleset.bypass_actors.length === 0, 'MAIN_RULESET_REQUIRED');
+  assert(ruleset?.id === 25348710 && ruleset.enforcement === 'active', 'MAIN_RULESET_REQUIRED');
+  // GitHub omits this field when the credential cannot inspect ruleset bypasses.
+  // Omitted is unknown, never evidence that no bypass actors exist.
+  assert(Array.isArray(ruleset.bypass_actors), 'MAIN_RULESET_BYPASS_VISIBILITY_REQUIRED');
+  assert(ruleset.bypass_actors.length === 0, 'MAIN_RULESET_BYPASS_FORBIDDEN');
   assert(repositoryInfo?.default_branch === 'main' && ruleset.conditions?.ref_name?.exclude?.length === 0 && ruleset.conditions.ref_name.include?.some(r => r === 'refs/heads/main' || r === '~DEFAULT_BRANCH'), 'MAIN_RULESET_SCOPE_REQUIRED');
   const rules = ruleset.rules;
   assert(Array.isArray(rules) && ['deletion', 'non_fast_forward', 'pull_request'].every(type => rules.some(r => r.type === type)), 'MAIN_PROTECTIONS_REQUIRED');
@@ -28,10 +32,41 @@ export function validatePrivateBetaReleaseGate(value) {
   assert(environment.deployment_branch_policy?.custom_branch_policies === true && branchPolicies?.branch_policies?.length === 1 && branchPolicies.branch_policies[0].name === 'main' && branchPolicies.branch_policies[0].type === 'branch', 'EXACT_MAIN_ENVIRONMENT_REQUIRED');
   return Object.freeze({ version: 1, repository, sha, ref, required_checks: accepted, ruleset_id: 25348710, staging_reviewer: 'AlisanMedia', admins_bypass: false, financial_authority: 'NONE', commercial_pilot: 'NO_GO' });
 }
-async function readGitHub(path, token) {
-  const response = await fetch('https://api.github.com/repos/AlisanMedia/GOLD-REVENUE-OS-PRO' + path, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10000), headers: { accept: 'application/vnd.github+json', authorization: 'Bearer ' + token, 'x-github-api-version': '2022-11-28' } });
-  assert(response.ok, 'GITHUB_GOVERNANCE_READ_UNAVAILABLE');
-  const raw = await response.text(); assert(Buffer.byteLength(raw) <= 1048576, 'GITHUB_READ_BOUND'); return JSON.parse(raw);
+async function readGitHub(path, token, network, code) {
+  try {
+    const response = await network('https://api.github.com/repos/AlisanMedia/GOLD-REVENUE-OS-PRO' + path, { method: 'GET', redirect: 'error', signal: AbortSignal.timeout(10000), headers: { accept: 'application/vnd.github+json', authorization: 'Bearer ' + token, 'x-github-api-version': '2022-11-28' } });
+    assert(response.ok, code);
+    const reader = response.body?.getReader(); assert(reader, code);
+    const chunks = []; let size = 0;
+    try {
+      for (;;) {
+        const { done, value } = await reader.read(); if (done) break;
+        size += value.byteLength; assert(size <= 1048576, code);
+        chunks.push(Buffer.from(value));
+      }
+    } catch (error) { await reader.cancel().catch(() => {}); throw error; }
+    finally { reader.releaseLock(); }
+    const value = JSON.parse(Buffer.concat(chunks, size).toString('utf8'));
+    assert(value !== null && typeof value === 'object' && !Array.isArray(value), code);
+    return value;
+  } catch { throw Error(code); } // Never expose headers, provider bodies or transport errors.
+}
+/** Fixed read-only endpoints. The protected credential is never used for CI,
+ * checkout, installs, builds, deployment or runtime, and has no token fallback. */
+export async function readPrivateBetaReleaseGovernance({ sha, token, governanceToken, network = fetch }) {
+  assert(typeof sha === 'string' && /^[a-f0-9]{40}$/u.test(sha), 'RELEASE_CONFIGURATION_REQUIRED');
+  const validToken = value => typeof value === 'string' && /^[\x21-\x7e]{1,4096}$/u.test(value);
+  assert(validToken(token), 'RELEASE_CONFIGURATION_REQUIRED');
+  assert(validToken(governanceToken), 'GITHUB_GOVERNANCE_TOKEN_REQUIRED');
+  const [repositoryInfo, main, ruleset, checks, environment, branchPolicies] = await Promise.all([
+    readGitHub('', token, network, 'GITHUB_REPOSITORY_READ_UNAVAILABLE'),
+    readGitHub('/branches/main', token, network, 'GITHUB_MAIN_READ_UNAVAILABLE'),
+    readGitHub('/rulesets/25348710', governanceToken, network, 'GITHUB_RULESET_READ_UNAVAILABLE'),
+    readGitHub('/commits/' + sha + '/check-runs?filter=latest&per_page=100', token, network, 'GITHUB_CHECKS_READ_UNAVAILABLE'),
+    readGitHub('/environments/staging', governanceToken, network, 'GITHUB_ENVIRONMENT_READ_UNAVAILABLE'),
+    readGitHub('/environments/staging/deployment-branch-policies?per_page=100', governanceToken, network, 'GITHUB_BRANCH_POLICY_READ_UNAVAILABLE'),
+  ]);
+  return { repositoryInfo, main, ruleset, checks, environment, branchPolicies };
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
@@ -40,11 +75,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     assert(typeof sha === 'string' && /^[a-f0-9]{40}$/u.test(sha) && token, 'RELEASE_CONFIGURATION_REQUIRED');
     assert(process.env.GITHUB_REPOSITORY === PRIVATE_BETA_RELEASE_TARGET.repository && process.env.GITHUB_REF === PRIVATE_BETA_RELEASE_TARGET.ref, 'PROTECTED_MAIN_REQUIRED');
     assert(execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim() === sha && execFileSync('git', ['status', '--porcelain', '--untracked-files=no'], { encoding: 'utf8' }).trim() === '', 'CLEAN_ACCEPTED_CHECKOUT_REQUIRED');
-    const [repositoryInfo, main, ruleset, checks, environment, branchPolicies] = await Promise.all([
-      readGitHub('', token),
-      readGitHub('/branches/main', token), readGitHub('/rulesets/25348710', token), readGitHub('/commits/' + sha + '/check-runs?filter=latest&per_page=100', token),
-      readGitHub('/environments/staging', token), readGitHub('/environments/staging/deployment-branch-policies?per_page=100', token),
-    ]);
+    const { repositoryInfo, main, ruleset, checks, environment, branchPolicies } = await readPrivateBetaReleaseGovernance({ sha, token, governanceToken: process.env.GH_GOVERNANCE_TOKEN });
     const evidence = validatePrivateBetaReleaseGate({ sha, workflow_sha: process.env.GITHUB_SHA, repository: process.env.GITHUB_REPOSITORY, ref: process.env.GITHUB_REF, repositoryInfo, main, ruleset, checks, environment, branchPolicies });
     const output = JSON.stringify({ ...evidence, observed_at: new Date().toISOString(), readback_sha256: createHash('sha256').update(JSON.stringify([main, ruleset, checks, environment, branchPolicies])).digest('hex') }, null, 2);
     assert(process.env.RUNNER_TEMP, 'PROTECTED_RUNNER_REQUIRED');
