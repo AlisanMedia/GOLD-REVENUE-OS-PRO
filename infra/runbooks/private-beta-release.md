@@ -114,6 +114,25 @@ yetkisi değildir. Eksik alanlar ilgili stage'i BLOCKED bırakır.
 
 ## Backup → migration → publication
 
+29 Ekim2026 SSO response-contract düzeltmesi: resmî
+[Vercel OpenAPI GET project](https://openapi.vercel.sh/) şemasında `ssoProtection`
+nullable object, `deploymentType` zorunlu alandır; `enabled` alanı tanımlı değildir.
+[Vercel Authentication](https://vercel.com/docs/deployment-protection/methods-to-protect-deployments/vercel-authentication)
+belgesinde `ssoProtection: null` korumayı kapatır. Validasyon nullable/eksik/bozuk
+korumayı reddeder ve mevcut `all_except_custom_domains` kapsamını aynen zorunlu
+tutar. `preview`, `all` veya `prod_deployment_urls_and_all_previews` başka kapsama
+otomatik eşlenmez. Legacy `enabled` alanı gelirse yalnız true kabul edilir;
+`enabled` eksikken sağlayıcıya ait olmayan bir true alanı üretilmez.
+
+Run40840081621 doğru retention ve yeni GitHub governance kimliğiyle ilk gate'i
+geçmiş, `EXISTING_SSO_REQUIRED` ile baseline Vercel okumasında durmuştur.
+Runner'ın ham proje yanıtı korunmadığından tam hata alanı doğrudan gözlenmiş
+sayılmaz; kodun resmî yanıtta olmayan `enabled` koşulu kesin bir uyumluluk
+kusurudur. Anthropic/OpenAI account job'ları operation seçimi nedeniyle SKIPPED
+olmuştur; model değişimi bu adımın girdisi değildir. Bu düzeltme proje SSO/Git
+ayarını, model seçimini veya token'ları değiştirmez; hosted backup/migration veya
+release dispatch başlatmaz.
+
 1. Exact current main, strict ruleset25348710, independent Application/Database
    ve staging reviewer/main/bypass ayarlarının official API read-back'i alınır.
 2. Committed Git blob'larından bütün migration path/SHA256 envanteri çıkarılır.

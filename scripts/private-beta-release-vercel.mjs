@@ -5,7 +5,10 @@ export const PRIVATE_BETA_VERCEL = Object.freeze({ team: 'team_fOlNA2ASqhGzUplTD
 const assert = (condition, code) => { if (!condition) throw Error(code); };
 export function validatePrivateBetaVercelProject(project, team) {
   assert(project?.id === PRIVATE_BETA_VERCEL.project && project.name === PRIVATE_BETA_VERCEL.name && project.accountId === PRIVATE_BETA_VERCEL.team && team?.id === PRIVATE_BETA_VERCEL.team && team.slug === PRIVATE_BETA_VERCEL.name, 'EXACT_ISOLATED_STAGING_REQUIRED');
-  assert(project.ssoProtection?.enabled === true && project.ssoProtection.deploymentType === 'all_except_custom_domains', 'EXISTING_SSO_REQUIRED');
+  // GET /v9/projects documents a nullable protection object with deploymentType;
+  // it has no required enabled flag. Keep the exact accepted protection scope.
+  const sso = project.ssoProtection;
+  assert(sso !== null && typeof sso === 'object' && !Array.isArray(sso) && sso.deploymentType === 'all_except_custom_domains' && (!Object.hasOwn(sso, 'enabled') || sso.enabled === true), 'EXISTING_SSO_REQUIRED');
   assert(project.link?.type === 'github' && project.link.org === 'AlisanMedia' && project.link.repo === 'GOLD-REVENUE-OS-PRO', 'EXISTING_GITHUB_CONNECTION_REQUIRED');
   return Object.freeze({ id: project.id, name: project.name, account_id: project.accountId, team_slug: team.slug, sso: project.ssoProtection, git: { type: 'github', org: project.link.org, repo: project.link.repo }, prior_deployment: project.targets?.production?.id ?? null });
 }

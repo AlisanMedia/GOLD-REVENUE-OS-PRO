@@ -47,7 +47,8 @@
       "codex/private-beta-uat": false,
       "codex/polat-openai-business-uat": false,
       "codex/fix-beta-retention-input": false,
-      "codex/fix-beta-governance-read": false
+      "codex/fix-beta-governance-read": false,
+      "codex/fix-beta-vercel-sso-schema": false
     }
   },
   "framework": "nextjs",
