@@ -28,7 +28,9 @@ async function invoke(name: string, args: Record<string, unknown>): Promise<Camp
   const { data, error } = await db.rpc(name, { target_tenant_id: context.tenantId, ...args });
   if (error || !data) return failed(error?.code);
   revalidatePath("/admin/polat-operations");
+  revalidatePath("/admin/polat-operations/campaigns");
   revalidatePath("/admin/imports");
+  revalidatePath("/admin/imports/[id]", "page");
   return { state: "SAVED" };
 }
 
