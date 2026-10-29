@@ -61,6 +61,8 @@ export * from "./polat-private-beta-runtime";
 export * from "./polat-response";
 
 export * from "./polat-sales";
+export * from "./campaign";
+export * from "./campaign-import";
 
 export * from "./polat-evaluation";
 export * from "./polat-contact";

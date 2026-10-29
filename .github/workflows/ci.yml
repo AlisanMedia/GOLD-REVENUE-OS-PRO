@@ -189,6 +189,17 @@ jobs:
           set -o pipefail
           supabase test db supabase/tests/phase13_customer_success.test.sql | tee "$RUNNER_TEMP/phase13-pgtap.log"
           bash supabase/tests/phase13_concurrency.sh "postgresql://postgres:postgres@127.0.0.1:54322/postgres" | tee "$RUNNER_TEMP/phase13-concurrency.log"
+      - name: Verify founder campaign activation and independent worker races
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase test db supabase/tests/campaign_activation.test.sql | tee "$RUNNER_TEMP/campaign-pgtap.log"
+          supabase status -o env >"$RUNNER_TEMP/campaign-db.env"
+          campaign_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/campaign-db.env")
+          test -n "$campaign_db_url"
+          echo "::add-mask::$campaign_db_url"
+          bash supabase/tests/campaign_concurrency.sh "$campaign_db_url" | tee "$RUNNER_TEMP/campaign-concurrency.log"
+          CAMPAIGN_DISPOSABLE_DB_URL="$campaign_db_url" pnpm exec vitest run tests/integration/campaign-runtime-db.test.ts | tee "$RUNNER_TEMP/campaign-native-runtime.log"
       - name: Prove concurrent escalation ingestion and notification leasing
         shell: bash
         run: |
@@ -491,6 +502,9 @@ jobs:
             ${{ runner.temp }}/phase12-concurrency.log
             ${{ runner.temp }}/phase13-pgtap.log
             ${{ runner.temp }}/phase13-concurrency.log
+            ${{ runner.temp }}/campaign-pgtap.log
+            ${{ runner.temp }}/campaign-concurrency.log
+            ${{ runner.temp }}/campaign-native-runtime.log
             ${{ runner.temp }}/phase15-pgtap.log
             ${{ runner.temp }}/phase15-concurrency.log
             ${{ runner.temp }}/phase14-pgtap.log

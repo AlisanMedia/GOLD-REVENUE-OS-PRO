@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { classifyRows, normalizeImportRow, type ExistingCustomer } from "@gold-revenue-os/domain";
+import { classifyRows, normalizeCampaignImportRow, type ExistingCustomer } from "@gold-revenue-os/domain";
 import { apiError, requireCustomerTenant } from "@/lib/customer-os/server";
 import { parseSpreadsheet } from "@/lib/customer-os/import-parser";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const sourceName = (typeof sourceValue === "string" ? sourceValue : "historical_customer_import").trim().slice(0, 160);
     if (!sourceName) throw new Error("IMPORT_SOURCE_REQUIRED");
     const parsed = await parseSpreadsheet(file);
-    const normalized = parsed.rows.map((row, index) => normalizeImportRow(index + 2, row, sourceName));
+    const normalized = parsed.rows.map((row, index) => normalizeCampaignImportRow(index + 2, row, sourceName));
     const supabase = await createSupabaseServerClient();
     const [customersResult, identitiesResult] = await Promise.all([
       supabase.from("customers").select("id,display_name").eq("tenant_id", tenantId).limit(10000),

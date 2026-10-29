@@ -45,7 +45,10 @@ describe("Phase 4 application security contracts", () => {
     expect(read("apps/web/src/components/admin-navigation.tsx")).toContain("hasAdminCapability");
     expect(read("apps/web/src/app/api/v1/customers/[id]/state/route.ts")).toContain('requireCustomerTenant(["super_admin", "manager"])');
     expect(read("apps/web/src/app/api/v1/imports/[id]/commit/route.ts")).toContain("IMPORT_EXECUTION_LOCKED");
-    expect(read("apps/web/src/app/api/v1/imports/[id]/commit/route.ts")).toContain("status: 423");
+    // New owner scope replaces the unconditional historical 423 with an MFA/batch-bound RPC.
+    // SQL acceptance proves missing declaration, role and MFA still deny execution.
+    expect(read("apps/web/src/app/api/v1/imports/[id]/commit/route.ts")).toContain("admin_campaign_commit_batch_v1");
+    expect(read("apps/web/src/app/api/v1/imports/[id]/commit/route.ts")).toContain('requireCustomerTenant(["super_admin"])');
   });
 
   it("does not ship fake revenue metrics or privileged browser credentials", () => {
