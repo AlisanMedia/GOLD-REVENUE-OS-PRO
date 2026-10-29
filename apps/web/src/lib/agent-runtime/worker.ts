@@ -185,6 +185,10 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
     if(polatTask(task)&&!polatTransport)throw new ModelProviderError("PROVIDER_ERROR","POLAT_EXPLICIT_TEST_WORKER_REQUIRED",false);
     const isUat=task.task_type==="private_beta.reply";
     if(isUat&&(!privateBeta||!(task.model_provider==="anthropic"&&task.model_name==="claude-haiku-5-5"||task.model_provider==="openai"&&task.model_name==="gpt-6.1-sol")))throw new ModelProviderError("PROVIDER_ERROR","POLAT_UAT_EXPLICIT_SCOPED_WORKER_REQUIRED",false);
+    const campaign = await invokeRpc<{ bound: boolean; genuine_executor_accepted: false }>("campaign_runtime_scope_v1", {
+      target_tenant_id: task.tenant_id, target_conversation_id: task.conversation_id,
+    });
+    if (campaign.bound && !polatTransport) throw new ModelProviderError("PROVIDER_ERROR", "CAMPAIGN_PROVIDER_ACCEPTANCE_REQUIRED", false);
     const betaScope=isUat?await readPrivateBetaSource(task.tenant_id,task.conversation_id,task.source_event_id??""):null;
     if(betaScope&&betaScope.program_id!==privateBeta?.programId)throw new ModelProviderError("PROVIDER_ERROR","POLAT_UAT_PROGRAM_SCOPE_DENIED",false);
     if(polatModel&&polatTask(task))polatOfflineRuntimeProvider(polatModel,task.tenant_id,task.conversation_id);

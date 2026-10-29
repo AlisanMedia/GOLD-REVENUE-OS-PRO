@@ -27,20 +27,26 @@ function parseCsv(text: string): ParsedSpreadsheet {
       if (char === "\r" && next === "\n") index += 1;
       current.push(cell); cell = "";
       if (current.some((value) => value.trim() !== "")) rows.push(current);
+      if (rows.length > MAX_ROWS + 1) throw new Error(`Import exceeds ${MAX_ROWS} rows`);
       current = [];
       continue;
     }
     cell += char;
   }
+  if (quoted) throw new Error("Unclosed CSV quote");
   if (cell.length > 0 || current.length > 0) { current.push(cell); rows.push(current); }
+  if (rows.length > MAX_ROWS + 1) throw new Error(`Import exceeds ${MAX_ROWS} rows`);
   if (rows.length === 0) return { headers: [], rows: [] };
   const headers = rows[0]!.map((header, index) => header.replace(/^\ufeff/, "").trim() || `column_${index + 1}`);
+  validateHeaders(headers);
+  if (rows.slice(1).some(row => row.length !== headers.length)) throw new Error("Import row width differs from headers");
   const data = rows.slice(1, MAX_ROWS + 1).map((values) => Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""])));
   return { headers, rows: data };
 }
 
 function zipEntries(input: Buffer): Map<string, Buffer> {
   const entries = new Map<string, Buffer>();
+  let expanded = 0;
   for (let offset = 0; offset + 46 <= input.length; offset += 1) {
     if (input.readUInt32LE(offset) !== 0x02014b50) continue;
     const compression = input.readUInt16LE(offset + 10);
@@ -57,8 +63,11 @@ function zipEntries(input: Buffer): Map<string, Buffer> {
     const start = localOffset + 30 + localNameLength + localExtraLength;
     const compressed = input.subarray(start, start + compressedSize);
     if (start < 0 || start + compressedSize > input.length) throw new Error("Invalid XLSX entry bounds");
-    const value = compression === 0 ? compressed : compression === 8 ? inflateRawSync(compressed) : (() => { throw new Error("Unsupported XLSX compression"); })();
+    if (entries.size >= 200 || entries.has(name)) throw new Error("Invalid XLSX entry inventory");
+    const value = compression === 0 ? compressed : compression === 8 ? inflateRawSync(compressed, { maxOutputLength: MAX_BYTES * 4 }) : (() => { throw new Error("Unsupported XLSX compression"); })();
     if (value.length > MAX_BYTES * 4) throw new Error("XLSX entry is too large");
+    expanded += value.length;
+    if (expanded > MAX_BYTES * 8) throw new Error("XLSX expanded archive is too large");
     entries.set(name, value);
     offset += 45 + nameLength + extraLength + commentLength;
   }
@@ -75,6 +84,11 @@ function columnIndex(reference: string): number {
   let index = 0;
   for (const char of letters) index = index * 26 + char.charCodeAt(0) - 64;
   return index - 1;
+}
+
+function validateHeaders(headers: string[]) {
+  if (headers.length > 100 || headers.some(h => h.length > 160) || new Set(headers.map(h => h.toLowerCase())).size !== headers.length)
+    throw new Error("Import headers must be distinct and bounded");
 }
 
 function parseXlsx(input: Buffer): ParsedSpreadsheet {
@@ -98,7 +112,9 @@ function parseXlsx(input: Buffer): ParsedSpreadsheet {
       const inlineMatch = body.match(/<is\b[^>]*>[\s\S]*?<t\b[^>]*>([\s\S]*?)<\/t>[\s\S]*?<\/is>/);
       const rawValue = inlineMatch?.[1] ?? valueMatch?.[1] ?? "";
       const value = type === "s" ? sharedStrings[Number(rawValue)] ?? "" : decodeXml(rawValue);
-      cells.set(columnIndex(reference), value);
+      const column = columnIndex(reference);
+      if (column >= 100 || cells.has(column)) throw new Error("XLSX column is invalid");
+      cells.set(column, value);
     }
     parsed.push(cells);
     if (parsed.length > MAX_ROWS + 1) throw new Error(`Import exceeds ${MAX_ROWS} rows`);
@@ -106,6 +122,7 @@ function parseXlsx(input: Buffer): ParsedSpreadsheet {
   if (parsed.length === 0) return { headers: [], rows: [] };
   const width = Math.max(...parsed.map((row) => Math.max(-1, ...row.keys()))) + 1;
   const headers = Array.from({ length: width }, (_, index) => parsed[0]!.get(index)?.trim() || `column_${index + 1}`);
+  validateHeaders(headers);
   const rows = parsed.slice(1).map((record) => Object.fromEntries(headers.map((header, index) => [header, record.get(index) ?? ""])));
   return { headers, rows };
 }

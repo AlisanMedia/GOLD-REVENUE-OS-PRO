@@ -5,6 +5,19 @@ Living continuation index, initially reconstructed on **2026-10-16 UTC** and upd
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
 
 
+## 29 Ekim 2026 — tek kurucu kampanya aktivasyonu
+
+Yeni owner scope tarihsel iletişim iznini `OWNER_ATTESTED_EXISTING_PERMISSION`
+olarak toplu beyanla kaydetmeye, güvenli import alt kümesini uzlaştırmaya ve tek
+START/PAUSE/STOP ile rutin QA/teklif/takip iç onaylarını birleştirmeye yetki verir.
+Ayrı geliştirme-fazı kabulü veya1161 satır onayı aranmaz. Kurucu beyanı bireysel
+bağımsız doğrulanmış rıza değildir; gerçek opt-out/platform/tenant/MFA ve finansal
+kontroller korunur. İngilizce müşteri varsayılanı Admin dilinden bağımsızdır.
+[Uygulama kaydı](../FOUNDER_CAMPAIGN_IMPLEMENTATION_REPORT.md) sentetik/native/PG
+kanıtını ve eksik genuine kampanya yürütücüsü/account/transport bağını ayırır.
+Gerçek liste/müşteri mesajı işlenmez. Önceki raporlar tarihsel kapsamını korur;
+yeni protected CI/merge ve staging kanıtı son owner raporunda ayrıca doğrulanır.
+
 ## 27 Ekim 2026 — OpenAI ve seçili Polat özel sohbeti
 
 Yeni owner seçimi OpenAI'dir. Tek scoped engineering package, eski Claude v1'i

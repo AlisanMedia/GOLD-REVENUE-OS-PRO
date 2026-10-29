@@ -49,7 +49,8 @@
       "codex/fix-beta-retention-input": false,
       "codex/fix-beta-governance-read": false,
       "codex/fix-beta-vercel-sso-schema": false,
-      "codex/fix-beta-recovery-fingerprint": false
+      "codex/fix-beta-recovery-fingerprint": false,
+      "codex/founder-campaign-activation": false
     }
   },
   "framework": "nextjs",
