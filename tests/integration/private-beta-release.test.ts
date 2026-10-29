@@ -143,6 +143,25 @@ describe("private-beta protected release gates (offline only)", () => {
     expect(() => validatePrivateBetaVercelProject({ ...project(), ssoProtection: { enabled: false } }, team)).toThrow();
     expect(() => validatePrivateBetaVercelProject({ ...project(), link: null }, team)).toThrow();
   });
+  it("accepts the official GET project SSO object without an undocumented enabled flag", () => {
+    const input = { ...project(), ssoProtection: { deploymentType: "all_except_custom_domains" } };
+    expect(validatePrivateBetaVercelProject(input, team)).toMatchObject({ sso: { deploymentType: "all_except_custom_domains" } });
+    expect(validatePrivateBetaVercelProject(input, team).sso).not.toHaveProperty("enabled");
+  });
+  it("accepts documented nullable migration metadata without deriving current protection from it", () => {
+    const ssoProtection = { deploymentType: "all_except_custom_domains", april2026SecurityIncidentMigrationAppliedFrom: null, cve55182MigrationAppliedFrom: "preview" };
+    expect(validatePrivateBetaVercelProject({ ...project(), ssoProtection }, team)).toMatchObject({ sso: ssoProtection });
+    expect(() => validatePrivateBetaVercelProject({ ...project(), ssoProtection: { ...ssoProtection, deploymentType: "preview", april2026SecurityIncidentMigrationAppliedFrom: "all_except_custom_domains" } }, team)).toThrow("EXISTING_SSO_REQUIRED");
+  });
+  it.each([undefined, null, false, "all_except_custom_domains", [], {}])("still denies unavailable or malformed SSO evidence (%j)", ssoProtection => {
+    expect(() => validatePrivateBetaVercelProject({ ...project(), ssoProtection }, team)).toThrow("EXISTING_SSO_REQUIRED");
+  });
+  it.each(["all", "preview", "prod_deployment_urls_and_all_previews", "standard_protection", "unknown", ""])("never silently substitutes protection scope %s for the accepted scope", deploymentType => {
+    expect(() => validatePrivateBetaVercelProject({ ...project(), ssoProtection: { deploymentType } }, team)).toThrow("EXISTING_SSO_REQUIRED");
+  });
+  it.each([false, null, 0, 1, "true", "false"])("rejects an explicitly conflicting or malformed legacy enabled value (%j)", enabled => {
+    expect(() => validatePrivateBetaVercelProject({ ...project(), ssoProtection: { deploymentType: "all_except_custom_domains", enabled } }, team)).toThrow("EXISTING_SSO_REQUIRED");
+  });
   it("does not put model, admin, bot, database-secret or backup credentials into build inputs", () => {
     const content = privateBetaBuildEnvironment({ NEXT_PUBLIC_SUPABASE_URL: "https://xqvwkghpmezcpgugetqc.supabase.co", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "public-test-publishable-key", POLAT_UAT_ANTHROPIC_API_KEY: "private-model-fixture", POLAT_UAT_ANTHROPIC_ADMIN_KEY: "private-admin-fixture", POLAT_UAT_TELEGRAM_BOT_TOKEN: "private-bot-fixture", POLAT_UAT_STARS_TEST_BOT_TOKEN: "private-stars-fixture", POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: "private-stars-webhook-fixture", POLAT_UAT_STARS_RELAY_SECRET: "private-stars-relay-fixture", SUPABASE_SECRET_KEY: "private-db-fixture", STAGING_BACKUP_PASSPHRASE: "private-backup-fixture" });
     expect(content).toContain("\nNEXT_PUBLIC_SUPABASE_URL="); expect(content).not.toMatch(/private-(model|admin|bot|stars|db|backup)/);
