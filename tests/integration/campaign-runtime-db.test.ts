@@ -62,6 +62,25 @@ describe.runIf(Boolean(connection))("campaign policy through native Polat QA, ac
       expect(JSON.stringify(snapshots[0])).toContain("10.00 USD");
     } finally { retire(n); }
   }, 30000);
+  it("timed follow-up uses a new accounted operation without inventing another inbound", async () => {
+    const n = 9967; setup(n);
+    try {
+      expect((await cycle(n, new FakePolatTransport(["ACK"]))).delivery).toBe("FAKE_ACKNOWLEDGED");
+      const originalInbound = query(`select to_jsonb(count(*))from public.messages where tenant_id='${tenant(n)}'and direction='inbound'`);
+      for (let i = 0; i < 2; i++) {
+        sql(`update public.scheduled_jobs set completed_at=clock_timestamp()-interval '2 minutes',locked_at=clock_timestamp()-interval '2 minutes'where tenant_id='${tenant(n)}'and status='completed';`);
+        const transport = new FakePolatTransport(["ACK"]);
+        expect((await cycle(n, transport)).delivery).toBe("FAKE_ACKNOWLEDGED");
+        expect(transport.effects).toHaveLength(1);
+      }
+      expect(query(`select to_jsonb(count(*))from public.messages where tenant_id='${tenant(n)}'and direction='inbound'`)).toBe(originalInbound);
+      expect(query(`select to_jsonb(count(distinct operation_id))from private.polat_response_evidence where tenant_id='${tenant(n)}'and stage='FAKE_ACK'`)).toBe(3);
+      expect(query(`select to_jsonb(attempts)from private.sales_campaigns where id='${campaign(n)}'`)).toBe(3);
+      const excess = new FakePolatTransport(["ACK"]);
+      expect((await cycle(n, excess)).state).toBe("EMPTY");
+      expect(excess.effects).toHaveLength(0);
+    } finally { retire(n); }
+  }, 30000);
   it("UNKNOWN after an effect pauses, retains liability and survives a new transport/process", async () => {
     const n = 9962; setup(n); const transport = new FakePolatTransport(["UNKNOWN_AFTER_EFFECT"]);
     try {

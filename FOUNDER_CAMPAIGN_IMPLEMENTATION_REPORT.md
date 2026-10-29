@@ -72,6 +72,13 @@ BLOCKED_WITH_REASON olarak kapatıldı. Son koşu: 56 pgTAP, 6 native runtime ve
 bağımsız bağlantı/çökme senaryosu PASS; etkilenen 278 fixture/regresyon testi PASS.
 Staging için aynı 56 kontrolü çalıştırıp tüm sentetik satırları geri alan smoke
 sorgusu disposable PG17'de doğrulandı; hosted sonuç henüz iddia edilmez.
+Takip kontrolünde ayrı bir eksik yakalandı: eski native fixture, yanıtlanmış inbound'a
+bağlı yeni takip işlemini de replay gibi durduruyordu. Yeni regresyon önce NOT_SENT
+ile başarısız oldu. Aynı native prepare fonksiyonuna yalnız zamanı gelmiş, önceki
+bağımsız FAKE_ACK'i bulunan, ACTIVE/generation/lease/contact kontrollerinden geçen
+sentetik kampanya işlemi için dar istisna eklendi. Gerçek inbound uydurulmaz;
+eski retry ve UNKNOWN güvenliği değişmez. Üç ayrı accounted operation ve kota sonrası
+sıfır ek etki doğrulandı; native DB senaryoları artık 7 PASS.
 
 ## Yayın ve geri dönüş
 

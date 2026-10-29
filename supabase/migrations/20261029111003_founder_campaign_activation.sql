@@ -830,3 +830,55 @@ create function private.polat_can_dispatch_fixture(t uuid,op uuid,g bigint)retur
  and private.campaign_blockers(t,c.id)='[]'::jsonb and private.campaign_contact_reason(t,c.id,x.customer_id,x.job_id)is null));
 $$;
 revoke all on function private.campaign_native_can_dispatch(uuid,uuid,bigint),private.polat_can_dispatch_fixture(uuid,uuid,bigint)from public,anon,authenticated,service_role;
+
+-- A configured, due follow-up is a separate accounted operation, never a new
+-- synthetic inbound or a replay of an uncertain send. All native source/owner/QA
+-- controls and the existing fixture attempt budget remain in the same function.
+create function private.campaign_followup_fixture_allowed(t uuid,m uuid,op uuid,g bigint)returns boolean language sql stable set search_path=pg_catalog as $$
+ select exists(select 1 from private.campaign_jobs x join private.sales_campaigns c on c.tenant_id=x.tenant_id and c.id=x.campaign_id
+ join public.scheduled_jobs j on j.id=x.job_id
+ where x.tenant_id=t and x.source_message_id=m and x.job_id=op and x.native_generation=g and x.lease_token is not null
+ and c.configuration->>'mode'='SYNTHETIC'and c.state='ACTIVE'and c.revision=x.campaign_revision
+ and j.status='processing'and j.payload->>'stage'='RESERVED'and j.locked_at>=clock_timestamp()-interval '60 seconds'
+ and private.campaign_blockers(t,c.id)='[]'::jsonb and private.campaign_contact_reason(t,c.id,x.customer_id,x.job_id)is null
+ and exists(select 1 from private.campaign_jobs previous join public.scheduled_jobs q on q.id=previous.job_id
+ join private.polat_response_evidence a on a.tenant_id=previous.tenant_id and a.operation_id=previous.job_id and a.stage='FAKE_ACK'and a.body_hash=previous.body_hash
+ where previous.tenant_id=t and previous.campaign_id=c.id and previous.source_message_id=m and previous.job_id<>op
+ and previous.outcome->>'result'='FAKE_ACK'and q.status='completed'
+ and q.completed_at<=clock_timestamp()-make_interval(secs=>(c.configuration->>'follow_up_after_seconds')::int)));
+$$;
+revoke all on function private.campaign_followup_fixture_allowed(uuid,uuid,uuid,bigint)from public,anon,authenticated,service_role;
+
+create or replace function private.polat_prepare_fixture(t uuid,m uuid,op uuid,g bigint,source_hash_value text,body_hash_value text,actor_value text default 'AI')returns jsonb language plpgsql set search_path=pg_catalog as $$
+declare w private.polat_inbound_work;cv public.conversations;ctrl private.polat_conversation_controls;existing private.polat_response_evidence;begin
+ select * into w from private.polat_inbound_work where tenant_id=t and message_id=m;if w.message_id is null then raise exception 'Polat source unavailable'using errcode='42501';end if;
+ perform private.polat_guard(t,w.conversation_id);select * into strict cv from public.conversations where tenant_id=t and id=w.conversation_id for no key update;
+ select * into strict ctrl from private.polat_conversation_controls where tenant_id=t and conversation_id=cv.id for update;
+ select * into strict w from private.polat_inbound_work where tenant_id=t and message_id=m for update;
+ if source_hash_value is distinct from w.source_hash then raise exception 'Polat source changed'using errcode='40001';end if;
+ if g is distinct from ctrl.generation then raise exception 'Polat ownership changed'using errcode='40001';end if;
+ if body_hash_value is null or body_hash_value!~'^[0-9a-f]{64}$'or actor_value not in('AI','HUMAN')or op is null then raise exception 'Polat command invalid'using errcode='22023';end if;
+ select * into existing from private.polat_response_evidence where tenant_id=t and operation_id=op and stage='PREPARED';
+ if existing.sequence is not null then
+  if (existing.message_id,existing.generation,existing.body_hash,existing.actor)is distinct from(m,g,body_hash_value,actor_value)then raise exception 'Polat operation conflict'using errcode='22023';end if;
+  if exists(select 1 from private.polat_response_evidence where tenant_id=t and operation_id=op and stage in('FAKE_ACK','FAILED_BEFORE_SEND'))then return jsonb_build_object('state',w.state,'replay',true,'financial_authority','NONE');end if;
+  perform private.polat_set_work(t,m,'DELIVERY_UNKNOWN','PREPARE_REPLAY_UNCERTAIN');return jsonb_build_object('state','DELIVERY_UNKNOWN','replay',true,'financial_authority','NONE');
+ end if;
+ if ctrl.last_inbound_id is distinct from m or (ctrl.return_boundary is not null and w.received_at<ctrl.return_boundary)or w.source_hash is distinct from(select private.fse_hash(content)from public.messages where tenant_id=t and id=m)then
+  perform private.polat_set_work(t,m,'HUMAN_HANDOFF_PENDING','STALE_SOURCE');return jsonb_build_object('state','HUMAN_HANDOFF_PENDING','financial_authority','NONE');end if;
+ if not exists(select 1 from public.messaging_contacts where tenant_id=t and id=cv.messaging_contact_id and contactability in('user_initiated','allowed'))or cv.status<>'open'or cv.runtime_mode='PAUSED'then
+  perform private.polat_set_work(t,m,'BLOCKED_WITH_REASON','CONTACT_OR_OWNER_BLOCK');return jsonb_build_object('state','BLOCKED_WITH_REASON','financial_authority','NONE');end if;
+ if actor_value='AI'and(cv.runtime_mode<>'AI_ACTIVE'or cv.human_takeover or exists(select 1 from public.escalation_cases where tenant_id=t and conversation_id=cv.id and status<>'RESOLVED'))then
+  perform private.polat_set_work(t,m,'HUMAN_HANDOFF_PENDING','HUMAN_CONTROL');return jsonb_build_object('state','HUMAN_HANDOFF_PENDING','financial_authority','NONE');end if;
+ if actor_value='HUMAN'and(cv.runtime_mode<>'HUMAN_TAKEOVER'or ctrl.human_owner is distinct from auth.uid()or not private.has_tenant_role(t,array['super_admin','manager','support']::public.app_role[]))then raise exception 'Polat operator unavailable'using errcode='42501';end if;
+ if exists(select 1 from private.polat_response_evidence e where e.tenant_id=t and e.conversation_id=cv.id and e.stage='PREPARED'and not exists(select 1 from private.polat_response_evidence z where z.tenant_id=t and z.operation_id=e.operation_id and z.stage in('FAKE_ACK','FAILED_BEFORE_SEND')))then
+  perform private.polat_set_work(t,m,'DELIVERY_UNKNOWN','UNRESOLVED_EFFECT');return jsonb_build_object('state','DELIVERY_UNKNOWN','financial_authority','NONE');end if;
+ if actor_value='AI'and w.state='HUMAN_HANDOFF_PENDING'then return jsonb_build_object('state',w.state,'financial_authority','NONE');end if;
+ if w.state in('CLOSED_WITH_EVIDENCE','DELIVERY_UNKNOWN')or w.responded_at is not null and not(w.state='AI_RESPONDED'and actor_value='AI'and private.campaign_followup_fixture_allowed(t,m,op,g))then return jsonb_build_object('state',w.state,'financial_authority','NONE');end if;
+ if w.attempts>=3 then perform private.polat_set_work(t,m,'HUMAN_HANDOFF_PENDING','RETRY_BUDGET_EXHAUSTED');return jsonb_build_object('state','HUMAN_HANDOFF_PENDING','financial_authority','NONE');end if;
+ if w.available_at>clock_timestamp()then return jsonb_build_object('state','AI_RESPONSE_PENDING','financial_authority','NONE');end if;
+ insert into private.polat_response_evidence(tenant_id,conversation_id,message_id,operation_id,stage,actor,generation,body_hash)values(t,cv.id,m,op,'PREPARED',actor_value,g,body_hash_value);
+ update private.polat_inbound_work set attempts=attempts+1 where tenant_id=t and message_id=m;
+ perform private.polat_set_work(t,m,case when actor_value='AI'then 'AI_RESPONSE_PENDING'else 'HUMAN_OWNED'end,'FAKE_PREPARED');
+ return jsonb_build_object('state','PREPARED','mode','SYNTHETIC','operation_id',op,'generation',g::text,'financial_authority','NONE','live_operations_authorized',false);
+end;$$;
