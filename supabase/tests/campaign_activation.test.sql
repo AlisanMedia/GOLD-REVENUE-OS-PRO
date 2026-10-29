@@ -27,6 +27,7 @@ select is((public.campaign_prepare_fixture_v1(pg_temp.polat_id(9901,'2000'),(sel
 select throws_ok($$select public.campaign_prepare_fixture_v1(pg_temp.polat_id(9901,'2000'),(select(v->>'job_id')::uuid from campaign_claim),extensions.gen_random_uuid(),repeat('b',64))$$,'42501','CAMPAIGN_LEASE_INVALID','wrong lease token denied');
 select public.admin_campaign_state_v1(pg_temp.polat_id(9901,'2000'),pg_temp.polat_id(9901,'9000'),2,'PAUSE');
 select is(public.campaign_dispatch_fixture_v1(pg_temp.polat_id(9901,'2000'),(select(v->>'job_id')::uuid from campaign_claim),(select(v->>'lease_token')::uuid from campaign_claim)),false,'PAUSE fences a prepared intent');
+select is(private.polat_can_dispatch_fixture(pg_temp.polat_id(9901,'2000'),(select(v->>'job_id')::uuid from campaign_claim),(select native_generation from private.campaign_jobs where job_id=(select(v->>'job_id')::uuid from campaign_claim))),false,'native fake sender cannot bypass the campaign PAUSE fence');
 select public.admin_campaign_state_v1(pg_temp.polat_id(9901,'2000'),pg_temp.polat_id(9901,'9000'),3,'START');
 select is(public.campaign_dispatch_fixture_v1(pg_temp.polat_id(9901,'2000'),(select(v->>'job_id')::uuid from campaign_claim),(select(v->>'lease_token')::uuid from campaign_claim)),false,'resume never revives an old generation');
 select throws_ok($$select public.admin_campaign_state_v1(pg_temp.polat_id(9901,'2000'),pg_temp.polat_id(9901,'9000'),2,'STOP')$$,'40001','CAMPAIGN_CHANGED','stale founder action rejected');

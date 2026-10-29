@@ -30,7 +30,7 @@ export async function runCampaignFixtureCycle(input: { db: CampaignDatabase; ten
   }
   const store: PolatFixtureResponseStore = {
     mode: "SYNTHETIC",
-    prepare: async command => { bind(command); return rpc("campaign_prepare_fixture_v1", { ...scope, body_hash_value: command.body_hash }); },
+    prepare: async (command, body) => { bind(command); return rpc("campaign_prepare_fixture_v1", { ...scope, body_hash_value: command.body_hash, body_value: body }); },
     canDispatch: async command => { bind(command); return await rpc("campaign_dispatch_fixture_v1", scope) === true; },
     record: async receipt => rpc("campaign_finish_fixture_v1", { ...scope, receipt_value: JSON.stringify(receipt) }),
     hold: async value => {

@@ -29,7 +29,7 @@ export class FakePolatTransport{
 }
 export interface PolatFixtureResponseStore{
  readonly mode:"SYNTHETIC";
- prepare(command:PolatResponseCommand):Promise<unknown>;
+ prepare(command:PolatResponseCommand,body?:string):Promise<unknown>;
  canDispatch(command:PolatResponseCommand):Promise<boolean>;
  record(receipt:PolatResponseReceipt):Promise<unknown>;
  hold(input:{tenant_id:string;message_id:string;generation:string;reason:"QA_HOLD"|"MODEL_UNAVAILABLE"}):Promise<unknown>;
@@ -54,7 +54,7 @@ export async function runPolatResponseFixture(args:{input:unknown;operationId:st
   return {state:polatInboundStateSchema.parse(held),quality,delivery:"NOT_SENT",financial_authority:"NONE",live_operations_authorized:false}as const;
  }
  const command=polatResponseCommandSchema.parse({version:1,mode:"SYNTHETIC",tenant_id:p.input.tenant_id,conversation_id:p.input.conversation_id,message_id:p.input.source_message_id,operation_id:args.operationId,generation:args.generation,source_hash:digest(p.input.messages.at(-1)!.content),body_hash:digest(result.output.proposed_response),actor:"AI"});
- let prepared:unknown;try{prepared=await limited(args.store.prepare(command),budget);}catch(e){if(!(e instanceof PolatFixtureTimeout))throw e;return{state:"DELIVERY_UNKNOWN",quality,delivery:"UNKNOWN",persistence:"UNCONFIRMED",financial_authority:"NONE",live_operations_authorized:false}as const;}
+ let prepared:unknown;try{prepared=await limited(args.store.prepare(command,result.output.proposed_response),budget);}catch(e){if(!(e instanceof PolatFixtureTimeout))throw e;return{state:"DELIVERY_UNKNOWN",quality,delivery:"UNKNOWN",persistence:"UNCONFIRMED",financial_authority:"NONE",live_operations_authorized:false}as const;}
  if(!prepared||typeof prepared!=="object"||!("state"in prepared))throw Error("POLAT_PREPARE_INVALID");
  if(prepared.state!=="PREPARED")return {state:polatInboundStateSchema.parse(prepared.state),quality,delivery:"NOT_SENT",financial_authority:"NONE",live_operations_authorized:false}as const;
  if(!("operation_id"in prepared)||prepared.operation_id!==command.operation_id||!("generation"in prepared)||prepared.generation!==command.generation||!("mode"in prepared)||prepared.mode!=="SYNTHETIC")throw Error("POLAT_PREPARE_SCOPE_MISMATCH");

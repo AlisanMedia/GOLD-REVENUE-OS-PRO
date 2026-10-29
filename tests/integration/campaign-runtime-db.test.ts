@@ -46,10 +46,20 @@ describe.runIf(Boolean(connection))("campaign policy through native Polat QA, ac
       expect(result.state).toBe("AI_RESPONDED");
       expect(result.delivery).toBe("FAKE_ACKNOWLEDGED");
       expect(transport.effects).toHaveLength(1);
+      expect(query(`select to_jsonb(w.state)from private.polat_inbound_work w join private.campaign_jobs x on x.tenant_id=w.tenant_id and x.source_message_id=w.message_id where x.tenant_id='${tenant(n)}'`)).toBe("AI_RESPONDED");
       expect((await cycle(n, new FakePolatTransport(["ACK"]))).state).toBe("EMPTY");
       expect(query(`select to_jsonb(attempts)from private.sales_campaigns where id='${campaign(n)}'`)).toBe(1);
       expect(query(`select to_jsonb(count(*))from public.messages where tenant_id='${tenant(n)}'and direction='outbound'`)).toBe(0);
       expect(query(`select to_jsonb(count(*))from private.verified_payment_receipts where tenant_id='${tenant(n)}'`)).toBe(0);
+      // A later real synthetic inbound preserves only the preceding acknowledged output.
+      sql(`update public.scheduled_jobs set completed_at=clock_timestamp()-interval '2 minutes',locked_at=clock_timestamp()-interval '2 minutes'where tenant_id='${tenant(n)}'and status='completed';select public.ingest_telegram_message('${tenant(n)}','campaign-context-followup-${n}','3','710000${n}','710000${n}',null,'Synthetic',null,'Thanks',null,clock_timestamp());`);
+      const snapshots: unknown[] = [], base = client();
+      const withHistory = { rpc: async (name: string, args: Record<string, unknown>) => { const value = await base.rpc(name, args); if (name === "campaign_context_fixture_v1") snapshots.push(value.data); return value; } };
+      const follow = await cycle(n, new FakePolatTransport(["ACK"]), withHistory);
+      expect(follow.state).toBe("AI_RESPONDED");
+      expect(snapshots).toHaveLength(1);
+      expect(JSON.stringify(snapshots[0])).toContain("FAKE_ACKNOWLEDGED");
+      expect(JSON.stringify(snapshots[0])).toContain("10.00 USD");
     } finally { retire(n); }
   }, 30000);
   it("UNKNOWN after an effect pauses, retains liability and survives a new transport/process", async () => {
@@ -75,7 +85,10 @@ describe.runIf(Boolean(connection))("campaign policy through native Polat QA, ac
       return base.rpc(name, args);
     } };
     try {
-      expect((await cycle(n, transport, raced)).state).toBe("BLOCKED_WITH_REASON");
+      const result = await cycle(n, transport, raced);
+      // Preserve the native ownership/generation result, including a real handoff obligation.
+      expect(result.state).toBe(reason === "PAUSE" ? "BLOCKED_WITH_REASON" : "HUMAN_HANDOFF_PENDING");
+      expect(query(`select to_jsonb(w.state)from private.polat_inbound_work w join private.campaign_jobs x on x.tenant_id=w.tenant_id and x.source_message_id=w.message_id where x.tenant_id='${tenant(n)}'`)).toBe(result.state);
       expect(transport.effects).toHaveLength(0);
       expect(query(`select to_jsonb(attempts)from private.sales_campaigns where id='${campaign(n)}'`)).toBe(1);
     } finally { retire(n); }

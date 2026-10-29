@@ -59,6 +59,20 @@ Local Turbopack bind reddi ve alternatif webpack'in eski node:crypto barrel
 uyumsuzluğu kaydedilir; varsayılan Application CI build'i zorunlu, alternatif PASS değil.
 Kesin adetler ve tüm head/post-merge sonuçları dış owner raporunda doğrulanır.
 
+Son bütünlük denetimi ilk head'de kampanya ACK'i tamamlandığı halde native Polat
+inbound durumunun AI_RESPONSE_PENDING kalabildiğini gösterdi. Aynı mevcut native
+prepare/outcome/hold kanıtı atomik olarak kullanılır; QA'dan geçen gerçek fixture
+metni hash'ine bağlı kaydedilir ve yalnız native FAKE_ACK sonrasında bounded geçmişe
+girer. Native generation ile kampanya revision ayrı ayrı fence edilir. Eski fixture
+store arayüzüne geriye uyumlu optional body eklenir; ModelProvider değişmez.
+Bu düzeltmenin ilk koşusunda native opt-out/insan devralma sonucu doğru biçimde
+HUMAN_HANDOFF_PENDING döndüğü için iki eski beklenti düzeltildi; PAUSE sonrasındaki
+AI_RESPONSE_PENDING ise gerçek hataydı ve tek denemeli kampanyada görünür
+BLOCKED_WITH_REASON olarak kapatıldı. Son koşu: 56 pgTAP, 6 native runtime ve 5
+bağımsız bağlantı/çökme senaryosu PASS; etkilenen 278 fixture/regresyon testi PASS.
+Staging için aynı 56 kontrolü çalıştırıp tüm sentetik satırları geri alan smoke
+sorgusu disposable PG17'de doğrulandı; hosted sonuç henüz iddia edilmez.
+
 ## Yayın ve geri dönüş
 
 Exact branch deployment=false; main=false ve cron korunur. App15368 Application+

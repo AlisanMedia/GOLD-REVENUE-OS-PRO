@@ -36,7 +36,7 @@ create table private.campaign_jobs (
  tenant_id uuid not null, job_id uuid not null references public.scheduled_jobs(id), campaign_id uuid not null,
  customer_id uuid not null, conversation_id uuid not null, source_message_id uuid not null,
  campaign_revision integer not null, source_hash text not null,
- lease_token uuid, body_hash text, outcome jsonb,
+ lease_token uuid, body_hash text, body text check(body is null or char_length(body)between 1 and 600),native_generation bigint,outcome jsonb,
  primary key(tenant_id,job_id),
  foreign key(tenant_id,campaign_id,customer_id) references private.campaign_audience(tenant_id,campaign_id,customer_id),
  foreign key(tenant_id,conversation_id) references public.conversations(tenant_id,id),
@@ -518,7 +518,7 @@ declare c private.sales_campaigns;x private.campaign_jobs;j public.scheduled_job
   if(select count(*)from private.campaign_jobs z join public.scheduled_jobs q on q.id=z.job_id where z.tenant_id=target_tenant_id and z.customer_id=x.customer_id and q.attempts>0 and q.locked_at>clock_timestamp()-interval '24 hours')>=(c.configuration->>'maximum_per_day')::int then continue;end if;
   token:=extensions.gen_random_uuid();
   update public.scheduled_jobs set status='processing',attempts=attempts+1,locked_by=worker_id_value,locked_at=clock_timestamp(),payload=payload||jsonb_build_object('stage','RESERVED')where id=j.id;
-  update private.campaign_jobs set lease_token=token where tenant_id=target_tenant_id and job_id=j.id;
+  update private.campaign_jobs set lease_token=token,native_generation=(select generation from private.polat_conversation_controls where tenant_id=target_tenant_id and conversation_id=x.conversation_id)where tenant_id=target_tenant_id and job_id=j.id;
   update private.sales_campaigns set attempts=attempts+1,reserved_liability=reserved_liability+(configuration->>'maximum_liability_per_call')::numeric where tenant_id=target_tenant_id and id=c.id;
   perform private.campaign_audit(target_tenant_id,c.id,'attempt_reserved',jsonb_build_object('job_id',j.id,'actual_cost','UNKNOWN','scope','SYNTHETIC'));
   return jsonb_build_object('state','RESERVED','job_id',j.id,'lease_token',token,'conversation_id',x.conversation_id,'source_message_id',x.source_message_id,'source_hash',x.source_hash,'generation',c.revision::text);
@@ -526,15 +526,22 @@ declare c private.sales_campaigns;x private.campaign_jobs;j public.scheduled_job
  return jsonb_build_object('state','EMPTY');
 end;$$;
 
-create function public.campaign_prepare_fixture_v1(target_tenant_id uuid,job_id_value uuid,lease_token_value uuid,body_hash_value text)
+create function public.campaign_prepare_fixture_v1(target_tenant_id uuid,job_id_value uuid,lease_token_value uuid,body_hash_value text,body_value text default null)
 returns jsonb language plpgsql security definer set search_path=pg_catalog as $$
-declare x private.campaign_jobs;j public.scheduled_jobs;begin
+declare x private.campaign_jobs;j public.scheduled_jobs;g bigint;native_value jsonb;begin
  select * into x from private.campaign_jobs where tenant_id=target_tenant_id and job_id=job_id_value;
  perform private.campaign_fixture(target_tenant_id,x.campaign_id);
+ perform 1 from private.sales_campaigns where tenant_id=target_tenant_id and id=x.campaign_id for share;
+ perform 1 from public.conversations where tenant_id=target_tenant_id and id=x.conversation_id for update;
  select * into j from public.scheduled_jobs where id=x.job_id for update;
- if j.status<>'processing'or x.lease_token is distinct from lease_token_value or j.locked_at<clock_timestamp()-interval '60 seconds' or body_hash_value!~'^[a-f0-9]{64}$'
+ if j.status<>'processing'or x.lease_token is distinct from lease_token_value or j.locked_at<clock_timestamp()-interval '60 seconds' or body_hash_value is null or body_hash_value!~'^[a-f0-9]{64}$'
+ or body_value is not null and(char_length(body_value)not between 1 and 600 or private.fse_hash(body_value)<>body_hash_value)
  or x.body_hash is not null and x.body_hash<>body_hash_value then raise exception 'CAMPAIGN_LEASE_INVALID'using errcode='42501';end if;
- update private.campaign_jobs set body_hash=body_hash_value where tenant_id=target_tenant_id and job_id=x.job_id;
+ select generation into g from private.polat_conversation_controls where tenant_id=target_tenant_id and conversation_id=x.conversation_id;
+ if x.native_generation is distinct from g then return jsonb_build_object('state','HUMAN_HANDOFF_PENDING','reason','CAMPAIGN_SOURCE_CHANGED');end if;
+ native_value:=private.polat_prepare_fixture(target_tenant_id,x.source_message_id,x.job_id,g,x.source_hash,body_hash_value,'AI');
+ if native_value->>'state'<>'PREPARED'then return native_value;end if;
+ update private.campaign_jobs set body_hash=body_hash_value,body=body_value,native_generation=g where tenant_id=target_tenant_id and job_id=x.job_id;
  return jsonb_build_object('state','PREPARED','operation_id',x.job_id,'generation',x.campaign_revision::text,'mode','SYNTHETIC');
 end;$$;
 
@@ -544,7 +551,8 @@ declare x private.campaign_jobs;c private.sales_campaigns;j public.scheduled_job
  select * into x from private.campaign_jobs where tenant_id=target_tenant_id and job_id=job_id_value;
  perform private.campaign_fixture(target_tenant_id,x.campaign_id);
  select * into c from private.sales_campaigns where tenant_id=target_tenant_id and id=x.campaign_id for share;
- perform 1 from public.conversations where tenant_id=target_tenant_id and id=x.conversation_id for share;
+ perform 1 from private.sales_campaigns where tenant_id=target_tenant_id and id=x.campaign_id for share;
+ perform 1 from public.conversations where tenant_id=target_tenant_id and id=x.conversation_id for update;
  select * into j from public.scheduled_jobs where id=x.job_id for update;
  if c.state<>'ACTIVE' or c.revision<>x.campaign_revision or private.campaign_blockers(target_tenant_id,c.id)<>'[]'::jsonb
  or private.campaign_contact_reason(target_tenant_id,c.id,x.customer_id,x.job_id)is not null
@@ -552,6 +560,7 @@ declare x private.campaign_jobs;c private.sales_campaigns;j public.scheduled_job
  or j.locked_at<clock_timestamp()-interval '60 seconds'
  or not exists(select 1 from public.messages where tenant_id=target_tenant_id and id=x.source_message_id and private.fse_hash(content)=x.source_hash)
  or not exists(select 1 from private.polat_conversation_controls where tenant_id=target_tenant_id and conversation_id=x.conversation_id and last_inbound_id=x.source_message_id)
+ or x.native_generation is null or not private.polat_can_dispatch_fixture(target_tenant_id,x.job_id,x.native_generation)
  then return false;end if;
  update public.scheduled_jobs set payload=payload||jsonb_build_object('stage','DISPATCHED')where id=j.id;
  return true;
@@ -563,6 +572,8 @@ declare x private.campaign_jobs;j public.scheduled_jobs;r jsonb;c private.sales_
  select * into x from private.campaign_jobs where tenant_id=target_tenant_id and job_id=job_id_value;
  perform private.campaign_fixture(target_tenant_id,x.campaign_id);
  select * into c from private.sales_campaigns where tenant_id=target_tenant_id and id=x.campaign_id for update;
+ perform 1 from private.sales_campaigns where tenant_id=target_tenant_id and id=x.campaign_id for share;
+ perform 1 from public.conversations where tenant_id=target_tenant_id and id=x.conversation_id for update;
  select * into j from public.scheduled_jobs where id=x.job_id for update;
  r:=private.fse_strict_json(receipt_value);
  if not private.fse_keys(r,array['version','mode','origin','tenant_id','conversation_id','message_id','operation_id','body_hash','result','reference'])
@@ -575,7 +586,13 @@ declare x private.campaign_jobs;j public.scheduled_jobs;r jsonb;c private.sales_
  if x.outcome is not null then
   if x.outcome<>r then raise exception 'CAMPAIGN_OUTCOME_CONFLICT'using errcode='23505';end if;
  else
-  if j.status<>'processing' or j.locked_at<clock_timestamp()-interval '60 seconds' or r->>'result'='FAKE_ACK'and j.payload->>'stage'<>'DISPATCHED' then raise exception 'CAMPAIGN_LEASE_INVALID'using errcode='42501';end if;
+  if j.status<>'processing' or j.locked_at<clock_timestamp()-interval '60 seconds' or r->>'result'='FAKE_ACK'and(j.payload->>'stage'<>'DISPATCHED'or x.body is null) then raise exception 'CAMPAIGN_LEASE_INVALID'using errcode='42501';end if;
+  perform private.polat_outcome_fixture(target_tenant_id,x.job_id,r::text);
+  -- The legacy fixture permits explicit pre-send retry. This campaign intent has
+  -- a one-attempt budget: retain a visible terminal block rather than pending retry.
+  if r->>'result'='FAILED_BEFORE_SEND'and exists(select 1 from private.polat_inbound_work where tenant_id=target_tenant_id and message_id=x.source_message_id and state='AI_RESPONSE_PENDING')then
+   perform private.polat_set_work(target_tenant_id,x.source_message_id,'BLOCKED_WITH_REASON','CAMPAIGN_NOT_SENT');
+  end if;
   update private.campaign_jobs set outcome=r where tenant_id=target_tenant_id and job_id=x.job_id;
   update public.scheduled_jobs set status=case when r->>'result'='FAKE_ACK'then 'completed'else 'dead_letter'end,
    completed_at=case when r->>'result'='FAKE_ACK'then clock_timestamp()end,
@@ -584,7 +601,7 @@ declare x private.campaign_jobs;j public.scheduled_jobs;r jsonb;c private.sales_
   if r->>'result'='UNKNOWN'then update private.sales_campaigns set state='PAUSED',revision=revision+1 where tenant_id=target_tenant_id and id=c.id;end if;
   perform private.campaign_audit(target_tenant_id,c.id,'fixture_outcome',jsonb_build_object('job_id',x.job_id,'result',r->>'result','actual_delivery',false,'actual_cost','UNKNOWN'));
  end if;
- return case when r->>'result'='FAKE_ACK'then 'AI_RESPONDED'when r->>'result'='UNKNOWN'then 'DELIVERY_UNKNOWN'else 'BLOCKED_WITH_REASON'end;
+ return(select state from private.polat_inbound_work where tenant_id=target_tenant_id and message_id=x.source_message_id);
 end;$$;
 
 create function public.campaign_hold_fixture_v1(target_tenant_id uuid,job_id_value uuid,lease_token_value uuid,reason_value text)
@@ -592,10 +609,15 @@ returns text language plpgsql security definer set search_path=pg_catalog as $$
 declare x private.campaign_jobs;j public.scheduled_jobs;begin
  select * into x from private.campaign_jobs where tenant_id=target_tenant_id and job_id=job_id_value;
  perform private.campaign_fixture(target_tenant_id,x.campaign_id);
+ perform 1 from private.sales_campaigns where tenant_id=target_tenant_id and id=x.campaign_id for share;
+ perform 1 from public.conversations where tenant_id=target_tenant_id and id=x.conversation_id for update;
  select * into j from public.scheduled_jobs where id=x.job_id for update;
  if x.lease_token is distinct from lease_token_value or j.status<>'processing'or j.locked_at<clock_timestamp()-interval '60 seconds' or j.payload->>'stage'<>'RESERVED'or reason_value not in('QA_HOLD','MODEL_UNAVAILABLE')then raise exception 'CAMPAIGN_LEASE_INVALID'using errcode='42501';end if;
  update public.scheduled_jobs set status='dead_letter',last_error_code=reason_value,dead_lettered_at=clock_timestamp()where id=j.id;
  update public.conversations set attention_required=true where tenant_id=target_tenant_id and id=x.conversation_id;
+ if x.native_generation=(select generation from private.polat_conversation_controls where tenant_id=target_tenant_id and conversation_id=x.conversation_id)then
+  perform private.polat_hold_fixture(target_tenant_id,x.source_message_id,x.native_generation,reason_value);
+ else perform private.polat_set_work(target_tenant_id,x.source_message_id,'HUMAN_HANDOFF_PENDING','CAMPAIGN_STALE_SOURCE');end if;
  perform private.campaign_audit(target_tenant_id,x.campaign_id,'review_obligation',jsonb_build_object('job_id',x.job_id,'reason',reason_value));
  return 'HUMAN_HANDOFF_PENDING';
 end;$$;
@@ -725,13 +747,26 @@ revoke all on function private.campaign_new_conversation()from public,anon,authe
 -- Reuse the accepted bounded native Polat context and source-grounded catalog.
 create function public.campaign_context_fixture_v1(target_tenant_id uuid,job_id_value uuid,lease_token_value uuid)
 returns jsonb language plpgsql security definer set search_path=pg_catalog as $$
-declare x private.campaign_jobs;j public.scheduled_jobs;e uuid;ctx jsonb;commercial jsonb;docs jsonb;begin
+declare x private.campaign_jobs;j public.scheduled_jobs;e uuid;ctx jsonb;commercial jsonb;docs jsonb;history jsonb;begin
  select * into x from private.campaign_jobs where tenant_id=target_tenant_id and job_id=job_id_value;
  perform private.campaign_fixture(target_tenant_id,x.campaign_id);
  select * into j from public.scheduled_jobs where id=x.job_id;
  if j.status<>'processing'or x.lease_token is distinct from lease_token_value or j.locked_at<clock_timestamp()-interval '60 seconds'then raise exception 'CAMPAIGN_LEASE_INVALID'using errcode='42501';end if;
  select id into e from public.domain_events where tenant_id=target_tenant_id and event_type='message.received'and payload->>'message_id'=x.source_message_id::text order by recorded_at,id limit 1;
  ctx:=public.polat_test_runtime_context_v1(target_tenant_id,x.conversation_id,e);
+ -- Only independently recorded native FAKE_ACK evidence adds generated text to history.
+ -- Never add queued, failed, unknown or future output to model context.
+ with candidates as(
+  select value from jsonb_array_elements(ctx#>'{input,messages}')
+  union all
+  select jsonb_build_object('id',z.job_id,'tenant_id',z.tenant_id,'conversation_id',z.conversation_id,'direction','outbound','content',z.body,'occurred_at',a.created_at,'author','AI','delivery','FAKE_ACKNOWLEDGED')
+  from private.campaign_jobs z join private.polat_response_evidence a on a.tenant_id=z.tenant_id and a.operation_id=z.job_id and a.stage='FAKE_ACK'and a.body_hash=z.body_hash
+  where z.tenant_id=target_tenant_id and z.conversation_id=x.conversation_id and z.source_message_id<>x.source_message_id and z.outcome->>'result'='FAKE_ACK'and z.body is not null
+  and a.created_at<=(ctx#>>'{input,boundary}')::timestamptz
+ ), page as(select value from candidates order by(value->>'occurred_at')::timestamptz desc,value->>'id'desc limit 20),
+ bounded as(select value,sum(char_length(value->>'content'))over(order by(value->>'occurred_at')::timestamptz desc,value->>'id'desc)chars from page)
+ select coalesce(jsonb_agg(value order by(value->>'occurred_at')::timestamptz,value->>'id'),'[]')into history from bounded where chars<=16000;
+ ctx:=jsonb_set(ctx,'{input,messages}',history);
  commercial:=private.commercial_for_source(target_tenant_id,e);
  select coalesce(jsonb_agg(jsonb_build_object('tenant_id',target_tenant_id,'conversation_id',x.conversation_id,'approval','APPROVED_SYNTHETIC','item_id',d->'item_id','version_id',d->'version_id',
  'version',d->'version','kind',d->'kind','published_at',d->'published_at','effective_from',d->'effective_from','expires_at',d->'expires_at','test_only',true,'payload',d->'payload')),'[]')into docs
@@ -754,9 +789,11 @@ revoke all on function public.process_campaign_due_v1()from public,anon,authenti
 grant execute on function public.process_campaign_due_v1()to service_role;
 
 create function private.campaign_job_guard()returns trigger language plpgsql set search_path=pg_catalog as $$begin
- if tg_op='DELETE'or to_jsonb(new)-array['lease_token','body_hash','outcome']is distinct from to_jsonb(old)-array['lease_token','body_hash','outcome']
+ if tg_op='DELETE'or to_jsonb(new)-array['lease_token','body_hash','body','native_generation','outcome']is distinct from to_jsonb(old)-array['lease_token','body_hash','body','native_generation','outcome']
  or old.lease_token is not null and new.lease_token is distinct from old.lease_token
  or old.body_hash is not null and new.body_hash is distinct from old.body_hash
+ or old.body is not null and new.body is distinct from old.body
+ or old.native_generation is not null and new.native_generation is distinct from old.native_generation
  or old.outcome is not null and new.outcome is distinct from old.outcome
  then raise exception 'CAMPAIGN_EVIDENCE_IMMUTABLE'using errcode='42501';end if;return new;
 end;$$;
@@ -782,3 +819,14 @@ create function public.admin_campaign_options_v1(target_tenant_id uuid)returns j
 end;$$;
 revoke all on function public.admin_campaign_options_v1(uuid)from public,anon,authenticated,service_role;
 grant execute on function public.admin_campaign_options_v1(uuid)to authenticated;
+
+-- One policy also fences the accepted native fake sender for campaign-owned operations.
+alter function private.polat_can_dispatch_fixture(uuid,uuid,bigint)rename to campaign_native_can_dispatch;
+create function private.polat_can_dispatch_fixture(t uuid,op uuid,g bigint)returns boolean language sql stable security definer set search_path=pg_catalog as $$
+ select private.campaign_native_can_dispatch(t,op,g)and(
+ not exists(select 1 from private.campaign_jobs where tenant_id=t and job_id=op)
+ or exists(select 1 from private.campaign_jobs x join private.sales_campaigns c on c.tenant_id=x.tenant_id and c.id=x.campaign_id
+ where x.tenant_id=t and x.job_id=op and c.state='ACTIVE'and c.revision=x.campaign_revision and x.native_generation=g
+ and private.campaign_blockers(t,c.id)='[]'::jsonb and private.campaign_contact_reason(t,c.id,x.customer_id,x.job_id)is null));
+$$;
+revoke all on function private.campaign_native_can_dispatch(uuid,uuid,bigint),private.polat_can_dispatch_fixture(uuid,uuid,bigint)from public,anon,authenticated,service_role;
