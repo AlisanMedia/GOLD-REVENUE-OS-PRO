@@ -140,11 +140,26 @@ release dispatch başlatmaz.
 3. Aktif CANARY/FOUNDER/FRIENDS UAT penceresi varsa release bloklanır; mevcut
    program/grant otomatik STOPPED yapılmaz veya sıfırlanmaz. Disposable local PostgreSQL17 başlatılır. Linked hedef host/user/ref doğrulanır.
    Hosted source'a **yalnız read-only** `pg_dump`/fingerprint işlemleri yapılır.
-4. Tek transaction-snapshot custom dump; bağımsız disposable DB restore; source
+4. Read-only REPEATABLE READ transaction bir snapshot export eder; kaynak satır
+   fingerprint'i ve `pg_dump --snapshot` **aynı** MVCC görünümünü import eder.
+   Exporter bağlantısı dump bitene kadar açık kalır; bağlantı kaybı/expired snapshot
+   fail-closed durdurur (15s başlangıç, 180s idle transaction sınırı). Var olan cron
+   durdurulmaz; normal heartbeat/task yazıları iki farklı anın verisini yanlışlıkla
+   aynı yedek saydırmaz. Bağımsız disposable DB restore; source
    database/public-schema owner korunur. Initdb public schema creation TOC girdisi
    dışında hiçbir dump kaydı atlanmaz; bütün ACL girdileri replay edilir. Owner,
    ACL, RLS/constraint/policy/function ve satır hash/count fingerprint'leri kıyaslanır.
-   Source dump sırasında değişirse eşitlik sağlanmaz ve release durur.
+   Restore satırları tam olarak exported snapshot ile eşleşmelidir. Taze dump-sonrası
+   okuma aktif UAT programı, tablo/sequence envanteri, function, owner, ACL ve
+   RLS/constraint/policy drift'ini ayrıca reddeder. Sonraki normal satır yazıları
+   geri alınmaz ve snapshot'ın parçasıymış gibi gösterilmez.
+   Sequence sayaçları MVCC değildir: değer ve `is_called`, archive'ın bounded
+   SEQUENCE SET kayıtlarından bağımsız çıkarılıp restore ile **birebir** doğrulanır;
+   daha sonraki live sayaç ya da JS Number yuvarlaması referans kabul edilmez.
+   Önce→archive→sonra ilerleyişi exact integer increment yönünde doğrulanır;
+   sayaç geri sarma/reset ve kanıtlanamayan cyclic ilerleme fail-closed durur.
+   Eksik/çift/bilinmeyen kayıt, beklenmeyen SQL veya herhangi bir restore bozulması
+   release'i durdurur. Tüm dump ACL kayıtları hâlâ replay edilir.
 5. Dump AES256-GCM ile şifrelenir ve doğru parola ile byte-for-byte roundtrip
    kontrol edilir. Encryption hash'leri ve şifreli recovery artifact migration'dan
    **önce** korunur. Storage objeleri, Vault ve dış provider state'i bu logical
@@ -196,6 +211,24 @@ Gerçek ticaret/VIP ve paying-customer pilot hâlâ NO_GO'dur.
 pg_dump/pg_restore ile kaynak fingerprint eşitliğini ve restore kopyasına bilerek
 eklenen bir iznin tespitini doğrular. Kaynak DB/audit değişmez; owned restore DB
 silinir. Bu testin PASS sonucu hosted TLS/backup/restore PASS değildir.
+
+`bash supabase/tests/private_beta_recovery_snapshot.sh` ek olarak exporter,
+bağımsız writer ve dump/reader bağlantılarıyla dump öncesi/sonrası iki committed
+sentetik yazıyı sınar. Snapshot satırları1, güncel kaynak satırları3 iken restore
+yalnız doğru snapshot'ı içerir; sequence durumu archive ile eşleşir. Expired
+snapshot, ACL/RLS/satır/sequence bozulması ve taze source catalog drift'i reddedilir.
+Bu disposable test hosted bir release'i veya mevcut worker'ın dış etkilerini başlatmaz.
+
+29 Ekim run40847435622 `fingerprint_compare` aşamasında durmuştur. Salt-okunur
+hosted sorgusu başarısız backup penceresi içinde09:12:13.309472Z'de mevcut worker
+heartbeat yazısını doğrular. Eski kod bağımsız source-before/dump/source-after
+görünümlerinin tümünü eşit saymayı gerektiriyordu; concurrent DML regresyonu bu
+yanlış koşulu gerçek PG17 bağlantılarıyla yeniden üretir. Eski şifreli raw diagnostic
+çözülmemiştir; o artifact'in bütün bileşen farklarının incelendiği iddia edilmez.
+ICU/libc ve17.6→17.11 sentetik kontrolleri tek başına hatayı üretmemiştir.
+`private-beta-backup-comparison.json` yalnız sabit reason code/boolean taşır;
+raw satır/definition/counter değeri/log veya kimlik içermez. Yeni genuine hosted
+backup kabulü ancak owner'ın yeni exact-SHA release çalışmasında doğrulanabilir.
 
 ## Stop / rollback / failure custody
 

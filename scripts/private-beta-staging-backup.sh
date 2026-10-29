@@ -15,9 +15,11 @@ beta_restore="beta_restore_$(node -e 'process.stdout.write(require("node:crypto"
 beta_created=false
 beta_stage=local_pg17_check
 beta_started=$(date +%s%N)
+source scripts/private-beta-backup-snapshot.sh
 cleanup(){
  local status=$?
  set +e
+ beta_snapshot_stop || status=1
  if test "$beta_created" = true;then docker exec "$beta_container" dropdb -U supabase_admin --force "$beta_restore" >"$beta_tmp/cleanup.log" 2>&1 || status=1;fi
  if test "$status" != 0;then
   node --input-type=module - "$beta_tmp" "$beta_stage" "$status" <<'NODE'
@@ -51,23 +53,32 @@ writeFileSync(process.env.RUNNER_TEMP+'/private-beta-pg-selector.json',JSON.stri
 }catch{process.stderr.write('EXACT_STAGING_DATABASE_REQUIRED\n');process.exit(1);}
 NODE
 selector="${RUNNER_TEMP}/private-beta-pg-selector.json"
-export PGHOST PGPORT PGUSER PGDATABASE PGPASSWORD PGSSLMODE PGSSLROOTCERT
+export PGHOST PGPORT PGUSER PGDATABASE PGPASSWORD PGSSLMODE PGSSLROOTCERT PGCONNECT_TIMEOUT
 PGHOST=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1])).PGHOST' "$selector")
 PGPORT=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1])).PGPORT' "$selector")
 PGUSER=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1])).PGUSER' "$selector")
-PGDATABASE=postgres;PGPASSWORD=$SUPABASE_DB_PASSWORD;PGSSLMODE=verify-full;PGSSLROOTCERT=/tmp/private-beta-source-ca.pem
+PGDATABASE=postgres;PGPASSWORD=$SUPABASE_DB_PASSWORD;PGSSLMODE=verify-full;PGSSLROOTCERT=/tmp/private-beta-source-ca.pem;PGCONNECT_TIMEOUT=10
 printf '%s' "$STAGING_SUPABASE_SSL_ROOT_CERT" >"$beta_tmp/source-ca.pem"
 docker cp "$beta_tmp/source-ca.pem" "$beta_container:$PGSSLROOTCERT" >/dev/null
-remote(){ docker exec -i -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE -e PGPASSWORD -e PGSSLMODE -e PGSSLROOTCERT "$beta_container" "$@"; }
+remote(){ docker exec -i -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE -e PGPASSWORD -e PGSSLMODE -e PGSSLROOTCERT -e PGCONNECT_TIMEOUT "$beta_container" "$@"; }
+beta_stage=source_exported_snapshot
+beta_snapshot_start
 beta_stage=source_tls_fingerprint
-remote psql -XqAt -v ON_ERROR_STOP=1 <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/source-before.json" 2>"$beta_tmp/read.log"
+remote psql -XqAt -v ON_ERROR_STOP=1 -v private_beta_snapshot="$beta_snapshot_id" <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/source-before.json" 2>"$beta_tmp/read.log"
 beta_stage=source_atomic_dump
-remote pg_dump --format=custom --schema=public --schema=private --schema=auth --schema=extensions --extension=pgcrypto >"$beta_tmp/staging.dump" 2>"$beta_tmp/dump.log"
+remote pg_dump --snapshot="$beta_snapshot_id" --format=custom --schema=public --schema=private --schema=auth --schema=extensions --extension=pgcrypto >"$beta_tmp/staging.dump" 2>"$beta_tmp/dump.log"
+beta_snapshot_stop
 beta_stage=source_drift_check
 remote psql -XqAt -v ON_ERROR_STOP=1 <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/source-after.json" 2>"$beta_tmp/read-after.log"
 beta_stage=disposable_restore_create
 docker exec -i "$beta_container" pg_restore --list <"$beta_tmp/staging.dump" >"$beta_tmp/source.list" 2>"$beta_tmp/list.log"
 node scripts/private-beta-release-restore.mjs "$beta_tmp/source.list" "$beta_tmp/source-before.json" "$beta_tmp"
+node --input-type=module - "$beta_tmp" <<'NODE'
+import{readFileSync,writeFileSync}from'node:fs';import{privateBetaSequenceToc}from'./scripts/private-beta-backup-verify.mjs';
+const dir=process.argv[2];writeFileSync(dir+'/sequence.list',privateBetaSequenceToc(readFileSync(dir+'/source.list','utf8'),JSON.parse(readFileSync(dir+'/source-before.json','utf8'))),{mode:0o600});
+NODE
+docker cp "$beta_tmp/sequence.list" "$beta_container:/tmp/$beta_restore.list" >/dev/null
+docker exec -i "$beta_container" pg_restore --file=- --use-list="/tmp/$beta_restore.list" <"$beta_tmp/staging.dump" >"$beta_tmp/sequence-state.sql" 2>"$beta_tmp/sequence.log"
 beta_source_owner=$(node -p 'JSON.parse(require("node:fs").readFileSync(process.argv[1])).database_owner' "$beta_tmp/restore-plan.json")
 docker exec "$beta_container" createdb -U supabase_admin --template=template0 --owner="$beta_source_owner" "$beta_restore" >"$beta_tmp/create.log" 2>&1
 beta_created=true
@@ -80,11 +91,13 @@ beta_stage=restored_fingerprint
 docker exec -i "$beta_container" psql -U supabase_admin -d "$beta_restore" -XqAt -v ON_ERROR_STOP=1 <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/restored.json" 2>"$beta_tmp/restored.log"
 beta_stage=fingerprint_compare
 node --input-type=module - "$beta_tmp" <<'NODE'
-import{readFileSync,writeFileSync}from'node:fs';
+import{readFileSync,writeFileSync}from'node:fs';import{comparePrivateBetaRecovery}from'./scripts/private-beta-backup-verify.mjs';
 const dir=process.argv[2],read=n=>JSON.parse(readFileSync(dir+'/'+n,'utf8').trim());
 const a=read('source-before.json'),b=read('source-after.json'),r=read('restored.json');
-if(a.pg_major!==17||JSON.stringify(a)!==JSON.stringify(b)||JSON.stringify(a)!==JSON.stringify(r))throw Error('HOSTED_BACKUP_RESTORE_FINGERPRINT_MISMATCH');
-writeFileSync(process.env.RUNNER_TEMP+'/private-beta-backup-evidence.json',JSON.stringify({mode:'HOSTED_READ_ONLY_BACKUP_DISPOSABLE_RESTORE',source_project:'xqvwkghpmezcpgugetqc',sha:process.env.GITHUB_SHA,restore:'PASS',scope:['public','private','auth','extensions/pgcrypto'],exclusions:['Storage objects','Vault secrets','external provider state'],fingerprint:a,hosted_migration_performed:false},null,2),{mode:0o600});
+const comparison=comparePrivateBetaRecovery(a,b,r,readFileSync(dir+'/sequence-state.sql','utf8'));
+writeFileSync(process.env.RUNNER_TEMP+'/private-beta-backup-comparison.json',JSON.stringify(comparison,null,2)+'\n',{mode:0o600});
+if(comparison.result!=='PASS')throw Error(comparison.code);
+writeFileSync(process.env.RUNNER_TEMP+'/private-beta-backup-evidence.json',JSON.stringify({mode:'HOSTED_READ_ONLY_BACKUP_DISPOSABLE_RESTORE',source_project:'xqvwkghpmezcpgugetqc',sha:process.env.GITHUB_SHA,restore:'PASS',scope:['public','private','auth','extensions/pgcrypto'],exclusions:['Storage objects','Vault secrets','external provider state'],consistency:'EXPORTED_REPEATABLE_READ_SNAPSHOT',sequence_state:'EXACT_ARCHIVE_SETVAL_VERIFIED',source_progress_is_not_rollback:comparison.source_rows_changed||comparison.source_sequence_values_changed,fingerprint:r,hosted_migration_performed:false},null,2),{mode:0o600});
 NODE
 beta_stage=encrypted_recovery_custody
 node scripts/private-beta-backup-crypto.mjs encrypt "$beta_tmp/staging.dump" "$RUNNER_TEMP/private-beta-staging.dump.enc"
