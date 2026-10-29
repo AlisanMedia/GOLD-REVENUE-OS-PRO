@@ -1,0 +1,66 @@
+name: Campaign Staging Acceptance
+
+on:
+  workflow_dispatch:
+    inputs:
+      validated_commit_sha:
+        description: Exact protected main SHA for the acceptance scripts (not a deployment)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  checks: read
+  actions: read
+
+concurrency:
+  group: staging-validation
+  cancel-in-progress: false
+
+jobs:
+  campaign_acceptance:
+    name: Reviewed rollback-only campaign acceptance (no deployment)
+    if: ${{ github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    environment: staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
+      DO_NOT_TRACK: 1
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 24.19.0
+      - name: Verify protected main and existing staging approval controls
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
+        run: node scripts/private-beta-release-gate.mjs
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1
+        with:
+          version: 2.117.0
+      - name: Link existing isolated staging (no migration)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+        run: supabase link --project-ref xqvwkghpmezcpgugetqc
+      - name: Execute original 56 assertions and verify rollback
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
+          STAGING_SUPABASE_SSL_ROOT_CERT: ${{ secrets.STAGING_SUPABASE_SSL_ROOT_CERT }}
+        run: node scripts/campaign-staging-run.mjs
+      - name: Retain sanitized acceptance evidence (never raw database output)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: campaign-staging-acceptance-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/private-beta-release-gate.json
+            ${{ runner.temp }}/campaign-acceptance-manifest.json
+            ${{ runner.temp }}/campaign-staging-acceptance.json
+          if-no-files-found: error
+          retention-days: 14

@@ -198,6 +198,8 @@ jobs:
           campaign_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/campaign-db.env")
           test -n "$campaign_db_url"
           echo "::add-mask::$campaign_db_url"
+          node scripts/campaign-staging-acceptance.mjs | psql "$campaign_db_url" -XqAt -v ON_ERROR_STOP=1 | tee "$RUNNER_TEMP/campaign-rollback-matrix.json"
+          node --input-type=module -e 'import{readFileSync}from"node:fs";import{validateCampaignAcceptanceResult}from"./scripts/campaign-staging-run.mjs";validateCampaignAcceptanceResult(readFileSync(process.argv[1],"utf8"));' "$RUNNER_TEMP/campaign-rollback-matrix.json"
           bash supabase/tests/campaign_concurrency.sh "$campaign_db_url" | tee "$RUNNER_TEMP/campaign-concurrency.log"
           CAMPAIGN_DISPOSABLE_DB_URL="$campaign_db_url" pnpm exec vitest run tests/integration/campaign-runtime-db.test.ts | tee "$RUNNER_TEMP/campaign-native-runtime.log"
       - name: Prove concurrent escalation ingestion and notification leasing
@@ -503,6 +505,7 @@ jobs:
             ${{ runner.temp }}/phase13-pgtap.log
             ${{ runner.temp }}/phase13-concurrency.log
             ${{ runner.temp }}/campaign-pgtap.log
+            ${{ runner.temp }}/campaign-rollback-matrix.json
             ${{ runner.temp }}/campaign-concurrency.log
             ${{ runner.temp }}/campaign-native-runtime.log
             ${{ runner.temp }}/phase15-pgtap.log
