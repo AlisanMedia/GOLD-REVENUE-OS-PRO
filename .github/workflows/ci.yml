@@ -104,7 +104,9 @@ jobs:
       - name: Lint database
         run: supabase db lint --level error --fail-on error
       - name: Verify independent offline backup recovery before UAT fixtures
-        run: bash supabase/tests/private_beta_release_recovery.sh
+        run: |
+          bash supabase/tests/private_beta_release_recovery.sh
+          bash supabase/tests/private_beta_recovery_snapshot.sh
       - name: Run foundation pgTAP tests
         shell: bash
         run: |

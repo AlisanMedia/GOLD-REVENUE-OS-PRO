@@ -261,6 +261,7 @@ jobs:
             ${{ runner.temp }}/private-beta-runtime-env-names.json
             ${{ runner.temp }}/private-beta-staging-migration-history.txt
             ${{ runner.temp }}/private-beta-backup-failure.json
+            ${{ runner.temp }}/private-beta-backup-comparison.json
             ${{ runner.temp }}/private-beta-backup-failure.enc
           if-no-files-found: warn
           retention-days: ${{ inputs.backup_retention_days }}
