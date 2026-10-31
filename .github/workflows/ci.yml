@@ -497,6 +497,7 @@ jobs:
           test -n "$campaign_genuine_db_url"
           echo "::add-mask::$campaign_genuine_db_url"
           CAMPAIGN_GENUINE_DB_URL="$campaign_genuine_db_url" pnpm exec vitest run tests/integration/campaign-genuine-runtime-db.test.ts | tee "$RUNNER_TEMP/campaign-genuine-runtime.log"
+          STARS_COMMERCE_DB_URL="$campaign_genuine_db_url" pnpm exec vitest run tests/integration/stars-genuine-bridge-db.test.ts | tee "$RUNNER_TEMP/stars-genuine-bridge.log"
       - name: Upload database evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -521,6 +522,7 @@ jobs:
             ${{ runner.temp }}/campaign-concurrency.log
             ${{ runner.temp }}/campaign-native-runtime.log
             ${{ runner.temp }}/campaign-genuine-runtime.log
+            ${{ runner.temp }}/stars-genuine-bridge.log
             ${{ runner.temp }}/phase15-pgtap.log
             ${{ runner.temp }}/phase15-concurrency.log
             ${{ runner.temp }}/phase14-pgtap.log
