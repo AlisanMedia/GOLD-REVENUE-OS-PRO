@@ -499,7 +499,7 @@ jobs:
           CAMPAIGN_GENUINE_DB_URL="$campaign_genuine_db_url" pnpm exec vitest run tests/integration/campaign-genuine-runtime-db.test.ts | tee "$RUNNER_TEMP/campaign-genuine-runtime.log"
       - name: Upload database evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: database-test-evidence
           path: |
