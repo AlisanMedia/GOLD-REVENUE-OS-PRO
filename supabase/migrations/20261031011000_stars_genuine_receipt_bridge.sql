@@ -224,6 +224,7 @@ alter function public.entitlement_claim_job(uuid)rename to entitlement_claim_bef
 alter function public.entitlement_claim_before_genuine(uuid)set schema private;
 create function public.entitlement_claim_job(target_tenant_id uuid)returns jsonb language plpgsql security definer set search_path=pg_catalog as $$
 declare j public.entitlement_jobs;s public.subscriptions;a public.channel_access;begin
+ if not private.entitlement_live_allowed(target_tenant_id)then return private.entitlement_claim_before_genuine(target_tenant_id);end if;
  select q.* into j from public.entitlement_jobs q where q.tenant_id=target_tenant_id and q.available_at<=clock_timestamp()and(q.status='PENDING'or q.status='RUNNING'and q.lease_until<clock_timestamp())order by q.available_at,q.id for update skip locked limit 1;
  if j.id is null then return null;end if;
  select * into a from public.channel_access where tenant_id=target_tenant_id and id=j.access_id;select * into s from public.subscriptions where tenant_id=target_tenant_id and id=a.subscription_id;
@@ -251,6 +252,7 @@ create function public.entitlement_complete_job(target_tenant_id uuid,target_job
 declare j public.entitlement_jobs;s public.subscriptions;a public.channel_access;begin
  select * into j from public.entitlement_jobs where tenant_id=target_tenant_id and id=target_job_id for update;
  select * into a from public.channel_access where tenant_id=target_tenant_id and id=j.access_id;select * into s from public.subscriptions where tenant_id=target_tenant_id and id=a.subscription_id for update;
+ if s.mode is distinct from 'live'or not private.entitlement_live_allowed(target_tenant_id)then return private.entitlement_complete_before_genuine(target_tenant_id,target_job_id,lease_value,result_value);end if;
  if s.mode='live'then
   perform private.stars_commerce_guard(target_tenant_id);
   if j.status<>'RUNNING'or j.lease_token is distinct from lease_value or j.lease_until<=clock_timestamp()or not exists(select 1 from public.entitlement_audit where tenant_id=target_tenant_id and subscription_id=s.id and action='genuine_effect_started'and details->>'job_id'=j.id::text and details->>'lease'=lease_value::text and details->>'nonce'=result_value->>'dispatch_nonce')then raise exception 'GENUINE_ACCESS_OWNED_START_REQUIRED'using errcode='42501';end if;
@@ -265,7 +267,7 @@ declare j public.entitlement_jobs;s public.subscriptions;a public.channel_access
   end if;
   perform private.entitlement_audit_record(s.id,'genuine_provider_result',jsonb_build_object('job_id',j.id,'result',result_value-'dispatch_nonce','customer_read','UNKNOWN'));
  end if;
- return private.entitlement_complete_before_genuine(target_tenant_id,target_job_id,lease_value,result_value-'dispatch_nonce');end;$$;
+ return private.entitlement_complete_before_genuine(target_tenant_id,target_job_id,lease_value,case when s.mode='live'then result_value-'dispatch_nonce'else result_value end);end;$$;
 revoke all on function private.entitlement_claim_before_genuine(uuid),private.entitlement_complete_before_genuine(uuid,uuid,uuid,jsonb)from public,anon,authenticated,service_role;
 revoke all on function public.entitlement_begin_genuine_v1(uuid,uuid,uuid,uuid),public.entitlement_claim_job(uuid),public.entitlement_complete_job(uuid,uuid,uuid,jsonb)from public,anon,authenticated,service_role;
 grant execute on function public.entitlement_begin_genuine_v1(uuid,uuid,uuid,uuid),public.entitlement_claim_job(uuid),public.entitlement_complete_job(uuid,uuid,uuid,jsonb)to service_role;

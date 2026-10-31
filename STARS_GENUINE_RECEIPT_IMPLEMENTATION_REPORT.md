@@ -43,6 +43,10 @@ fixed. New source-bound checkout tests caught a PostgreSQL same-statement
 visibility issue, native offer preapproval compatibility, and evidence-registry
 assembly errors; null/mismatched offers now fail closed and actual source/ACK
 proofs are required. A temporary local SQL diagnostic was not included in code.
+Exact-head CI also caught JSON-null TEST evidence reaching the new nonce-removal
+expression before the accepted TEST validator. TEST now delegates its input
+unchanged, retaining all malformed-result assertions; only validated LIVE evidence
+has its genuine nonce projected away. The failed CI remains recorded.
 One local historical state-engine assertion encountered pre-existing due jobs in
 the copied fixture database; it is not reported as PASS. Its unchanged fresh-CI
 acceptance is required. Existing16KiB financial parser defaults are retained; only the explicit
