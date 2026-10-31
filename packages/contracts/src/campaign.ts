@@ -17,7 +17,7 @@ export const campaignPermissionSchema = z.strictObject({
 });
 export const campaignConfigurationSchema = z.strictObject({
   version: z.literal(1), name: z.string().trim().min(1).max(120),
-  mode: z.enum(["SYNTHETIC", "COMMERCIAL"]), batch_id: z.uuid(), plan_version_id: z.uuid(),
+  mode: z.enum(["SYNTHETIC", "CONTROLLED_TEST", "COMMERCIAL"]), batch_id: z.uuid(), plan_version_id: z.uuid(),
   markets, default_language: z.literal("en"),
   starts_at: z.iso.datetime({ offset: true }), expires_at: z.iso.datetime({ offset: true }),
   maximum_messages: z.number().int().min(1).max(1_000_000),
@@ -41,7 +41,7 @@ export const campaignConfigurationSchema = z.strictObject({
 });
 export type CampaignConfiguration = z.infer<typeof campaignConfigurationSchema>;
 export const campaignSummarySchema = z.strictObject({
-  id: z.uuid(), name: z.string(), state: campaignStateSchema, mode: z.enum(["SYNTHETIC", "COMMERCIAL"]),
+  id: z.uuid(), name: z.string(), state: campaignStateSchema, mode: z.enum(["SYNTHETIC", "CONTROLLED_TEST", "COMMERCIAL"]),
   revision: z.number().int().positive(), configuration: campaignConfigurationSchema,
   blockers: z.array(z.string()).max(30), imported: z.number().int().nonnegative(),
   eligible: z.number().int().nonnegative(), reachable: z.number().int().nonnegative(),
@@ -52,7 +52,13 @@ export const campaignSummarySchema = z.strictObject({
   verified_sales: z.number().int().nonnegative(), active_vip: z.number().int().nonnegative(),
   attempts: z.number().int().nonnegative(), reserved_liability: z.string(),
   revenue: z.null(), actual_cost: z.null(), financial_authority: z.literal("NONE"),
-  live_dispatch_enabled: z.literal(false),
+  live_dispatch_enabled: z.boolean(),
+  runtime: z.strictObject({ state: z.enum(["INDEPENDENT_CONTROL_REQUIRED", "READY_TO_DISPATCH", "HELD"]),
+    provider: z.literal("openai"), model: z.literal("gpt-6.1-sol"), model_calls: z.number().int().nonnegative(),
+    input_tokens: z.number().int().nonnegative().nullable(), output_tokens: z.number().int().nonnegative().nullable(),
+    unknown_billing: z.number().int().nonnegative(), actual_billed_usd: z.string().nullable(),
+    delivery_basis: z.literal("TELEGRAM_API_ACK_NOT_CUSTOMER_READ"),
+  }).optional(),
 });
 export const campaignWorkspaceSchema = z.strictObject({
   items: z.array(campaignSummarySchema).max(25),

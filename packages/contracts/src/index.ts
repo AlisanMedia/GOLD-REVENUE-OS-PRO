@@ -100,3 +100,4 @@ export * from "./polat-experiment-guard";
 export * from "./polat-claude-adapter";
 export * from "./polat-openai-adapter";
 export * from "./polat-experiment-bridge";
+export * from "./polat-campaign-execution";

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { observePrivateBetaOpenAIAccount, privateBetaOpenAIAccountQuery } from "../../scripts/private-beta-release-openai-account.mjs";
+import { observePrivateBetaOpenAIAccount, observeConfiguredOpenAIModel, privateBetaOpenAIAccountQuery } from "../../scripts/private-beta-release-openai-account.mjs";
 import { polatGuardDigest } from "../../packages/domain/src/polat-experiment-journal";
 
 const DATABASE = "https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query", MODEL = "https://api.openai.com/v1/models/gpt-6.1-sol";
@@ -14,6 +14,29 @@ function json(url: string, value: unknown, status = 200) {
 }
 function request() { return vi.fn<typeof fetch>(async (input) => { const url = String(input); return url === DATABASE ? json(url, program()) : json(url, model()); }); }
 afterEach(() => vi.useRealTimers());
+
+describe("protected diagnostic before an account/program has been configured", () => {
+  it("makes one fixed GET with the existing key; no DB, inference, project or spending authority", async () => {
+    const input = env(); delete input.PRIVATE_BETA_PROGRAM_ID; delete input.SUPABASE_ACCESS_TOKEN;
+    delete input.OPENAI_UAT_ORGANIZATION_ID; delete input.OPENAI_UAT_PROJECT_ID;
+    const http = request(), result = await observeConfiguredOpenAIModel({ env: input, request: http });
+    expect(result).toMatchObject({ state: "OBSERVED", provider_status: 200, model_metadata_requests: 1, actual_inference_requests: 0,
+      account_scope_hash: null, effective_experiment_cap: "UNVERIFIED", genuine_execution_authority: "BLOCKED", database_authority_written: false });
+    expect(http).toHaveBeenCalledOnce(); expect(http.mock.calls[0]![0]).toBe(MODEL); expect(http.mock.calls[0]![1]?.method).toBe("GET");
+    expect(JSON.stringify(result)).not.toContain(KEY);
+  });
+  it.each([401,403,404,429,500])("retains HTTP %s with zero retry and no provider-body leakage", async status => {
+    const http = vi.fn<typeof fetch>(async () => json(MODEL, { error: { message: KEY } }, status));
+    const result = await observeConfiguredOpenAIModel({ env: env(), request: http });
+    expect(result).toMatchObject({ state: "BLOCKED", provider_status: status, model_metadata_requests: 1, actual_inference_requests: 0 });
+    expect(http).toHaveBeenCalledOnce(); expect(JSON.stringify(result)).not.toContain(KEY);
+  });
+  it("denies a nonprotected SHA before reading the configured account", async () => {
+    const input = env(); input.GITHUB_SHA = "b".repeat(40); const http = request();
+    expect(await observeConfiguredOpenAIModel({ env: input, request: http })).toMatchObject({ state: "BLOCKED", model_metadata_requests: 0 });
+    expect(http).not.toHaveBeenCalled();
+  });
+});
 
 describe("protected OpenAI account observation, offline HTTP boundaries only", () => {
   it("reads only the exact owned program and one fixed model GET, keeping every genuine gate blocked", async () => {

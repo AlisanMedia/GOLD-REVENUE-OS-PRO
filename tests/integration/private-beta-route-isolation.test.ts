@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ context: vi.fn(), rpc: vi.fn(), admin: vi.fn(), env: vi.fn(), legacySend: vi.fn(), conversation: vi.fn(), dispatch: vi.fn(), recovery: vi.fn(), worker: vi.fn(), success: vi.fn(), surveys: vi.fn(), automatic: vi.fn(), escalation: vi.fn() }));
+const mocks = vi.hoisted(() => ({ context: vi.fn(), rpc: vi.fn(), admin: vi.fn(), env: vi.fn(), legacySend: vi.fn(), conversation: vi.fn(), dispatch: vi.fn(), recovery: vi.fn(), worker: vi.fn(), success: vi.fn(), surveys: vi.fn(), automatic: vi.fn(), escalation: vi.fn(), campaign: vi.fn(), campaignDispatch: vi.fn(), campaignRecovery: vi.fn() }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/auth/context", () => ({ getUserContext: mocks.context }));
 vi.mock("@/lib/admin/permissions", () => import("../../apps/web/src/lib/admin/permissions"));
@@ -8,6 +8,7 @@ vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () =
 vi.mock("@/lib/messaging/server-env", () => ({ createSupabaseAdminClient: mocks.admin, telegramServerEnv: mocks.env }));
 vi.mock("@/lib/messaging/telegram-adapter", () => ({ sendTelegramText: mocks.legacySend }));
 vi.mock("@/lib/polat/private-beta-runtime", () => ({ privateBetaConversation: mocks.conversation, dispatchPrivateBetaMessage: mocks.dispatch, drainPrivateBetaRecovery: mocks.recovery }));
+vi.mock("@/lib/polat/campaign-execution", () => ({ campaignScope: mocks.campaign, dispatchCampaignMessage: mocks.campaignDispatch, drainCampaignRecovery: mocks.campaignRecovery }));
 vi.mock("@/lib/polat/private-beta-isolation", () => import("../../apps/web/src/lib/polat/private-beta-isolation"));
 vi.mock("@/lib/agent-runtime/worker", () => ({ runDeterministicWorker: mocks.worker }));
 vi.mock("@/lib/customer-success/worker", () => ({ drainCustomerSuccess: mocks.success }));
@@ -25,8 +26,29 @@ function request(body: Record<string, unknown> = { content: "Polat Support: I'll
 function scheduled(workload?: string, auth = "Bearer OFFLINE_CRON_FIXTURE") { const url = new URL("https://fixture.invalid/api/internal/agent-worker"); if (workload) url.searchParams.set("workload", workload); return new Request(url, { headers: { authorization: auth } }); }
 beforeEach(() => {
   vi.clearAllMocks(); vi.stubEnv("POLAT_UAT_RELEASE_SHA", "f".repeat(40)); vi.stubEnv("CRON_SECRET", "OFFLINE_CRON_FIXTURE");
+  vi.stubEnv("POLAT_CAMPAIGN_ID", ""); mocks.campaign.mockResolvedValue({ bound: false, campaign_id: null, genuine_executor_accepted: false, reason: "UNBOUND" });
+  mocks.campaignDispatch.mockResolvedValue({ status: "sent", message_id: messageId }); mocks.campaignRecovery.mockResolvedValue({ conversations: 0, tasks_claimed: 0 });
   mocks.context.mockResolvedValue({ user: { id: staffId, email: "private-staff@example.test" }, tenants: [{ id: tenantId, role: "manager" }] });
   mocks.conversation.mockResolvedValue({ program_id: programId }); mocks.rpc.mockResolvedValue({ data: { message_id: messageId, status: "pending", duplicate: false }, error: null }); mocks.dispatch.mockResolvedValue({ status: "sent", message_id: messageId }); mocks.recovery.mockResolvedValue({ conversations: 0, tasks_claimed: 0 });
+});
+
+describe("same Admin interface, authenticated genuine campaign routing (offline)", () => {
+  it("uses server campaign binding and authenticated manual queue, never beta/legacy sending", async () => {
+    mocks.campaign.mockResolvedValue({ bound: true, campaign_id: programId, genuine_executor_accepted: true, reason: "INDEPENDENT_RUNTIME_BOUND" });
+    const result = await manualReply(request(), scope()); expect(result.status).toBe(201);
+    expect(mocks.rpc).toHaveBeenCalledWith("admin_campaign_queue_manual_v1", expect.objectContaining({ target_tenant_id: tenantId, campaign_id_value: programId, target_conversation_id: conversationId }));
+    expect(mocks.campaignDispatch).toHaveBeenCalledWith(tenantId, programId, messageId);
+    expect(mocks.conversation).not.toHaveBeenCalled(); expect(mocks.dispatch).not.toHaveBeenCalled(); expectLegacyUnused();
+  });
+  it("missing genuine control cannot fall back to a test or legacy authority", async () => {
+    mocks.campaign.mockResolvedValue({ bound: true, campaign_id: programId, genuine_executor_accepted: false, reason: "BLOCKED" });
+    expect((await manualReply(request(), scope())).status).toBe(423);
+    expect(mocks.rpc).not.toHaveBeenCalled(); expect(mocks.campaignDispatch).not.toHaveBeenCalled(); expect(mocks.dispatch).not.toHaveBeenCalled(); expectLegacyUnused();
+  });
+  it("an authenticated bounded campaign cron cannot call unrelated legacy workloads", async () => {
+    const result = await cron(scheduled("campaign")); expect(result.status).toBe(200);
+    expect(mocks.campaignRecovery).toHaveBeenCalledTimes(1); expect(mocks.recovery).not.toHaveBeenCalled(); expectLegacyUnused();
+  });
 });
 afterEach(() => { vi.unstubAllEnvs(); });
 function expectLegacyUnused() { for (const mock of [mocks.env, mocks.admin, mocks.legacySend, mocks.worker, mocks.success, mocks.surveys, mocks.automatic, mocks.escalation]) expect(mock).not.toHaveBeenCalled(); }

@@ -12,6 +12,7 @@ on:
           - release_disabled
           - account_preflight
           - openai_account_preflight
+          - openai_model_probe
           - verify_bot
           - discover_business
           - verify_business
@@ -331,7 +332,7 @@ jobs:
 
   openai_account_preflight:
     name: Read-only OpenAI model observation (no inference or authority)
-    if: ${{ inputs.operation == 'openai_account_preflight' && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    if: ${{ (inputs.operation == 'openai_account_preflight' || inputs.operation == 'openai_model_probe') && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: staging
@@ -364,6 +365,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Observe existing OpenAI project/model without inference or cap fabrication
         env:
+          OPENAI_METADATA_ONLY: ${{ inputs.operation == 'openai_model_probe' && 'true' || 'false' }}
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
           OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}

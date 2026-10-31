@@ -5,6 +5,17 @@ Living continuation index, initially reconstructed on **2026-10-16 UTC** and upd
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
 
 
+## 31 Ekim 2026 — genuine campaign integration
+
+[Native campaign runtime](../infra/runbooks/campaign-genuine-runtime.md) extends the
+existing worker/context/Phase7 QA/shared PostgreSQL attempt journal and existing
+Admin START/PAUSE/STOP. Independent account/custody and numeric Business controls
+are unseeded, server-owned and distinct from private-beta grants. Local/CI external
+network doubles are not genuine model, billing, Telegram or founder MFA acceptance.
+Hosted56/56 acceptance40945906844 remains historical accepted evidence; the new
+migration is not automatically applied hosted. Financial NONE and commercial NO_GO
+remain until genuine payment/VIP and external commercial acceptance.
+
 ## 29 Ekim 2026 — tek kurucu kampanya aktivasyonu
 
 Yeni owner scope tarihsel iletişim iznini `OWNER_ATTESTED_EXISTING_PERMISSION`

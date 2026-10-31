@@ -7,6 +7,7 @@ import { sendTelegramText } from "@/lib/messaging/telegram-adapter";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { dispatchPrivateBetaMessage, privateBetaConversation } from "@/lib/polat/private-beta-runtime";
 import { privateBetaIsolationActive } from "@/lib/polat/private-beta-isolation";
+import { campaignScope, dispatchCampaignMessage } from "@/lib/polat/campaign-execution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,20 @@ export async function POST(
   }
 
   const supabase = await createSupabaseServerClient();
+  try {
+    const campaign = await campaignScope(tenant.id, conversationId);
+    if (campaign.bound) {
+      if (!campaign.campaign_id || !campaign.genuine_executor_accepted) return NextResponse.json({ error: "CAMPAIGN_MANUAL_REPLY_HELD" }, { status: 423 });
+      const { data, error } = await supabase.rpc("admin_campaign_queue_manual_v1", { target_tenant_id: tenant.id, campaign_id_value: campaign.campaign_id,
+        target_conversation_id: conversationId, content_value: input.content, idempotency_key_value: idempotencyKey,
+        correlation_id_value: input.correlation_id, reply_to_message_id_value: input.reply_to_message_id ?? null });
+      if (error) return NextResponse.json({ error: "CAMPAIGN_OPERATOR_OR_OWNERSHIP_REQUIRED" }, { status: 423 });
+      const queued = z.strictObject({ message_id: z.uuid(), status: z.string(), duplicate: z.boolean() }).parse(data);
+      if (queued.duplicate) return NextResponse.json(queued);
+      const outcome = await dispatchCampaignMessage(tenant.id, campaign.campaign_id, queued.message_id);
+      return NextResponse.json({ ...outcome, duplicate: false }, { status: outcome.status === "sent" ? 201 : 422 });
+    }
+  } catch { return NextResponse.json({ error: "CAMPAIGN_SCOPE_UNAVAILABLE" }, { status: 503 }); }
   // The authenticated membership determines the tenant. The beta RPC additionally
   // verifies fresh MFA, the named operator, committed takeover and participation.
   if (privateBetaIsolationActive()) {

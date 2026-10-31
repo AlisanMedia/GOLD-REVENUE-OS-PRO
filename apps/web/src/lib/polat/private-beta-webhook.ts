@@ -14,7 +14,7 @@ export function privateBetaSecretMatches(actual: string | null, expected: string
 }
 
 /** Authentication precedes parsing, participant lookup, credential access or paid work. */
-async function authenticatePrivateBetaBody(request: Request, rawConfig: unknown, now: number) {
+async function authenticatePrivateBetaBody(request: Request, rawConfig: unknown, now: number, mode: "PRIVATE_BETA" | "FOUNDER_CAMPAIGN") {
   const config = privateBetaWebhookConfiguration.parse(rawConfig);
   if (!privateBetaSecretMatches(request.headers.get("x-telegram-bot-api-secret-token"), config.webhookSecret)) throw Error("PRIVATE_BETA_WEBHOOK_DENIED");
   const timestamp = request.headers.get("x-polat-uat-timestamp") ?? "";
@@ -36,7 +36,9 @@ async function authenticatePrivateBetaBody(request: Request, rawConfig: unknown,
   } catch { void reader.cancel().catch(() => undefined); throw Error("PRIVATE_BETA_WEBHOOK_INVALID"); }
   finally { reader.releaseLock(); }
   const joined = Buffer.concat(chunks, bytes);
-  const expected = createHmac("sha256", config.relaySecret).update(JSON.stringify(["POLAT_UAT_RELAY1", timestamp, createHash("sha256").update(joined).digest("hex")])).digest("hex");
+  const digest = createHash("sha256").update(joined).digest("hex");
+  const relayBinding = mode === "PRIVATE_BETA" ? ["POLAT_UAT_RELAY1", timestamp, digest] : ["POLAT_CAMPAIGN_RELAY1", config.tenantId, config.programId, config.releaseSha, timestamp, digest];
+  const expected = createHmac("sha256", config.relaySecret).update(JSON.stringify(relayBinding)).digest("hex");
   if (!privateBetaSecretMatches(request.headers.get("x-polat-uat-signature"), expected)) throw Error("PRIVATE_BETA_WEBHOOK_DENIED");
   // Reuse the strict nonfinancial metadata parser: Telegram locations may have
   // decimal coordinates. These values never become financial or model facts.
@@ -63,8 +65,8 @@ function privateBetaText(message: Record<string, unknown>, sourceHash: string) {
 }
 
 /** The relay authenticates transport only. A BUSINESS callback never creates account authority. */
-export async function authenticatePrivateBetaIngress(request: Request, rawConfig: unknown, now = Date.now()) {
-  const { config, raw, sourceHash } = await authenticatePrivateBetaBody(request, rawConfig, now);
+async function authenticateScopedTelegramIngress(request: Request, rawConfig: unknown, now: number, mode: "PRIVATE_BETA" | "FOUNDER_CAMPAIGN") {
+  const { config, raw, sourceHash } = await authenticatePrivateBetaBody(request, rawConfig, now, mode);
   const root = z.object({ update_id: z.number().int().safe() }).passthrough().parse(raw);
   const classes = ["message", "business_connection", "business_message", "edited_business_message", "deleted_business_messages"].filter(key => key in root);
   if (classes.length !== 1) throw Error("PRIVATE_BETA_WEBHOOK_INVALID");
@@ -101,3 +103,7 @@ export async function authenticatePrivateBetaUpdate(request: Request, rawConfig:
   if (verified.kind !== "BOT") throw Error("PRIVATE_BETA_WEBHOOK_INVALID");
   return { config: verified.config, envelope: verified.envelope, unsupported: verified.unsupported };
 }
+
+/** Historical UAT and campaign relay capabilities have different signature domains. */
+export function authenticatePrivateBetaIngress(request: Request, rawConfig: unknown, now = Date.now()) { return authenticateScopedTelegramIngress(request, rawConfig, now, "PRIVATE_BETA"); }
+export function authenticateCampaignIngress(request: Request, rawConfig: unknown, now = Date.now()) { return authenticateScopedTelegramIngress(request, rawConfig, now, "FOUNDER_CAMPAIGN"); }
