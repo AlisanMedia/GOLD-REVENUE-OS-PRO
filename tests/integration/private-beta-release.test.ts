@@ -96,13 +96,14 @@ describe("protected release governance credential boundary (offline HTTP only)",
   });
   it("scopes credential custody to every existing gate step without granting Actions write or adding dispatch triggers", () => {
     const workflow = readFileSync(".github/workflows/private-beta-uat.yml", "utf8");
-    expect(workflow.match(/^          GH_TOKEN: \$\{\{ github.token \}\}$/gmu)).toHaveLength(6);
-    expect(workflow.match(/^          GH_GOVERNANCE_TOKEN: \$\{\{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN \}\}$/gmu)).toHaveLength(6);
-    expect(workflow.match(/STAGING_GITHUB_GOVERNANCE_TOKEN/gu)).toHaveLength(6);
+    // Six existing gate steps plus the separately protected read-only inventory.
+    expect(workflow.match(/^          GH_TOKEN: \$\{\{ github.token \}\}$/gmu)).toHaveLength(7);
+    expect(workflow.match(/^          GH_GOVERNANCE_TOKEN: \$\{\{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN \}\}$/gmu)).toHaveLength(7);
+    expect(workflow.match(/STAGING_GITHUB_GOVERNANCE_TOKEN/gu)).toHaveLength(7);
     expect(workflow).not.toMatch(/(?:contents|checks|actions|administration): write/iu);
     expect(workflow).not.toMatch(/workflow_run:|pull_request_target:|schedule:/u);
     const steps = workflow.split(/^      - /mu).filter(step => step.includes("GH_GOVERNANCE_TOKEN:"));
-    expect(steps).toHaveLength(6);
+    expect(steps).toHaveLength(7);
     for (const step of steps) {
       expect(step).toContain("node scripts/private-beta-release-gate.mjs");
       expect(step).not.toMatch(/pnpm |vercel@|SUPABASE_ACCESS_TOKEN|curl |db push/u);
