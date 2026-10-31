@@ -122,11 +122,11 @@ describe("16D dormant API adapter / injected fake transport only", () => {
     await expect(new AuthorizedTelegramAccessAdapter(config, transport).execute(liveShape)).rejects.toThrow("TELEGRAM_ACCESS_PROVIDER_FAILURE");expect(transport).toHaveBeenCalledOnce();expect(fetch).not.toHaveBeenCalled();
   });
   it("permission loss prevents invite or approval", async () => {
-    const transport = vi.fn().mockResolvedValueOnce(Response.json({ ok: true, result: { type: "channel" } })).mockResolvedValueOnce(Response.json({ ok: true, result: { status: "member" } }));
+    const transport = vi.fn().mockResolvedValueOnce(Response.json({ ok: true, result: { id: -100123, type: "channel" } })).mockResolvedValueOnce(Response.json({ ok: true, result: { status: "member" } }));
     await expect(new AuthorizedTelegramAccessAdapter(config, transport).execute({ ...liveShape, operation: "join" })).rejects.toThrow();expect(transport).toHaveBeenCalledTimes(2);expect(fetch).not.toHaveBeenCalled();
   });
   it("a returned different identity cannot count as membership", async () => {
-    const transport = vi.fn().mockResolvedValueOnce(Response.json({ ok: true, result: { type: "channel" } })).mockResolvedValueOnce(Response.json({ ok: true, result: { status: "administrator", can_invite_users: true, can_restrict_members: true } })).mockResolvedValueOnce(Response.json({ ok: true, result: { status: "member", user: { id: 999 } } }));
+    const transport = vi.fn().mockResolvedValueOnce(Response.json({ ok: true, result: { id: -100123, type: "channel" } })).mockResolvedValueOnce(Response.json({ ok: true, result: { status: "administrator", user: {id: 1}, can_invite_users: true, can_restrict_members: true } })).mockResolvedValueOnce(Response.json({ ok: true, result: { status: "member", user: { id: 999 } } }));
     await expect(new AuthorizedTelegramAccessAdapter(config, transport).execute(liveShape)).rejects.toThrow("TELEGRAM_IDENTITY_MISMATCH");expect(transport).toHaveBeenCalledTimes(3);expect(fetch).not.toHaveBeenCalled();
   });
 });

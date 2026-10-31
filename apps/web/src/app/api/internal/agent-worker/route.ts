@@ -39,9 +39,9 @@ export async function GET(request: Request) {
       const beta = await drainPrivateBetaRecovery();
       if (process.env.POLAT_CAMPAIGN_ID) {
         const { drainCampaignRecovery } = await import("@/lib/polat/campaign-execution");
-        return Response.json({ status: "ok", commerce, private_beta: beta, campaign: await drainCampaignRecovery() });
+        return Response.json({ status: "ok", ...(process.env.POLAT_STARS_MERCHANT_TENANT_ID?{commerce}:{}), private_beta: beta, campaign: await drainCampaignRecovery() });
       }
-      return Response.json({ status: "ok", private_beta: beta,commerce });
+      return Response.json({ status: "ok", private_beta: beta,...(process.env.POLAT_STARS_MERCHANT_TENANT_ID?{commerce}:{}) });
     }
     if (workload && workload !== "customer-success" && workload !== "surveys") return Response.json({ error: "INVALID_WORKLOAD" }, { status: 400 });
     if (workload === "surveys") return Response.json({ status: "ok", surveys: await drainSurveys() });
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       deploymentRef: process.env.VERCEL_GIT_COMMIT_SHA ?? "local",
     });
     await drainAutomaticReplies();
-    return Response.json({ status: "ok", ...result, campaign, commerce, customer_success: await drainCustomerSuccess(), surveys: await drainSurveys() });
+    return Response.json({ status: "ok", ...result, campaign, ...(process.env.POLAT_STARS_MERCHANT_TENANT_ID?{commerce}:{}), customer_success: await drainCustomerSuccess(), surveys: await drainSurveys() });
   } catch {
     return Response.json({ error: "WORKER_EXECUTION_FAILED" }, { status: 500 });
   }
