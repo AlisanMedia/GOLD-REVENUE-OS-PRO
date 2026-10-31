@@ -3,7 +3,8 @@
 alter table private.entitlement_controls add column stars_binding jsonb;
 alter table private.payment_adapter_registry drop constraint payment_adapter_registry_mode_check;
 alter table private.payment_adapter_registry add constraint payment_adapter_registry_mode_check check(mode='test'or mode='live'and id='telegram_stars_live'and channel='telegram_stars');
-insert into private.payment_adapter_registry values('telegram_stars_live','telegram_stars','live','{"XTR":{"network":"TELEGRAM","decimals":0,"confirmations":1}}');
+-- The genuine registry entry is NOT seeded. Reviewed eligible merchant setup
+-- must register it atomically with the existing private financial control.
 alter table public.payment_invoices drop constraint payment_invoices_mode_check,drop constraint payment_invoices_provider_reference_check,drop constraint payment_invoices_payer_reference_check,drop constraint payment_invoices_recipient_check;
 alter table public.payment_invoices add constraint payment_invoice_mode_scope check(
  (mode='test'and provider_reference~'^test:[A-Za-z0-9:_-]+$'and recipient~'^test:'and payer_reference~'^test:')or
@@ -24,7 +25,7 @@ alter table private.verified_payment_receipts add constraint stars_receipt_amoun
 create function private.stars_commerce_guard(t uuid)returns jsonb language plpgsql stable set search_path=pg_catalog as $$
 declare c private.entitlement_controls;b jsonb;begin
  select * into c from private.entitlement_controls where tenant_id=t;b:=c.stars_binding;
- if not private.entitlement_live_allowed(t)or b is null or not private.fse_keys(b,array['version','environment','tenant_id','financial_authority','approval_reference','repository_sha','bot_user_id','credential_sha256','webhook_secret_sha256','owner_user_id','eligibility_evidence_hash','owner_authorization_hash','channel_id','expires_at','allowed_markets'])or not private.fse_strings(b,array['environment','tenant_id','financial_authority','approval_reference','repository_sha','bot_user_id','credential_sha256','webhook_secret_sha256','owner_user_id','eligibility_evidence_hash','owner_authorization_hash','channel_id','expires_at'])or b->'version'is distinct from '1'::jsonb or b->>'environment'is distinct from 'TELEGRAM_PRODUCTION'
+ if not private.entitlement_live_allowed(t)or not exists(select 1 from private.payment_adapter_registry where id='telegram_stars_live'and channel='telegram_stars'and mode='live')or b is null or not private.fse_keys(b,array['version','environment','tenant_id','financial_authority','approval_reference','repository_sha','bot_user_id','credential_sha256','webhook_secret_sha256','owner_user_id','eligibility_evidence_hash','owner_authorization_hash','channel_id','expires_at','allowed_markets'])or not private.fse_strings(b,array['environment','tenant_id','financial_authority','approval_reference','repository_sha','bot_user_id','credential_sha256','webhook_secret_sha256','owner_user_id','eligibility_evidence_hash','owner_authorization_hash','channel_id','expires_at'])or b->'version'is distinct from '1'::jsonb or b->>'environment'is distinct from 'TELEGRAM_PRODUCTION'
  or b->>'tenant_id'is distinct from t::text or b->>'financial_authority'is distinct from 'VERIFIED_STARS_RECEIPT'
  or b->>'approval_reference'is distinct from c.approval_reference or b->>'repository_sha'!~'^[a-f0-9]{40}$'
  or b->>'bot_user_id'!~'^[1-9][0-9]{0,15}$'or b->>'credential_sha256'!~'^[a-f0-9]{64}$'or b->>'webhook_secret_sha256'!~'^[a-f0-9]{64}$'
@@ -40,8 +41,8 @@ create function private.stars_intent(i public.payment_invoices)returns jsonb lan
 create function public.stars_commerce_intent_v1(target_tenant_id uuid,target_invoice_id uuid)returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $$declare i public.payment_invoices;begin
  perform private.stars_commerce_guard(target_tenant_id);select * into i from public.payment_invoices where tenant_id=target_tenant_id and id=target_invoice_id and mode='live'and provider_id='telegram_stars_live';if i.id is null then raise exception 'STARS_INVOICE_UNAVAILABLE'using errcode='42501';end if;return private.stars_intent(i);end;$$;
 
-create function public.stars_commerce_prepare_v1(target_tenant_id uuid,target_offer_id uuid,request_key_value text)returns jsonb language plpgsql security definer set search_path=pg_catalog as $$
-declare b jsonb;o public.commercial_offers;cv public.conversations;mc public.messaging_contacts;i public.payment_invoices;v public.commercial_versions;uid text;begin
+create function public.stars_commerce_prepare_v1(target_tenant_id uuid,target_offer_id uuid,request_key_value text,purchase_source_event_id_value uuid default null)returns jsonb language plpgsql security definer set search_path=pg_catalog as $$
+declare b jsonb;o public.commercial_offers;cv public.conversations;mc public.messaging_contacts;i public.payment_invoices;v public.commercial_versions;uid text;source_message public.messages;source_job private.campaign_jobs;customer_state public.customer_state;intent_event uuid;tr jsonb;begin
  b:=private.stars_commerce_guard(target_tenant_id);
  if not exists(select 1 from private.campaign_audience audience join private.sales_campaigns campaign on campaign.tenant_id=audience.tenant_id and campaign.id=audience.campaign_id join public.commercial_offers offer_row on offer_row.tenant_id=audience.tenant_id and offer_row.customer_id=audience.customer_id where audience.tenant_id=target_tenant_id and offer_row.id=target_offer_id and campaign.state='ACTIVE'and campaign.configuration->>'plan_version_id'=offer_row.plan_version_id::text and b->'allowed_markets'?audience.market and audience.market<>'TR')then raise exception 'STARS_ELIGIBLE_CAMPAIGN_MARKET_REQUIRED'using errcode='42501';end if;
  if exists(select 1 from private.campaign_audience a join private.sales_campaigns c on c.tenant_id=a.tenant_id and c.id=a.campaign_id join public.commercial_offers offer_row on offer_row.tenant_id=a.tenant_id and offer_row.customer_id=a.customer_id where offer_row.tenant_id=target_tenant_id and offer_row.id=target_offer_id and c.state<>'ACTIVE')then raise exception 'STARS_CAMPAIGN_NOT_ACTIVE'using errcode='42501';end if;
@@ -58,8 +59,14 @@ declare b jsonb;o public.commercial_offers;cv public.conversations;mc public.mes
  or mc.id is null or mc.provider_user_id!~'^[1-9][0-9]{0,15}$'or mc.provider_user_id is distinct from mc.provider_chat_id or mc.contactability not in('allowed','user_initiated')
  or not exists(select 1 from public.customer_identities where tenant_id=target_tenant_id and customer_id=o.customer_id and identity_type='telegram_user_id'and normalized_value=mc.provider_user_id)
  or exists(select 1 from private.campaign_suppressions where tenant_id=target_tenant_id and customer_id=o.customer_id)
- or not exists(select 1 from public.customers where tenant_id=target_tenant_id and id=o.customer_id and state in('PAYMENT_PENDING','PAID','ACTIVE','RENEWAL_DUE','RENEWED','EXPIRED'))
+ or not exists(select 1 from public.customers where tenant_id=target_tenant_id and id=o.customer_id and(state in('PAYMENT_PENDING','PAID','ACTIVE','RENEWAL_DUE','RENEWED','EXPIRED')or state='INTERESTED'and purchase_source_event_id_value is not null))
  then raise exception 'STARS_APPROVED_PURCHASE_REQUIRED'using errcode='42501';end if;
+ if purchase_source_event_id_value is not null then
+  select m.* into source_message from public.domain_events e join public.messages m on m.tenant_id=e.tenant_id and m.id::text=e.payload->>'message_id'where e.tenant_id=target_tenant_id and e.id=purchase_source_event_id_value and e.event_type='message.received'and m.customer_id=o.customer_id and m.conversation_id=o.conversation_id and m.direction='inbound'and lower(btrim(m.content))in('/buy','/subscribe');
+  select cj.* into source_job from private.campaign_jobs cj join public.agent_tasks atask on atask.tenant_id=cj.tenant_id and atask.id=cj.agent_task_id where cj.tenant_id=target_tenant_id and cj.conversation_id=o.conversation_id and cj.source_message_id=source_message.id and atask.source_event_id=purchase_source_event_id_value and atask.status='RUNNING'limit 1;
+  if source_message.id is null or source_job.job_id is null then raise exception 'STARS_EXPLICIT_PURCHASE_SOURCE_REQUIRED'using errcode='42501';end if;
+  perform private.campaign_native_source(target_tenant_id,source_job.campaign_id,source_job.job_id);
+ end if;
  perform pg_advisory_xact_lock(hashtextextended('STARS_ORDER:'||target_tenant_id::text||':'||request_key_value,0));
  select * into i from public.payment_invoices where tenant_id=target_tenant_id and(idempotency_key='stars:'||request_key_value or offer_id=o.id and mode='live')order by created_at limit 1;
  if i.id is not null then if i.offer_id<>o.id or i.mode<>'live'then raise exception 'STARS_ORDER_CONFLICT'using errcode='23505';end if;return private.stars_intent(i);end if;
@@ -67,6 +74,12 @@ declare b jsonb;o public.commercial_offers;cv public.conversations;mc public.mes
  insert into public.payment_invoices(id,tenant_id,customer_id,offer_id,provider_id,provider_reference,channel,surface,mode,amount_units,decimals,asset,network,recipient,payer_reference,min_confirmations,quote_snapshot,idempotency_key,expires_at,created_by)
  values(i.id,target_tenant_id,o.customer_id,o.id,'telegram_stars_live','stars-live:'||i.id::text,'telegram_stars','telegram_bot','live',o.amount,0,'XTR','TELEGRAM',b->>'bot_user_id',mc.provider_user_id,1,
  jsonb_build_object('origin','TELEGRAM_PRODUCTION','title',v.payload->>'title','description',v.payload->>'terms','offer_snapshot',o.snapshot,'amount_basis','GROSS_XTR_NOT_USD_OR_PAYOUT'),'stars:'||request_key_value,least(o.expires_at,clock_timestamp()+interval '1 hour'),(b->>'owner_user_id')::uuid)returning * into i;
+ select state into customer_state from public.customers where tenant_id=target_tenant_id and id=o.customer_id for update;
+ if customer_state='INTERESTED'then
+  intent_event:=private.append_domain_event(target_tenant_id,o.customer_id,'payment.intent_created',1,jsonb_build_object('payment_id',i.id,'amount',o.amount::text,'asset','XTR','network','TELEGRAM','source_event_id',purchase_source_event_id_value),'SYSTEM',null,'stars_commerce','TRUSTED',extensions.gen_random_uuid(),purchase_source_event_id_value,'stars-intent:'||i.id::text,clock_timestamp());
+  tr:=public.transition_customer_state(target_tenant_id,o.customer_id,'INTERESTED','PAYMENT_PENDING','customer_requested_stars_checkout','SYSTEM',null,extensions.gen_random_uuid(),intent_event,'payment.intent_created',intent_event,'stars-intent:'||i.id::text,clock_timestamp());
+  if tr->>'accepted'is distinct from 'true'then raise exception 'STARS_PURCHASE_LIFECYCLE_DENIED'using errcode='42501';end if;
+ end if;
  insert into public.audit_logs(tenant_id,actor_type,action,entity_type,entity_id,after_data)values(target_tenant_id,'SYSTEM','payment.stars_intent_prepared','payment_invoices',i.id::text,jsonb_build_object('offer_id',o.id,'currency','XTR','receipt_created',false));
  return private.stars_intent(i);end;$$;
 
@@ -75,14 +88,14 @@ declare b jsonb;o public.commercial_offers;cv public.conversations;mc public.mes
 create function public.stars_commerce_reserve_v1(target_tenant_id uuid,target_invoice_id uuid,operation_value text,request_key_value text,request_hash_value text,nonce_value uuid)returns jsonb language plpgsql security definer set search_path=pg_catalog as $$
 declare b jsonb;i public.payment_invoices;old public.payment_observations;oid uuid:=extensions.gen_random_uuid();key_value text;begin
  b:=private.stars_commerce_guard(target_tenant_id);select * into i from public.payment_invoices where tenant_id=target_tenant_id and id=target_invoice_id and mode='live'and recipient=b->>'bot_user_id'for update;
- if i.id is null or operation_value not in('getMe','createInvoiceLink','answerPreCheckoutQuery','getStarTransactions','refundStarPayment')or nonce_value is null or request_key_value!~'^[A-Za-z0-9:_-]{1,100}$'or request_hash_value!~'^[a-f0-9]{64}$'
+ if i.id is null or operation_value not in('getMe','createInvoiceLink','answerPreCheckoutQuery','getStarTransactions','refundStarPayment','sendMessage')or nonce_value is null or request_key_value!~'^[A-Za-z0-9:_-]{1,100}$'or request_hash_value!~'^[a-f0-9]{64}$'
  then raise exception 'STARS_DISPATCH_DENIED'using errcode='42501';end if;
  key_value:='stars:attempt:'||private.fse_hash(i.id::text||':'||operation_value||':'||request_key_value);
  select * into old from public.payment_observations where provider_id='telegram_stars_live'and event_id=key_value;
  if old.id is not null then return jsonb_build_object('dispatch',false,'attempt_id',old.id);end if;
  if operation_value in('createInvoiceLink','answerPreCheckoutQuery')and(i.status not in('CREATED','PENDING')or i.expires_at<=clock_timestamp())then raise exception 'STARS_INTENT_CLOSED'using errcode='42501';end if;
  if operation_value='answerPreCheckoutQuery'and exists(select 1 from public.payment_observations where tenant_id=target_tenant_id and invoice_id=i.id and proposed_state='DISPATCH_STARTED'and provider_evidence->>'operation'=operation_value)then raise exception 'STARS_PRECHECKOUT_ALREADY_ACCOUNTED'using errcode='42501';end if;
- if operation_value='refundStarPayment'and i.status<>'CONFIRMED'then raise exception 'STARS_ORIGINAL_RECEIPT_REQUIRED'using errcode='42501';end if;
+ if operation_value in('refundStarPayment','sendMessage')and i.status<>'CONFIRMED'then raise exception 'STARS_ORIGINAL_RECEIPT_REQUIRED'using errcode='42501';end if;
  if operation_value in('createInvoiceLink','answerPreCheckoutQuery','refundStarPayment')and exists(select 1 from public.payment_observations x where x.tenant_id=target_tenant_id and x.invoice_id=i.id and x.proposed_state='DISPATCH_STARTED'and x.provider_evidence->>'operation'=operation_value and not exists(select 1 from public.payment_observations y where y.tenant_id=x.tenant_id and y.provider_evidence->>'attempt_id'=x.id::text and y.proposed_state='PROVIDER_RESULT'and y.resulting_state='ACKNOWLEDGED'))then raise exception 'STARS_UNKNOWN_EFFECT_RECONCILE_REQUIRED'using errcode='42501';end if;
  insert into public.payment_observations(id,tenant_id,invoice_id,provider_id,event_id,raw_body_hash,method,proposed_state,resulting_state,reason,mode,provider_evidence)
  values(oid,target_tenant_id,i.id,'telegram_stars_live',key_value,request_hash_value,'reconcile','DISPATCH_STARTED','PENDING','ONE_ACCOUNTABLE_ATTEMPT','live',jsonb_build_object('operation',operation_value,'nonce',nonce_value,'request_hash',request_hash_value,'repository_sha',b->>'repository_sha','bot_user_id',b->>'bot_user_id'));
@@ -323,3 +336,129 @@ create function public.stars_commerce_replay_state_v1(target_tenant_id uuid,targ
  where cb.tenant_id=target_tenant_id and cb.invoice_id=target_invoice_id and cb.raw_body_hash=raw_hash_value and cb.proposed_state='AUTHENTICATED_CALLBACK'limit 1;return result;end;$$;
 revoke all on function public.stars_commerce_replay_state_v1(uuid,uuid,text)from public,anon,authenticated,service_role;
 grant execute on function public.stars_commerce_replay_state_v1(uuid,uuid,text)to service_role;
+
+-- Source-bound checkout uses the existing state graph, native QA/ACK, catalogue,
+-- invoice and event ledgers. It never invents offer delivery or collected revenue.
+create function public.campaign_prepare_purchase_v1(target_tenant_id uuid,campaign_id_value uuid,job_id_value uuid,source_event_id_value uuid)returns jsonb language plpgsql security definer set search_path=pg_catalog as $$
+declare job private.campaign_jobs;control private.campaign_execution_controls;campaign private.sales_campaigns;offer public.commercial_offers;ack public.messages;st public.customer_state;step record;ev uuid;tr jsonb;prepared_offer_id uuid;begin
+ perform 1 from private.sales_campaigns where tenant_id=target_tenant_id and id=campaign_id_value for update;
+ control:=private.campaign_execution_guard(target_tenant_id,campaign_id_value);
+ if control.scope<>'COMMERCIAL'then raise exception 'STARS_COMMERCIAL_AUTHORITY_REQUIRED'using errcode='42501';end if;
+ perform private.stars_commerce_guard(target_tenant_id);
+ job:=private.campaign_native_source(target_tenant_id,campaign_id_value,job_id_value);
+ select * into campaign from private.sales_campaigns where tenant_id=target_tenant_id and id=campaign_id_value;
+ if exists(select 1 from private.campaign_jobs prior join public.scheduled_jobs q on q.id=prior.job_id where prior.tenant_id=target_tenant_id and prior.campaign_id=campaign_id_value and prior.source_message_id=job.source_message_id and prior.job_id<>job.job_id and q.status='completed')or not exists(select 1 from public.domain_events e join public.messages m on m.tenant_id=e.tenant_id and m.id::text=e.payload->>'message_id'where e.tenant_id=target_tenant_id and e.id=source_event_id_value and e.event_type='message.received'and m.id=job.source_message_id and lower(btrim(m.content))in('/buy','/subscribe'))then raise exception 'STARS_EXPLICIT_PURCHASE_SOURCE_REQUIRED'using errcode='42501';end if;
+ perform 1 from public.conversations where tenant_id=target_tenant_id and id=job.conversation_id for update;
+ -- An acknowledged native response must actually cite this immutable plan price.
+ -- API acknowledgement proves provider acceptance, never that the customer read it.
+ select m.* into ack from public.agent_proposals p join public.agent_tasks t on t.tenant_id=p.tenant_id and t.id=p.task_id join private.campaign_jobs cj on cj.tenant_id=t.tenant_id and cj.agent_task_id=t.id join public.messages m on m.tenant_id=p.tenant_id and m.id=p.sent_message_id join public.conversation_quality_evaluations qa on qa.tenant_id=p.tenant_id and qa.run_id=p.run_id
+ where p.tenant_id=target_tenant_id and cj.campaign_id=campaign_id_value and cj.conversation_id=job.conversation_id and m.status='sent'and m.provider_message_id is not null and m.actor_id like 'campaign-ai:%'and p.approval_status='approved'and not p.customer_facing_blocked and qa.qa_action='approve'and not qa.customer_facing_blocked and m.content=p.original_payload->>'proposed_response'and exists(select 1 from jsonb_array_elements(p.original_payload->'claims')cl where cl->'evidence_refs'?((campaign.configuration->>'plan_version_id')||':fact:1'))order by m.created_at desc limit 1;
+ if ack.id is null then return jsonb_build_object('offer_id',null);end if;
+ select o.* into offer from public.commercial_offers o join public.payment_invoices i on i.tenant_id=o.tenant_id and i.offer_id=o.id where o.tenant_id=target_tenant_id and o.customer_id=job.customer_id and o.conversation_id=job.conversation_id and o.plan_version_id=(campaign.configuration->>'plan_version_id')::uuid and o.status='approved'and o.expires_at>clock_timestamp()and i.provider_id='telegram_stars_live'and i.mode='live'and i.status in('CREATED','PENDING')and i.expires_at>clock_timestamp()order by i.created_at limit 1;
+ -- A verified current inbound is genuinely user-initiated; this is not a consent event.
+ update public.messaging_contacts set contactability='user_initiated'where tenant_id=target_tenant_id and id=(select messaging_contact_id from public.conversations where tenant_id=target_tenant_id and id=job.conversation_id)and customer_id=job.customer_id and contactability='allowed';
+ if found then perform private.campaign_audit(target_tenant_id,campaign_id_value,'inbound_contact_classified',jsonb_build_object('source_event_id',source_event_id_value,'classification','USER_INITIATED','individual_consent_created',false));end if;
+ if offer.id is null then prepared_offer_id:=private.prepare_commercial_offer(target_tenant_id,source_event_id_value,(campaign.configuration->>'plan_version_id')::uuid,0);select * into offer from public.commercial_offers where tenant_id=target_tenant_id and id=prepared_offer_id;end if;
+ -- The legacy standalone trigger may see this running native source as a
+ -- delivery conflict. Native source ownership was independently verified above;
+ -- approve only this exact source/configured immutable price, never a rejection.
+ if offer.status='draft'and offer.source_event_id=source_event_id_value and offer.customer_id=job.customer_id and offer.conversation_id=job.conversation_id and offer.plan_version_id=(campaign.configuration->>'plan_version_id')::uuid and offer.discount_bps=0 and offer.currency='XTR'and offer.expires_at>clock_timestamp()and exists(select 1 from public.commercial_versions v where v.tenant_id=target_tenant_id and v.id=offer.plan_version_id and v.status='published'and offer.snapshot#>'{plan,payload}'=v.payload and offer.amount=(v.payload->>'amount')::numeric and v.payload->>'currency'='XTR')then
+  update public.commercial_offers set status='approved',reviewer=null,reviewed_at=clock_timestamp()where tenant_id=target_tenant_id and id=offer.id and status='draft'returning * into offer;
+  perform private.campaign_audit(target_tenant_id,campaign_id_value,'offer_source_preapproved',jsonb_build_object('offer_id',offer.id,'source_event_id',source_event_id_value,'job_id',job_id_value,'activation_revision',campaign.revision,'human_per_offer_review',false,'payment_verified',false));
+ end if;
+ if offer.id is null or offer.status is distinct from 'approved'then raise exception 'STARS_CAMPAIGN_OFFER_NOT_APPROVED'using errcode='42501';end if;
+ select state into st from public.customers where tenant_id=target_tenant_id and id=job.customer_id for update;
+ for step in select * from(values('NEW','CONTACT_READY',null::text),('CONTACT_READY','CONTACTED',null),('CONTACTED','REPLIED',null),('REPLIED','QUALIFIED','qualification.completed'),('QUALIFIED','OFFER_SENT','offer.created'),('OFFER_SENT','INTERESTED','offer.accepted'))v(a,b,e)loop
+  if st::text=step.a then
+   ev:=source_event_id_value;
+   if step.e is not null then ev:=private.append_domain_event(target_tenant_id,job.customer_id,step.e,1,case when step.e='qualification.completed'then jsonb_build_object('qualification_id',offer.id,'approved_offer_id',offer.id,'source_event_id',source_event_id_value)else jsonb_build_object('offer_id',offer.id,'source_event_id',source_event_id_value,'provider_ack_message_id',ack.id)end,'SYSTEM',null,'campaign_checkout','TRUSTED',extensions.gen_random_uuid(),source_event_id_value,'campaign-checkout:'||job_id_value::text||':'||step.b,clock_timestamp());end if;
+   tr:=public.transition_customer_state(target_tenant_id,job.customer_id,st,step.b::public.customer_state,'source_bound_purchase_and_price_ack','SYSTEM',null,extensions.gen_random_uuid(),ev,coalesce(step.e,'message.received'),ev,'campaign-checkout:'||job_id_value::text||':'||step.b,clock_timestamp());
+   if tr->>'accepted'is distinct from 'true'then raise exception 'STARS_PURCHASE_LIFECYCLE_DENIED'using errcode='42501';end if;st:=step.b::public.customer_state;
+  end if;
+ end loop;
+ if st not in('INTERESTED','PAYMENT_PENDING','PAID','ACTIVE','RENEWAL_DUE','RENEWED','EXPIRED')then raise exception 'STARS_PURCHASE_LIFECYCLE_REVIEW'using errcode='42501';end if;
+ return jsonb_build_object('offer_id',offer.id);
+end;$$;
+create function public.stars_commerce_checkout_evidence_v1(target_tenant_id uuid,target_invoice_id uuid)returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $$
+declare b jsonb;url text;observed timestamptz;i public.payment_invoices;begin
+ b:=private.stars_commerce_guard(target_tenant_id);
+ select * into i from public.payment_invoices where tenant_id=target_tenant_id and id=target_invoice_id and provider_id='telegram_stars_live'and mode='live'and recipient=b->>'bot_user_id';
+ if i.id is null then raise exception 'STARS_INTENT_SCOPE_DENIED'using errcode='42501';end if;
+ if i.status='REVIEW'then return jsonb_build_object('state','UNKNOWN','checkout_url',null,'observed_at',null);end if;
+ if i.status not in('CREATED','PENDING')or i.expires_at<=clock_timestamp()then return jsonb_build_object('state','CLOSED','checkout_url',null,'observed_at',null);end if;
+ select r.provider_evidence#>>'{result,checkout_url}',r.created_at into url,observed from public.payment_observations a join public.payment_observations r on r.tenant_id=a.tenant_id and r.provider_evidence->>'attempt_id'=a.id::text where a.tenant_id=target_tenant_id and a.invoice_id=target_invoice_id and a.proposed_state='DISPATCH_STARTED'and a.provider_evidence->>'operation'='createInvoiceLink'and r.proposed_state='PROVIDER_RESULT'and r.resulting_state='ACKNOWLEDGED'order by r.created_at desc limit 1;
+ if url is not null and url!~'^https://t\.me/\$[A-Za-z0-9_-]{1,200}$'then raise exception 'STARS_CHECKOUT_EVIDENCE_INVALID'using errcode='42501';end if;
+ return jsonb_build_object('state','READY','checkout_url',url,'observed_at',observed);end;$$;
+revoke all on function public.campaign_prepare_purchase_v1(uuid,uuid,uuid,uuid),public.stars_commerce_checkout_evidence_v1(uuid,uuid)from public,anon,authenticated;
+grant execute on function public.campaign_prepare_purchase_v1(uuid,uuid,uuid,uuid),public.stars_commerce_checkout_evidence_v1(uuid,uuid)to service_role;
+
+-- Recheck the committed reservation immediately before the fixed HTTP boundary.
+-- STOP/suppression/ownership fences new checkout and pre-checkout effects; reads,
+-- receipt reconciliation and refunds remain available for already owed duties.
+create function public.stars_commerce_authorize_attempt_v1(target_tenant_id uuid,target_invoice_id uuid,attempt_id_value uuid,nonce_value uuid)returns boolean language plpgsql stable security definer set search_path=pg_catalog as $$
+declare b jsonb;a public.payment_observations;i public.payment_invoices;begin
+ b:=private.stars_commerce_guard(target_tenant_id);
+ select * into i from public.payment_invoices where tenant_id=target_tenant_id and id=target_invoice_id and mode='live'and provider_id='telegram_stars_live'and recipient=b->>'bot_user_id';
+ select * into a from public.payment_observations where tenant_id=target_tenant_id and invoice_id=i.id and id=attempt_id_value and proposed_state='DISPATCH_STARTED'and provider_evidence->>'nonce'=nonce_value::text and provider_evidence->>'repository_sha'=b->>'repository_sha';
+ if i.id is null or a.id is null or exists(select 1 from public.payment_observations where tenant_id=target_tenant_id and provider_evidence->>'attempt_id'=a.id::text and proposed_state='PROVIDER_RESULT')then return false;end if;
+ if a.provider_evidence->>'operation'in('createInvoiceLink','answerPreCheckoutQuery')then
+  return i.status in('CREATED','PENDING')and i.expires_at>clock_timestamp()
+   and not exists(select 1 from private.campaign_suppressions where tenant_id=target_tenant_id and customer_id=i.customer_id)
+   and exists(select 1 from public.tenants where id=target_tenant_id and status='active'and outbound_messaging_enabled)
+   and exists(select 1 from public.commercial_offers o join public.conversations cv on cv.tenant_id=o.tenant_id and cv.id=o.conversation_id join private.campaign_audience audience on audience.tenant_id=o.tenant_id and audience.customer_id=o.customer_id join private.sales_campaigns c on c.tenant_id=audience.tenant_id and c.id=audience.campaign_id where o.tenant_id=target_tenant_id and o.id=i.offer_id and c.state='ACTIVE'and c.configuration->>'plan_version_id'=o.plan_version_id::text and b->'allowed_markets'?audience.market and cv.runtime_mode='AI_ACTIVE'and not cv.human_takeover and cv.status='open');
+ end if;
+ if a.provider_evidence->>'operation'='sendMessage'then return i.status='CONFIRMED'and public.stars_commerce_access_v1(target_tenant_id,i.payer_reference)is not null;end if;
+ return a.provider_evidence->>'operation'in('getMe','getStarTransactions','refundStarPayment');
+end;$$;
+revoke all on function public.stars_commerce_authorize_attempt_v1(uuid,uuid,uuid,uuid)from public,anon,authenticated;
+grant execute on function public.stars_commerce_authorize_attempt_v1(uuid,uuid,uuid,uuid)to service_role;
+
+create function private.campaign_checkout_facts(t uuid,rid uuid)returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $$
+declare r public.agent_runs;task public.agent_tasks;facts jsonb;ids jsonb;begin
+ select * into strict r from public.agent_runs where tenant_id=t and id=rid;select * into strict task from public.agent_tasks where tenant_id=t and id=r.task_id;
+ ids:=coalesce(r.context_manifest->'checkout_evidence_ids','[]');
+ if jsonb_typeof(ids)<>'array'or jsonb_array_length(ids)>1 then raise exception 'STARS_CHECKOUT_REGISTRY_INVALID'using errcode='22023';end if;
+ if ids='[]'::jsonb then return '[]'::jsonb;end if;
+ if r.context_manifest->>'source_context_boundary'is distinct from r.context_manifest->>'context_boundary_timestamp'or (r.context_manifest->>'backend_observation_boundary')::timestamptz>r.started_at then raise exception 'STARS_CHECKOUT_BOUNDARY_INVALID'using errcode='22023';end if;
+ select coalesce(jsonb_agg(jsonb_build_object('id','stars:checkout:'||i.id::text)),'[]')into facts from public.payment_invoices i join public.commercial_offers o on o.tenant_id=i.tenant_id and o.id=i.offer_id where i.tenant_id=t and i.customer_id=task.customer_id and o.conversation_id=task.conversation_id and i.provider_id='telegram_stars_live'and i.mode='live'and ids?('stars:checkout:'||i.id::text)and exists(select 1 from public.payment_observations a join public.payment_observations result on result.tenant_id=a.tenant_id and result.provider_evidence->>'attempt_id'=a.id::text where a.tenant_id=t and a.invoice_id=i.id and a.proposed_state='DISPATCH_STARTED'and a.provider_evidence->>'operation'='createInvoiceLink'and result.proposed_state='PROVIDER_RESULT'and result.resulting_state='ACKNOWLEDGED'and result.created_at<=(r.context_manifest->>'backend_observation_boundary')::timestamptz and result.created_at<=r.started_at and result.provider_evidence#>>'{result,checkout_url}'~'^https://t\.me/\$[A-Za-z0-9_-]{1,200}$');
+ if ids is distinct from(select coalesce(jsonb_agg(x->'id'),'[]')from jsonb_array_elements(facts)x)then raise exception 'STARS_CHECKOUT_REGISTRY_MISMATCH'using errcode='22023';end if;
+ return facts;end;$$;
+revoke all on function private.campaign_checkout_facts(uuid,uuid)from public,anon,authenticated,service_role;
+create or replace function private.campaign_native_registry(t uuid,rid uuid)returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $$
+declare r public.agent_runs;q public.agent_tasks;a private.campaign_model_attempts;x private.campaign_jobs;expected jsonb;facts jsonb;begin
+ select * into strict r from public.agent_runs where tenant_id=t and id=rid;select * into strict q from public.agent_tasks where tenant_id=t and id=r.task_id;
+ select * into a from private.campaign_model_attempts where tenant_id=t and native_run_id=rid;
+ select * into x from private.campaign_jobs where tenant_id=t and job_id=a.job_id;
+ if a.attempt_id is null or q.id is distinct from x.agent_task_id or r.context_manifest->>'campaign_profile'is distinct from 'polat-campaign-v1'
+ or r.context_manifest->>'campaign_id'is distinct from a.campaign_id::text or r.context_manifest->>'campaign_job_id'is distinct from a.job_id::text
+ or r.context_manifest->>'campaign_revision'is distinct from a.revision::text or r.context_manifest->>'source_message_id'is distinct from x.source_message_id::text
+ or r.model_provider<>'openai'or r.model_name<>'gpt-6.1-sol'or jsonb_array_length(r.context_manifest->'included_message_ids')not between 1 and 25
+ then raise exception 'EVIDENCE_REGISTRY_NOT_AUTHORITATIVE'using errcode='22023';end if;
+ select coalesce(jsonb_agg(jsonb_build_object('handle',case when ids.value=x.source_message_id::text then 'EVIDENCE_CURRENT_MESSAGE'else 'EVIDENCE_MESSAGE_'||ids.ordinality::text end,'messageId',m.id,'direction',m.direction)order by ids.ordinality),'[]')into expected
+ from jsonb_array_elements_text(r.context_manifest->'included_message_ids')with ordinality ids(value,ordinality)join public.messages m on m.tenant_id=t and m.conversation_id=q.conversation_id and m.id::text=ids.value and m.created_at<=(r.context_manifest->>'context_boundary_timestamp')::timestamptz and(m.direction='inbound'or(m.direction='outbound'and m.status='sent'));
+ if jsonb_array_length(expected)<>jsonb_array_length(r.context_manifest->'included_message_ids')then raise exception 'EVIDENCE_REGISTRY_NOT_AUTHORITATIVE'using errcode='22023';end if;
+ facts:=jsonb_build_array(jsonb_build_object('id','polat:campaign:identity:v1'),jsonb_build_object('id','polat:campaign:identity:denial:v1'))||private.quality_commercial_facts(t,rid)||private.campaign_receipt_facts(t,rid)||private.campaign_checkout_facts(t,rid);
+ expected:=expected||(select jsonb_agg(jsonb_build_object('handle','EVIDENCE_COMMERCIAL_'||f.ordinality::text,'messageId',f.value->>'id','direction','system')order by f.ordinality)from jsonb_array_elements(facts)with ordinality f(value,ordinality));return expected;
+end;$$;
+
+-- Transactional /vip is initiated by the numeric payer through the merchant bot.
+-- It sends only a current receipt-backed invitation; no marketing or AI authority.
+create function public.stars_commerce_access_v1(target_tenant_id uuid,user_id_value text)returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $$
+declare b jsonb;i public.payment_invoices;a public.channel_access;iid uuid;aid uuid;begin
+ b:=private.stars_commerce_guard(target_tenant_id);
+ if user_id_value!~'^[1-9][0-9]{0,15}$'then return null;end if;
+ select inv.id,access_row.id into iid,aid from public.payment_invoices inv join private.verified_payment_receipts receipt on receipt.tenant_id=inv.tenant_id and receipt.invoice_id=inv.id and receipt.provider_id='telegram_stars_live'and receipt.signature_verified and receipt.independent_verified join public.subscription_payments payment on payment.tenant_id=receipt.tenant_id and payment.receipt_id=receipt.id join public.subscriptions sub on sub.tenant_id=payment.tenant_id and sub.id=payment.subscription_id join public.channel_access access_row on access_row.tenant_id=sub.tenant_id and access_row.subscription_id=sub.id join public.telegram_entitlement_bindings binding on binding.tenant_id=access_row.tenant_id and binding.id=access_row.binding_id join public.vip_channels channel on channel.tenant_id=access_row.tenant_id and channel.id=access_row.channel_id
+ where inv.tenant_id=target_tenant_id and inv.provider_id='telegram_stars_live'and inv.mode='live'and inv.status='CONFIRMED'and inv.payer_reference=user_id_value and inv.recipient=b->>'bot_user_id'and receipt.customer_id=inv.customer_id and receipt.offer_id=inv.offer_id and sub.mode='live'and sub.state in('ACTIVE','RENEWAL_DUE')and sub.grace_until>clock_timestamp()and binding.telegram_user_id=user_id_value and binding.mode='live'and channel.chat_id=b->>'channel_id'and channel.mode='live'and channel.enabled and channel.private_verified and access_row.mode='live'and access_row.status='INVITED'and access_row.invite_expires_at>clock_timestamp()and access_row.invite_reference~'^https://t\.me/\+[A-Za-z0-9_-]{1,200}$'order by inv.created_at desc limit 1;
+ if iid is null then return null;end if;
+ select * into strict i from public.payment_invoices where tenant_id=target_tenant_id and id=iid;select * into strict a from public.channel_access where tenant_id=target_tenant_id and id=aid;
+ return jsonb_build_object('intent',private.stars_intent(i),'message','Your verified subscription has a personal VIP join link: '||a.invite_reference||' Request to join using the same Telegram account; membership is not confirmed until the channel check.');end;$$;
+create function public.stars_commerce_access_result_v1(target_tenant_id uuid,target_invoice_id uuid,request_key_value text)returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $$
+declare b jsonb;a public.payment_observations;r public.payment_observations;begin
+ b:=private.stars_commerce_guard(target_tenant_id);
+ if request_key_value!~'^access:[0-9]{1,16}$'or not exists(select 1 from public.payment_invoices where tenant_id=target_tenant_id and id=target_invoice_id and provider_id='telegram_stars_live'and mode='live'and recipient=b->>'bot_user_id')then raise exception 'STARS_ACCESS_SCOPE_INVALID'using errcode='42501';end if;
+ select * into a from public.payment_observations where tenant_id=target_tenant_id and invoice_id=target_invoice_id and event_id='stars:attempt:'||private.fse_hash(target_invoice_id::text||':sendMessage:'||request_key_value);
+ if a.id is null then return null;end if;
+ select * into r from public.payment_observations where tenant_id=target_tenant_id and provider_evidence->>'attempt_id'=a.id::text and proposed_state='PROVIDER_RESULT';
+ return jsonb_build_object('state',case when r.resulting_state='ACKNOWLEDGED'then 'ACKNOWLEDGED'else 'UNKNOWN'end,'provider_message_id',case when r.resulting_state='ACKNOWLEDGED'then r.provider_evidence#>>'{result,provider_message_id}'end);end;$$;
+revoke all on function public.stars_commerce_access_v1(uuid,text),public.stars_commerce_access_result_v1(uuid,uuid,text)from public,anon,authenticated;
+grant execute on function public.stars_commerce_access_v1(uuid,text),public.stars_commerce_access_result_v1(uuid,uuid,text)to service_role;

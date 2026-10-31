@@ -199,6 +199,14 @@ jobs:
           POLAT_UAT_STARS_RELAY_SECRET: ${{ secrets.POLAT_UAT_STARS_RELAY_SECRET }}
           POLAT_UAT_TENANT_ID: ${{ vars.POLAT_UAT_TENANT_ID }}
           POLAT_UAT_PROGRAM_ID: ${{ vars.POLAT_UAT_PROGRAM_ID }}
+          POLAT_CAMPAIGN_TENANT_ID: ${{ vars.POLAT_CAMPAIGN_TENANT_ID }}
+          POLAT_CAMPAIGN_ID: ${{ vars.POLAT_CAMPAIGN_ID }}
+          POLAT_CAMPAIGN_WEBHOOK_SECRET: ${{ secrets.POLAT_CAMPAIGN_WEBHOOK_SECRET }}
+          POLAT_CAMPAIGN_RELAY_SECRET: ${{ secrets.POLAT_CAMPAIGN_RELAY_SECRET }}
+          POLAT_STARS_MERCHANT_TENANT_ID: ${{ vars.POLAT_STARS_MERCHANT_TENANT_ID }}
+          POLAT_STARS_MERCHANT_BOT_TOKEN: ${{ secrets.POLAT_STARS_MERCHANT_BOT_TOKEN }}
+          POLAT_STARS_MERCHANT_WEBHOOK_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_WEBHOOK_SECRET }}
+          POLAT_STARS_MERCHANT_RELAY_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_RELAY_SECRET }}
         run: node scripts/private-beta-release-vercel.mjs runtime-env
       - name: Reverify protected main before publication
         env:

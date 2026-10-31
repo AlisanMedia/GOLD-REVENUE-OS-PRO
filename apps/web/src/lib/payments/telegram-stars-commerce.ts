@@ -11,7 +11,7 @@ const bindingSchema = z.strictObject({ version: z.literal(1), environment: z.lit
   financial_authority: z.literal("VERIFIED_STARS_RECEIPT"), approval_reference: z.string().min(1).max(200), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u),
   bot_user_id: numeric, credential_sha256: hash, webhook_secret_sha256: hash, owner_user_id: z.uuid(), eligibility_evidence_hash: hash,
   owner_authorization_hash: hash, channel_id: z.string().regex(/^-100[0-9]{1,13}$/u), expires_at: z.iso.datetime({ offset: true }),allowed_markets:z.array(z.string().regex(/^[A-Z]{2}$/u).refine(v=>v!=="TR")).min(1).max(250) });
-const methodSchema = z.enum(["getMe", "createInvoiceLink", "answerPreCheckoutQuery", "getStarTransactions", "refundStarPayment"]);
+const methodSchema = z.enum(["getMe", "createInvoiceLink", "answerPreCheckoutQuery", "getStarTransactions", "refundStarPayment", "sendMessage"]);
 /** Existing invoice/observation/receipt store only. No SDK/retry, arbitrary host,
  * fixture grant, credential fallback or global worker auto-selection. Absent
  * existing financial controls fail before credentials or any network access. */
@@ -53,6 +53,7 @@ export async function createStarsCommerce(input: { tenantId: string }, transport
     try {
       const execute = async () => {
       await authority();
+      if (await rpc("stars_commerce_authorize_attempt_v1", {target_invoice_id:i.invoice_id,attempt_id_value:reserved.attempt_id,nonce_value:nonce}) !== true) throw Error("STARS_CURRENT_DISPATCH_BLOCKED");
       const response = await transport(`https://api.telegram.org/bot${token}/${method}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), redirect: "error", cache: "no-store", signal: controller.signal });
       if (controller.signal.aborted || response.redirected || !response.body) throw Error("invalid");
       const reader = response.body.getReader(), chunks: Uint8Array[] = []; let size = 0;
@@ -82,14 +83,19 @@ export async function createStarsCommerce(input: { tenantId: string }, transport
     return rpc("stars_commerce_admit_v1", { target_invoice_id: i.invoice_id, update_id_value: event.update_id, ledger_attempt_id_value: ledger.attempt_id });
   }
   return {
-    async preparePurchase(offerId: string, key: string) {
-      const i = starsCommerceIntentSchema.parse(await rpc("stars_commerce_prepare_v1", { target_offer_id: z.uuid().parse(offerId), request_key_value: key }));
+    async preparePurchase(offerId: string, key: string, purchaseSourceEventId?: string) {
+      const i = starsCommerceIntentSchema.parse(await rpc("stars_commerce_prepare_v1", { target_offer_id: z.uuid().parse(offerId), request_key_value: key, purchase_source_event_id_value: purchaseSourceEventId ? z.uuid().parse(purchaseSourceEventId) : null }));
       if (i.tenant_id !== tenant || i.bot_user_id !== initial.bot_user_id) throw Error("STARS_COMMERCE_INTENT_SCOPE_DENIED");
+      const recovered = z.strictObject({state:z.enum(["READY","UNKNOWN","CLOSED"]),checkout_url:z.string().regex(/^https:\/\/t\.me\/\$[A-Za-z0-9_-]{1,200}$/u).nullable(),observed_at:z.iso.datetime({offset:true}).nullable()}).parse(await rpc("stars_commerce_checkout_evidence_v1", { target_invoice_id: i.invoice_id }));
+      if (recovered.state === "UNKNOWN") throw Error("STARS_COMMERCE_NO_REPLAY_UNKNOWN_RECONCILE_REQUIRED");
+      if (recovered.state !== "READY") throw Error("STARS_COMMERCE_INTENT_CLOSED");
+      if (recovered.checkout_url) return { invoice_id: i.invoice_id, checkout_url: recovered.checkout_url, observed_at:z.iso.datetime({offset:true}).parse(recovered.observed_at), status: "PAYMENT_PENDING" as const, subscription_activated: false };
       await getMe(i, key + ":identity");
       const link = await request(i, "createInvoiceLink", prepareStarsCommerceCheckout(i, Date.now()), key + ":checkout", raw => {
         const r = z.object({ ok: z.literal(true), result: z.string().regex(/^https:\/\/t\.me\/\$[A-Za-z0-9_-]{1,200}$/u) }).parse(JSON.parse(raw)); return { checkout_url: r.result };
       });
-      return { invoice_id: i.invoice_id, checkout_url: link.value.checkout_url, status: "PAYMENT_PENDING" as const, subscription_activated: false };
+      const committed=z.strictObject({state:z.literal("READY"),checkout_url:z.literal(link.value.checkout_url),observed_at:z.iso.datetime({offset:true})}).parse(await rpc("stars_commerce_checkout_evidence_v1", {target_invoice_id:i.invoice_id}));
+      return { invoice_id: i.invoice_id, checkout_url: committed.checkout_url, observed_at:committed.observed_at, status: "PAYMENT_PENDING" as const, subscription_activated: false };
     },
     async acceptWebhook(raw: string, header: string | null, key: string) {
       // Authentication precedes invoice lookup and any provider request.
@@ -106,6 +112,25 @@ export async function createStarsCommerce(input: { tenantId: string }, transport
       }
       await getMe(i,key+":identity");
       return reconcile(i, event, key);
+    },
+    async acceptAccessRequest(raw:string,header:string|null){
+      if(!header||!timingSafeEqual(Buffer.from(sha(header),"hex"),Buffer.from(initial.webhook_secret_sha256,"hex")))throw Error("STARS_COMMERCE_WEBHOOK_DENIED");
+      if(Buffer.byteLength(raw)>16384)throw Error("STARS_COMMERCE_BODY_BOUND");
+      const user=z.object({id:z.number().int().positive().safe(),is_bot:z.literal(false)});
+      const frame=z.object({update_id:z.number().int().nonnegative().safe(),message:z.object({from:user,chat:z.object({id:z.number().int().positive().safe(),type:z.literal("private")}),date:z.number().int().positive().safe(),text:z.enum(["/vip","/access"])})}).parse(parseFinancialJson(raw));
+      if(frame.message.from.id!==frame.message.chat.id||Math.abs(Date.now()/1000-frame.message.date)>300)throw Error("STARS_ACCESS_SOURCE_INVALID");
+      const value=await rpc("stars_commerce_access_v1",{user_id_value:String(frame.message.from.id)});
+      if(value===null)return {state:"ACCESS_HELD",membership_confirmed:false};
+      const access=z.strictObject({intent:starsCommerceIntentSchema,message:z.string().max(600)}).parse(value),i=access.intent,key="access:"+frame.update_id;
+      const prior=z.object({state:z.enum(["ACKNOWLEDGED","UNKNOWN"]),provider_message_id:z.string().nullable()}).strict().nullable().parse(await rpc("stars_commerce_access_result_v1",{target_invoice_id:i.invoice_id,request_key_value:key}));
+      if(prior)return {state:prior.state==="ACKNOWLEDGED"?"ACCESS_REPLY_PROVIDER_ACK":"ACCESS_REPLY_UNKNOWN",membership_confirmed:false,replay:true};
+      await getMe(i,key+":identity");
+      const sent=await request(i,"sendMessage",{chat_id:i.payer_user_id,text:access.message,protect_content:true},key,raw=>{
+        const response=z.object({ok:z.literal(true),result:z.object({message_id:z.number().int().positive().safe(),chat:z.object({id:z.number().int().positive().safe(),type:z.literal("private")}),from:z.object({id:z.number().int().positive().safe(),is_bot:z.literal(true)}),text:z.literal(access.message)})}).parse(JSON.parse(raw));
+        if(String(response.result.chat.id)!==i.payer_user_id||String(response.result.from.id)!==i.bot_user_id)throw Error("STARS_ACCESS_ACK_SCOPE");
+        return {provider_message_id:String(response.result.message_id),chat_id:i.payer_user_id};
+      });
+      return {state:"ACCESS_REPLY_PROVIDER_ACK",provider_message_id:sent.value.provider_message_id,membership_confirmed:false,replay:false};
     },
     async acceptJoinWebhook(raw:string,header:string|null){
       if(!header||!timingSafeEqual(Buffer.from(sha(header),"hex"),Buffer.from(initial.webhook_secret_sha256,"hex")))throw Error("STARS_COMMERCE_WEBHOOK_DENIED");

@@ -24,7 +24,9 @@ or usernames cannot authorize a bot-initiated private message.
 
 ## Private activation and protected fields
 
-The existing `private.entitlement_controls` remains default-disabled. Only reviewed
+The existing `private.entitlement_controls` remains default-disabled. The genuine
+adapter registry entry is also unseeded: register it only in the same reviewed
+protected merchant-activation transaction, never as deployment side effect. Only reviewed
 protected database-owner setup may populate its `stars_binding` from actual owner,
 merchant/legal/product/market, bot getMe/rights and custody evidence. Runtime roles
 cannot activate it. The binding has exact SHA, bot/key/header hashes, private VIP
@@ -34,6 +36,7 @@ unknown markets are denied for genuine purchase, independently of free UAT.
 - `POLAT_STARS_MERCHANT_TENANT_ID`: selects the one sealed merchant tenant.
 - `POLAT_STARS_MERCHANT_BOT_TOKEN`: protected verified merchant bot credential.
 - `POLAT_STARS_MERCHANT_WEBHOOK_SECRET`: protected Telegram secret token,32+ chars.
+- `POLAT_STARS_MERCHANT_RELAY_SECRET`: dedicated fixed-relay HMAC custody.
 - `VERCEL_GIT_COMMIT_SHA`: platform-owned release binding.
 
 These are names only. Do not print values, read credentials in chat, copy TEST bot
@@ -97,3 +100,46 @@ Official protocol checked2026-10-31:
 OpenAI spend controls are separate: https://developers.openai.com/api/docs/guides/spend-limits
 An alert is not a hard cap, and hard-cap enforcement can lag. Dedicated-project
 custody and conservative local request/liability reservation remain necessary.
+
+## Exact isolated ingress configuration
+
+Reuse the reviewed relay implementation. Deploy only `polat-campaign-ingress` or
+`polat-commerce-ingress` with `--no-verify-jwt` for that exact function after the
+corresponding identities/custody/tenant are verified; never change global JWT/SSO.
+Edge-only `POLAT_UAT_VERCEL_BYPASS` stays out of application variables and artifacts.
+Campaign Edge scope also needs `POLAT_CAMPAIGN_TENANT_ID`, `POLAT_CAMPAIGN_ID` and
+`POLAT_CAMPAIGN_RELEASE_SHA`. Merchant Edge scope needs
+`POLAT_STARS_MERCHANT_TENANT_ID` and `POLAT_STARS_MERCHANT_RELEASE_SHA`.
+The SHA equals the actual reviewed application release, not a proposed branch.
+Use matching protected webhook/relay secrets on both ends. Each signature binds
+its own domain, tenant, release, timestamp and original body; campaign also binds
+campaign ID. Targets are fixed constants. Request data cannot select a host/path.
+
+The existing protected release workflow now transfers these explicit scoped
+runtime names (selectors from `staging` variables, credentials from `staging`
+secrets). Account-admin, backup and activation flags are not copied. A partial
+campaign identity is rejected. Missing fields remain disabled; this is no owner,
+provider or financial grant. No Edge deployment or webhook mutation is claimed
+from local relay tests.
+
+Native purchase initiation: after the approved price was actually QA-approved and
+acknowledged by Telegram in this conversation, the customer sends exactly `/buy`
+or `/subscribe`. This is a purchase request, not a payment or permission override.
+The native worker binds the current event/job to its preapproved offer, records
+source-linked lifecycle/intent evidence, prepares a bot-owned checkout and exposes
+only the committed checkout fact to the existing model and QA. No per-lead review.
+Absent commercial/merchant authority, ambiguous intent, missing price ACK, stale
+source, opt-out, human ownership or STOP cannot create an unauthorized checkout.
+First price presentation is a normal QA-controlled reply; unknown effects remain
+held. Repeated preparation recovers the existing checkout ACK without extra calls.
+
+After payment, the payer voluntarily sends `/vip` (or `/access`) to the merchant
+bot displayed on the invoice. The authenticated command must come from the same
+numeric private chat within the freshness window. A genuine immutable receipt,
+current subscription, matching numeric binding, exact private channel and a
+current INVITED link are required. Only that payer receives the personal link.
+The same append-only observation journal reserves and records the fixed one-shot
+sendMessage; there is no general merchant sender, marketing mode or model call.
+A duplicate update returns its tracked ACK/UNKNOWN without another send. Unknown
+notification does not change CONFIRMED payment truth. Refund/expiry/revoke denies
+old access. Actual membership still requires the separate numeric join check.
