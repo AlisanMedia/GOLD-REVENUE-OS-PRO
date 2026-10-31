@@ -10,7 +10,7 @@ const strictGuard = '[[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]';
 function validateInBash(value: string) {
   // Execute only the existing integer guard, never the release workflow or its
   // Node/network steps. Candidate values are environment data, not shell code.
-  if (guards.length !== 4 || guards.some(guard => guard !== strictGuard)) throw new Error("RETENTION_GUARDS_CHANGED");
+  if (guards.length !== 5 || guards.some(guard => guard !== strictGuard)) throw new Error("RETENTION_GUARDS_CHANGED");
   const result = spawnSync("bash", ["--noprofile", "--norc", "-euo", "pipefail", "-c", guards[0]!], {
     env: { PATH: process.env.PATH ?? "/usr/bin:/bin", BACKUP_RETENTION_DAYS: value },
     encoding: "utf8", timeout: 1000,
@@ -30,7 +30,7 @@ describe("private-beta dispatch retention input regression (offline Bash only)",
   });
 
   it("preserves the same strict integer guard in every protected release/preflight job", () => {
-    expect(guards).toHaveLength(4);
+    expect(guards).toHaveLength(5);
     expect(guards.every(guard => guard === strictGuard)).toBe(true);
   });
 

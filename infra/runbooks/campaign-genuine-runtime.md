@@ -83,6 +83,20 @@ beta program exists. It uses the same staging environment review; do not bypass 
 Then complete independently verified account/canary setup under the existing bounded
 UAT authority. Do not silently execute the separate290-request evaluation.
 
+`integration_inventory` is the executable pre-configuration inventory in the same
+protected workflow. It reuses `openai_model_probe`, reads `getMe`/`getWebhookInfo`
+for each configured Business AI, merchant and dedicated TEST credential, and lists
+configuration **names only**. A program is not required for these read-only checks.
+It never calls getUpdates, setWebhook, inference, payments or membership methods;
+it cannot write a private control record or turn metadata into account authority.
+Do not deploy again to run it. The inspected workflow SHA is distinct from the
+already deployed application SHA. The existing staging review still protects
+credential access; an approved release does not silently approve another job.
+Review the redacted artifact for numeric bot identities, TEST/production separation,
+webhook classification, HTTP status and missing names. Unknown existing webhook
+URLs/diagnostics are hashed, not printed; an existing webhook is never replaced.
+Do not treat an inventory job SUCCESS as model/conversation/payment acceptance.
+
 Use controlled numeric test identities only: inbound → actual OpenAI output → exact
 QA → Business API ACK/history → human takeover/return → opt-out/STOP. Preserve failed
 and unknown outcomes. Local fake-network PG tests do not prove any of these genuine

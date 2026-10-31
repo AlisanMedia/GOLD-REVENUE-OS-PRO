@@ -53,7 +53,8 @@
       "codex/founder-campaign-activation": false,
       "codex/campaign-hosted-acceptance": false,
       "codex/genuine-campaign-integration": false,
-      "codex/stars-genuine-receipt-bridge": false
+      "codex/stars-genuine-receipt-bridge": false,
+      "codex/protected-integration-inventory": false
     }
   },
   "framework": "nextjs",
