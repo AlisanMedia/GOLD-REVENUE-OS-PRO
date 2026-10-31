@@ -202,7 +202,6 @@ jobs:
           node --input-type=module -e 'import{readFileSync}from"node:fs";import{validateCampaignAcceptanceResult}from"./scripts/campaign-staging-run.mjs";validateCampaignAcceptanceResult(readFileSync(process.argv[1],"utf8"));' "$RUNNER_TEMP/campaign-rollback-matrix.json"
           bash supabase/tests/campaign_concurrency.sh "$campaign_db_url" | tee "$RUNNER_TEMP/campaign-concurrency.log"
           CAMPAIGN_DISPOSABLE_DB_URL="$campaign_db_url" pnpm exec vitest run tests/integration/campaign-runtime-db.test.ts | tee "$RUNNER_TEMP/campaign-native-runtime.log"
-          CAMPAIGN_GENUINE_DB_URL="$campaign_db_url" pnpm exec vitest run tests/integration/campaign-genuine-runtime-db.test.ts | tee "$RUNNER_TEMP/campaign-genuine-runtime.log"
       - name: Prove concurrent escalation ingestion and notification leasing
         shell: bash
         run: |
@@ -486,6 +485,18 @@ jobs:
           bash supabase/tests/phase16d_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16d-concurrency.log"
           bash supabase/tests/phase16dr2_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16dr2-concurrency.log"
           bash supabase/tests/phase16e_offline_recovery.sh "$db_url" | tee "$RUNNER_TEMP/phase16e-recovery.log"
+      # These E2E cases deliberately COMMIT provider-ACK-shaped rows to prove
+      # restart and independent connections. Run after historical zero-outbound
+      # pgTAP assertions; all data remains in the disposable CI database.
+      - name: Verify genuine campaign architecture with offline external providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/campaign-genuine-db.env"
+          campaign_genuine_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/campaign-genuine-db.env")
+          test -n "$campaign_genuine_db_url"
+          echo "::add-mask::$campaign_genuine_db_url"
+          CAMPAIGN_GENUINE_DB_URL="$campaign_genuine_db_url" pnpm exec vitest run tests/integration/campaign-genuine-runtime-db.test.ts | tee "$RUNNER_TEMP/campaign-genuine-runtime.log"
       - name: Upload database evidence
         if: always()
         uses: actions/upload-artifact@v4
