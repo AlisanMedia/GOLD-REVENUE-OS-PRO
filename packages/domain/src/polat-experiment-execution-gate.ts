@@ -8,6 +8,7 @@ import { polatClaudeCanaryPlan } from "./polat-claude-canary";
 import { polatOpenAICanaryPlan } from "./polat-openai-canary";
 import { preparePolatOpenAIRequest } from "./polat-openai-adapter";
 import type { ModelRequest } from "./agent-runtime";
+import { polatCampaignAccountSchema, polatCampaignBindingSchema, type PolatCampaignBinding } from "@gold-revenue-os/contracts";
 
 const proof = z.strictObject({ key_id: z.string().regex(/^[a-zA-Z0-9:_-]{1,80}$/u), signature: z.string().regex(/^[A-Za-z0-9_-]{86}$/u) });
 const payloadSchema = z.strictObject({
@@ -52,7 +53,7 @@ export function polatGenuineExecutionGate() {
 // The HTTP boundary accepts only a module-owned capability. No JSON/hash/flag/API key is one.
 export interface PolatNetworkPermit { readonly kind: "AUTHENTICATED_POLAT_NETWORK_PERMIT" }
 export interface PolatVerifiedNetworkContext {
-  binding: PolatBridgeBinding | PolatPrivateBetaBinding; run_id:string; attempt_id:string; request_hash:string; body_hash:string; credential:string;
+  binding: PolatBridgeBinding | PolatPrivateBetaBinding | PolatCampaignBinding; run_id:string; attempt_id:string; request_hash:string; body_hash:string; credential:string;
   workspace_id?: string; organization_id?: string; project_id?: string;
 }
 const permits=new WeakMap<object,PolatVerifiedNetworkContext>();
@@ -192,6 +193,92 @@ export function createPolatPrivateBetaNetworkAuthority(dependencies: Readonly<{
       const permit = Object.freeze({ kind: "AUTHENTICATED_POLAT_NETWORK_PERMIT" as const });
       const accountIdentity = s.account.provider === "openai" ? { organization_id: s.account.organization_id, project_id: s.account.project_id } : { workspace_id: s.account.workspace_id };
       permits.set(permit, Object.freeze({ binding: structuredClone(b), run_id: input.run_id, attempt_id: input.attempt_id, request_hash: wire.request_hash, body_hash: wire.body_hash, credential, ...accountIdentity }));
+      return permit;
+    },
+  });
+}
+
+const campaignOwner = z.strictObject({
+  origin: z.literal("SERVER_AUTHENTICATED_CAMPAIGN_START"), tenant_id: z.uuid(), campaign_id: z.uuid(),
+  owner_user_id: z.uuid(), role: z.literal("super_admin"), aal: z.literal("aal2"), state: z.literal("ACTIVE"),
+  revision: z.number().int().positive(), binding_hash: polatBridgeHashSchema,
+  configuration_hash: polatBridgeHashSchema, activated_at: z.iso.datetime({ offset: true }),
+});
+const campaignCommitted = z.strictObject({
+  mode: z.literal("FOUNDER_CAMPAIGN"), tenant_id: z.uuid(), campaign_id: z.uuid(),
+  run_id: z.uuid(), native_run_id: z.uuid(), attempt_id: z.uuid(), job_id: z.uuid(), conversation_id: z.uuid(),
+  source_message_id: z.uuid(), revision: z.number().int().positive(), binding_hash: polatBridgeHashSchema,
+  request_hash: polatBridgeHashSchema, body_hash: polatBridgeHashSchema, dispatch_nonce: z.uuid(),
+  ordinal: z.number().int().positive(), reserved_liability: polatBridgeMoneySchema,
+  issued_at: z.iso.datetime({ offset: true }), expires_at: z.iso.datetime({ offset: true }),
+});
+
+/** Campaign extension of the SAME one-use network capability and durable journal.
+ * Server wrapper supplies fixed authenticated-DB/account readers; no UAT grant,
+ * HTTP JSON, environment switch or deployment can substitute for campaign START. */
+export function createPolatCampaignNetworkAuthority(dependencies: Readonly<{
+  deployed_sha: string;
+  readControl: () => Promise<unknown>;
+  readCommittedAttempt: (attemptId: string) => Promise<unknown>;
+  resolveCredential: () => Promise<string>;
+}>) {
+  const deployed = z.string().regex(/^[a-f0-9]{40}$/u).parse(dependencies.deployed_sha);
+  const issued = new Set<string>();
+  async function inspect(raw: unknown, now: number) {
+    const binding = polatCampaignBindingSchema.parse(raw);
+    const control = z.strictObject({ binding: polatCampaignBindingSchema, account: polatCampaignAccountSchema,
+      owner: campaignOwner }).parse(await dependencies.readControl());
+    const a = control.account, o = control.owner, h = polatGuardDigest(binding);
+    if (!Number.isFinite(now) || deployed !== binding.repository_sha || Date.parse(binding.expires_at) <= now
+      || polatGuardDigest(control.binding) !== h || a.binding_hash !== h || o.binding_hash !== h
+      || a.tenant_id !== binding.tenant_id || o.tenant_id !== binding.tenant_id
+      || a.campaign_id !== binding.campaign_id || o.campaign_id !== binding.campaign_id
+      || o.configuration_hash !== binding.configuration_hash || Date.parse(o.activated_at) > now
+      || polatGuardDigest(["OPENAI_PROJECT1", a.organization_id, a.project_id]) !== binding.account_scope_hash
+      || Date.parse(a.observed_at) > now || now - Date.parse(a.observed_at) > 300000
+      || Date.parse(a.expires_at) <= now || Date.parse(a.expires_at) > Date.parse(a.observed_at) + 300000
+      || betaUnits(binding.maximum_spend) <= 0n || betaUnits(binding.maximum_attempt_liability) <= 0n
+      || betaUnits(binding.maximum_attempt_liability) > betaUnits(binding.maximum_spend)
+      || betaUnits(a.enforced_maximum_spend) < betaUnits(binding.maximum_spend)
+      || betaUnits(a.independently_observed_spend) > betaUnits(a.enforced_maximum_spend)
+      || betaUnits(a.remaining_allowance) > betaUnits(a.enforced_maximum_spend) - betaUnits(a.independently_observed_spend)
+      || betaUnits(a.remaining_allowance) < betaUnits(binding.maximum_attempt_liability)) throw Error("CAMPAIGN_OWNER_ACCOUNT_OR_RELEASE_UNVERIFIED");
+    // Full documented model-context bound, not an optimistic tokenizer estimate.
+    const charge = (BigInt(a.pricing.maximum_input_tokens) * betaUnits(a.pricing.maximum_input_usd_per_million)
+      + BigInt(binding.maximum_output_tokens) * betaUnits(a.pricing.maximum_output_usd_per_million) + 999999n) / 1000000n;
+    if (charge <= 0n || charge > betaUnits(binding.maximum_attempt_liability)) throw Error("CAMPAIGN_PRICING_LIABILITY_UNVERIFIED");
+    return { binding, account: a, owner: o, hash: h };
+  }
+  return Object.freeze({
+    async preflight(binding: unknown, now = Date.now()) {
+      try { await inspect(binding, now); return { state: "READY" as const }; }
+      catch { return { state: "BLOCKED" as const }; }
+    },
+    async issue(input: { binding: unknown; run_id: string; attempt_id: string; request: ModelRequest }, now = Date.now()): Promise<PolatNetworkPermit> {
+      const s = await inspect(input.binding, now), b = s.binding, r = input.request;
+      const p = campaignCommitted.parse(await dependencies.readCommittedAttempt(input.attempt_id));
+      const wire = preparePolatOpenAIRequest(r, b.maximum_output_tokens);
+      if (p.tenant_id !== b.tenant_id || r.context.tenantId !== b.tenant_id || p.campaign_id !== b.campaign_id
+        || p.binding_hash !== s.hash || p.run_id !== input.run_id || p.attempt_id !== input.attempt_id
+        || p.native_run_id !== r.requestId || p.conversation_id !== r.context.conversationId
+        || p.source_message_id !== r.context.recentMessages.at(-1)?.id || p.revision !== s.owner.revision
+        || p.request_hash !== wire.request_hash || p.body_hash !== wire.body_hash || r.timeoutMs !== b.timeout_ms
+        || p.ordinal > b.maximum_requests || betaUnits(p.reserved_liability) > betaUnits(b.maximum_spend)
+        || betaUnits(p.reserved_liability) < betaUnits(b.maximum_attempt_liability)
+        || Date.parse(p.issued_at) > now || now - Date.parse(p.issued_at) > 60000 || Date.parse(p.expires_at) <= now
+        || Date.parse(p.expires_at) > Date.parse(p.issued_at) + 60000 || Date.parse(p.expires_at) > Date.parse(b.expires_at)) throw Error("CAMPAIGN_COMMITTED_ATTEMPT_REQUIRED");
+      if (issued.has(p.attempt_id)) throw Error("CAMPAIGN_ATTEMPT_ALREADY_ISSUED");
+      issued.add(p.attempt_id);
+      const credential = await dependencies.resolveCredential();
+      if (typeof credential !== "string" || credential.length < 16 || credential.length > 4096 || /[\r\n\0]/u.test(credential)
+        || createHash("sha256").update(credential, "utf8").digest("hex") !== s.account.credential_sha256
+        || polatGuardDigest(["POLAT_CAMPAIGN_CREDENTIAL1", b.account_scope_hash, s.account.credential_sha256]) !== b.credential_custody_hash) throw Error("CAMPAIGN_CREDENTIAL_CUSTODY_UNVERIFIED");
+      const latest = await inspect(input.binding, Date.now());
+      if (latest.owner.revision !== p.revision) throw Error("CAMPAIGN_GENERATION_CHANGED");
+      const permit = Object.freeze({ kind: "AUTHENTICATED_POLAT_NETWORK_PERMIT" as const });
+      permits.set(permit, Object.freeze({ binding: structuredClone(b), run_id: p.run_id, attempt_id: p.attempt_id,
+        request_hash: wire.request_hash, body_hash: wire.body_hash, credential,
+        organization_id: s.account.organization_id, project_id: s.account.project_id }));
       return permit;
     },
   });

@@ -485,6 +485,18 @@ jobs:
           bash supabase/tests/phase16d_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16d-concurrency.log"
           bash supabase/tests/phase16dr2_concurrency.sh "$db_url" | tee "$RUNNER_TEMP/phase16dr2-concurrency.log"
           bash supabase/tests/phase16e_offline_recovery.sh "$db_url" | tee "$RUNNER_TEMP/phase16e-recovery.log"
+      # These E2E cases deliberately COMMIT provider-ACK-shaped rows to prove
+      # restart and independent connections. Run after historical zero-outbound
+      # pgTAP assertions; all data remains in the disposable CI database.
+      - name: Verify genuine campaign architecture with offline external providers
+        shell: bash
+        run: |
+          set -euo pipefail
+          supabase status -o env >"$RUNNER_TEMP/campaign-genuine-db.env"
+          campaign_genuine_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/campaign-genuine-db.env")
+          test -n "$campaign_genuine_db_url"
+          echo "::add-mask::$campaign_genuine_db_url"
+          CAMPAIGN_GENUINE_DB_URL="$campaign_genuine_db_url" pnpm exec vitest run tests/integration/campaign-genuine-runtime-db.test.ts | tee "$RUNNER_TEMP/campaign-genuine-runtime.log"
       - name: Upload database evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -508,6 +520,7 @@ jobs:
             ${{ runner.temp }}/campaign-rollback-matrix.json
             ${{ runner.temp }}/campaign-concurrency.log
             ${{ runner.temp }}/campaign-native-runtime.log
+            ${{ runner.temp }}/campaign-genuine-runtime.log
             ${{ runner.temp }}/phase15-pgtap.log
             ${{ runner.temp }}/phase15-concurrency.log
             ${{ runner.temp }}/phase14-pgtap.log

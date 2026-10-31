@@ -9,6 +9,18 @@ Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea
 Priority: **P0** security/correctness/major launch or operational gate; **P1** important reliability/revenue/automation improvement; **P2** optimization or future expansion. A launch gate is not a newly discovered exploit. Complexity is relative: S = contained work; M = cross-layer change; L = provider/operational or multi-domain work. It is not a time/cost commitment. All code, schema, infrastructure, provider and permission actions below require separately approved scope. The owner additionally authorizes exact documentation-branch Preview suppression/publication/merge and Phase 12 implementation/controlled staging acceptance; unrelated backlog items remain separately gated.
 
 
+## 31 October2026 — active real-integration owner program
+
+The [native campaign executor](../infra/runbooks/campaign-genuine-runtime.md) fills
+the prior fixture-only executor gap while reusing the same model/QA/journal/message
+state machines. Protected publication and genuine external acceptance are recorded
+separately in the consolidated owner artifact. No second campaign approval system,
+per-contact declaration or per-message founder review is added. Account hard-cap,
+custody/canary, numeric Business connection, actual founder MFA, genuine payment/VIP
+and lawful product/market evidence remain prerequisites, not synthetic PASS.
+The owner-authorized engineering program continues across independently implementable
+integration work; this entry is not a request for another phase-by-phase prompt.
+
 ## Current OpenAI / Polat BUSINESS continuation —27 October2026
 
 Reuse [OpenAI/BUSINESS implementation](../POLAT_OPENAI_BUSINESS_UAT_IMPLEMENTATION_REPORT.md).

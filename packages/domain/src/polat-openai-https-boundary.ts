@@ -9,7 +9,7 @@ export const POLAT_OPENAI_ENDPOINT = "https://api.openai.com/v1/responses" as co
 /** Fixed host/path and one consumed module permit. No SDK, retry, redirect, fallback, environment loader or callable URL. */
 export async function sendPolatOpenAIHttpsOnce(permit: unknown, request: ModelRequest, signal?: AbortSignal) {
   const context = requirePolatNetworkPermit(permit);
-  if (context.binding.provider !== "openai" || context.binding.version !== 2 || !context.organization_id || !context.project_id) throw new PolatOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_RESERVED_PROVIDER_MISMATCH");
+  if (context.binding.provider !== "openai" || ![2, 3].includes(context.binding.version) || !context.organization_id || !context.project_id) throw new PolatOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_RESERVED_PROVIDER_MISMATCH");
   const snapshot = structuredClone(request), wire = preparePolatOpenAIRequest(snapshot, context.binding.maximum_output_tokens);
   if (wire.request_hash !== context.request_hash || wire.body_hash !== context.body_hash || context.binding.timeout_ms !== request.timeoutMs || Date.parse(context.binding.expires_at) <= Date.now()) throw new PolatOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_RESERVED_REQUEST_DRIFT");
   if (signal?.aborted) throw new PolatOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_ABORT_BEFORE_ATTEMPT");

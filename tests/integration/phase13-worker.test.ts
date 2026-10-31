@@ -5,6 +5,7 @@ vi.mock("@/lib/customer-success/worker",()=>({drainCustomerSuccess:mocks.success
 vi.mock("@/lib/agent-runtime/worker",()=>({runDeterministicWorker:mocks.agent}));
 vi.mock("@/lib/escalations/service",()=>({drainEscalations:mocks.escalations}));
 vi.mock("@/lib/messaging/automatic-replies",()=>({drainAutomaticReplies:mocks.replies}));
+vi.mock("@/lib/polat/campaign-execution",()=>({drainCampaignRecovery:async()=>({conversations:0,tasks_claimed:0})}));
 import { GET } from "../../apps/web/src/app/api/internal/agent-worker/route";
 const secret="synthetic-test-worker-secret-not-a-deployment-credential";
 beforeEach(()=>{vi.clearAllMocks();vi.stubEnv("CRON_SECRET",secret);mocks.success.mockResolvedValue({processed:1,tenants:1,mode:"PREVIEW_ONLY"});mocks.agent.mockResolvedValue({processed:0});});
