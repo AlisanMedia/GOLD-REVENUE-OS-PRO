@@ -6,7 +6,11 @@ function wellFormed(value: string): boolean { return Buffer.from(value, "utf8").
 
 // Deliberately small JSON domain: no prototypes, accessors, floats, sparse arrays,
 // lone surrogates or implicit undefined. Monetary/opaque values are always strings.
-export function canonicalFinancialJson(value: unknown): string {
+// Existing callers retain16KiB. The bounded Stars ledger decoder explicitly
+// requests64KiB; depth/node/number/key restrictions remain identical.
+const boundedLimit=(n:number)=>{if(!Number.isSafeInteger(n)||n<1||n>65536)throw failure();return n;};
+export function canonicalFinancialJson(value: unknown, maximumBytes=FINANCIAL_RAW_MAX_BYTES): string {
+  boundedLimit(maximumBytes);
   let nodes = 0;
   function encode(v: unknown, depth: number): string {
     if (++nodes > 4096 || depth > 16) throw failure();
@@ -29,11 +33,12 @@ export function canonicalFinancialJson(value: unknown): string {
     }).join(",") + "}";
   }
   const result = encode(value, 0);
-  if (Buffer.byteLength(result, "utf8") > FINANCIAL_RAW_MAX_BYTES) throw failure();
+  if (Buffer.byteLength(result, "utf8") > maximumBytes) throw failure();
   return result;
 }
-export function financialSha256(bytes: string | Uint8Array): string {
-  if (typeof bytes === "string" && !wellFormed(bytes) || Buffer.byteLength(bytes) > FINANCIAL_RAW_MAX_BYTES) throw failure();
+export function financialSha256(bytes: string | Uint8Array, maximumBytes=FINANCIAL_RAW_MAX_BYTES): string {
+  boundedLimit(maximumBytes);
+  if (typeof bytes === "string" && !wellFormed(bytes) || Buffer.byteLength(bytes) > maximumBytes) throw failure();
   return createHash("sha256").update(bytes).digest("hex");
 }
 export function financialTuple(namespace: string, parts: readonly (string | null)[]): string {
@@ -45,11 +50,12 @@ export function financialTupleHash(namespace: string, parts: readonly (string | 
 
 // JSON.parse alone accepts duplicate keys. Scan the bounded grammar first, checking
 // decoded names at every nesting level, including escaped aliases such as \u0061.
-export function parseFinancialJson(raw: string | Uint8Array): unknown {
+export function parseFinancialJson(raw: string | Uint8Array, maximumBytes=FINANCIAL_RAW_MAX_BYTES): unknown {
+  boundedLimit(maximumBytes);
   let text: string;
-  if (typeof raw === "string") { financialSha256(raw); text = raw; }
+  if (typeof raw === "string") { financialSha256(raw,maximumBytes); text = raw; }
   else {
-    financialSha256(raw);
+    financialSha256(raw,maximumBytes);
     try { text = new TextDecoder("utf-8", { fatal: true }).decode(raw); } catch { throw failure(); }
   }
   let i = 0; let nodes = 0;
@@ -93,6 +99,6 @@ export function parseFinancialJson(raw: string | Uint8Array): unknown {
   value(0); ws(); if (i !== text.length) throw failure();
   let result: unknown;
   try { result = JSON.parse(text) as unknown; } catch { throw failure(); }
-  canonicalFinancialJson(result); // Reject non-exact numeric metadata as well.
+  canonicalFinancialJson(result,maximumBytes); // Reject non-exact numeric metadata as well.
   return result;
 }

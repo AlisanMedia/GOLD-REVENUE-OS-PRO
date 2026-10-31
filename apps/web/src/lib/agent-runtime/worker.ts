@@ -1,9 +1,11 @@
 import "server-only";
+import {createHash} from "node:crypto";
 import{polatTask,preparePolatRuntimeProfile,dispatchPolatTestProposal,holdPolatTestSource,recoverPolatTestConversation}from "@/lib/polat/test-runtime";
 import { polatOfflineRuntimeProvider, type PolatOfflineRuntimeModel } from "../polat/test-model";
 import { createPrivateBetaProviderFromDatabase } from "../polat/private-beta-provider";
 import { readPrivateBetaSource, dispatchPrivateBetaProposal, holdPrivateBetaSource } from "../polat/private-beta-runtime";
 import { createCampaignProvider } from "../polat/campaign-provider";
+import { prepareCampaignCheckoutEvidence } from "../polat/campaign-checkout";
 import { readCampaignSource, dispatchCampaignProposal, holdCampaignSource } from "../polat/campaign-execution";
 import{FakePolatTransport}from "@gold-revenue-os/domain";
 
@@ -18,6 +20,7 @@ import {
   inferStyleProfile,
   renderNaturalResponse,
   requestFingerprint,
+  messageEvidenceHandles,
   validateMemoryProposals,
   normalizeConversationText,
   buildLeadIntelligence,
@@ -193,7 +196,7 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
     });
     if (campaign.bound && !polatTransport && (!polatCampaign || !campaign.genuine_executor_accepted || campaign.campaign_id !== polatCampaign.campaignId || task.task_type !== "campaign.reply")) throw new ModelProviderError("PROVIDER_ERROR", "CAMPAIGN_PROVIDER_ACCEPTANCE_REQUIRED", false);
     if (task.task_type === "campaign.reply" && (!campaign.bound || !polatCampaign)) throw new ModelProviderError("PROVIDER_ERROR", "CAMPAIGN_EXPLICIT_WORKER_REQUIRED", false);
-    const campaignSource = polatCampaign ? await readCampaignSource(task.tenant_id, task.conversation_id, task.source_event_id ?? "") : null;
+    let campaignSource = polatCampaign ? await readCampaignSource(task.tenant_id, task.conversation_id, task.source_event_id ?? "") : null;
     if (campaignSource && campaignSource.campaign_id !== polatCampaign?.campaignId) throw Error("CAMPAIGN_SOURCE_SCOPE_DENIED");
     const betaScope=isUat?await readPrivateBetaSource(task.tenant_id,task.conversation_id,task.source_event_id??""):null;
     if(betaScope&&betaScope.program_id!==privateBeta?.programId)throw new ModelProviderError("PROVIDER_ERROR","POLAT_UAT_PROGRAM_SCOPE_DENIED",false);
@@ -204,6 +207,24 @@ async function processTask(task: ClaimedTask, workerId: string,polatTransport?:F
       conversation_id: task.conversation_id,
       source_event_id: task.source_event_id ?? "",
     },campaignSource?{polatCampaign:campaignSource}:betaScope?{polatPrivateBeta:betaScope,polatPrivateBetaCodec:task.model_provider==="openai"?"openai-responses-v1":"claude-messages-v1"}:polatTask(task)?{polatTest:true,polatClaudeOffline:!!polatModel}:undefined);
+    if (campaignSource && !campaignSource.follow_up) {
+      const checkout = await prepareCampaignCheckoutEvidence({ tenantId: task.tenant_id, campaignId: campaignSource.campaign_id,
+        jobId: campaignSource.job_id, conversationId: task.conversation_id, sourceEventId: task.source_event_id!,
+        sourceText: built.context.recentMessages.at(-1)?.content ?? "", boundary: campaignSource.boundary,
+        language: built.context.verifiedCustomerLanguage ?? "en" });
+      built.context.commercialEvidence = [...(built.context.commercialEvidence ?? []), ...checkout];
+      if (checkout.length) {
+        // History remains bounded to the original inbound. Only this independently
+        // committed checkout observation advances the QA evidence boundary.
+        built.manifest.source_context_boundary = campaignSource.boundary;
+        campaignSource = {...campaignSource,boundary:checkout.reduce((at,item)=>Date.parse(item.occurredAt)>Date.parse(at)?item.occurredAt:at,campaignSource.boundary)};
+        built.manifest.backend_observation_boundary = campaignSource.boundary;
+        built.manifest.checkout_evidence_ids = checkout.map(item => item.id);
+        const evidenceContext = preparePolatCampaignRuntime(built.context,task.task_id,campaignSource).request.context;
+        built.manifest.evidence_handle_registry = messageEvidenceHandles(evidenceContext);
+        built.manifest.context_fingerprint = createHash("sha256").update(JSON.stringify(evidenceContext)).digest("hex");
+      }
+    }
     runId = await invokeRpc<string>("begin_agent_run", {
       target_tenant_id: task.tenant_id,
       target_task_id: task.task_id,

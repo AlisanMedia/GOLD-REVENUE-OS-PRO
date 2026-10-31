@@ -19,7 +19,8 @@ export const planSchema = z.object({...base,product_id:z.string().uuid(),amount:
   max_discount_bps:z.number().int().min(0).max(10000),trial:z.boolean(),offer_valid_hours:z.number().int().min(1).max(168),
   tax_rule:z.string().max(300).nullable(),renewal_rule:z.string().max(300).nullable(),cancellation_rule:z.string().max(300).nullable(),disclosures:list,
 }).strict().superRefine((p,c)=>{try{new Intl.NumberFormat("en",{style:"currency",currency:p.currency});}catch{c.addIssue({code:"custom",message:"ISO currency required"});}
-  if(!/^(?:USD|EUR|GBP|TRY|AED|SAR|RUB|JPY|CAD|AUD|CHF|CNY|INR|BRL|SGD|HKD|NZD|ZAR|KRW|KWD|BHD|OMR|QAR|SEK|NOK|DKK|PLN|CZK|HUF|MXN|IDR|MYR|THB|PHP|EGP|ILS|RON|BGN|VND)$/u.test(p.currency)) c.addIssue({code:"custom",message:"Supported ISO currency required"});
+  if(p.currency==="XTR"&&(!/^[1-9][0-9]*(?:\.0{1,6})?$/u.test(p.amount)||p.billing!=="one_off"))c.addIssue({code:"custom",message:"Stars requires positive whole units and one-off billing"});
+  if(!/^(?:XTR|USD|EUR|GBP|TRY|AED|SAR|RUB|JPY|CAD|AUD|CHF|CNY|INR|BRL|SGD|HKD|NZD|ZAR|KRW|KWD|BHD|OMR|QAR|SEK|NOK|DKK|PLN|CZK|HUF|MXN|IDR|MYR|THB|PHP|EGP|ILS|RON|BGN|VND)$/u.test(p.currency)) c.addIssue({code:"custom",message:"Supported ISO currency required"});
 });
 export const knowledgeSchema = z.object({...base,content:text,category:z.enum(KB_CATEGORIES),plan_id:z.string().uuid().nullable(),
   declared_amount:decimalAmountSchema.nullable(),declared_currency:z.string().regex(/^[A-Z]{3}$/).nullable()}).strict().superRefine((k,c)=>{

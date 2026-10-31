@@ -6,6 +6,10 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export async function POST(request: Request, context: { params: Promise<{ provider: string }> }) {
   const provider = (await context.params).provider;
+  if(provider === "telegram_stars_live") {
+    const { handleStarsCommerceWebhook } = await import("@/lib/payments/telegram-stars-commerce-webhook");
+    return handleStarsCommerceWebhook(request);
+  }
   if (!["telegram_stars_test", "external_crypto_test"].includes(provider)) return NextResponse.json({ error: "LIVE_PAYMENTS_NOT_ACTIVATED" }, { status: 503 });
   const secret = process.env.PAYMENT_TEST_WEBHOOK_SECRET?.trim();
   if (process.env.PAYMENT_TEST_WEBHOOKS_ENABLED !== "true" || !secret || secret.length < 32) return NextResponse.json({ error: "TEST_WEBHOOK_DISABLED" }, { status: 503 });

@@ -1,5 +1,5 @@
 /** Narrow Telegram relay: the Admin remains behind SSO and application authentication. */
-export type PrivateBetaRelayConfig = Readonly<{ webhookSecret: string; relaySecret: string; vercelBypass: string }>;
+export type PrivateBetaRelayConfig = Readonly<{ webhookSecret: string; relaySecret: string; vercelBypass: string; commercial?: {kind:"CAMPAIGN";tenantId:string;campaignId:string;repositorySha:string}|{kind:"STARS";tenantId:string;repositorySha:string} }>;
 const TARGET = "https://gold-revenue-os-staging.vercel.app/api/webhooks/private-beta/telegram";
 const MAX_BYTES = 65536;
 const encoder = new TextEncoder();
@@ -16,6 +16,14 @@ export async function privateBetaRelaySignature(body: string, timestamp: string,
   const hash = [...await digest(body)].map(v => v.toString(16).padStart(2, "0")).join("");
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(JSON.stringify(["POLAT_UAT_RELAY1", timestamp, hash])));
   return [...new Uint8Array(signature)].map(v => v.toString(16).padStart(2, "0")).join("");
+}
+export async function commercialRelaySignature(body:string,timestamp:string,secret:string,scope:NonNullable<PrivateBetaRelayConfig["commercial"]>){
+ const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu;
+ if(!uuid.test(scope.tenantId)||!/^[a-f0-9]{40}$/u.test(scope.repositorySha)||scope.kind==='CAMPAIGN'&&!uuid.test(scope.campaignId)||!['CAMPAIGN','STARS'].includes(scope.kind))throw Error('COMMERCIAL_RELAY_SCOPE_INVALID');
+ const hash=[...await digest(body)].map(v=>v.toString(16).padStart(2,'0')).join('');
+ const tuple=scope.kind==='CAMPAIGN'?['POLAT_CAMPAIGN_RELAY1',scope.tenantId,scope.campaignId,scope.repositorySha,timestamp,hash]:['POLAT_STARS_MERCHANT_RELAY1',scope.tenantId,scope.repositorySha,timestamp,hash];
+ const key=await crypto.subtle.importKey('raw',encoder.encode(secret),{name:'HMAC',hash:'SHA-256'},false,['sign']);
+ return [...new Uint8Array(await crypto.subtle.sign('HMAC',key,encoder.encode(JSON.stringify(tuple))))].map(v=>v.toString(16).padStart(2,'0')).join('');
 }
 export async function handlePrivateBetaRelay(request: Request, config: PrivateBetaRelayConfig, network: typeof fetch, now = Date.now()) {
   if (request.method !== "POST") return reply(405, "METHOD_NOT_ALLOWED");
@@ -44,9 +52,11 @@ export async function handlePrivateBetaRelay(request: Request, config: PrivateBe
   } catch { return reply(400, "BODY_INVALID"); }
   const timestamp = String(Math.floor(now / 1000));
   try {
-    const response = await network(TARGET, { method: "POST", redirect: "error", signal: AbortSignal.timeout(8000), headers: {
+    const target=config.commercial?.kind==='CAMPAIGN'?'https://gold-revenue-os-staging.vercel.app/api/webhooks/campaign/telegram':config.commercial?.kind==='STARS'?'https://gold-revenue-os-staging.vercel.app/api/webhooks/payments/telegram_stars_live':TARGET;
+    const signature=config.commercial?await commercialRelaySignature(body,timestamp,config.relaySecret,config.commercial):await privateBetaRelaySignature(body,timestamp,config.relaySecret);
+    const response = await network(target, { method: "POST", redirect: "error", signal: AbortSignal.timeout(8000), headers: {
       "content-type": "application/json", "x-telegram-bot-api-secret-token": config.webhookSecret,
-      "x-polat-uat-timestamp": timestamp, "x-polat-uat-signature": await privateBetaRelaySignature(body, timestamp, config.relaySecret),
+      "x-polat-uat-timestamp": timestamp, "x-polat-uat-signature": signature,
       "x-vercel-protection-bypass": config.vercelBypass,
     }, body });
     // Do not reflect upstream bodies, cookies, staff identity, provider details or secret-bearing URLs.

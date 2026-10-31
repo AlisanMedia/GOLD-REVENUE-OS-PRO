@@ -52,7 +52,8 @@
       "codex/fix-beta-recovery-fingerprint": false,
       "codex/founder-campaign-activation": false,
       "codex/campaign-hosted-acceptance": false,
-      "codex/genuine-campaign-integration": false
+      "codex/genuine-campaign-integration": false,
+      "codex/stars-genuine-receipt-bridge": false
     }
   },
   "framework": "nextjs",
