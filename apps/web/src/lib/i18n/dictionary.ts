@@ -5,6 +5,10 @@ import { entitlementCopy } from "./entitlements";
 import { surveyCopy } from "./surveys";
 // Typed UI copy only. Never pass customer/provider content as a translation key.
 export const copy = {
+  "Verified-provider payment invoice": ["Sağlayıcı kanıtına bağlı ödeme faturası", "Verified-provider payment invoice"],
+  "Provider evidence required; an invoice is not payment.": ["Sağlayıcı kanıtı gerekir; fatura ödeme değildir.", "Provider evidence required; an invoice is not payment."],
+  "Stars amounts are XTR; USD revenue and merchant payout are separate evidence.": ["Stars tutarı XTR'dir; USD gelir ve satıcıya net ödeme ayrı kanıt gerektirir.", "Stars amounts are XTR; USD revenue and merchant payout are separate evidence."],
+  "(provider-verified scope)": ["(sağlayıcı doğrulama kapsamı)", "(provider-verified scope)"],
   ...signalCopy,
   ...polatCopy,
   ...entitlementCopy,

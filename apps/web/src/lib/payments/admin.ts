@@ -4,6 +4,7 @@ import { paymentInvoiceSchema, providerSnapshotSchema } from "@gold-revenue-os/d
 import { requireAdminCapability } from "@/lib/admin/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 export const paymentAdminInvoiceSchema = paymentInvoiceSchema.extend({
+  mode: z.enum(["test", "live"]),
   created_at: z.string(), quote_snapshot: z.record(z.string(), z.unknown()),
   last_evidence_at: z.string().nullable(), confirmed_at: z.string().nullable(),
   reconciliation_count: z.number().int(), idempotency_key: z.string(), created_by: z.uuid(),
@@ -29,7 +30,7 @@ export async function paymentDetail(id: string) {
   if (!data) return null;
   const parsed = z.object({
     invoice: paymentAdminInvoiceSchema,
-    observations: z.array(z.object({ id: z.uuid(), event_id: z.string(), method: z.string(), proposed_state: z.string(), resulting_state: z.string(), reason: z.string(), raw_body_hash: z.string(), created_at: z.string(), evidence: providerSnapshotSchema }).passthrough()),
+    observations: z.array(z.object({ id: z.uuid(), event_id: z.string(), method: z.string(), proposed_state: z.string(), resulting_state: z.string(), reason: z.string(), raw_body_hash: z.string(), created_at: z.string(), evidence: providerSnapshotSchema.nullable() }).passthrough()),
     transactions: z.array(z.object({ provider_id: z.string(), transaction_reference: z.string(), network: z.string(), created_at: z.string() }).passthrough()),
   }).parse(data);
   let starsEvidence: z.infer<typeof starsAdminEvidenceSchema> | null = null;

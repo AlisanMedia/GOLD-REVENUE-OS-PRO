@@ -81,3 +81,4 @@ export * from "./polat-human-review";
 export * from "./polat-human-review-form";
 
 export * from "./polat-campaign-runtime";
+export * from "./telegram-stars-commerce";

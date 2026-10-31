@@ -19,12 +19,12 @@ export class TestTelegramAccessAdapter implements TelegramAccessAdapter {
 export class AuthorizedTelegramAccessAdapter implements TelegramAccessAdapter {
  constructor(private readonly config:{enabled:boolean;botToken:string;botUserId:string;channelId:string;userId:string;ownerApproval:string},private readonly transport:typeof fetch=fetch){}
  private async call(method:string,body:Record<string,unknown>):Promise<unknown>{
-  try {const r=await this.transport(`https://api.telegram.org/bot${this.config.botToken}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(10000),cache:"no-store"});const p=z.object({ok:z.boolean(),result:z.unknown().optional()}).parse(await r.json());if(!r.ok||!p.ok)throw Error();return p.result;}catch{throw Error("TELEGRAM_ACCESS_PROVIDER_FAILURE");}
+  try {const r=await this.transport(`https://api.telegram.org/bot${this.config.botToken}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body),signal:AbortSignal.timeout(10000),redirect:"error",cache:"no-store"});if(r.redirected||!r.body)throw Error();const reader=r.body.getReader(),chunks:Uint8Array[]=[];let size=0;try{while(true){const part=await reader.read();if(part.done)break;size+=part.value.length;if(size>16384)throw Error();chunks.push(part.value);}}finally{await reader.cancel().catch(()=>undefined);reader.releaseLock();}const p=z.object({ok:z.boolean(),result:z.unknown().optional()}).parse(JSON.parse(new TextDecoder("utf-8",{fatal:true}).decode(Buffer.concat(chunks))));if(!r.ok||!p.ok)throw Error();return p.result;}catch{throw Error("TELEGRAM_ACCESS_PROVIDER_FAILURE");}
  }
  async execute(job:AccessJob):Promise<AccessResult>{
   if(!this.config.enabled||!this.config.ownerApproval||job.mode!=="live"||job.chat_id!==this.config.channelId||job.telegram_user_id!==this.config.userId||!/^-[1-9]\d+$/u.test(job.chat_id)||!/^\d+$/u.test(job.telegram_user_id))throw Error("TELEGRAM_ACCESS_NOT_AUTHORIZED");
-  const chat=z.object({type:z.literal("channel"),username:z.string().optional()}).parse(await this.call("getChat",{chat_id:job.chat_id}));if(chat.username)throw Error("PRIVATE_CHANNEL_REQUIRED");
-  z.object({status:z.literal("administrator"),can_invite_users:z.literal(true),can_restrict_members:z.literal(true)}).parse(await this.call("getChatMember",{chat_id:job.chat_id,user_id:this.config.botUserId}));
+  const chat=z.object({id:z.number().int().safe(),type:z.literal("channel"),username:z.string().optional()}).parse(await this.call("getChat",{chat_id:job.chat_id}));if(String(chat.id)!==job.chat_id||chat.username)throw Error("PRIVATE_CHANNEL_REQUIRED");
+  const administrator=z.object({status:z.literal("administrator"),user:z.object({id:z.number().int().safe()}),can_invite_users:z.literal(true),can_restrict_members:z.literal(true)}).parse(await this.call("getChatMember",{chat_id:job.chat_id,user_id:this.config.botUserId}));if(String(administrator.user.id)!==this.config.botUserId)throw Error("BOT_ADMIN_IDENTITY_MISMATCH");
   if(job.operation==="invite"){
    await this.call("unbanChatMember",{chat_id:job.chat_id,user_id:job.telegram_user_id,only_if_banned:true});
    const expiry=Math.floor(Date.parse(job.invite_expires_at)/1000);if(!Number.isFinite(expiry)||expiry<=Date.now()/1000||expiry>Date.now()/1000+901)throw Error("INVALID_INVITE_EXPIRY");
@@ -32,7 +32,7 @@ export class AuthorizedTelegramAccessAdapter implements TelegramAccessAdapter {
   }
   if(job.operation==="revoke"){
    if(job.invite_reference)await this.call("revokeChatInviteLink",{chat_id:job.chat_id,invite_link:job.invite_reference});
-   if(await this.call("banChatMember",{chat_id:job.chat_id,user_id:job.telegram_user_id})!==true)throw Error("REVOKE_NOT_CONFIRMED");return {ok:true};
+   if(await this.call("banChatMember",{chat_id:job.chat_id,user_id:job.telegram_user_id})!==true)throw Error("REVOKE_NOT_CONFIRMED");const revoked=z.object({status:z.literal("kicked"),user:z.object({id:z.number().int().safe()})}).parse(await this.call("getChatMember",{chat_id:job.chat_id,user_id:job.telegram_user_id}));if(String(revoked.user.id)!==job.telegram_user_id)throw Error("REVOKE_IDENTITY_MISMATCH");return {ok:true};
   }
   if(job.operation==="join"){
    if(await this.call("approveChatJoinRequest",{chat_id:job.chat_id,user_id:job.telegram_user_id})!==true)throw Error("JOIN_NOT_CONFIRMED");
