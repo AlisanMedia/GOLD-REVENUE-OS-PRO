@@ -29,8 +29,8 @@ historical customer outreach is performed by this package.
 
 Local evidence:6 actual disposable PG17 cases pass with OFFLINE provider sockets,
 including independent receipt-admission connections, exact one subscription,
-numeric member/CRM, refund/revoke and unknown checkout/VIP restart.21 new protocol
-unit cases plus affected financial-source/access-adapter regression passed (162
+numeric member/CRM, refund/revoke and unknown checkout/VIP restart.23 new protocol
+unit cases plus affected financial-source/access-adapter regression passed (169
 focused assertions). Typecheck/lint verified during implementation; mandatory
 exact-head and post-merge Application/Database remain required before acceptance.
 

@@ -133,7 +133,10 @@ declare b jsonb;i public.payment_invoices;callback public.payment_observations;r
  select * into r from private.verified_payment_receipts where provider_id='telegram_stars_live'and provider_reference=ref;
  if kind_value='PAYMENT'then
   if r.id is not null then if r.tenant_id<>target_tenant_id or r.invoice_id<>i.id then raise exception 'STARS_CHARGE_ALREADY_CLAIMED'using errcode='23505';end if;
-   select subscription_id into sid from public.subscription_payments where receipt_id=r.id;return jsonb_build_object('state','CONFIRMED','replay',true,'receipt_id',r.id,'subscription_id',sid);end if;
+   select subscription_id into sid from public.subscription_payments where receipt_id=r.id;
+   insert into public.payment_observations(tenant_id,invoice_id,provider_id,event_id,raw_body_hash,method,proposed_state,resulting_state,reason,mode,provider_evidence)
+   values(target_tenant_id,i.id,'telegram_stars_live','stars:admitted:'||callback.id::text,callback.raw_body_hash,'reconcile',kind_value,i.status,'EXISTING_RECEIPT_REPLAY','live',jsonb_build_object('callback_id',callback.id,'ledger_attempt_id',ledger_attempt_id_value,'receipt_id',r.id))on conflict(provider_id,event_id)do nothing;
+   return jsonb_build_object('state',i.status,'replay',true,'receipt_id',r.id,'subscription_id',sid);end if;
   if i.status not in('CREATED','PENDING','REVIEW')or(callback.provider_evidence->>'source_time')::timestamptz>=i.expires_at then return jsonb_build_object('state','REVIEW','reason','INTENT_CLOSED_OR_LATE');end if;
   rid:=extensions.gen_random_uuid();eid:=private.append_domain_event(target_tenant_id,i.customer_id,'payment.confirmed',1,jsonb_build_object('payment_id',rid,'tx_hash',ref,'amount_units',i.amount_units::text,'currency','XTR','network','TELEGRAM'),'SYSTEM',null,'payment_verifier','TRUSTED',extensions.gen_random_uuid(),null,'stars-receipt:'||ref,clock_timestamp());
   insert into private.verified_payment_receipts(id,tenant_id,customer_id,offer_id,event_id,provider_id,provider_reference,signature_verified,independent_verified,evidence_hash,verified_at,invoice_id,amount_units,asset,network,payer_reference,recipient)
@@ -153,7 +156,10 @@ declare b jsonb;i public.payment_invoices;callback public.payment_observations;r
  else
   if r.id is null or r.tenant_id<>target_tenant_id or r.invoice_id<>i.id then return jsonb_build_object('state','REVIEW','reason','ORIGINAL_RECEIPT_REQUIRED');end if;
   select subscription_id into sid from public.subscription_payments where receipt_id=r.id;
-  if i.status='REFUNDED'then return jsonb_build_object('state','REFUNDED','replay',true,'receipt_id',r.id,'subscription_id',sid);end if;
+  if i.status='REFUNDED'then
+   insert into public.payment_observations(tenant_id,invoice_id,provider_id,event_id,raw_body_hash,method,proposed_state,resulting_state,reason,mode,provider_evidence)
+   values(target_tenant_id,i.id,'telegram_stars_live','stars:admitted:'||callback.id::text,callback.raw_body_hash,'reconcile',kind_value,'REFUNDED','EXISTING_REFUND_REPLAY','live',jsonb_build_object('callback_id',callback.id,'ledger_attempt_id',ledger_attempt_id_value,'receipt_id',r.id))on conflict(provider_id,event_id)do nothing;
+   return jsonb_build_object('state','REFUNDED','replay',true,'receipt_id',r.id,'subscription_id',sid);end if;
   update public.payment_invoices set status='REFUNDED',last_evidence_at=clock_timestamp(),reconciliation_count=reconciliation_count+1 where id=i.id;
   -- Preserve the original receipt. Refund is new evidence; prevent access restoration.
   update public.subscriptions set state='CANCELLED',revision=revision+1 where tenant_id=target_tenant_id and id=sid and state<>'CANCELLED';
@@ -309,3 +315,11 @@ create function public.stars_commerce_recovery_targets_v1(target_tenant_id uuid)
  perform private.stars_commerce_guard(target_tenant_id);select coalesce(jsonb_agg(invoice_id),'[]')into result from(select distinct o.invoice_id from public.payment_observations o where o.tenant_id=target_tenant_id and o.mode='live'and o.proposed_state='AUTHENTICATED_CALLBACK'and o.provider_evidence->>'kind'in('PAYMENT','REFUND')and not exists(select 1 from public.payment_observations settled where settled.tenant_id=o.tenant_id and settled.event_id='stars:admitted:'||o.id::text)order by o.invoice_id limit 3)x;return result;end;$$;
 revoke all on function public.stars_commerce_recovery_targets_v1(uuid)from public,anon,authenticated,service_role;
 grant execute on function public.stars_commerce_recovery_targets_v1(uuid)to service_role;
+create function public.stars_commerce_replay_state_v1(target_tenant_id uuid,target_invoice_id uuid,raw_hash_value text)returns jsonb language plpgsql stable security definer set search_path=pg_catalog as $$declare result jsonb;begin
+ perform private.stars_commerce_guard(target_tenant_id);
+ select jsonb_build_object('state',i.status,'replay',true,'receipt_id',r.id,'subscription_id',p.subscription_id)into result
+ from public.payment_observations cb join public.payment_observations admitted on admitted.tenant_id=cb.tenant_id and admitted.event_id='stars:admitted:'||cb.id::text
+ join public.payment_invoices i on i.tenant_id=cb.tenant_id and i.id=cb.invoice_id join private.verified_payment_receipts r on r.tenant_id=i.tenant_id and r.invoice_id=i.id join public.subscription_payments p on p.tenant_id=r.tenant_id and p.receipt_id=r.id
+ where cb.tenant_id=target_tenant_id and cb.invoice_id=target_invoice_id and cb.raw_body_hash=raw_hash_value and cb.proposed_state='AUTHENTICATED_CALLBACK'limit 1;return result;end;$$;
+revoke all on function public.stars_commerce_replay_state_v1(uuid,uuid,text)from public,anon,authenticated,service_role;
+grant execute on function public.stars_commerce_replay_state_v1(uuid,uuid,text)to service_role;

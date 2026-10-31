@@ -96,6 +96,7 @@ export async function createStarsCommerce(input: { tenantId: string }, transport
       if (!header || !timingSafeEqual(Buffer.from(sha(header), "hex"), Buffer.from(initial.webhook_secret_sha256, "hex"))) throw Error("STARS_COMMERCE_WEBHOOK_DENIED");
       const i = await intent(starsCommerceInvoiceId(raw));
       const stored=await rpc("stars_commerce_callback_by_hash_v1",{target_invoice_id:i.invoice_id,raw_hash_value:financialSha256(raw)});
+      if(stored!==null){const completed=await rpc("stars_commerce_replay_state_v1",{target_invoice_id:i.invoice_id,raw_hash_value:financialSha256(raw)});if(completed!==null)return completed;}
       const event:StarsCommerceEvent=stored===null?parseStarsCommerceUpdate(raw,i,Date.now()):z.object({kind:z.enum(["PRE_CHECKOUT","PAYMENT","REFUND"]),update_id:z.string(),charge_id:z.string().nullable(),query_id:z.string().nullable(),source_time:z.string().nullable(),raw_hash:hash}).strict().parse(stored);
       if(stored===null)await rpc("stars_commerce_callback_v1", { target_invoice_id: i.invoice_id, event_value: JSON.stringify(event) });
       if (event.kind === "PRE_CHECKOUT" && stored!==null)return {state:"PENDING",reason:"PRECHECKOUT_ALREADY_TRACKED_NOT_PAYMENT"};

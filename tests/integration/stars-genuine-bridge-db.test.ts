@@ -44,7 +44,7 @@ describe.runIf(Boolean(url))("Stars production-shaped bridge, disposable PG17 an
   expect(prepared.subscription_activated).toBe(false);expect(db.query(`select to_jsonb(count(*))from private.verified_payment_receipts where tenant_id='${s.t}'`)).toBe(0);
   expect(await api.acceptWebhook(s.webhook('PRE_CHECKOUT'),s.secret,'precheckout')).toMatchObject({state:'PENDING'});
   const paid=await api.acceptWebhook(s.webhook('PAYMENT',2),s.secret,'payment')as{state:string;subscription_id:string};expect(paid.state).toBe('CONFIRMED');
-  expect(await api.acceptWebhook(s.webhook('PAYMENT',2),s.secret,'payment-replay')).toMatchObject({state:'CONFIRMED',replay:true});
+  const beforeReplay=s.calls.length;expect(await api.acceptWebhook(s.webhook('PAYMENT',2),s.secret,'payment-replay')).toMatchObject({state:'CONFIRMED',replay:true});expect(s.calls).toHaveLength(beforeReplay);
   expect(db.query(`select to_jsonb(count(*))from public.subscription_payments where tenant_id='${s.t}'`)).toBe(1);
   expect(db.query(`select jsonb_build_object('amount',amount_units::text,'asset',asset)from private.verified_payment_receipts where tenant_id='${s.t}'`)).toEqual({amount:'100',asset:'XTR'});
   expect(await runGenuineEntitlementCycle(s.t,s.fetcher)).toMatchObject({confirmed:true});
@@ -55,6 +55,7 @@ describe.runIf(Boolean(url))("Stars production-shaped bridge, disposable PG17 an
   s.setRefund();expect(await api.acceptWebhook(s.webhook('REFUND',3),s.secret,'refund-read')).toMatchObject({state:'REFUNDED'});
   expect(await runGenuineEntitlementCycle(s.t,s.fetcher)).toMatchObject({confirmed:true});
   expect(db.query(`select jsonb_build_object('state',s.state,'access',a.status)from public.subscriptions s join public.channel_access a on a.subscription_id=s.id where s.tenant_id='${s.t}'`)).toEqual({state:'CANCELLED',access:'REVOKED'});
+  expect(await api.acceptWebhook(s.webhook('PAYMENT',2),s.secret,'after-refund-replay')).toMatchObject({state:'REFUNDED',replay:true});
   expect(s.calls.filter(v=>v==='createInvoiceLink')).toHaveLength(1);
  },60000);
  it("unknown checkout consumes its durable attempt and cannot be blindly dispatched by a restarted factory",async()=>{

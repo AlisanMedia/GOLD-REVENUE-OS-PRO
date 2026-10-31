@@ -50,12 +50,24 @@ export function starsCommerceInvoiceId(raw: string): string {
 }
 export type StarsCommerceLedger = { raw_hash: string; read_at: string; page_complete: boolean; history_exhausted: boolean; entries: { charge_id: string; kind: "PAYMENT" | "REFUND"; payer_user_id: string; amount_units: string; invoice_payload: string | null; source_time: string }[] };
 export function parseStarsCommerceLedger(raw: string, readAt: string): StarsCommerceLedger {
-  const partner = z.object({ type: z.literal("user"), user, transaction_type: z.literal("invoice_payment"), invoice_payload: z.string().optional() });
-  const transaction = z.object({ id: z.string().min(1).max(200), amount: z.number().int().positive().safe(), nanostar_amount: z.literal(0).optional(), date: z.number().int().positive().safe(), source: partner.optional(), receiver: partner.optional() }).refine(v => Number(!!v.source) + Number(!!v.receiver) === 1);
-  const v = z.object({ ok: z.literal(true), result: z.object({ transactions: z.array(transaction).max(100) }) }).parse(json(raw));
-  z.iso.datetime({ offset: true }).parse(readAt);
-  return { raw_hash: financialSha256(raw,65536), read_at: readAt, page_complete: true, history_exhausted: v.result.transactions.length < 100,
-    entries: v.result.transactions.map(t => { const p = t.source ?? t.receiver!; return { charge_id: t.id, kind: t.source ? "PAYMENT" : "REFUND", payer_user_id: String(p.user.id), amount_units: String(t.amount), invoice_payload: p.invoice_payload ?? null, source_time: new Date(t.date * 1000).toISOString() }; }) };
+  const actor=z.object({id:z.number().int().positive().safe(),is_bot:z.boolean()});
+  const partner=z.discriminatedUnion("type",[
+    z.object({type:z.literal("user"),user:actor,transaction_type:z.enum(["invoice_payment","paid_media_payment","gift_purchase","premium_purchase","business_account_transfer"]),invoice_payload:z.string().max(128).optional()}),
+    z.object({type:z.enum(["chat","affiliate_program","fragment","telegram_ads","telegram_api","other"])})
+  ]);
+  const transaction = z.object({ id:z.string().min(1).max(200),amount:z.number().int().safe(),nanostar_amount:z.number().int().min(0).max(999999999).optional(),date:z.number().int().positive().safe(),source:partner.optional(),receiver:partner.optional() }).refine(v=>Number(!!v.source)+Number(!!v.receiver)===1);
+  const v=z.object({ok:z.literal(true),result:z.object({transactions:z.array(transaction).max(100)})}).parse(json(raw));
+  z.iso.datetime({offset:true}).parse(readAt);
+  const entries:StarsCommerceLedger["entries"]=[];
+  for(const t of v.result.transactions){
+    const p=t.source??t.receiver!;
+    // Project documented unrelated activity, never count it as an invoice payment.
+    // Unknown partner/types still hold; no unrestricted passthrough authority.
+    if(p.type!=="user"||p.transaction_type!=="invoice_payment")continue;
+    if(p.user.is_bot||t.amount<=0||(t.nanostar_amount??0)!==0)throw Error("STARS_COMMERCE_INVOICE_UNITS_INVALID");
+    entries.push({charge_id:t.id,kind:t.source?"PAYMENT":"REFUND",payer_user_id:String(p.user.id),amount_units:String(t.amount),invoice_payload:p.invoice_payload??null,source_time:new Date(t.date*1000).toISOString()});
+  }
+  return {raw_hash:financialSha256(raw,65536),read_at:readAt,page_complete:true,history_exhausted:v.result.transactions.length<100,entries};
 }
 export function corroborateStarsCommerce(i: StarsCommerceIntent, event: StarsCommerceEvent, ledger: StarsCommerceLedger, now: number) {
   starsCommerceIntentSchema.parse(i);
