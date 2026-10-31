@@ -91,10 +91,41 @@ export async function observePrivateBetaOpenAIAccount({ env, request = fetch, no
   }
 }
 
+/** Existing-key metadata GET can diagnose access BEFORE an MFA-created beta
+ * program exists. It never claims organization, hard-cap, billing or inference
+ * authority, and cannot create a program or seal any account control. */
+export async function observeConfiguredOpenAIModel({ env, request = fetch, now = Date.now }) {
+  let attempted = 0, providerStatus = null;
+  const common = { version: 1, mode: 'PROTECTED_READ_ONLY_MODEL_METADATA', provider: 'openai', model: MODEL,
+    actual_inference_requests: 0, genuine_execution_authority: 'BLOCKED', provider_account_authority: 'UNVERIFIED',
+    account_scope_hash: null, effective_experiment_cap: 'UNVERIFIED', actual_billed_amount: null,
+    data_policy: 'UNVERIFIED', billing: 'UNKNOWN', database_authority_written: false, financial_authority: 'NONE', commercial_pilot: 'NO_GO' };
+  try {
+    assert(env.GITHUB_ACTIONS === 'true' && env.GITHUB_EVENT_NAME === 'workflow_dispatch' && env.GITHUB_REF === 'refs/heads/main'
+      && env.GITHUB_REPOSITORY === 'AlisanMedia/GOLD-REVENUE-OS-PRO' && sha.test(env.VALIDATED_SHA ?? '') && env.VALIDATED_SHA === env.GITHUB_SHA, 'PROTECTED_EXACT_PROGRAM_REQUIRED');
+    assert(credential(env.OPENAI_API_KEY), 'PROTECTED_ACCOUNT_CREDENTIALS_REQUIRED');
+    attempted++;
+    const observed = await readJson(MODEL_URL, { method: 'GET', headers: { authorization: 'Bearer ' + env.OPENAI_API_KEY, accept: 'application/json' } },
+      async (url, init) => { const response = await request(url, init); providerStatus = response.status; return response; });
+    const value = observed.value;
+    assert(value && value.id === MODEL && value.object === 'model' && Number.isSafeInteger(value.created) && value.created >= 0
+      && typeof value.owned_by === 'string' && value.owned_by.length > 0 && value.owned_by.length <= 160, 'OPENAI_MODEL_METADATA_INVALID');
+    const at = now(); assert(Number.isSafeInteger(at) && at > 0, 'OPENAI_PREFLIGHT_RESPONSE_INVALID');
+    return Object.freeze({ ...common, state: 'OBSERVED', model_access: 'OBSERVED', model_metadata_requests: attempted,
+      provider_status: providerStatus, repository_sha: env.VALIDATED_SHA, model_response_hash: observed.response_hash,
+      observed_at: new Date(at).toISOString(), unresolved: ['PROJECT_IDENTITY_NOT_ESTABLISHED_BY_MODEL_METADATA',
+        'INDEPENDENT_ACCOUNT_CAP_DATA_POLICY_CUSTODY_AND_BILLING_REQUIRED', 'AUTHENTICATED_OWNER_CONFIGURATION_AND_DURABLE_RESERVATION_REQUIRED'] });
+  } catch (error) {
+    return Object.freeze({ ...common, state: 'BLOCKED', model_access: 'UNVERIFIED', model_metadata_requests: attempted, provider_status: providerStatus,
+      reason: error instanceof Error && errors.has(error.message) ? error.message : 'OPENAI_PREFLIGHT_READ_UNAVAILABLE' });
+  }
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     assert(process.argv.length === 2 && typeof process.env.RUNNER_TEMP === 'string' && process.env.RUNNER_TEMP.startsWith('/'), 'PROTECTED_EXACT_PROGRAM_REQUIRED');
-    const result = await observePrivateBetaOpenAIAccount({ env: process.env });
+    const result = process.env.OPENAI_METADATA_ONLY === 'true'
+      ? await observeConfiguredOpenAIModel({ env: process.env }) : await observePrivateBetaOpenAIAccount({ env: process.env });
     writeFileSync(join(process.env.RUNNER_TEMP, 'private-beta-openai-account-observation.json'), JSON.stringify(result, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
     if (result.state !== 'OBSERVED') { process.stderr.write('PRIVATE_BETA_OPENAI_PREFLIGHT_BLOCKED: ' + result.reason + '\n'); process.exitCode = 1; }
     else process.stdout.write('OBSERVED: one read-only OpenAI model metadata request. Inference, account/cap authority and actual billing remain BLOCKED/UNVERIFIED.\n');
