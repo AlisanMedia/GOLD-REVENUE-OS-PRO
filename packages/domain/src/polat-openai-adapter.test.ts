@@ -10,7 +10,7 @@ import { polatOpenAICanaryPlan } from "./polat-openai-canary";
 import { polatClaudeCanaryPlan } from "./polat-claude-canary";
 import { polatGuardDigest } from "./polat-experiment-journal";
 import type { ModelRequest, ModelResponse } from "./agent-runtime";
-import { createPolatPrivateBetaNetworkAuthority, polatPrivateBetaBindingSchema, requirePolatNetworkPermit, polatGenuineExecutionGate, type PolatPrivateBetaAttemptPayload } from "./polat-experiment-execution-gate";
+import { createPolatPrivateBetaNetworkAuthority, polatPrivateBetaBindingSchema, polatPrivateBetaAccountEvidenceSchema, requirePolatNetworkPermit, polatGenuineExecutionGate, type PolatPrivateBetaAttemptPayload } from "./polat-experiment-execution-gate";
 
 const fake = vi.hoisted(() => ({ calls: [] as Array<{ options: RequestOptions; body: string }>, body: "", status: 200, stall: false, disconnect: false, timeline: [] as string[], headers: {} as Record<string, string> }));
 vi.mock("node:https", () => ({ request: (options: RequestOptions, callback: (response: IncomingMessage) => void) => {
@@ -30,7 +30,7 @@ vi.mock("node:https", () => ({ request: (options: RequestOptions, callback: (res
   }) as ClientRequest["end"];
   return socket;
 } }));
-import { createPolatPrivateBetaProvider, boundPolatPrivateBetaWireLiability, type PolatPrivateBetaReservation, type PolatPrivateBetaProviderOutcome } from "./polat-private-beta-provider";
+import { createPolatPrivateBetaProvider, boundPolatPrivateBetaWireLiability, estimatePolatOwnerOnlyOpenAIUsageLiability, type PolatPrivateBetaReservation, type PolatPrivateBetaProviderOutcome } from "./polat-private-beta-provider";
 import { sendPolatOpenAIHttpsOnce } from "./polat-openai-https-boundary";
 import { sendPolatClaudeHttpsOnce } from "./polat-claude-https-boundary";
 
@@ -62,6 +62,33 @@ function fixture() {
   const assess = vi.fn((_request: ModelRequest, actual: ModelResponse) => assessPolatDraft(prepared, actual.output).action === "SAFE_PREVIEW" ? "APPROVED" as const : "HELD" as const);
   const service = createPolatPrivateBetaProvider({ binding, authority, store: { reserve, begin, record }, assess });
   return { now, prepared, binding, owner, account, payload, committed, authority, credentialRead, reservation, outcomes, reserve, begin, record, service, assess };
+}
+function ownerOnlyFixture(founder = false) {
+  const original = fixture();
+  const binding = polatPrivateBetaBindingSchema.parse({ ...original.binding, version: 3, scope: "OWNER_ONLY", effective_limit_kind: "LOCAL_DURABLE_RESERVATION_CAP",
+    ...(founder ? { corpus_version: "polat-private-beta-conversation-v1", corpus_hash: "3".repeat(64), plan_hash: "4".repeat(64), maximum_requests: 350 } : {}) });
+  if (binding.version !== 3) throw Error("OWNER_ONLY_FIXTURE_REQUIRED");
+  const hash = polatGuardDigest(binding), owner = { ...original.owner, binding_hash: hash, phase: founder ? "FOUNDER" : "CANARY" };
+  const a = original.account.payload;
+  const account = polatPrivateBetaAccountEvidenceSchema.parse({ version: 3, origin: "SERVER_DERIVED_OWNER_ONLY_UAT_CONTROL", scope: "OWNER_ONLY",
+    program_id: a.program_id, tenant_id: a.tenant_id, account_scope_hash: a.account_scope_hash, repository_sha: a.repository_sha, manifest_hash: a.manifest_hash, authorization_record_hash: a.authorization_record_hash,
+    provider: "openai", model: "gpt-6.1-sol", model_access: true, organization_id: a.organization_id, project_id: a.project_id, credential_sha256: a.credential_sha256,
+    policy_hash: a.policy_hash, credential_custody_hash: a.credential_custody_hash, currency: "USD", effective_limit_kind: "LOCAL_DURABLE_RESERVATION_CAP", local_maximum_spend: "5.00",
+    local_reserved_liability: founder ? "0.001963" : "0", local_remaining_allowance: founder ? "4.998037" : "5.00", provider_billing: "UNKNOWN", provider_enforced_cap: "UNVERIFIED",
+    canary_result_hash: founder ? "7".repeat(64) : null, unknown_outcome_count: 0, request_bound: a.request_bound, observed_at: a.observed_at, expires_at: a.expires_at });
+  if (account.version !== 3) throw Error("OWNER_ONLY_FIXTURE_REQUIRED");
+  const payload: PolatPrivateBetaAttemptPayload = { ...original.payload, binding_hash: hash, scope: founder ? "FOUNDER" : "CANARY", global_ordinal: founder ? 2 : 1,
+    participant_id: founder ? "91cc7000-0000-4000-8000-000000000001" : null, participant_ordinal: founder ? 1 : 0, source_message_id: founder ? original.prepared.request.context.recentMessages.at(-1)!.id : null,
+    reserved_liability: founder ? "4.209643" : "4.20768" };
+  const committed = { ...original.committed, binding_hash: hash, payload };
+  const reservation = { ...original.reservation, binding_hash: hash };
+  const reserve = vi.fn(() => {
+    fake.timeline.push("reserve_committed"); account.local_reserved_liability = payload.reserved_liability; account.local_remaining_allowance = founder ? "0.790357" : "0.79232";
+    return Promise.resolve(reservation);
+  });
+  const authority = createPolatPrivateBetaNetworkAuthority({ deployed_sha: binding.repository_sha, readOwnerGrant: () => Promise.resolve(owner), readIndependentAccount: () => Promise.resolve({ payload: account }), readCommittedAttempt: () => Promise.resolve(committed), resolveCredential: original.credentialRead });
+  const service = createPolatPrivateBetaProvider({ binding, authority, store: { reserve, begin: original.begin, record: original.record }, assess: original.assess });
+  return { ...original, binding, owner, account, payload, committed, reservation, reserve, authority, service };
 }
 beforeEach(() => { fake.calls = []; fake.body = JSON.stringify(response()); fake.status = 200; fake.stall = false; fake.disconnect = false; fake.timeline = []; fake.headers = {}; });
 
@@ -186,6 +213,124 @@ describe("OpenAI through existing three-reader gate and durable attempt contract
   });
 });
 
+describe("owner-only OpenAI local UAT, synthetic database and fake sockets", () => {
+  it("keeps a complete canary reservation, scoped key/project and unknown actual billing", async () => {
+    const s = ownerOnlyFixture();
+    expect(await s.authority.preflight(s.binding)).toMatchObject({ state: "READY", financial_authority: "NONE" });
+    const actual = await s.service.provider.invoke(s.prepared.request);
+    expect(fake.calls).toHaveLength(1);
+    expect(fake.calls[0]!.options.headers).toMatchObject({ "OpenAI-Organization": "org-fixture", "OpenAI-Project": "proj_fixture" });
+    expect(fake.timeline).toEqual(["reserve_committed", "start_committed", "credential", "network", "outcome_committed"]);
+    expect(s.account).toMatchObject({ version: 3, local_reserved_liability: "4.20768", local_remaining_allowance: "0.79232", provider_billing: "UNKNOWN", provider_enforced_cap: "UNVERIFIED" });
+    expect(actual.usage.billedAmount).toBeNull(); expect(s.outcomes[0]).toMatchObject({ qa: "APPROVED", actual_billed_amount: null, financial_authority: "NONE" });
+    // Only the trusted durable journal may subsequently value successful usage.
+    expect(await s.authority.preflight(s.binding)).toMatchObject({ state: "BLOCKED" });
+    expect(s.service).toMatchObject({ automatic_retries: 0, automatic_fallbacks: 0, qa_regenerations: 0 });
+  });
+  it("admits founder scope using a server-derived canary result without claiming financial reconciliation", async () => {
+    const s = ownerOnlyFixture(true);
+    const actual = await s.service.provider.invoke(s.prepared.request);
+    expect(fake.calls).toHaveLength(1); expect(actual.provider).toBe("openai");
+    expect(s.account).toMatchObject({ provider_billing: "UNKNOWN", provider_enforced_cap: "UNVERIFIED", canary_result_hash: "7".repeat(64), local_reserved_liability: "4.209643" });
+    expect(s.account).not.toHaveProperty("billing_evidence_hash"); expect(s.account).not.toHaveProperty("canary_reconciliation_hash"); expect(s.account).not.toHaveProperty("independently_observed_spend");
+  });
+  it("allows the owner's bounded 24-hour window while old account versions retain their five-minute requirement", async () => {
+    const s = ownerOnlyFixture();
+    s.account.observed_at = new Date(s.now - 3600000).toISOString(); s.account.expires_at = new Date(s.now + 3600000).toISOString();
+    s.owner.expires_at = s.account.expires_at;
+    expect(await s.authority.preflight(s.binding)).toMatchObject({ state: "READY" });
+    const historical = fixture(); historical.account.payload.observed_at = s.account.observed_at; historical.account.payload.expires_at = s.account.expires_at;
+    expect(await historical.authority.preflight(historical.binding)).toMatchObject({ state: "BLOCKED" });
+  });
+  it.each(["independent-origin", "reconciled", "enforced", "external-spend", "external-bill", "friends", "larger-cap"])("does not let owner-local evidence claim %s", change => {
+    const s = ownerOnlyFixture(), changes: Record<string, unknown> = {};
+    if (change === "independent-origin") changes.origin = "INDEPENDENT_ACCOUNT_CONTROL";
+    if (change === "reconciled") changes.provider_billing = "RECONCILED";
+    if (change === "enforced") changes.provider_enforced_cap = "VERIFIED";
+    if (change === "external-spend") changes.independently_observed_spend = "0";
+    if (change === "external-bill") changes.actual_billed_amount = "0";
+    if (change === "friends") changes.scope = "FRIENDS";
+    if (change === "larger-cap") changes.local_maximum_spend = "5.01";
+    expect(polatPrivateBetaAccountEvidenceSchema.safeParse({ ...s.account, ...changes }).success).toBe(false);
+    expect(fake.calls).toHaveLength(0);
+  });
+  it("requires version-three binding and control together, preserving the old account contract", async () => {
+    const local = ownerOnlyFixture(), old = fixture();
+    expect(await local.authority.preflight(old.binding)).toMatchObject({ state: "BLOCKED" });
+    expect(await old.authority.preflight(local.binding)).toMatchObject({ state: "BLOCKED" });
+    expect(polatPrivateBetaBindingSchema.safeParse({ ...local.binding, scope: "FRIENDS" }).success).toBe(false);
+    expect(local.credentialRead).not.toHaveBeenCalled(); expect(old.credentialRead).not.toHaveBeenCalled();
+  });
+  it.each(["canary", "unknown", "owner-phase", "scope", "project", "organization", "credential", "owner-mfa", "sha", "manifest", "authorization", "custody", "model-access"])("holds missing or mismatched %s before founder dispatch", async change => {
+    const s = ownerOnlyFixture(true);
+    if (change === "canary") s.account.canary_result_hash = null;
+    if (change === "unknown") s.account.unknown_outcome_count = 1;
+    if (change === "owner-phase") s.owner.phase = "FRIENDS";
+    if (change === "scope") s.account.account_scope_hash = "0".repeat(64);
+    if (change === "project") s.account.project_id = "proj_other";
+    if (change === "organization") s.account.organization_id = "org-other";
+    if (change === "credential") s.account.credential_sha256 = "0".repeat(64);
+    if (change === "owner-mfa") s.owner.aal = "aal1";
+    if (change === "sha") s.account.repository_sha = "f".repeat(40);
+    if (change === "manifest") s.account.manifest_hash = "0".repeat(64);
+    if (change === "authorization") s.account.authorization_record_hash = "0".repeat(64);
+    if (change === "custody") s.account.credential_custody_hash = "0".repeat(64);
+    if (change === "model-access") Object.assign(s.account, { model_access: false });
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow(); expect(fake.calls).toHaveLength(0);
+  });
+  it.each(["overspent", "inconsistent", "insufficient", "stale", "too-long", "beyond-owner", "future"])("holds invalid local accounting or validity (%s)", async change => {
+    const s = ownerOnlyFixture();
+    if (change === "overspent") { s.account.local_reserved_liability = "5.01"; s.account.local_remaining_allowance = "0"; }
+    if (change === "inconsistent") { s.account.local_reserved_liability = "1"; s.account.local_remaining_allowance = "5.00"; }
+    if (change === "insufficient") { s.account.local_reserved_liability = "1"; s.account.local_remaining_allowance = "4"; }
+    if (change === "stale") s.account.observed_at = new Date(s.now - 86400001).toISOString();
+    if (change === "too-long") s.account.expires_at = new Date(s.now + 86400001).toISOString();
+    if (change === "beyond-owner") s.account.expires_at = new Date(Date.parse(s.owner.expires_at) + 1).toISOString();
+    if (change === "future") s.account.observed_at = new Date(s.now + 10000).toISOString();
+    expect(await s.authority.preflight(s.binding)).toMatchObject({ state: "BLOCKED" }); expect(s.credentialRead).not.toHaveBeenCalled();
+  });
+  it.each(["friend", "reply-21", "global-351", "source", "attempt", "unreserved", "exposure-drift"])("denies committed attempt drift (%s) before credential use", async change => {
+    const s = ownerOnlyFixture(true); await s.reserve();
+    if (change === "friend") s.payload.scope = "FRIEND";
+    if (change === "reply-21") s.payload.participant_ordinal = 21;
+    if (change === "global-351") s.payload.global_ordinal = 351;
+    if (change === "source") s.payload.source_message_id = "91cc9000-0000-4000-8000-000000000001";
+    if (change === "attempt") s.committed.attempt_id = "91cc9000-0000-4000-8000-000000000001";
+    if (change === "unreserved") { s.account.local_reserved_liability = "0.001963"; s.account.local_remaining_allowance = "4.998037"; }
+    if (change === "exposure-drift") s.payload.reserved_liability = "4.21";
+    await expect(s.authority.issue({ binding: s.binding, run_id: s.payload.run_id, attempt_id: s.payload.attempt_id, request: s.prepared.request })).rejects.toThrow();
+    expect(s.credentialRead).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(0);
+  });
+  it("accepts founder reply twenty with the current reservation already charged to local exposure", async () => {
+    const s = ownerOnlyFixture(true); s.payload.participant_ordinal = 20;
+    await s.service.provider.invoke(s.prepared.request); expect(fake.calls).toHaveLength(1);
+  });
+  it.each(["missing-usage", "failed", "unknown", "qa-held"])("does not release local reserved exposure or invent billing after %s", async mode => {
+    const s = ownerOnlyFixture();
+    if (mode === "missing-usage") fake.body = JSON.stringify(response({ usage: null }));
+    if (mode === "failed") fake.status = 401;
+    if (mode === "unknown") fake.disconnect = true;
+    if (mode === "qa-held") s.assess.mockReturnValue("HELD");
+    await Promise.allSettled([s.service.provider.invoke(s.prepared.request)]);
+    expect(fake.calls).toHaveLength(1); expect(s.account.local_reserved_liability).toBe("4.20768");
+    expect(s.outcomes[0]).toMatchObject({ actual_billed_amount: null, actual_billed_currency: null });
+    expect(await s.authority.preflight(s.binding)).toMatchObject({ state: "BLOCKED" });
+  });
+  it.each([
+    null,
+    { input_tokens: 0, output_tokens: 121, total_tokens: 121 },
+    { input_tokens: 37, output_tokens: 0, total_tokens: 37 },
+    { input_tokens: 1050001, output_tokens: 121, total_tokens: 1050122 },
+  ])("holds observed missing/out-of-bounds usage before QA or delivery (%j)", async usage => {
+    const s = ownerOnlyFixture(); fake.body = JSON.stringify(response({ usage }));
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow("POLAT_UAT_USAGE_BOUND_UNVERIFIED");
+    expect(s.assess).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(1); expect(s.record).toHaveBeenCalledOnce();
+    expect(s.outcomes[0]).toMatchObject({ stage: "RESULT_UNKNOWN", status: "UNKNOWN", qa: "NOT_EVALUATED", error_code: "POLAT_UAT_USAGE_BOUND_UNVERIFIED", actual_billed_amount: null });
+    expect(s.account.local_reserved_liability).toBe("4.20768");
+    expect(await s.authority.preflight(s.binding)).toMatchObject({ state: "BLOCKED" });
+  });
+});
+
 describe("exact OpenAI liability is not billed cost", () => {
   const proof = () => ({ version: 2, origin: "INDEPENDENT_OFFICIAL_PRICING_READ", model: "gpt-6.1-sol", currency: "USD", source_url: "https://developers.openai.com/api/docs/pricing", source_hash: "8".repeat(64), maximum_input_tokens: 1050000, maximum_input_usd_per_million: "4", maximum_output_usd_per_million: "15", observed_at: new Date(Date.now() - 1).toISOString(), expires_at: new Date(Date.now() + 3600000).toISOString(), all_billable_components_covered: true });
   it("reserves the full documented capacity and rounds monetary upper bounds upward", () => {
@@ -194,5 +339,18 @@ describe("exact OpenAI liability is not billed cost", () => {
     expect(() => boundPolatPrivateBetaWireLiability(input, { ...proof(), maximum_input_usd_per_million: "2", maximum_output_usd_per_million: "10" })).toThrow("PRICING_BOUND_UNVERIFIED");
     expect(boundPolatPrivateBetaWireLiability(input, { ...proof(), maximum_input_usd_per_million: "4.000000000000000001" }).maximum_possible_charge).toBe("4.207680000000000002");
     for (const extra of [{ all_billable_components_covered: false }, { maximum_input_tokens: 1000 }, { maximum_input_usd_per_million: "3.99" }, { maximum_output_usd_per_million: "14" }, { origin: "SYNTHETIC" }, { actual_billed_amount: "0" }]) expect(() => boundPolatPrivateBetaWireLiability(input, { ...proof(), ...extra })).toThrow();
+  });
+  it("labels conservative observed-usage valuation as an estimate while actual provider billing stays unknown", () => {
+    const valued = estimatePolatOwnerOnlyOpenAIUsageLiability({ input_tokens: 37, output_tokens: 121, total_tokens: 158 }, proof());
+    expect(valued).toMatchObject({ classification: "CONSERVATIVE_USAGE_ESTIMATE", estimated_liability: "0.001963", provider_billing: "UNKNOWN", actual_billed_amount: null, actual_billed_currency: null, financial_authority: "NONE" });
+    expect(estimatePolatOwnerOnlyOpenAIUsageLiability({ input_tokens: 1, output_tokens: 1, total_tokens: 2 }, { ...proof(), maximum_input_usd_per_million: "4.000000000000000001" }).estimated_liability).toBe("0.000019000000000001");
+  });
+  it.each([null, { input_tokens: 0, output_tokens: 121, total_tokens: 121 }, { input_tokens: 37, output_tokens: null, total_tokens: 37 }, { input_tokens: 37, output_tokens: 513, total_tokens: 550 }, { input_tokens: 37, output_tokens: 121, total_tokens: 159 }, { input_tokens: 1050001, output_tokens: 1, total_tokens: 1050002 }])("rejects missing or invalid observed usage instead of releasing a reservation (%j)", usage => {
+    expect(() => estimatePolatOwnerOnlyOpenAIUsageLiability(usage, proof())).toThrow();
+  });
+  it("requires current conservative pricing for the usage estimate", () => {
+    const usage = { input_tokens: 37, output_tokens: 121, total_tokens: 158 };
+    expect(() => estimatePolatOwnerOnlyOpenAIUsageLiability(usage, { ...proof(), maximum_input_usd_per_million: "2", maximum_output_usd_per_million: "10" })).toThrow("PRICING_BOUND_UNVERIFIED");
+    expect(() => estimatePolatOwnerOnlyOpenAIUsageLiability(usage, { ...proof(), observed_at: new Date(Date.now() - 86400001).toISOString() })).toThrow("PRICING_STALE");
   });
 });

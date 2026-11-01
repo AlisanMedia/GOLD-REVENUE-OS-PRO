@@ -10,9 +10,13 @@ on:
         type: choice
         options:
           - release_disabled
+          - release_with_business_setup
           - account_preflight
           - openai_account_preflight
           - openai_model_probe
+          - openai_controls_preflight
+          - founder_model_setup
+          - founder_business_setup
           - integration_inventory
           - verify_bot
           - discover_business
@@ -26,7 +30,7 @@ on:
         required: true
         type: string
       program_id:
-        description: Existing MFA-created private UAT program UUID (account_preflight or verify_bot)
+        description: Existing MFA-created UAT program UUID (release optionally verifies Business bot/candidates)
         required: false
         type: string
       openai_organization_id:
@@ -62,7 +66,7 @@ concurrency:
 jobs:
   release_disabled_beta:
     name: Reviewed isolated staging release (provider activation disabled)
-    if: ${{ inputs.operation == 'release_disabled' && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    if: ${{ (inputs.operation == 'release_disabled' || inputs.operation == 'release_with_business_setup') && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     environment: staging
@@ -84,10 +88,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
           BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
+          RELEASE_OPERATION: ${{ inputs.operation }}
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
+          OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]
+          if [[ "$RELEASE_OPERATION" == release_with_business_setup ]]; then
+            [[ "$PRIVATE_BETA_PROGRAM_ID" =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$ ]]
+            [[ "$OPENAI_UAT_ORGANIZATION_ID" =~ ^org[-_][A-Za-z0-9_-]{1,120}$ ]]
+            [[ "$OPENAI_UAT_PROJECT_ID" =~ ^proj_[A-Za-z0-9_-]{1,120}$ ]]
+          fi
           node scripts/private-beta-release-gate.mjs
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
@@ -184,6 +197,19 @@ jobs:
         run: node scripts/private-beta-release-vercel.mjs build-env
       - name: Build exact accepted application without model, bot or account credentials
         run: pnpm dlx vercel@59.16.0 build --prod --scope="$VERCEL_SCOPE"
+      - name: Prepare isolated founder ingress secrets and numeric tenant selectors
+        if: ${{ inputs.operation == 'release_with_business_setup' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs prepare
+      - name: Deploy only the existing secret-authenticated beta ingress
+        if: ${{ inputs.operation == 'release_with_business_setup' }}
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy polat-private-beta-ingress --project-ref xqvwkghpmezcpgugetqc --no-verify-jwt
       - name: Attach the narrowly scoped runtime configuration after the build
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -193,13 +219,13 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           POLAT_UAT_ANTHROPIC_API_KEY: ${{ secrets.POLAT_UAT_ANTHROPIC_API_KEY }}
           POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
-          POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET }}
-          POLAT_UAT_RELAY_SECRET: ${{ secrets.POLAT_UAT_RELAY_SECRET }}
+          POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ inputs.operation != 'release_with_business_setup' && secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET || '' }}
+          POLAT_UAT_RELAY_SECRET: ${{ inputs.operation != 'release_with_business_setup' && secrets.POLAT_UAT_RELAY_SECRET || '' }}
           POLAT_UAT_STARS_TEST_BOT_TOKEN: ${{ secrets.POLAT_UAT_STARS_TEST_BOT_TOKEN }}
           POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET }}
           POLAT_UAT_STARS_RELAY_SECRET: ${{ secrets.POLAT_UAT_STARS_RELAY_SECRET }}
-          POLAT_UAT_TENANT_ID: ${{ vars.POLAT_UAT_TENANT_ID }}
-          POLAT_UAT_PROGRAM_ID: ${{ vars.POLAT_UAT_PROGRAM_ID }}
+          POLAT_UAT_TENANT_ID: ${{ inputs.operation != 'release_with_business_setup' && vars.POLAT_UAT_TENANT_ID || '' }}
+          POLAT_UAT_PROGRAM_ID: ${{ inputs.operation != 'release_with_business_setup' && vars.POLAT_UAT_PROGRAM_ID || '' }}
           POLAT_CAMPAIGN_TENANT_ID: ${{ vars.POLAT_CAMPAIGN_TENANT_ID }}
           POLAT_CAMPAIGN_ID: ${{ vars.POLAT_CAMPAIGN_ID }}
           POLAT_CAMPAIGN_WEBHOOK_SECRET: ${{ secrets.POLAT_CAMPAIGN_WEBHOOK_SECRET }}
@@ -257,6 +283,61 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PRIVATE_BETA_DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         run: node scripts/private-beta-release-vercel.mjs published
+      - name: Collect real founder model and public pricing observations (no inference or owner grant)
+        if: ${{ inputs.operation == 'release_with_business_setup' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
+          OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-model.mjs
+      - name: Wait for the founder's own authenticated single canary
+        if: ${{ inputs.operation == 'release_with_business_setup' }}
+        id: founder_canary
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          FOUNDER_SETUP_WAIT: CANARY
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
+      - name: Bind real Business bot and record private connection candidates (no messages)
+        if: ${{ inputs.operation == 'release_with_business_setup' && steps.founder_canary.outputs.ready == 'true' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          mv "$RUNNER_TEMP/private-beta-bot-control.json" "$RUNNER_TEMP/private-beta-bot-identity-control.json"
+          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+      - name: Wait for the founder's authenticated numeric test-chat configuration
+        if: ${{ inputs.operation == 'release_with_business_setup' && steps.founder_canary.outputs.ready == 'true' }}
+        id: founder_business
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          FOUNDER_SETUP_WAIT: BUSINESS
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
+      - name: Reverify exact main before connecting the founder's Business transport
+        if: ${{ inputs.operation == 'release_with_business_setup' && steps.founder_business.outputs.ready == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
+        run: node scripts/private-beta-release-gate.mjs
+      - name: Verify real Business permissions and register the authenticated webhook
+        if: ${{ inputs.operation == 'release_with_business_setup' && steps.founder_business.outputs.ready == 'true' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRIVATE_BETA_BOT_OPERATION=verify_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs register
       - name: Retain sanitized release evidence and encrypted failure evidence
         if: ${{ always() && steps.gate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -269,6 +350,12 @@ jobs:
             ${{ runner.temp }}/private-beta-vercel-staged.json
             ${{ runner.temp }}/private-beta-vercel-published.json
             ${{ runner.temp }}/private-beta-runtime-env-names.json
+            ${{ runner.temp }}/private-beta-bot-identity-control.json
+            ${{ runner.temp }}/private-beta-bot-control.json
+            ${{ runner.temp }}/private-beta-openai-account-observation.json
+            ${{ runner.temp }}/private-beta-founder-model-observation.json
+            ${{ runner.temp }}/private-beta-founder-ingress-observation.json
+            ${{ runner.temp }}/private-beta-founder-wait-*.json
             ${{ runner.temp }}/private-beta-staging-migration-history.txt
             ${{ runner.temp }}/private-beta-backup-failure.json
             ${{ runner.temp }}/private-beta-backup-comparison.json
@@ -277,12 +364,19 @@ jobs:
           retention-days: ${{ inputs.backup_retention_days }}
       - name: Remove private runner material and stop only disposable local infrastructure
         if: always()
+        env:
+          RELEASE_OPERATION: ${{ inputs.operation }}
         shell: bash
         run: |
           set -euo pipefail
-          rm -f .vercel/.env.production.local .vercel/.env.preview.local
+          rm -f .vercel/.env.production.local .vercel/.env.preview.local "$RUNNER_TEMP/private-beta-founder-ingress-private.json"
           supabase stop --no-backup || true
-          echo 'This release does not register a webhook, invoke a model, issue an invoice, send Telegram messages or enable commercial sales.' >>"$GITHUB_STEP_SUMMARY"
+          if [[ "$RELEASE_OPERATION" == release_with_business_setup ]]; then
+            echo 'Owner-only setup may register the authenticated Business webhook after the founder canary and numeric chat configuration. Read the observation artifacts for actual completion or OWNER_ACTION_REQUIRED; a successful release alone is not conversation acceptance.' >>"$GITHUB_STEP_SUMMARY"
+          else
+            echo 'This release does not register a webhook.' >>"$GITHUB_STEP_SUMMARY"
+          fi
+          echo 'The workflow never invokes inference, issues invoices, sends Telegram customer messages or enables commercial sales. Owner-triggered canary and conversation results remain separate durable evidence; actual billing may be UNKNOWN.' >>"$GITHUB_STEP_SUMMARY"
 
   account_preflight:
     name: Protected read-only Anthropic account evidence (zero inference)
@@ -340,8 +434,8 @@ jobs:
 
 
   openai_account_preflight:
-    name: Read-only OpenAI model observation (no inference or authority)
-    if: ${{ (inputs.operation == 'openai_account_preflight' || inputs.operation == 'openai_model_probe') && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    name: ${{ inputs.operation == 'founder_model_setup' && 'Protected owner-only model observations' || 'Read-only OpenAI model observation (no inference or authority)' }}
+    if: ${{ (inputs.operation == 'openai_account_preflight' || inputs.operation == 'openai_model_probe' || inputs.operation == 'openai_controls_preflight' || inputs.operation == 'founder_model_setup') && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: staging
@@ -375,12 +469,22 @@ jobs:
       - name: Observe existing OpenAI project/model without inference or cap fabrication
         env:
           OPENAI_METADATA_ONLY: ${{ inputs.operation == 'openai_model_probe' && 'true' || 'false' }}
+          OPENAI_CONTROLS_ONLY: ${{ inputs.operation == 'openai_controls_preflight' && 'true' || 'false' }}
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
           OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-openai-account.mjs
+          SUPABASE_ACCESS_TOKEN: ${{ inputs.operation != 'openai_controls_preflight' && secrets.SUPABASE_ACCESS_TOKEN || '' }}
+          OPENAI_API_KEY: ${{ inputs.operation != 'openai_controls_preflight' && secrets.OPENAI_API_KEY || '' }}
+          OPENAI_UAT_ADMIN_KEY: ${{ inputs.operation == 'openai_controls_preflight' && secrets.OPENAI_UAT_ADMIN_KEY || '' }}
+          FOUNDER_MODEL_SETUP: ${{ inputs.operation == 'founder_model_setup' && 'true' || 'false' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$FOUNDER_MODEL_SETUP" == true ]]; then
+            node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-model.mjs
+          else
+            node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-openai-account.mjs
+          fi
       - name: Preserve observation separately from actual model and billing acceptance
         if: ${{ always() && steps.gate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -389,6 +493,9 @@ jobs:
           path: |
             ${{ runner.temp }}/private-beta-release-gate.json
             ${{ runner.temp }}/private-beta-openai-account-observation.json
+            ${{ runner.temp }}/private-beta-founder-model-observation.json
+            ${{ runner.temp }}/private-beta-founder-ingress-observation.json
+            ${{ runner.temp }}/private-beta-founder-wait-*.json
           if-no-files-found: warn
           retention-days: ${{ inputs.backup_retention_days }}
 
@@ -459,10 +566,10 @@ jobs:
           retention-days: ${{ inputs.backup_retention_days }}
 
   verify_bot:
-    name: Protected dedicated UAT bot identity (zero messages)
-    if: ${{ (inputs.operation == 'verify_bot' || inputs.operation == 'discover_business' || inputs.operation == 'verify_business') && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    name: Protected founder Business connection (zero messages)
+    if: ${{ (inputs.operation == 'verify_bot' || inputs.operation == 'discover_business' || inputs.operation == 'verify_business' || inputs.operation == 'founder_business_setup') && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 12
     environment: staging
     env:
       VALIDATED_SHA: ${{ inputs.validated_commit_sha }}
@@ -486,13 +593,64 @@ jobs:
           set -euo pipefail
           [[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]
           node scripts/private-beta-release-gate.mjs
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          version: 11.19.0
+      - run: pnpm install --frozen-lockfile
+      - name: Reuse protected ingress custody for founder connection setup
+        if: ${{ inputs.operation == 'founder_business_setup' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs prepare
       - name: Verify the narrowly selected bot or Business operation
+        if: ${{ inputs.operation != 'founder_business_setup' }}
         env:
           PRIVATE_BETA_BOT_OPERATION: ${{ inputs.operation }}
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
         run: node --experimental-transform-types scripts/private-beta-release-bot.mjs
+      - name: Observe the real bot and private numeric Business candidates
+        if: ${{ inputs.operation == 'founder_business_setup' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          mv "$RUNNER_TEMP/private-beta-bot-control.json" "$RUNNER_TEMP/private-beta-bot-identity-control.json"
+          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+      - name: Wait for the founder's own numeric test-chat configuration
+        if: ${{ inputs.operation == 'founder_business_setup' }}
+        id: founder_business
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          FOUNDER_SETUP_WAIT: BUSINESS
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
+      - name: Reverify main before the resumed transport connection
+        if: ${{ inputs.operation == 'founder_business_setup' && steps.founder_business.outputs.ready == 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
+        run: node scripts/private-beta-release-gate.mjs
+      - name: Verify actual Business permissions and webhook readback
+        if: ${{ inputs.operation == 'founder_business_setup' && steps.founder_business.outputs.ready == 'true' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRIVATE_BETA_BOT_OPERATION=verify_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs register
       - name: Preserve sanitized bot control and separate read-back evidence
         if: ${{ always() && steps.gate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -501,5 +659,11 @@ jobs:
           path: |
             ${{ runner.temp }}/private-beta-release-gate.json
             ${{ runner.temp }}/private-beta-bot-control.json
+            ${{ runner.temp }}/private-beta-bot-identity-control.json
+            ${{ runner.temp }}/private-beta-founder-ingress-observation.json
+            ${{ runner.temp }}/private-beta-founder-wait-*.json
           if-no-files-found: warn
           retention-days: ${{ inputs.backup_retention_days }}
+      - name: Remove private ingress custody from the runner
+        if: always()
+        run: rm -f "$RUNNER_TEMP/private-beta-founder-ingress-private.json"

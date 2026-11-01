@@ -6,7 +6,7 @@ const amount = z.string().regex(/^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,18})?$/u).refine
 const staffRows = z.array(z.strictObject({ user_id: z.uuid(), role: z.enum(["super_admin", "manager"]) })).max(100);
 const feedback = z.strictObject({ review_kind: z.literal("INFORMAL_UAT_FEEDBACK"), useful: z.number().int().min(1).max(5), natural: z.number().int().min(1).max(5), correct: z.number().int().min(1).max(5), satisfied: z.number().int().min(1).max(5) });
 const canaryResult = z.strictObject({
-  version: z.literal(1), stage: z.literal("CANARY"), status: z.enum(["CANARY_ACCOUNTING_RECONCILIATION_PENDING", "CANARY_HELD"]),
+  version: z.literal(1), stage: z.literal("CANARY"), status: z.enum(["CANARY_ACCOUNTING_RECONCILIATION_PENDING", "CANARY_OWNER_TEST_PASSED", "CANARY_HELD"]),
   program_id: z.uuid(), attempt_id: z.uuid(), request_id: z.uuid(), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u),
   plan_hash: z.string().regex(/^[a-f0-9]{64}$/u), corpus_hash: z.string().regex(/^[a-f0-9]{64}$/u), provider: z.enum(["anthropic", "openai"]), model: z.enum(["claude-haiku-5-5", "gpt-6.1-sol"]),
   provider_response_id: z.string().min(1).max(160), response_hash: z.string().regex(/^[a-f0-9]{64}$/u), elapsed_ms: z.string().regex(/^(0|[1-9][0-9]{0,7})(?:\.[0-9]{1,8})?$/u).nullable(),
@@ -14,10 +14,10 @@ const canaryResult = z.strictObject({
   actual_billed_amount: z.null(), actual_billed_currency: z.null(), billing_status: z.literal("UNKNOWN_REQUIRES_INDEPENDENT_RECONCILIATION"),
   automatic_retries: z.literal(0), telegram_messages: z.literal(0), financial_authority: z.literal("NONE"), founder_testing_enabled: z.literal(false),
 }).refine(value => value.provider === "openai" ? value.model === "gpt-6.1-sol" : value.model === "claude-haiku-5-5");
-export function parsePrivateBetaCanaryResult(raw: unknown, programId: string, repositorySha: string) {
+export function parsePrivateBetaCanaryResult(raw: unknown, programId: string, repositorySha: string | null) {
   const result = canaryResult.parse(raw);
-  if (result.program_id !== programId || result.repository_sha !== repositorySha) throw new Error("BETA_CANARY_RESPONSE_SCOPE");
-  if (result.status === "CANARY_ACCOUNTING_RECONCILIATION_PENDING" ? result.qa !== "APPROVED" || result.response_preview === null : result.qa !== "HELD" || result.response_preview !== null) throw new Error("BETA_CANARY_QA_STATUS");
+  if (result.program_id !== programId || repositorySha !== null && result.repository_sha !== repositorySha) throw new Error("BETA_CANARY_RESPONSE_SCOPE");
+  if (result.status !== "CANARY_HELD" ? result.qa !== "APPROVED" || result.response_preview === null : result.qa !== "HELD" || result.response_preview !== null) throw new Error("BETA_CANARY_QA_STATUS");
   return result;
 }
 export type PrivateBetaCanaryResult = z.infer<typeof canaryResult>;
@@ -58,7 +58,11 @@ export type PrivateBetaStarsInvoiceResult = z.infer<typeof starsInvoiceResult>;
 export async function submitPrivateBetaOwnerForm(path: "/api/v1/admin/private-beta/canary" | "/api/v1/admin/private-beta/stars-test-invoice", values: URLSearchParams, transport: typeof fetch = fetch): Promise<unknown> {
   if (path !== "/api/v1/admin/private-beta/canary" && path !== "/api/v1/admin/private-beta/stars-test-invoice") throw new Error("PRIVATE_BETA_OWNER_ACTION_SCOPE");
   const keys = path === "/api/v1/admin/private-beta/canary" ? ["program_id"] : ["program_id", "approved_offer_id", "command_id"];
-  if ([...values.keys()].length !== keys.length || keys.some(key => values.getAll(key).length !== 1 || !z.uuid().safeParse(values.get(key)).success)) throw new Error("PRIVATE_BETA_OWNER_ACTION_SCOPE");
+  const generation = path === "/api/v1/admin/private-beta/canary" ? values.get("expected_generation") : null;
+  const allowed = generation !== null ? [...keys, "expected_generation"] : keys;
+  if ([...values.keys()].length !== allowed.length || [...values.keys()].some(key => !allowed.includes(key))
+    || keys.some(key => values.getAll(key).length !== 1 || !z.uuid().safeParse(values.get(key)).success)
+    || generation !== null && (values.getAll("expected_generation").length !== 1 || !/^[1-9][0-9]{0,8}$/u.test(generation))) throw new Error("PRIVATE_BETA_OWNER_ACTION_SCOPE");
   const response = await transport(path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, credentials: "same-origin", redirect: "error", signal: AbortSignal.timeout(30_000), body: new URLSearchParams(values) });
   if (!response.ok || !response.body) throw new Error("PRIVATE_BETA_OWNER_ACTION_REVIEW");
   const reader = response.body.getReader(), chunks: Uint8Array[] = []; let bytes = 0, ended = false;

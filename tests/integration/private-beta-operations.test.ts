@@ -9,7 +9,7 @@ import { PolatPrivateBeta, privateBetaText } from "../../apps/web/src/components
 import { polatOperations } from "../../apps/web/src/lib/polat/admin";
 import { polatSearchSchema } from "../../apps/web/src/lib/polat/read-model";
 import { parsePrivateBetaCanaryResult, parsePrivateBetaBusinessScope, parsePrivateBetaBusinessDiscovery, parsePrivateBetaStarsInvoiceResult, submitPrivateBetaOwnerForm, parsePrivateBetaOperators, parsePrivateBetaWorkspace, privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, privateBetaFeedback, privateBetaHref } from "../../apps/web/src/lib/polat/private-beta-read";
-import { acceptPrivateBetaOperator, configurePrivateBeta, configurePrivateBetaBusiness, createPrivateBetaInvitation, createPrivateBetaTenant, recordPrivateBetaNote, reverifyPrivateBetaBusiness, selectPrivateBetaOpenAI } from "../../apps/web/src/app/admin/polat-operations/beta-actions";
+import { acceptPrivateBetaOperator, configurePrivateBeta, configurePrivateBetaBusiness, controlPrivateBetaFounderTest, createPrivateBetaInvitation, createPrivateBetaTenant, recordPrivateBetaNote, reverifyPrivateBetaBusiness, selectPrivateBetaOpenAI } from "../../apps/web/src/app/admin/polat-operations/beta-actions";
 import { messageDeliveryLabel, manualReplyResult } from "../../apps/web/src/lib/escalations/manual-reply";
 
 const mocks = vi.hoisted(() => ({ require: vi.fn(), rpc: vi.fn(), from: vi.fn(), revalidate: vi.fn(), analytics: vi.fn() }));
@@ -298,5 +298,61 @@ describe("OpenAI and founder-only account setup reuse authenticated private-beta
     const output = { ...canaryFixture(), provider: "openai", model: "gpt-6.1-sol", provider_response_id: "resp_offline_ui" };
     expect(parsePrivateBetaCanaryResult(output, program, "a".repeat(40)).actual_billed_amount).toBeNull();
     expect(() => parsePrivateBetaCanaryResult({ ...output, model: "claude-haiku-5-5" }, program, "a".repeat(40))).toThrow();
+  });
+});
+
+describe('founder setup feedback and draft canary surface', () => {
+  it('maps only the exact fresh-MFA SQL denial to the existing MFA instruction', async () => {
+    for (const message of ['PRIVATE_BETA_FRESH_AUTH_REQUIRED', 'PRIVATE_BETA_UNAVAILABLE', 'SYNTHETIC_PRIVATE_DIAGNOSTIC']) {
+      mocks.rpc.mockResolvedValue({ data: null, error: { code: '42501', message } });
+      const result = await selectPrivateBetaOpenAI(idle, form({ program_id: program, expected_generation: '1' }));
+      expect(result.code).toBe(message === 'PRIVATE_BETA_FRESH_AUTH_REQUIRED' ? 'MFA_REQUIRED' : 'DENIED'); expect(JSON.stringify(result)).not.toContain(message);
+    }
+  });
+  it('prepares one same-origin draft canary POST with generation metadata, without accepting approval flags', async () => {
+    const network = vi.fn<typeof fetch>(async () => new Response('{}'));
+    await submitPrivateBetaOwnerForm('/api/v1/admin/private-beta/canary', new URLSearchParams({ program_id: program, expected_generation: '1' }), network);
+    expect(network).toHaveBeenCalledOnce(); expect(String(network.mock.calls[0]![1]?.body)).toBe('program_id=' + program + '&expected_generation=1');
+    for (const value of ['0','01','1.0','true']) await expect(submitPrivateBetaOwnerForm('/api/v1/admin/private-beta/canary', new URLSearchParams({ program_id: program, expected_generation: value }), network)).rejects.toThrow();
+    expect(network).toHaveBeenCalledOnce();
+  });
+  it('shows the owner canary on DRAFT with genuine account/window prerequisites while staffing for conversations remains incomplete', () => {
+    const value = fixture(), p = value.program!;
+    const workspace = parsePrivateBetaWorkspace({ ...value, program: { ...p, repository_sha: 'a'.repeat(40), starts_at: at, expires_at: '2026-10-27T10:00:00Z', retention_days: 30, configuration_complete: false, global_requests: 0, canary_state: 'NOT_STARTED', account_state: 'OBSERVED' } });
+    for (const locale of ['en-US','tr-TR'] as const) {
+      const html = render(h(AdminI18nProvider, { locale }, h(PolatPrivateBeta, { workspace, invalid: false, denied: false, size: '25', canConfigure: true, canNote: true, canConversation: true, operators: [] })));
+      expect(html).toContain('action="/api/v1/admin/private-beta/canary"'); expect(html).toContain('name="expected_generation" value="1"');
+      const button = html.match(/<button[^>]*>[^<]*(?:Start One Genuine Canary Request|Gerçek Tek Canary İsteğini Başlat)<\/button>/u)?.[0];
+      expect(button).toBeDefined(); expect(button).not.toContain('disabled');
+      const missing = parsePrivateBetaWorkspace({ ...workspace, program: { ...workspace.program, account_state: 'MISSING' } });
+      const held = render(h(AdminI18nProvider, { locale }, h(PolatPrivateBeta, { workspace: missing, invalid: false, denied: false, size: '25', canConfigure: true, canNote: false, canConversation: false, operators: [] })));
+      expect(held.match(/<button[^>]*>[^<]*(?:Start One Genuine Canary Request|Gerçek Tek Canary İsteğini Başlat)<\/button>/u)?.[0]).toContain('disabled');
+    }
+  });
+});
+
+
+describe("personal founder conversation control", () => {
+  it("opens one founder test through the authenticated tenant and generation-fenced SQL action", async () => {
+    mocks.rpc.mockResolvedValue({ data: { program_id: program, stage: "FOUNDER", generation: "8" }, error: null });
+    expect(await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "FOUNDER" }))).toEqual({ kind: "success", code: "SAVED" });
+    expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_transition_v1", { target_tenant_id: tenant, program_id_value: program, stage_value: "FOUNDER", expected_generation_value: 7 });
+  });
+  it("keeps a fresh-MFA denial actionable and never retries", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "PRIVATE_BETA_FRESH_AUTH_REQUIRED" } });
+    expect(await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "FOUNDER" }))).toEqual({ kind: "error", code: "MFA_REQUIRED" });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+  it("does not turn friend expansion or operator identity input into an owner grant", async () => {
+    expect((await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "FRIENDS" }))).code).toBe("INVALID");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    mocks.require.mockResolvedValue({ tenantId: tenant, userId: user, role: "manager" });
+    expect((await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "FOUNDER" }))).code).toBe("DENIED");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("stops using the existing durable STOP transition without creating another dispatch", async () => {
+    mocks.rpc.mockResolvedValue({ data: { program_id: program, stage: "STOPPED", generation: "8" }, error: null });
+    expect((await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "STOPPED" }))).code).toBe("SAVED");
+    expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_transition_v1", expect.objectContaining({ stage_value: "STOPPED" }));
   });
 });

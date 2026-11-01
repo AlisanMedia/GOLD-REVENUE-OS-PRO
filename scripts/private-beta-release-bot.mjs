@@ -73,7 +73,7 @@ function protectedBusinessInputs({ programId, sha, managementToken, botToken }) 
 async function businessProgram(input, network) {
   protectedBusinessInputs(input);
   const query = sql => jsonOnce(network, MANAGEMENT, { method: 'POST', headers: { authorization: 'Bearer ' + input.managementToken, 'content-type': 'application/json' }, body: JSON.stringify({ query: sql }) }, 'BOT_CONTROL_DATABASE_UNAVAILABLE');
-  const read = "select jsonb_build_object('database_role',current_user,'program_id',p.id,'tenant_id',p.tenant_id,'repository_sha',p.configuration->>'repository_sha','stage',p.stage,'generation',p.generation::text,'manifest_hash',p.manifest_hash,'authorization_record_hash',p.authorization_record_hash,'bot_id',p.bot_control->>'bot_id','credential_sha256',p.bot_control->>'credential_sha256','has_participants',exists(select 1 from private.private_beta_participants a where a.program_id=p.id),'program_expires_at',p.configuration->>'expires_at') as private_beta_program from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where p.id='" + input.programId + "'::uuid and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled";
+  const read = "select jsonb_build_object('database_role',current_user,'program_id',p.id,'tenant_id',p.tenant_id,'repository_sha',p.configuration->>'repository_sha','stage',p.stage,'generation',p.generation::text,'manifest_hash',p.manifest_hash,'authorization_record_hash',p.authorization_record_hash,'bot_id',p.bot_control->>'bot_id','credential_sha256',p.bot_control->>'credential_sha256','owner_only_test',private.private_beta_founder_only(p),'connection_setup_allowed',private.private_beta_connection_setup_allowed(p),'has_participants',exists(select 1 from private.private_beta_participants a where a.program_id=p.id),'program_expires_at',p.configuration->>'expires_at') as private_beta_program from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where p.id='" + input.programId + "'::uuid and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled";
   const program = ownedProgram((await query(read)).value, input.programId, input.sha);
   assert(program.bot_id === input.botToken.split(':')[0] && program.credential_sha256 === digest(input.botToken), 'SEALED_BUSINESS_BOT_REQUIRED');
   const observed = await jsonOnce(network, 'https://api.telegram.org/bot' + input.botToken + '/getMe', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' }, 'BOT_GET_ME_UNAVAILABLE');
@@ -90,7 +90,7 @@ async function businessProgram(input, network) {
 export async function discoverPrivateBetaBusinessConnections(input) {
   const network = input.network ?? fetch, at = (input.now ?? Date.now)();
   const { program } = await businessProgram(input, network);
-  assert(program.stage === 'DRAFT' && program.has_participants === false, 'NEW_DRAFT_BUSINESS_BOT_REQUIRED');
+  assert((program.stage === 'DRAFT' || program.stage === 'CANARY' && program.owner_only_test === true && program.connection_setup_allowed === true) && program.has_participants === false, 'NEW_DRAFT_BUSINESS_BOT_REQUIRED');
   const observed = await jsonOnce(network, 'https://api.telegram.org/bot' + input.botToken + '/getUpdates', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ timeout: 0, limit: 10, allowed_updates: ['business_connection', 'business_message'] }),
   }, 'BUSINESS_DISCOVERY_UNAVAILABLE', { 409: 'BUSINESS_DISCOVERY_WEBHOOK_ACTIVE' }, parsePolatClaudeJson);

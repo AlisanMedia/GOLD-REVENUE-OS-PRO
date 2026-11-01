@@ -3,6 +3,8 @@ import type { ModelRequest, ModelResponse } from "../../packages/domain/src/agen
 import { decodePolatClaudeResponse } from "../../packages/domain/src/polat-claude-adapter";
 import { polatClaudeCompleteEnvelope, polatClaudeFixtureWire } from "../helpers/polat-bridge-fixtures";
 import { polatClaudeCanaryPlan } from "../../packages/domain/src/polat-claude-canary";
+import { polatOpenAICanaryPlan } from "../../packages/domain/src/polat-openai-canary";
+import { decodePolatOpenAIResponse } from "../../packages/domain/src/polat-openai-adapter";
 import { polatGenuineExecutionGate } from "../../packages/domain/src/polat-experiment-execution-gate";
 
 const state = vi.hoisted(() => ({ auth: vi.fn(), rpc: vi.fn(), factory: vi.fn(), calls: 0, fail: false, wire: null as unknown, request: null as ModelRequest | null }));
@@ -72,5 +74,121 @@ describe("authenticated single-request canary entrypoint (offline controls and p
   it("returns a sanitized review state after an unknown failure without retry or secret reflection", async () => {
     state.fail = true; const result = await POST(request()); expect(result.status).toBe(409); expect(await result.text()).not.toContain("SYNTHETIC_SECRET"); expect(state.calls).toBe(1);
     expect(polatGenuineExecutionGate()).toMatchObject({ state: "BLOCKED", release: "DORMANT", authorized_external_requests: 0, execution_enabled: false });
+  });
+});
+
+const draftForm = () => request('program_id=' + program + '&expected_generation=1');
+function draftWorkspace() { return { program: { id: program, stage: 'DRAFT', generation: '1', repository_sha: sha, global_requests: 0, canary_state: 'NOT_STARTED', account_state: 'OBSERVED' } }; }
+function draftRpc() {
+  let scopeReads = 0;
+  return vi.fn(async (name: string) => {
+    if (name === 'admin_private_beta_canary_scope_v1') return ++scopeReads === 1 ? { data: null, error: { code: '42501' } } : { data: { program_id: program, tenant_id: tenant, stage: 'CANARY', repository_sha: sha }, error: null };
+    if (name === 'admin_private_beta_workspace_v1') return { data: draftWorkspace(), error: null };
+    if (name === 'admin_private_beta_transition_v1') return { data: { program_id: program, stage: 'CANARY', generation: '2' }, error: null };
+    throw Error('UNEXPECTED_OFFLINE_RPC');
+  });
+}
+describe('one explicit owner canary action from an existing draft, offline provider', () => {
+  it('uses the real owner-scoped transition and generation lock before rereading scope and making one fixture invocation', async () => {
+    const rpc = draftRpc(); state.rpc.mockImplementation(rpc);
+    const result = await POST(draftForm()); expect(result.status).toBe(200); expect(state.calls).toBe(1);
+    expect(rpc.mock.calls.map(c => c[0])).toEqual(['admin_private_beta_canary_scope_v1', 'admin_private_beta_workspace_v1', 'admin_private_beta_transition_v1', 'admin_private_beta_canary_scope_v1']);
+    expect(state.rpc).toHaveBeenCalledWith('admin_private_beta_transition_v1', { target_tenant_id: tenant, program_id_value: program, stage_value: 'CANARY', expected_generation_value: 1 });
+    expect((await result.json()).founder_testing_enabled).toBe(false);
+  });
+  it.each(['0', '-1', '1.0', '01', '1e2', '1000000000', 'true', '1&expected_generation=1'])('rejects invalid or duplicate draft generation %s before any RPC', async generation => {
+    const result = await POST(request('program_id=' + program + '&expected_generation=' + generation));
+    expect(result.status).toBe(400); expect(state.rpc).not.toHaveBeenCalled(); expect(state.factory).not.toHaveBeenCalled();
+  });
+  it.each(['foreign-program', 'wrong-release', 'wrong-generation', 'not-draft', 'used-budget', 'unknown-outcome', 'missing-account'])('rejects %s before any transition or provider construction', async mode => {
+    const w = draftWorkspace(); const p = w.program;
+    if (mode === 'foreign-program') p.id = tenant; if (mode === 'wrong-release') p.repository_sha = 'b'.repeat(40);
+    if (mode === 'wrong-generation') p.generation = '2'; if (mode === 'not-draft') p.stage = 'STOPPED';
+    if (mode === 'used-budget') p.global_requests = 1; if (mode === 'unknown-outcome') p.canary_state = 'REVIEW'; if (mode === 'missing-account') p.account_state = 'MISSING';
+    state.rpc.mockImplementation(async (name: string) => name === 'admin_private_beta_workspace_v1' ? { data: w, error: null } : { data: null, error: { code: '42501' } });
+    expect((await POST(draftForm())).status).toBe(409); expect(state.calls).toBe(0); expect(state.factory).not.toHaveBeenCalled();
+    expect(state.rpc.mock.calls.some(c => c[0] === 'admin_private_beta_transition_v1')).toBe(false);
+  });
+  it.each(['mfa', 'window', 'account', 'revision', 'unknown-ack', 'scope-readback'])('never invokes, retries or grants conversations after %s failure', async mode => {
+    const rpc = draftRpc(); let scopes = 0;
+    state.rpc.mockImplementation(async (name: string) => {
+      if (name === 'admin_private_beta_canary_scope_v1') { scopes++; if (mode === 'scope-readback' || scopes === 1) return { data: null, error: { code: '42501', message: 'PRIVATE_DIAGNOSTIC' } }; }
+      if (name === 'admin_private_beta_transition_v1' && mode !== 'scope-readback') return mode === 'unknown-ack' ? { data: { program_id: program, stage: 'CANARY', generation: '99' }, error: null } : { data: null, error: { code: mode === 'revision' ? '40001' : mode === 'mfa' ? '42501' : '55000', message: 'PRIVATE_DIAGNOSTIC' } };
+      return rpc(name);
+    });
+    const result = await POST(draftForm()); expect(result.status).toBe(409); expect(await result.text()).not.toContain('PRIVATE_DIAGNOSTIC'); expect(state.calls).toBe(0); expect(state.factory).not.toHaveBeenCalled();
+    expect(state.rpc.mock.calls.filter(c => c[0] === 'admin_private_beta_transition_v1')).toHaveLength(1);
+  });
+  it('does not transition an already authorized CANARY again, even when a draft browser submitted its old generation', async () => {
+    expect((await POST(draftForm())).status).toBe(200); expect(state.calls).toBe(1);
+    expect(state.rpc).toHaveBeenCalledOnce(); expect(state.rpc).not.toHaveBeenCalledWith('admin_private_beta_transition_v1', expect.anything());
+  });
+  it('allows only the winner of concurrent draft transition attempts to reach the provider', async () => {
+    let scopes = 0, transitions = 0;
+    state.rpc.mockImplementation(async (name: string) => {
+      if (name === 'admin_private_beta_canary_scope_v1') return ++scopes <= 2 ? { data: null, error: { code: '42501' } } : { data: { program_id: program, tenant_id: tenant, stage: 'CANARY', repository_sha: sha }, error: null };
+      if (name === 'admin_private_beta_workspace_v1') return { data: draftWorkspace(), error: null };
+      if (name === 'admin_private_beta_transition_v1') return ++transitions === 1 ? { data: { program_id: program, stage: 'CANARY', generation: '2' }, error: null } : { data: null, error: { code: '40001' } };
+      throw Error('UNEXPECTED_OFFLINE_RPC');
+    });
+    const results = await Promise.all([POST(draftForm()), POST(draftForm())]);
+    expect(results.map(r => r.status).sort()).toEqual([200,409]); expect(state.calls).toBe(1); expect(transitions).toBe(2);
+  });
+});
+
+it('preserves the selected OpenAI plan and assesses the actual Responses codec output after the authenticated draft transition', async () => {
+  const rpc = draftRpc(); state.rpc.mockImplementation(async (name: string) => {
+    const r = await rpc(name);
+    return name === 'admin_private_beta_canary_scope_v1' && r.data ? { data: { ...r.data, provider: 'openai', model: 'gpt-6.1-sol' }, error: null } : r;
+  });
+  state.factory.mockImplementation(async (input: { assess: (request: ModelRequest, response: ModelResponse) => 'APPROVED' | 'HELD' }) => {
+    let evidence: unknown = null;
+    return { provider: { async invoke(request: ModelRequest) {
+      state.calls++;
+      const raw = { id: 'resp_fixture_canary', object: 'response', model: 'gpt-6.1-sol', status: 'completed', created_at: 1793059200, completed_at: 1793059201,
+        error: null, incomplete_details: null, instructions: null, metadata: {}, parallel_tool_calls: false, tools: [], tool_choice: 'none', background: false,
+        previous_response_id: null, conversation: null, prompt: null, max_output_tokens: 512, reasoning: { effort: 'low', summary: null }, service_tier: 'default', truncation: 'disabled',
+        prompt_cache_options: { mode: 'explicit', ttl: '30m', comparison_response_id: null }, prompt_cache_diagnostics: { type: 'unavailable' },
+        output: [{ type: 'message', id: 'msg_fixture_canary', role: 'assistant', status: 'completed', phase: 'final_answer', content: [{ type: 'output_text', text: JSON.stringify(polatClaudeFixtureWire()), annotations: [], logprobs: [] }] }],
+        usage: { input_tokens: 37, output_tokens: 121, total_tokens: 158, input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 }, output_tokens_details: { reasoning_tokens: 7 } } };
+      const decoded = decodePolatOpenAIResponse(JSON.stringify(raw), request, 512);
+      const response: ModelResponse = { provider: 'openai', model: 'gpt-6.1-sol', providerRequestId: decoded.providerRequestId, output: decoded.output, evidenceResolution: decoded.evidenceResolution, latencyMs: 12.5, usage: { inputTokens: 37, outputTokens: 121, totalTokens: 158, billedAmount: null, billedCurrency: null } };
+      const qa = input.assess(request,response); evidence = { attempt_id: attempt, outcome: { qa, response_hash: decoded.response_hash, elapsed_ms: '12.500000' } }; return response;
+    } }, evidence: () => evidence };
+  });
+  const result = await POST(draftForm()); expect(result.status).toBe(200);
+  expect(await result.json()).toMatchObject({ provider: 'openai', model: 'gpt-6.1-sol', plan_hash: polatOpenAICanaryPlan().plan_hash, qa: 'APPROVED', actual_billed_amount: null, founder_testing_enabled: false }); expect(state.calls).toBe(1);
+});
+
+describe('owner-only local UAT preparation', () => {
+  function personalRpc(fault?: string) {
+    let reads = 0;
+    return vi.fn(async (name: string) => {
+      if (name === 'admin_private_beta_canary_scope_v1') return ++reads === 1 ? { data: null, error: { code: '42501' } } : { data: { program_id: program, tenant_id: tenant, stage: 'CANARY', repository_sha: sha, provider: 'openai', model: 'gpt-6.1-sol', owner_only: true }, error: null };
+      if (name === 'admin_private_beta_workspace_v1') return { data: { program: { ...draftWorkspace().program, repository_sha: null, account_state: 'OWNER_TEST_AVAILABLE', model_provider: 'openai', model_name: 'gpt-6.1-sol' } }, error: null };
+      if (name === 'admin_private_beta_prepare_founder_test_v1') return fault === 'mfa' ? { data: null, error: { code: '42501' } } : { data: { program_id: program, stage: 'DRAFT', generation: fault === 'lost-ack' ? '99' : '2' }, error: null };
+      if (name === 'admin_private_beta_transition_v1') return { data: { program_id: program, stage: 'CANARY', generation: '3' }, error: null };
+      throw Error('UNEXPECTED_OFFLINE_RPC');
+    });
+  }
+  it('uses a real-owner RPC to bind protected observations before one canary; unknown billing stays unknown', async () => {
+    const rpc = personalRpc(); state.rpc.mockImplementation(rpc);
+    // The factory/transport are offline test doubles, never genuine model evidence.
+    const response = await POST(draftForm()); expect(response.status).toBe(200);
+    expect(rpc.mock.calls.map(c => c[0])).toEqual(['admin_private_beta_canary_scope_v1', 'admin_private_beta_workspace_v1', 'admin_private_beta_prepare_founder_test_v1', 'admin_private_beta_transition_v1', 'admin_private_beta_canary_scope_v1']);
+    expect(state.rpc).toHaveBeenCalledWith('admin_private_beta_prepare_founder_test_v1', { target_tenant_id: tenant, program_id_value: program, expected_generation_value: 1, repository_sha_value: sha });
+    expect(state.rpc).toHaveBeenCalledWith('admin_private_beta_transition_v1', { target_tenant_id: tenant, program_id_value: program, stage_value: 'CANARY', expected_generation_value: 2 });
+    expect(state.calls).toBe(1); expect(await response.json()).toMatchObject({ status: 'CANARY_OWNER_TEST_PASSED', billing_status: 'UNKNOWN_REQUIRES_INDEPENDENT_RECONCILIATION', actual_billed_amount: null, financial_authority: 'NONE', founder_testing_enabled: false, telegram_messages: 0 });
+  });
+  it.each(['mfa', 'lost-ack'])('does not invoke after %s preparation failure or retry preparation', async fault => {
+    const rpc = personalRpc(fault); state.rpc.mockImplementation(rpc);
+    expect((await POST(draftForm())).status).toBe(409); expect(state.calls).toBe(0); expect(state.factory).not.toHaveBeenCalled();
+    expect(rpc.mock.calls.filter(c => c[0] === 'admin_private_beta_prepare_founder_test_v1')).toHaveLength(1);
+    expect(rpc.mock.calls.some(c => c[0] === 'admin_private_beta_transition_v1')).toBe(false);
+  });
+  it('rejects a conflicting platform release before creating a personal owner grant', async () => {
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'b'.repeat(40)); state.rpc.mockImplementation(personalRpc());
+    try { expect((await POST(draftForm())).status).toBe(409); expect(state.calls).toBe(0); expect(state.rpc.mock.calls.some(c => c[0] === 'admin_private_beta_prepare_founder_test_v1')).toBe(false); }
+    finally { vi.stubEnv('VERCEL_GIT_COMMIT_SHA', undefined); }
   });
 });

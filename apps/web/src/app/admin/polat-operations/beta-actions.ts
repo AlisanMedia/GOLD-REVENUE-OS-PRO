@@ -19,7 +19,8 @@ function field(form: FormData, name: string): string | null {
   if (values.length > 1 || values.some(value => typeof value !== "string")) throw new Error("INVALID");
   return values.length ? String(values[0]).trim() || null : null;
 }
-function denied(code?: string): BetaActionState {
+function denied(code?: string, message?: string): BetaActionState {
+  if (code === "42501" && message === "PRIVATE_BETA_FRESH_AUTH_REQUIRED") return { kind: "error", code: "MFA_REQUIRED" };
   return { kind: "error", code: code === "28000" ? "MFA_REQUIRED" : code === "42501" ? "DENIED" : code === "22023" ? "INVALID" : code === "54000" ? "LIMIT" : code === "55000" ? "BLOCKED" : code === "40001" ? "STALE" : "UNAVAILABLE" };
 }
 async function writeContext(ownerOnly: boolean) {
@@ -36,7 +37,7 @@ export async function createPrivateBetaTenant(_previous: BetaActionState, form: 
   try { id = commandSchema.parse(field(form, "command_id")); } catch { return denied("22023"); }
   const result = await auth.db.rpc("admin_private_beta_bootstrap_tenant_v1", { source_tenant_id: auth.context.tenantId, new_tenant_id: id });
   const parsed = z.strictObject({ tenant_id: z.uuid(), slug: z.string().min(1).max(80), outbound_enabled: z.literal(false) }).safeParse(result.data);
-  if (result.error || !parsed.success) return denied(result.error?.code);
+  if (result.error || !parsed.success) return denied(result.error?.code, result.error?.message);
   refresh();
   revalidatePath("/admin", "layout");
   return { kind: "success", code: "TENANT_CREATED", tenantId: parsed.data.tenant_id };
@@ -60,7 +61,25 @@ export async function configurePrivateBeta(_previous: BetaActionState, form: For
   } catch { return denied("22023"); }
   const result = await auth.db.rpc(input.creating ? "admin_private_beta_create_v1" : "admin_private_beta_configure_v1", { target_tenant_id: auth.context.tenantId, program_id_value: input.programId, configuration_value: JSON.stringify(input.config) });
   const parsed = z.strictObject({ program_id: z.uuid(), stage: z.literal("DRAFT"), generation: z.string().regex(/^[1-9][0-9]*$/u) }).safeParse(result.data);
-  if (result.error || !parsed.success) return denied(result.error?.code);
+  if (result.error || !parsed.success) return denied(result.error?.code, result.error?.message);
+  refresh();
+  return { kind: "success", code: "SAVED" };
+}
+
+/** One authenticated owner action enables the personal chat, or stops all beta
+ * work. It never approves individual replies or creates provider evidence. */
+export async function controlPrivateBetaFounderTest(_previous: BetaActionState, form: FormData): Promise<BetaActionState> {
+  const auth = await writeContext(true);
+  if (!auth) return denied("42501");
+  let program: string, generation: number, stage: "FOUNDER" | "STOPPED";
+  try {
+    program = commandSchema.parse(field(form, "program_id"));
+    generation = Number(z.string().regex(/^[1-9][0-9]{0,8}$/u).parse(field(form, "expected_generation")));
+    stage = z.enum(["FOUNDER", "STOPPED"]).parse(field(form, "stage"));
+  } catch { return denied("22023"); }
+  const result = await auth.db.rpc("admin_private_beta_transition_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program, stage_value: stage, expected_generation_value: generation });
+  const receipt = z.strictObject({ program_id: z.literal(program), stage: z.literal(stage), generation: z.literal(String(generation + 1)) }).safeParse(result.data);
+  if (result.error || !receipt.success) return denied(result.error?.code, result.error?.message);
   refresh();
   return { kind: "success", code: "SAVED" };
 }
@@ -77,7 +96,7 @@ export async function selectPrivateBetaOpenAI(_previous: BetaActionState, form: 
   } catch { return denied("22023"); }
   const result = await auth.db.rpc("admin_private_beta_select_openai_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program, expected_generation_value: generation });
   const parsed = z.strictObject({ program_id: z.uuid(), provider: z.literal("openai"), model: z.literal("gpt-6.1-sol"), generation: z.string().regex(/^[1-9][0-9]{0,8}$/u) }).safeParse(result.data);
-  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code);
+  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code, result.error?.message);
   refresh();
   return { kind: "success", code: "SAVED" };
 }
@@ -93,7 +112,7 @@ export async function configurePrivateBetaBusiness(_previous: BetaActionState, f
   } catch { return denied("22023"); }
   const result = await auth.db.rpc("admin_private_beta_business_configure_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program, configuration_value: JSON.stringify(config), expected_generation_value: generation });
   const parsed = z.strictObject({ program_id: z.uuid(), mode: z.literal("BUSINESS"), business_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u), program_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u), state: z.enum(["UNVERIFIED", "BLOCKED", "INDEPENDENTLY_OBSERVED"]) }).safeParse(result.data);
-  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code);
+  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code, result.error?.message);
   refresh();
   return { kind: "success", code: "SAVED" };
 }
@@ -105,7 +124,7 @@ export async function reverifyPrivateBetaBusiness(_previous: BetaActionState, fo
   try { program = commandSchema.parse(field(form, "program_id")); generation = Number(z.string().regex(/^[1-9][0-9]{0,8}$/u).parse(field(form, "business_generation"))); } catch { return denied("22023"); }
   const result = await auth.db.rpc("admin_private_beta_business_reverify_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program, expected_generation_value: generation });
   const parsed = z.strictObject({ program_id: z.uuid(), business_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u), state: z.literal("INDEPENDENT_REVERIFICATION_REQUIRED") }).safeParse(result.data);
-  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code);
+  if (result.error || !parsed.success || parsed.data.program_id !== program) return denied(result.error?.code, result.error?.message);
   refresh();
   return { kind: "success", code: "SAVED" };
 }
@@ -117,7 +136,7 @@ export async function createPrivateBetaInvitation(_previous: BetaActionState, fo
   try { input = { program: commandSchema.parse(field(form, "program_id")), command: commandSchema.parse(field(form, "command_id")), kind: z.enum(["FOUNDER", "FRIEND"]).parse(field(form, "kind")) }; } catch { return denied("22023"); }
   const result = await auth.db.rpc("admin_private_beta_invite_v1", { target_tenant_id: auth.context.tenantId, program_id_value: input.program, kind_value: input.kind, command_id_value: input.command });
   const parsed = z.strictObject({ invite_id: z.uuid(), code: z.string().regex(/^[A-Za-z0-9_-]{16,160}$/u).nullable(), expires_at: z.iso.datetime({ offset: true }), kind: z.enum(["FOUNDER", "FRIEND"]), replay: z.boolean() }).safeParse(result.data);
-  if (result.error || !parsed.success) return denied(result.error?.code);
+  if (result.error || !parsed.success) return denied(result.error?.code, result.error?.message);
   refresh();
   return parsed.data.code === null ? { kind: "success", code: "INVITATION_ALREADY_CREATED" } : { kind: "success", code: "INVITATION_CREATED", invitation: { code: parsed.data.code, kind: parsed.data.kind, expiresAt: parsed.data.expires_at } };
 }
@@ -129,7 +148,7 @@ export async function recordPrivateBetaNote(_previous: BetaActionState, form: Fo
   try { input = z.strictObject({ program: z.uuid(), conversation: z.uuid().nullable(), scenario: z.string().min(1).max(80), outcome: z.enum(["PASS", "FAIL", "NOT_TESTED", "BLOCKED", "NOTE"]), note: z.string().min(1).max(1000), command: z.uuid() }).parse({ program: field(form, "program_id"), conversation: field(form, "conversation_id"), scenario: field(form, "scenario"), outcome: field(form, "outcome"), note: field(form, "note"), command: field(form, "command_id") }); } catch { return denied("22023"); }
   const result = await auth.db.rpc("admin_private_beta_note_v1", { target_tenant_id: auth.context.tenantId, program_id_value: input.program, conversation_id_value: input.conversation, scenario_value: input.scenario, outcome_value: input.outcome, note_value: input.note, command_id_value: input.command });
   const parsed = z.strictObject({ recorded: z.literal(true), note_id: z.uuid() }).safeParse(result.data);
-  if (result.error || !parsed.success) return denied(result.error?.code);
+  if (result.error || !parsed.success) return denied(result.error?.code, result.error?.message);
   refresh();
   return { kind: "success", code: "SAVED" };
 }
@@ -140,7 +159,7 @@ export async function acceptPrivateBetaOperator(_previous: BetaActionState, form
   let program: string;
   try { program = commandSchema.parse(field(form, "program_id")); } catch { return denied("22023"); }
   const result = await auth.db.rpc("admin_private_beta_operator_accept_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program });
-  if (result.error || !z.strictObject({ accepted: z.literal(true) }).safeParse(result.data).success) return denied(result.error?.code);
+  if (result.error || !z.strictObject({ accepted: z.literal(true) }).safeParse(result.data).success) return denied(result.error?.code, result.error?.message);
   refresh();
   return { kind: "success", code: "OPERATOR_ACCEPTED" };
 }

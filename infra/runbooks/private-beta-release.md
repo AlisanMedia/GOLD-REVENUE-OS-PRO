@@ -4,6 +4,53 @@
 Bu dosya bir sonucu onaylamaz. Actual run/deployment/migration kimlikleri raporda
 ayrı gösterilir. Başarılı mock test, hosted backup veya gerçek Admin girişi değildir.
 
+## Kurucuya özel hızlı konuşma testi — yeni owner kapsamı
+
+Kurucunun harcama belgesi şartını kişisel deneme için kaldıran son talimatı,
+**yalnız OWNER_ONLY** OpenAI testine uygulanır.18USD bakiye doğrulanmış sayılmaz;
+yeni bir bütçe veya yeniden350 çağrı hakkı oluşturulmaz. Aynı programın mevcut
+journal/attempt kayıtları kullanılır. Ticari/friends hesap otoritesi değişmez.
+
+`release_with_business_setup`, mevcut korumalı backup/restore/migration/yayın
+kontrollerinden sonra gerçek model/anahtar ve güncel resmî fiyat metadata'sını
+özel DB'ye kaydeder. Model, key/project header'ları ve SHA gerçekten gözlenir;
+provider hard cap, veri yerleşimi veya gerçek fatura uydurulmaz. Public data-policy
+kaynak hash'i, kuruluşa özel data-control kabulü anlamına gelmez.
+
+Kurucu, güncel MFA ile mevcut Admin'de **Start One Genuine Canary Request**'e
+basar. Aynı gerçek owner RPC'si gözlemi son yayına bağlar, mevcut30 günlük retention'ı
+korur ve en fazla24 saatlik test penceresini açar. Tek Hi/English/DIRECT isteği,
+512 output/10s ve mevcut QA kullanılır. Tekrar, fallback veya regeneration yoktur.
+Başarılı yanıt+pozitif usage+QA yalnız **OWNER_TEST_READY** oluşturur;
+`canary_reconciliation_hash` veya bağımsız fatura kaydı yazılmaz.
+
+Yerel5USD bütçesi önce tam context için4.628448USD muhafazakâr rezerv alır.
+Fiyatlar, resmî4/15 uzun-context oranlarına10% olası bölgesel primi dahil eder.
+Yalnız gerçekten başarılı/QA-approved, kimliği ve usage'si kayıtlı yanıttan sonra
+bu kişisel modda usage × muhafazakâr oran ile **tahmini yerel bütçe hesabı** yapılır.
+Bu tutar actual bill değildir. Başarısız/HELD/UNKNOWN veya eksik/taşan usage tüm
+rezervi tutar ve durur. Eski bağımsız hesap/billing akışı değiştirilmez.
+
+Aynı onaylı job kurucunun gerçek canary işlemini sınırlı süre bekler; sonra gerçek
+getMe ve getUpdates ile aday sayısal Business bağlantılarını özel Admin'e getirir.
+Kurucu, **Configure One Test Chat** ekranında yalnız kendi sohbetini bağlar.
+Job gerçek getBusinessConnection ile izinleri doğrulamadan webhook kurmaz.
+Mevcut Automation Bypass yalnız relay'in özel secret custody'sinde kullanılır;
+Admin SSO/global JWT/CI kapatılmaz. Bir başka webhook üzerine yazılmaz, mesaj
+veya paid inference workflow tarafından otomatik başlatılmaz.
+
+Kurucu daha sonra **Open Founder Conversation Test** ile tek kişisel sohbeti açar;
+bu modda ikinci operatör veya arkadaş daveti gerekmez. Mevcut tek kullanımlık
+FOUNDER daveti ve gerçek Telegram `/agree`/notice yolu korunur. Yanıt ancak
+numeric Business kimliği, participant/source, native QA ve delivery gate'leriyle
+çıkar. START her mesajda tekrarlanmaz. **Stop Test**, aynı durable STOP'u kullanır.
+
+Job bekleme süresinde kullanıcı işlemi tamamlanmazsa artifact
+`OWNER_ACTION_REQUIRED` der; bu Telegram/model acceptance PASS değildir.
+`founder_business_setup`, aynı deployed SHA üzerinde yalnız bağlantıyı sürdürür;
+deployment/migration yapmaz. `founder_model_setup` yalnız korumalı metadata
+collector'ını çalıştırır. Yeni inference denemesi veya başarısız canary reset'i yoktur.
+
 ## Tek korumalı Stage B işlemi
 
 `Private Beta UAT Release` workflow'u yalnız `main` üzerinde manuel başlatılır.
@@ -249,6 +296,53 @@ backup kabulü ancak owner'ın yeni exact-SHA release çalışmasında doğrulan
 
 ## Ayrı read-only hesap preflight işlemi
 
+### Founder canary entry from an existing DRAFT
+
+The existing Admin **Start One Genuine Canary Request** control is shown for
+`DRAFT` and `CANARY` with no prior canary. The owner's same-origin POST may carry
+`expected_generation` for a draft. This is revision metadata, not approval or
+account evidence. The server reads the user's existing tenant-scoped workspace,
+requires the matching unused draft/release and independently observed account,
+then calls the existing `admin_private_beta_transition_v1` with the real user
+session. SQL still checks founder identity, fresh MFA, actual window, retention,
+sealed account and generation under its row lock. A separate subsequent scope
+read must confirm CANARY before the existing provider and durable reservation
+can dispatch the fixed single Hi request. An uncertain transition is not retried.
+
+The synthetic Hi canary does not require the staffing fields needed for customer
+conversations. Existing SQL staffing/role/permission and billing-reconciliation
+requirements for FOUNDER/FRIENDS are unchanged. Missing account/window evidence
+keeps the button blocked. Rendering a control, selecting OpenAI or creating a
+draft never calls a model. There is no automatic advance after the canary.
+
+An exact `PRIVATE_BETA_FRESH_AUTH_REQUIRED` SQL denial now shows the existing
+MFA reauthentication instruction instead of a generic authorization error.
+Other permission denials remain denied, and raw diagnostics are not reflected.
+
+The explicit `release_with_business_setup` operation accepts an existing
+`program_id`, validated as a UUID in the first gate before hosted work.
+After exact publication/protection/alias checks, the same reviewed job invokes the
+existing scoped OpenAI model preflight, then genuine `verify_bot` and
+`discover_business` implementations, in order. The existing organization/project
+inputs are required and validated in the first gate; provider keys stay confined
+to their individual steps. The model read uses those exact project headers and
+does not write account/spending authority or invoke inference.
+It preserves both sanitized identity and candidate-summary artifacts. The draft
+must already have been bound to this exact release through the founder's real
+MFA session; the job does not rewrite owner configuration or manufacture MFA.
+This reuses the protected release review instead of three separate reviews for
+publication, bot binding and private candidate discovery. Standalone modes remain.
+The default `release_disabled` operation preserves the accepted release behavior,
+including when a caller supplies a program ID; it never discovers updates.
+
+Discovery uses a maximum of10 pending business updates, no offset/ack/drop, and
+may change Telegram's update subscriptions. It is not called read-only. It is
+restricted to the existing new draft without participants; customer message text
+and profile names are not retained. A preexisting webhook conflict blocks it;
+neither deletion nor replacement is attempted. NO_CANDIDATE is not a verified
+connection. No webhook registration, outgoing message, model call or invoice is
+performed by these optional release steps.
+
 `operation=account_preflight` için aynı exact SHA ve staging reviewer kapısı
 geçerlidir. `program_id` gerçek MFA-created program UUID'si;
 `anthropic_workspace_id`, `anthropic_spend_limit_id`, `anthropic_api_key_id`
@@ -395,3 +489,31 @@ Tüm external operations için gerçek protected environment approval ve confirm
 prerequisites gerekir. Bu runbook, gerçekleşmemiş deployment/canary/discovery veya
 Telegram konuşması için PASS beyanı değildir. GitHub secret isimlerinin varlığı
 runtime custody veya model/account kabulünün yerine geçmez.
+
+## Independent OpenAI project hard-limit read —2 November2026
+
+`operation=openai_controls_preflight` uses the existing protected main/reviewer
+workflow and the exact organization/project input IDs. `OPENAI_UAT_ADMIN_KEY`
+is confined to that read-only step; it is never copied to Vercel, the application,
+build, bot jobs, artifacts or model context. Configure a provider credential with
+only the required project/limit read permissions through protected staging
+secrets. Do not send its value in chat. A normal inference key is not substituted
+for the Admin credential and a missing key causes zero HTTP calls.
+
+The reader performs only two fixed GETs: `/v1/organization/projects/{id}` and
+`/v1/organization/projects/{id}/spend_limit`. It requires the exact active project,
+USD/month, positive safe integer CENTS no greater than500, and enforcement status
+`enforcing`. Unknown status/currency/unit/identity, redirect, duplicate JSON,
+malformed/oversized/stalled response or HTTP denial holds without retry. Observed
+monthly cap is represented with exact decimal arithmetic. A returned monthly cap
+is not a transactional per-experiment guarantee; enforcement may lag. Current
+usage, independent billing, data policy and effective experiment authority stay
+UNKNOWN/UNVERIFIED. No DB authority is written and no inference is enabled.
+
+Official sources checked2 November2026 Europe/Istanbul:
+https://developers.openai.com/api/docs/guides/spend-limits
+https://github.com/openai/openai-node/blob/master/src/resources/admin/organization/projects/spend-limit.ts
+The official SDK marks this endpoint `adminAPIKeyAuth`; `threshold_amount` is in
+cents and enforcement is `inactive` or `enforcing`. No SDK dependency is added.
+An owner statement about the limit is configuration input, not this independent
+provider read. No Admin credential is created, exposed or claimed to exist by code.

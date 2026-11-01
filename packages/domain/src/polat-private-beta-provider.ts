@@ -54,6 +54,21 @@ export function boundPolatPrivateBetaWireLiability(rawWire: { request_hash: stri
   return Object.freeze({ request_hash: wire.request_hash, body_hash: wire.body_hash, maximum_output_tokens: maximumOutputTokens, maximum_possible_charge: usdString(liability),
     pricing_evidence_hash: polatGuardDigest(pricing), valid_until: new Date(Math.min(Date.parse(pricing.expires_at), now + 300000)).toISOString() });
 }
+/** Local owner-only journal valuation after a completed, QA-approved response.
+ * Callers must establish that outcome from committed provider evidence first.
+ * This pure price-based estimate neither reconciles a bill nor releases a reserve.
+ * Failed, unknown, held or missing-usage attempts retain their full original bound. */
+export function estimatePolatOwnerOnlyOpenAIUsageLiability(rawUsage: unknown, rawPricingProof: unknown, now = Date.now()) {
+  const usage = z.strictObject({ input_tokens: z.number().int().min(1).max(1050000), output_tokens: z.number().int().min(1).max(512), total_tokens: z.number().int().min(2).max(1050512) }).parse(rawUsage);
+  const pricing = openaiLiabilityPricingProof.parse(rawPricingProof);
+  if (usage.total_tokens !== usage.input_tokens + usage.output_tokens) throw Error("POLAT_UAT_USAGE_ESTIMATE_UNVERIFIED");
+  if (!Number.isFinite(now) || Date.parse(pricing.observed_at) > now || now - Date.parse(pricing.observed_at) > 86400000 || Date.parse(pricing.expires_at) <= now || Date.parse(pricing.expires_at) > Date.parse(pricing.observed_at) + 86400000) throw Error("POLAT_UAT_PRICING_STALE");
+  const inputRate = amountUnits(pricing.maximum_input_usd_per_million), outputRate = amountUnits(pricing.maximum_output_usd_per_million);
+  if (inputRate < amountUnits("4") || outputRate < amountUnits("15")) throw Error("POLAT_UAT_PRICING_BOUND_UNVERIFIED");
+  const estimate = (inputRate * BigInt(usage.input_tokens) + outputRate * BigInt(usage.output_tokens) + 999999n) / 1000000n;
+  return Object.freeze({ classification: "CONSERVATIVE_USAGE_ESTIMATE" as const, estimated_liability: usdString(estimate), pricing_evidence_hash: polatGuardDigest(pricing),
+    provider_billing: "UNKNOWN" as const, actual_billed_amount: null, actual_billed_currency: null, financial_authority: "NONE" as const });
+}
 /** Public documentation read in the isolated account-control process. No credential, arbitrary URL, inference or price assumption fallback. */
 export async function readPolatPrivateBetaOfficialPricing(now = Date.now()) {
   const controller = new AbortController(), deadline = setTimeout(() => controller.abort(), 10000);
@@ -124,6 +139,12 @@ export function createPolatPrivateBetaProvider(dependencies: Readonly<{
         const permit = await dependencies.authority.issue({ binding, run_id: reservation.run_id, attempt_id: reservation.attempt_id, request });
         const result = binding.provider === "openai" ? await sendPolatOpenAIHttpsOnce(permit, request) : await sendPolatClaudeHttpsOnce(permit, request);
         response = result.response;
+        if (binding.version === 3 && (response.usage.inputTokens === null || response.usage.outputTokens === null
+          || response.usage.inputTokens <= 0 || response.usage.inputTokens > 1050000 || response.usage.outputTokens <= 0 || response.usage.outputTokens > binding.maximum_output_tokens)) {
+          // A response was observed, so its unbounded charge is UNKNOWN. Keep
+          // the full reservation, skip QA/delivery and require durable review.
+          throw new PolatOpenAIFailure("INVALID_OUTPUT", "POLAT_UAT_USAGE_BOUND_UNVERIFIED", true);
+        }
         const usageMissing = response.usage.inputTokens === null || response.usage.outputTokens === null;
         const qa = await dependencies.assess(request, response);
         outcome = { version: 1, stage: "PROVIDER_RESULT", status: "SUCCEEDED", response_hash: result.response_hash,

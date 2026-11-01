@@ -8,9 +8,10 @@ import { parsePolatClaudeJson } from '../packages/domain/src/polat-claude-json.t
 const MODEL = 'gpt-6.1-sol';
 const DATABASE_URL = 'https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query';
 const MODEL_URL = 'https://api.openai.com/v1/models/gpt-6.1-sol';
+const projectResidencies = new Set(['GLOBAL', 'US_STORAGE_PROCESSING', 'EU_STORAGE_PROCESSING', 'JP_STORAGE', 'JP_STORAGE_PROCESSING', 'KR_STORAGE', 'CA_STORAGE', 'SG_STORAGE', 'IN_STORAGE', 'IN_STORAGE_PROCESSING', 'AU_STORAGE', 'AU_STORAGE_PROCESSING', 'GB_STORAGE', 'AE_STORAGE', 'AE_STORAGE_PROCESSING']);
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu;
 const sha = /^[a-f0-9]{40}$/u;
-const errors = new Set(['PROTECTED_EXACT_PROGRAM_REQUIRED', 'PROTECTED_ACCOUNT_CREDENTIALS_REQUIRED', 'OPENAI_SCOPE_REQUIRED', 'OWNED_PROGRAM_REQUIRED', 'PROGRAM_WINDOW_REQUIRED', 'OPENAI_PROGRAM_SELECTION_REQUIRED', 'OPENAI_PREFLIGHT_READ_UNAVAILABLE', 'OPENAI_PREFLIGHT_RESPONSE_INVALID', 'OPENAI_PREFLIGHT_RESPONSE_BOUND', 'OPENAI_PREFLIGHT_JSON_INVALID', 'OPENAI_PREFLIGHT_TIMEOUT', 'OPENAI_MODEL_METADATA_INVALID']);
+const errors = new Set(['PROTECTED_EXACT_PROGRAM_REQUIRED', 'PROTECTED_ACCOUNT_CREDENTIALS_REQUIRED', 'OPENAI_SCOPE_REQUIRED', 'OWNED_PROGRAM_REQUIRED', 'PROGRAM_WINDOW_REQUIRED', 'OPENAI_PROGRAM_SELECTION_REQUIRED', 'OPENAI_PREFLIGHT_READ_UNAVAILABLE', 'OPENAI_PREFLIGHT_RESPONSE_INVALID', 'OPENAI_PREFLIGHT_RESPONSE_BOUND', 'OPENAI_PREFLIGHT_JSON_INVALID', 'OPENAI_PREFLIGHT_TIMEOUT', 'OPENAI_MODEL_METADATA_INVALID', 'OPENAI_PROJECT_HARD_LIMIT_UNVERIFIED']);
 const assert = (condition, code) => { if (!condition) throw Error(code); };
 const hash = value => createHash('sha256').update(value, 'utf8').digest('hex');
 const canonicalScopeHash = (organization, project) => hash(JSON.stringify(['OPENAI_PROJECT1', organization, project]));
@@ -31,7 +32,7 @@ async function abortable(pending, signal) {
 }
 
 /** One bounded read, no retries, redirects, inference endpoint or response-body logging. */
-async function readJson(url, init, request) {
+async function readJson(url, init, request, validateRaw) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000);
   try {
     const response = await abortable(request(url, { ...init, redirect: 'error', signal: controller.signal }), controller.signal);
@@ -51,6 +52,7 @@ async function readJson(url, init, request) {
     let raw, value;
     try { raw = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes)); value = parsePolatClaudeJson(raw, 16384); }
     catch { throw Error('OPENAI_PREFLIGHT_JSON_INVALID'); }
+    if (validateRaw) validateRaw(raw);
     return { value, response_hash: hash(raw) };
   } catch (error) {
     if (error instanceof Error && errors.has(error.message)) throw error;
@@ -121,13 +123,60 @@ export async function observeConfiguredOpenAIModel({ env, request = fetch, now =
   }
 }
 
+/** Official Admin API read. This observes a MONTHLY project cap, never grants
+ * per-experiment authority or calls inference. No normal-key/Admin-key fallback. */
+export async function observeOpenAIProjectHardLimit({ env, request = fetch, now = Date.now }) {
+  const base = { version: 1, mode: 'PROTECTED_READ_ONLY_OPENAI_PROJECT_CONTROLS', provider: 'openai', actual_inference_requests: 0,
+    genuine_execution_authority: 'BLOCKED', provider_account_authority: 'UNVERIFIED', effective_experiment_cap: 'UNVERIFIED',
+    project_residency: 'UNKNOWN', actual_billed_amount: null, billing: 'UNKNOWN', database_authority_written: false, financial_authority: 'NONE', commercial_pilot: 'NO_GO' };
+  let projectStatus = null, limitStatus = null, reads = 0;
+  try {
+    assert(env.GITHUB_ACTIONS === 'true' && env.GITHUB_EVENT_NAME === 'workflow_dispatch' && env.GITHUB_REF === 'refs/heads/main'
+      && env.GITHUB_REPOSITORY === 'AlisanMedia/GOLD-REVENUE-OS-PRO' && sha.test(env.VALIDATED_SHA ?? '') && env.GITHUB_SHA === env.VALIDATED_SHA, 'PROTECTED_EXACT_PROGRAM_REQUIRED');
+    const organization = env.OPENAI_UAT_ORGANIZATION_ID, project = env.OPENAI_UAT_PROJECT_ID;
+    assert(/^org[-_][A-Za-z0-9_-]{1,120}$/u.test(organization ?? '') && /^proj_[A-Za-z0-9_-]{1,120}$/u.test(project ?? ''), 'OPENAI_SCOPE_REQUIRED');
+    if (!credential(env.OPENAI_UAT_ADMIN_KEY)) return { ...base, state: 'BLOCKED', reason: 'OPENAI_ACCOUNT_ADMIN_READ_KEY_REQUIRED', control_metadata_requests: 0, project_http_status: null, limit_http_status: null };
+    const headers = { authorization: 'Bearer ' + env.OPENAI_UAT_ADMIN_KEY, 'OpenAI-Organization': organization, accept: 'application/json' };
+    const root = 'https://api.openai.com/v1/organization/projects/' + project;
+    reads++;
+    const identity = await readJson(root, { method: 'GET', headers }, async (url, init) => { const r = await request(url, init); projectStatus = r.status; return r; });
+    assert(identity.value?.id === project && identity.value?.object === 'organization.project' && identity.value?.status === 'active', 'OPENAI_PROJECT_IDENTITY_UNVERIFIED');
+    reads++;
+    const limit = await readJson(root + '/spend_limit', { method: 'GET', headers }, async (url, init) => { const r = await request(url, init); limitStatus = r.status; return r; }, raw => {
+      // Node 24 exposes each primitive's original JSON token. Inspect the ROOT
+      // amount after duplicate-key validation; nested metadata cannot supply it.
+      // A fractional token can round to a safe integer before schema validation.
+      const lexical = JSON.parse(raw, (key, value, context) => key === 'threshold_amount' ? (typeof value === 'number' ? context.source : null) : value);
+      assert(typeof lexical?.threshold_amount === 'string' && /^[1-9][0-9]*$/u.test(lexical.threshold_amount), 'OPENAI_PROJECT_HARD_LIMIT_UNVERIFIED');
+    });
+    const v = limit.value;
+    // Official SDK: threshold_amount is integer CENTS, not dollars. Unknown
+    // currency/interval/enforcement or a cap exceeding the existing $5 scope holds.
+    assert(v?.object === 'project.spend_limit' && v.currency === 'USD' && v.interval === 'month' && Number.isSafeInteger(v.threshold_amount)
+      && v.threshold_amount > 0 && v.threshold_amount <= 500 && v.enforcement?.status === 'enforcing', 'OPENAI_PROJECT_HARD_LIMIT_UNVERIFIED');
+    const at = now(); assert(Number.isSafeInteger(at) && at > 0, 'OPENAI_PREFLIGHT_RESPONSE_INVALID');
+    const cents = BigInt(v.threshold_amount), dollars = String(cents / 100n) + '.' + String(cents % 100n).padStart(2, '0');
+    return { ...base, state: 'OBSERVED', repository_sha: env.VALIDATED_SHA, account_scope_hash: canonicalScopeHash(organization, project),
+      project_residency: projectResidencies.has(identity.value.residency) ? identity.value.residency : 'UNKNOWN',
+      project_http_status: projectStatus, limit_http_status: limitStatus, control_metadata_requests: reads, monthly_hard_limit_usd: dollars,
+      enforcement: 'enforcing', enforcement_delay_possible: true, project_response_hash: identity.response_hash, limit_response_hash: limit.response_hash,
+      observed_at: new Date(at).toISOString(), unresolved: ['MONTHLY_CAP_IS_NOT_TRANSACTIONAL_EXPERIMENT_AUTHORITY', 'CURRENT_USAGE_BILLING_AND_DATA_POLICY_NOT_ESTABLISHED', 'AUTHENTICATED_OWNER_AND_DURABLE_RESERVATION_REQUIRED'] };
+  } catch (error) {
+    const known = ['PROTECTED_EXACT_PROGRAM_REQUIRED', 'OPENAI_SCOPE_REQUIRED', 'OPENAI_PROJECT_IDENTITY_UNVERIFIED', 'OPENAI_PROJECT_HARD_LIMIT_UNVERIFIED'];
+    return { ...base, state: 'BLOCKED', control_metadata_requests: reads, project_http_status: projectStatus, limit_http_status: limitStatus,
+      reason: error instanceof Error && (known.includes(error.message) || errors.has(error.message)) ? error.message : 'OPENAI_PROJECT_CONTROL_READ_UNAVAILABLE' };
+  }
+}
+
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   try {
     assert(process.argv.length === 2 && typeof process.env.RUNNER_TEMP === 'string' && process.env.RUNNER_TEMP.startsWith('/'), 'PROTECTED_EXACT_PROGRAM_REQUIRED');
-    const result = process.env.OPENAI_METADATA_ONLY === 'true'
+    const result = process.env.OPENAI_CONTROLS_ONLY === 'true' ? await observeOpenAIProjectHardLimit({ env: process.env }) : process.env.OPENAI_METADATA_ONLY === 'true'
       ? await observeConfiguredOpenAIModel({ env: process.env }) : await observePrivateBetaOpenAIAccount({ env: process.env });
     writeFileSync(join(process.env.RUNNER_TEMP, 'private-beta-openai-account-observation.json'), JSON.stringify(result, null, 2) + '\n', { mode: 0o600, flag: 'wx' });
     if (result.state !== 'OBSERVED') { process.stderr.write('PRIVATE_BETA_OPENAI_PREFLIGHT_BLOCKED: ' + result.reason + '\n'); process.exitCode = 1; }
-    else process.stdout.write('OBSERVED: one read-only OpenAI model metadata request. Inference, account/cap authority and actual billing remain BLOCKED/UNVERIFIED.\n');
+    else process.stdout.write(result.mode === 'PROTECTED_READ_ONLY_OPENAI_PROJECT_CONTROLS'
+      ? 'OBSERVED: project identity and monthly hard limit only. Inference, experiment authority, usage and billing remain BLOCKED/UNVERIFIED.\n'
+      : 'OBSERVED: one read-only OpenAI model metadata request. Inference, account/cap authority and actual billing remain BLOCKED/UNVERIFIED.\n');
   } catch { process.stderr.write('PRIVATE_BETA_OPENAI_PREFLIGHT_BLOCKED: PROTECTED_ACCOUNT_OBSERVATION_UNAVAILABLE\n'); process.exitCode = 1; }
 }
