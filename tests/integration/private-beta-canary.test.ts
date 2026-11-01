@@ -3,6 +3,8 @@ import type { ModelRequest, ModelResponse } from "../../packages/domain/src/agen
 import { decodePolatClaudeResponse } from "../../packages/domain/src/polat-claude-adapter";
 import { polatClaudeCompleteEnvelope, polatClaudeFixtureWire } from "../helpers/polat-bridge-fixtures";
 import { polatClaudeCanaryPlan } from "../../packages/domain/src/polat-claude-canary";
+import { polatOpenAICanaryPlan } from "../../packages/domain/src/polat-openai-canary";
+import { decodePolatOpenAIResponse } from "../../packages/domain/src/polat-openai-adapter";
 import { polatGenuineExecutionGate } from "../../packages/domain/src/polat-experiment-execution-gate";
 
 const state = vi.hoisted(() => ({ auth: vi.fn(), rpc: vi.fn(), factory: vi.fn(), calls: 0, fail: false, wire: null as unknown, request: null as ModelRequest | null }));
@@ -132,4 +134,28 @@ describe('one explicit owner canary action from an existing draft, offline provi
     const results = await Promise.all([POST(draftForm()), POST(draftForm())]);
     expect(results.map(r => r.status).sort()).toEqual([200,409]); expect(state.calls).toBe(1); expect(transitions).toBe(2);
   });
+});
+
+it('preserves the selected OpenAI plan and assesses the actual Responses codec output after the authenticated draft transition', async () => {
+  const rpc = draftRpc(); state.rpc.mockImplementation(async (name: string) => {
+    const r = await rpc(name);
+    return name === 'admin_private_beta_canary_scope_v1' && r.data ? { data: { ...r.data, provider: 'openai', model: 'gpt-6.1-sol' }, error: null } : r;
+  });
+  state.factory.mockImplementation(async (input: { assess: (request: ModelRequest, response: ModelResponse) => 'APPROVED' | 'HELD' }) => {
+    let evidence: unknown = null;
+    return { provider: { async invoke(request: ModelRequest) {
+      state.calls++;
+      const raw = { id: 'resp_fixture_canary', object: 'response', model: 'gpt-6.1-sol', status: 'completed', created_at: 1793059200, completed_at: 1793059201,
+        error: null, incomplete_details: null, instructions: null, metadata: {}, parallel_tool_calls: false, tools: [], tool_choice: 'none', background: false,
+        previous_response_id: null, conversation: null, prompt: null, max_output_tokens: 512, reasoning: { effort: 'low', summary: null }, service_tier: 'default', truncation: 'disabled',
+        prompt_cache_options: { mode: 'explicit', ttl: '30m', comparison_response_id: null }, prompt_cache_diagnostics: { type: 'unavailable' },
+        output: [{ type: 'message', id: 'msg_fixture_canary', role: 'assistant', status: 'completed', phase: 'final_answer', content: [{ type: 'output_text', text: JSON.stringify(polatClaudeFixtureWire()), annotations: [], logprobs: [] }] }],
+        usage: { input_tokens: 37, output_tokens: 121, total_tokens: 158, input_tokens_details: { cached_tokens: 0, cache_write_tokens: 0 }, output_tokens_details: { reasoning_tokens: 7 } } };
+      const decoded = decodePolatOpenAIResponse(JSON.stringify(raw), request, 512);
+      const response: ModelResponse = { provider: 'openai', model: 'gpt-6.1-sol', providerRequestId: decoded.providerRequestId, output: decoded.output, evidenceResolution: decoded.evidenceResolution, latencyMs: 12.5, usage: { inputTokens: 37, outputTokens: 121, totalTokens: 158, billedAmount: null, billedCurrency: null } };
+      const qa = input.assess(request,response); evidence = { attempt_id: attempt, outcome: { qa, response_hash: decoded.response_hash, elapsed_ms: '12.500000' } }; return response;
+    } }, evidence: () => evidence };
+  });
+  const result = await POST(draftForm()); expect(result.status).toBe(200);
+  expect(await result.json()).toMatchObject({ provider: 'openai', model: 'gpt-6.1-sol', plan_hash: polatOpenAICanaryPlan().plan_hash, qa: 'APPROVED', actual_billed_amount: null, founder_testing_enabled: false }); expect(state.calls).toBe(1);
 });

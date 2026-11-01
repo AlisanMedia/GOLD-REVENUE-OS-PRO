@@ -442,3 +442,31 @@ Tüm external operations için gerçek protected environment approval ve confirm
 prerequisites gerekir. Bu runbook, gerçekleşmemiş deployment/canary/discovery veya
 Telegram konuşması için PASS beyanı değildir. GitHub secret isimlerinin varlığı
 runtime custody veya model/account kabulünün yerine geçmez.
+
+## Independent OpenAI project hard-limit read —2 November2026
+
+`operation=openai_controls_preflight` uses the existing protected main/reviewer
+workflow and the exact organization/project input IDs. `OPENAI_UAT_ADMIN_KEY`
+is confined to that read-only step; it is never copied to Vercel, the application,
+build, bot jobs, artifacts or model context. Configure a provider credential with
+only the required project/limit read permissions through protected staging
+secrets. Do not send its value in chat. A normal inference key is not substituted
+for the Admin credential and a missing key causes zero HTTP calls.
+
+The reader performs only two fixed GETs: `/v1/organization/projects/{id}` and
+`/v1/organization/projects/{id}/spend_limit`. It requires the exact active project,
+USD/month, positive safe integer CENTS no greater than500, and enforcement status
+`enforcing`. Unknown status/currency/unit/identity, redirect, duplicate JSON,
+malformed/oversized/stalled response or HTTP denial holds without retry. Observed
+monthly cap is represented with exact decimal arithmetic. A returned monthly cap
+is not a transactional per-experiment guarantee; enforcement may lag. Current
+usage, independent billing, data policy and effective experiment authority stay
+UNKNOWN/UNVERIFIED. No DB authority is written and no inference is enabled.
+
+Official sources checked2 November2026 Europe/Istanbul:
+https://developers.openai.com/api/docs/guides/spend-limits
+https://github.com/openai/openai-node/blob/master/src/resources/admin/organization/projects/spend-limit.ts
+The official SDK marks this endpoint `adminAPIKeyAuth`; `threshold_amount` is in
+cents and enforcement is `inactive` or `enforcing`. No SDK dependency is added.
+An owner statement about the limit is configuration input, not this independent
+provider read. No Admin credential is created, exposed or claimed to exist by code.
