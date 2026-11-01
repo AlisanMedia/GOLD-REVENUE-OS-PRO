@@ -74,3 +74,62 @@ describe("authenticated single-request canary entrypoint (offline controls and p
     expect(polatGenuineExecutionGate()).toMatchObject({ state: "BLOCKED", release: "DORMANT", authorized_external_requests: 0, execution_enabled: false });
   });
 });
+
+const draftForm = () => request('program_id=' + program + '&expected_generation=1');
+function draftWorkspace() { return { program: { id: program, stage: 'DRAFT', generation: '1', repository_sha: sha, global_requests: 0, canary_state: 'NOT_STARTED', account_state: 'OBSERVED' } }; }
+function draftRpc() {
+  let scopeReads = 0;
+  return vi.fn(async (name: string) => {
+    if (name === 'admin_private_beta_canary_scope_v1') return ++scopeReads === 1 ? { data: null, error: { code: '42501' } } : { data: { program_id: program, tenant_id: tenant, stage: 'CANARY', repository_sha: sha }, error: null };
+    if (name === 'admin_private_beta_workspace_v1') return { data: draftWorkspace(), error: null };
+    if (name === 'admin_private_beta_transition_v1') return { data: { program_id: program, stage: 'CANARY', generation: '2' }, error: null };
+    throw Error('UNEXPECTED_OFFLINE_RPC');
+  });
+}
+describe('one explicit owner canary action from an existing draft, offline provider', () => {
+  it('uses the real owner-scoped transition and generation lock before rereading scope and making one fixture invocation', async () => {
+    const rpc = draftRpc(); state.rpc.mockImplementation(rpc);
+    const result = await POST(draftForm()); expect(result.status).toBe(200); expect(state.calls).toBe(1);
+    expect(rpc.mock.calls.map(c => c[0])).toEqual(['admin_private_beta_canary_scope_v1', 'admin_private_beta_workspace_v1', 'admin_private_beta_transition_v1', 'admin_private_beta_canary_scope_v1']);
+    expect(state.rpc).toHaveBeenCalledWith('admin_private_beta_transition_v1', { target_tenant_id: tenant, program_id_value: program, stage_value: 'CANARY', expected_generation_value: 1 });
+    expect((await result.json()).founder_testing_enabled).toBe(false);
+  });
+  it.each(['0', '-1', '1.0', '01', '1e2', '1000000000', 'true', '1&expected_generation=1'])('rejects invalid or duplicate draft generation %s before any RPC', async generation => {
+    const result = await POST(request('program_id=' + program + '&expected_generation=' + generation));
+    expect(result.status).toBe(400); expect(state.rpc).not.toHaveBeenCalled(); expect(state.factory).not.toHaveBeenCalled();
+  });
+  it.each(['foreign-program', 'wrong-release', 'wrong-generation', 'not-draft', 'used-budget', 'unknown-outcome', 'missing-account'])('rejects %s before any transition or provider construction', async mode => {
+    const w = draftWorkspace(); const p = w.program;
+    if (mode === 'foreign-program') p.id = tenant; if (mode === 'wrong-release') p.repository_sha = 'b'.repeat(40);
+    if (mode === 'wrong-generation') p.generation = '2'; if (mode === 'not-draft') p.stage = 'STOPPED';
+    if (mode === 'used-budget') p.global_requests = 1; if (mode === 'unknown-outcome') p.canary_state = 'REVIEW'; if (mode === 'missing-account') p.account_state = 'MISSING';
+    state.rpc.mockImplementation(async (name: string) => name === 'admin_private_beta_workspace_v1' ? { data: w, error: null } : { data: null, error: { code: '42501' } });
+    expect((await POST(draftForm())).status).toBe(409); expect(state.calls).toBe(0); expect(state.factory).not.toHaveBeenCalled();
+    expect(state.rpc.mock.calls.some(c => c[0] === 'admin_private_beta_transition_v1')).toBe(false);
+  });
+  it.each(['mfa', 'window', 'account', 'revision', 'unknown-ack', 'scope-readback'])('never invokes, retries or grants conversations after %s failure', async mode => {
+    const rpc = draftRpc(); let scopes = 0;
+    state.rpc.mockImplementation(async (name: string) => {
+      if (name === 'admin_private_beta_canary_scope_v1') { scopes++; if (mode === 'scope-readback' || scopes === 1) return { data: null, error: { code: '42501', message: 'PRIVATE_DIAGNOSTIC' } }; }
+      if (name === 'admin_private_beta_transition_v1' && mode !== 'scope-readback') return mode === 'unknown-ack' ? { data: { program_id: program, stage: 'CANARY', generation: '99' }, error: null } : { data: null, error: { code: mode === 'revision' ? '40001' : mode === 'mfa' ? '42501' : '55000', message: 'PRIVATE_DIAGNOSTIC' } };
+      return rpc(name);
+    });
+    const result = await POST(draftForm()); expect(result.status).toBe(409); expect(await result.text()).not.toContain('PRIVATE_DIAGNOSTIC'); expect(state.calls).toBe(0); expect(state.factory).not.toHaveBeenCalled();
+    expect(state.rpc.mock.calls.filter(c => c[0] === 'admin_private_beta_transition_v1')).toHaveLength(1);
+  });
+  it('does not transition an already authorized CANARY again, even when a draft browser submitted its old generation', async () => {
+    expect((await POST(draftForm())).status).toBe(200); expect(state.calls).toBe(1);
+    expect(state.rpc).toHaveBeenCalledOnce(); expect(state.rpc).not.toHaveBeenCalledWith('admin_private_beta_transition_v1', expect.anything());
+  });
+  it('allows only the winner of concurrent draft transition attempts to reach the provider', async () => {
+    let scopes = 0, transitions = 0;
+    state.rpc.mockImplementation(async (name: string) => {
+      if (name === 'admin_private_beta_canary_scope_v1') return ++scopes <= 2 ? { data: null, error: { code: '42501' } } : { data: { program_id: program, tenant_id: tenant, stage: 'CANARY', repository_sha: sha }, error: null };
+      if (name === 'admin_private_beta_workspace_v1') return { data: draftWorkspace(), error: null };
+      if (name === 'admin_private_beta_transition_v1') return ++transitions === 1 ? { data: { program_id: program, stage: 'CANARY', generation: '2' }, error: null } : { data: null, error: { code: '40001' } };
+      throw Error('UNEXPECTED_OFFLINE_RPC');
+    });
+    const results = await Promise.all([POST(draftForm()), POST(draftForm())]);
+    expect(results.map(r => r.status).sort()).toEqual([200,409]); expect(state.calls).toBe(1); expect(transitions).toBe(2);
+  });
+});

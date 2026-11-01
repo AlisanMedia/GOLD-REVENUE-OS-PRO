@@ -190,18 +190,22 @@ function CanaryControl({ program }: { program: NonNullable<PrivateBetaWorkspace[
   const { text } = useCopy(); const attempted = useRef(false);
   const [phase, setPhase] = useState<"IDLE" | "PENDING" | "REVIEW" | "RESULT">("IDLE");
   const [result, setResult] = useState<PrivateBetaCanaryResult | null>(null);
-  const enabled = program.configuration_complete && program.account_state === "OBSERVED" && program.repository_sha !== null;
+  // The fixed synthetic Hi canary needs a window/retention and real account
+  // evidence. Human staffing remains required by SQL before conversation stages.
+  const enabled = program.repository_sha !== null && program.starts_at !== null && program.expires_at !== null && program.retention_days !== null && program.account_state === "OBSERVED";
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (attempted.current || !enabled || program.repository_sha === null) return;
     attempted.current = true; setPhase("PENDING");
     try {
-      const raw = await submitPrivateBetaOwnerForm("/api/v1/admin/private-beta/canary", new URLSearchParams({ program_id: program.id }));
+      const body = new URLSearchParams({ program_id: program.id });
+      if (program.stage === "DRAFT") body.set("expected_generation", program.generation);
+      const raw = await submitPrivateBetaOwnerForm("/api/v1/admin/private-beta/canary", body);
       setResult(parsePrivateBetaCanaryResult(raw, program.id, program.repository_sha)); setPhase("RESULT");
     } catch { setPhase("REVIEW"); }
   }
   return <section className="form-panel" aria-labelledby="private-beta-canary-heading"><h3 id="private-beta-canary-heading">{text("canaryRun")}</h3><p>{text("canaryText")}</p>
     {!enabled && <p className="warning-box">{text("canaryBlocked")}</p>}
-    <form action="/api/v1/admin/private-beta/canary" method="post" onSubmit={submit}><input type="hidden" name="program_id" value={program.id}/><button className="primary-button" type="submit" disabled={!enabled || phase !== "IDLE"}>{text("canaryRun")}</button></form>
+    <form action="/api/v1/admin/private-beta/canary" method="post" onSubmit={submit}><input type="hidden" name="program_id" value={program.id}/>{program.stage === "DRAFT" && <input type="hidden" name="expected_generation" value={program.generation}/>}<button className="primary-button" type="submit" disabled={!enabled || phase !== "IDLE"}>{text("canaryRun")}</button></form>
     {phase === "PENDING" && <p role="status">{text("canaryPending")}</p>}{phase === "REVIEW" && <p className="warning-box" role="alert">{text("canaryReview")}</p>}
     {result && <><p className="warning-box" role="status">{text(result.status === "CANARY_HELD" ? "canaryHeld" : "canaryAccounting")}</p>
       {result.response_preview !== null && <section className="detail-card"><h4>{text("canaryOutput")}</h4><p lang="en">{result.response_preview}</p></section>}
@@ -277,7 +281,7 @@ export function PolatPrivateBeta({ workspace, invalid, denied, size, canConfigur
   return <section aria-labelledby="private-beta-heading"><h2 id="private-beta-heading">{text("title")}</h2><p className="muted">{text("basis")}</p><p className="warning-box">{text("ceiling")}</p>
     {(canConfigure || canAcceptOperator) && <PrivateBetaMfa canRecover={canConfigure}/>}
     {!program ? <><p className="empty-state">{text("empty")}</p>{canConfigure && <section className="form-panel"><h3>{text("setup")}</h3><p>{text("setupText")}</p><ActionForm action={createPrivateBetaTenant} repeatable={false}><button className="secondary-button" type="submit">{text("bootstrap")}</button></ActionForm></section>}</> : <>
-      {canConfigure && program.stage === "CANARY" && program.canary_state === "NOT_STARTED" && <CanaryControl program={program}/>}
+      {canConfigure && ["DRAFT", "CANARY"].includes(program.stage) && program.canary_state === "NOT_STARTED" && <CanaryControl program={program}/>}
       {canConfigure && program.stage !== "STOPPED" && starsCommandId && <StarsInvoiceControl programId={program.id} commandId={starsCommandId}/>}
       <div className="polat-columns"><section className="table-card"><h3>{text("stage")}</h3><dl className="polat-facts"><div><dt>{text("stage")}</dt><dd>{statusLabel(program.stage, locale)}</dd></div><div><dt>{text("configuration")}</dt><dd>{text(program.configuration_complete ? "complete" : "incomplete")}</dd></div><div><dt>{text("account")}</dt><dd>{statusLabel(program.account_state, locale)}</dd></div><div><dt>{text("canary")}</dt><dd>{statusLabel(program.canary_state, locale)}</dd></div><div><dt>{text("starts")}</dt><dd><AdminDate value={program.starts_at}/></dd></div><div><dt>{text("expires")}</dt><dd><AdminDate value={program.expires_at}/></dd></div><div><dt>{text("retention")}</dt><dd>{program.retention_days === null ? text("unknown") : <AdminNumber value={program.retention_days}/>}</dd></div><div><dt>{text("primary")}</dt><dd>{text(program.primary_operator_configured ? "operatorConfigured" : "operatorMissing")}</dd></div><div><dt>{text("backup")}</dt><dd>{text(program.backup_operator_configured ? "operatorConfigured" : "operatorMissing")}</dd></div></dl></section><section className="table-card"><h3>{text("requests")}</h3><dl className="polat-facts"><div><dt>{text("requests")}</dt><dd><AdminNumber value={program.global_requests}/> / <AdminNumber value={program.maximum_requests}/></dd></div><div><dt>{text("reserved")}</dt><dd>{program.reserved_liability === null ? text("restricted") : <><AdminDecimal value={program.reserved_liability}/> {program.currency}</>}</dd></div><div><dt>{text("billing")}</dt><dd>{program.actual_billed_amount === null ? text(program.billing_status === "ROLE_RESTRICTED" ? "restricted" : "unknown") : <><AdminDecimal value={program.actual_billed_amount}/> {program.currency}</>}</dd></div><div><dt>{text("count")}</dt><dd><AdminNumber value={workspace.participants.length}/></dd></div></dl></section></div>
       {canAcceptOperator && <section className="form-panel"><h3>{text("operatorAccept")}</h3><p>{text("operatorAcceptText")}</p><ActionForm action={acceptPrivateBetaOperator} repeatable={false}><input type="hidden" name="program_id" value={program.id}/><button className="secondary-button" type="submit">{text("operatorAccept")}</button></ActionForm></section>}

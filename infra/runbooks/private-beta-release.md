@@ -249,6 +249,29 @@ backup kabulü ancak owner'ın yeni exact-SHA release çalışmasında doğrulan
 
 ## Ayrı read-only hesap preflight işlemi
 
+### Founder canary entry from an existing DRAFT
+
+The existing Admin **Start One Genuine Canary Request** control is shown for
+`DRAFT` and `CANARY` with no prior canary. The owner's same-origin POST may carry
+`expected_generation` for a draft. This is revision metadata, not approval or
+account evidence. The server reads the user's existing tenant-scoped workspace,
+requires the matching unused draft/release and independently observed account,
+then calls the existing `admin_private_beta_transition_v1` with the real user
+session. SQL still checks founder identity, fresh MFA, actual window, retention,
+sealed account and generation under its row lock. A separate subsequent scope
+read must confirm CANARY before the existing provider and durable reservation
+can dispatch the fixed single Hi request. An uncertain transition is not retried.
+
+The synthetic Hi canary does not require the staffing fields needed for customer
+conversations. Existing SQL staffing/role/permission and billing-reconciliation
+requirements for FOUNDER/FRIENDS are unchanged. Missing account/window evidence
+keeps the button blocked. Rendering a control, selecting OpenAI or creating a
+draft never calls a model. There is no automatic advance after the canary.
+
+An exact `PRIVATE_BETA_FRESH_AUTH_REQUIRED` SQL denial now shows the existing
+MFA reauthentication instruction instead of a generic authorization error.
+Other permission denials remain denied, and raw diagnostics are not reflected.
+
 `operation=account_preflight` için aynı exact SHA ve staging reviewer kapısı
 geçerlidir. `program_id` gerçek MFA-created program UUID'si;
 `anthropic_workspace_id`, `anthropic_spend_limit_id`, `anthropic_api_key_id`
