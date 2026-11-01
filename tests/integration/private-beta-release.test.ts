@@ -260,3 +260,21 @@ describe("protected real bot identity import (offline HTTP fixtures only)", () =
     expect(botJob).toContain("private-beta-release-bot.mjs"); expect(botJob).not.toMatch(/ANTHROPIC|setWebhook|sendMessage|db push|vercel.*deploy/iu);
   });
 });
+
+describe('explicit reviewed release plus genuine Business setup', () => {
+  it('keeps default releases unchanged and confines bot/candidate custody to the explicit post-publication operation', () => {
+    const workflow = readFileSync('.github/workflows/private-beta-uat.yml', 'utf8');
+    expect(workflow).toContain('default: release_disabled');
+    const start = workflow.indexOf('- name: Bind real Business bot and record private connection candidates (no messages)');
+    const end = workflow.indexOf('- name: Retain sanitized release evidence', start);
+    expect(start).toBeGreaterThan(workflow.indexOf('- name: Verify both canonical staging aliases'));
+    const step = workflow.slice(start,end);
+    expect(step).toContain("inputs.operation == 'release_with_business_setup'");
+    expect(step).toContain('PRIVATE_BETA_BOT_OPERATION=verify_bot'); expect(step).toContain('PRIVATE_BETA_BOT_OPERATION=discover_business');
+    expect(step.indexOf('PRIVATE_BETA_BOT_OPERATION=verify_bot')).toBeLessThan(step.indexOf('PRIVATE_BETA_BOT_OPERATION=discover_business'));
+    expect(step).toContain('private-beta-bot-identity-control.json');
+    expect(step).not.toMatch(/OPENAI_API_KEY|ANTHROPIC|setWebhook|deleteWebhook|sendMessage|sendInvoice|continue-on-error/u);
+    const gate = workflow.slice(workflow.indexOf('- name: Verify exact SHA'),workflow.indexOf('- uses: pnpm/action-setup'));
+    expect(gate).toContain('PRIVATE_BETA_PROGRAM_ID'); expect(gate).toContain('release_with_business_setup'); expect(gate).toContain('node scripts/private-beta-release-gate.mjs');
+  });
+});

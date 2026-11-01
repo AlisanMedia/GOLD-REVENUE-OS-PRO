@@ -272,6 +272,30 @@ An exact `PRIVATE_BETA_FRESH_AUTH_REQUIRED` SQL denial now shows the existing
 MFA reauthentication instruction instead of a generic authorization error.
 Other permission denials remain denied, and raw diagnostics are not reflected.
 
+The explicit `release_with_business_setup` operation accepts an existing
+`program_id`, validated as a UUID in the first gate before hosted work.
+After exact publication/protection/alias checks, the same reviewed job invokes the
+existing scoped OpenAI model preflight, then genuine `verify_bot` and
+`discover_business` implementations, in order. The existing organization/project
+inputs are required and validated in the first gate; provider keys stay confined
+to their individual steps. The model read uses those exact project headers and
+does not write account/spending authority or invoke inference.
+It preserves both sanitized identity and candidate-summary artifacts. The draft
+must already have been bound to this exact release through the founder's real
+MFA session; the job does not rewrite owner configuration or manufacture MFA.
+This reuses the protected release review instead of three separate reviews for
+publication, bot binding and private candidate discovery. Standalone modes remain.
+The default `release_disabled` operation preserves the accepted release behavior,
+including when a caller supplies a program ID; it never discovers updates.
+
+Discovery uses a maximum of10 pending business updates, no offset/ack/drop, and
+may change Telegram's update subscriptions. It is not called read-only. It is
+restricted to the existing new draft without participants; customer message text
+and profile names are not retained. A preexisting webhook conflict blocks it;
+neither deletion nor replacement is attempted. NO_CANDIDATE is not a verified
+connection. No webhook registration, outgoing message, model call or invoice is
+performed by these optional release steps.
+
 `operation=account_preflight` için aynı exact SHA ve staging reviewer kapısı
 geçerlidir. `program_id` gerçek MFA-created program UUID'si;
 `anthropic_workspace_id`, `anthropic_spend_limit_id`, `anthropic_api_key_id`

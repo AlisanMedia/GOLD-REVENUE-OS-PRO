@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - release_disabled
+          - release_with_business_setup
           - account_preflight
           - openai_account_preflight
           - openai_model_probe
@@ -26,7 +27,7 @@ on:
         required: true
         type: string
       program_id:
-        description: Existing MFA-created private UAT program UUID (account_preflight or verify_bot)
+        description: Existing MFA-created UAT program UUID (release optionally verifies Business bot/candidates)
         required: false
         type: string
       openai_organization_id:
@@ -62,7 +63,7 @@ concurrency:
 jobs:
   release_disabled_beta:
     name: Reviewed isolated staging release (provider activation disabled)
-    if: ${{ inputs.operation == 'release_disabled' && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
+    if: ${{ (inputs.operation == 'release_disabled' || inputs.operation == 'release_with_business_setup') && github.repository == 'AlisanMedia/GOLD-REVENUE-OS-PRO' && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     environment: staging
@@ -84,10 +85,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
           BACKUP_RETENTION_DAYS: ${{ inputs.backup_retention_days }}
+          RELEASE_OPERATION: ${{ inputs.operation }}
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
+          OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
         shell: bash
         run: |
           set -euo pipefail
           [[ "$BACKUP_RETENTION_DAYS" =~ ^([1-9]|[12][0-9]|30)$ ]]
+          if [[ "$RELEASE_OPERATION" == release_with_business_setup ]]; then
+            [[ "$PRIVATE_BETA_PROGRAM_ID" =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$ ]]
+            [[ "$OPENAI_UAT_ORGANIZATION_ID" =~ ^org[-_][A-Za-z0-9_-]{1,120}$ ]]
+            [[ "$OPENAI_UAT_PROJECT_ID" =~ ^proj_[A-Za-z0-9_-]{1,120}$ ]]
+          fi
           node scripts/private-beta-release-gate.mjs
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
@@ -257,6 +267,27 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
           PRIVATE_BETA_DEPLOYMENT_URL: ${{ steps.deploy.outputs.url }}
         run: node scripts/private-beta-release-vercel.mjs published
+      - name: Observe the selected OpenAI project model (no inference or account grant)
+        if: ${{ inputs.operation == 'release_with_business_setup' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
+          OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-openai-account.mjs
+      - name: Bind real Business bot and record private connection candidates (no messages)
+        if: ${{ inputs.operation == 'release_with_business_setup' }}
+        env:
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          mv "$RUNNER_TEMP/private-beta-bot-control.json" "$RUNNER_TEMP/private-beta-bot-identity-control.json"
+          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
       - name: Retain sanitized release evidence and encrypted failure evidence
         if: ${{ always() && steps.gate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -269,6 +300,9 @@ jobs:
             ${{ runner.temp }}/private-beta-vercel-staged.json
             ${{ runner.temp }}/private-beta-vercel-published.json
             ${{ runner.temp }}/private-beta-runtime-env-names.json
+            ${{ runner.temp }}/private-beta-bot-identity-control.json
+            ${{ runner.temp }}/private-beta-bot-control.json
+            ${{ runner.temp }}/private-beta-openai-account-observation.json
             ${{ runner.temp }}/private-beta-staging-migration-history.txt
             ${{ runner.temp }}/private-beta-backup-failure.json
             ${{ runner.temp }}/private-beta-backup-comparison.json
