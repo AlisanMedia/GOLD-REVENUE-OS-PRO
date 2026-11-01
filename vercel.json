@@ -54,7 +54,8 @@
       "codex/campaign-hosted-acceptance": false,
       "codex/genuine-campaign-integration": false,
       "codex/stars-genuine-receipt-bridge": false,
-      "codex/protected-integration-inventory": false
+      "codex/protected-integration-inventory": false,
+      "codex/founder-mfa-enrollment-recovery": false
     }
   },
   "framework": "nextjs",

@@ -275,7 +275,7 @@ export function PolatPrivateBeta({ workspace, invalid, denied, size, canConfigur
   if (!workspace) return <p className="warning-box" role="status">{text(invalid ? "invalid" : "unavailable")}</p>;
   const program = workspace.program;
   return <section aria-labelledby="private-beta-heading"><h2 id="private-beta-heading">{text("title")}</h2><p className="muted">{text("basis")}</p><p className="warning-box">{text("ceiling")}</p>
-    {(canConfigure || canAcceptOperator) && <PrivateBetaMfa/>}
+    {(canConfigure || canAcceptOperator) && <PrivateBetaMfa canRecover={canConfigure}/>}
     {!program ? <><p className="empty-state">{text("empty")}</p>{canConfigure && <section className="form-panel"><h3>{text("setup")}</h3><p>{text("setupText")}</p><ActionForm action={createPrivateBetaTenant} repeatable={false}><button className="secondary-button" type="submit">{text("bootstrap")}</button></ActionForm></section>}</> : <>
       {canConfigure && program.stage === "CANARY" && program.canary_state === "NOT_STARTED" && <CanaryControl program={program}/>}
       {canConfigure && program.stage !== "STOPPED" && starsCommandId && <StarsInvoiceControl programId={program.id} commandId={starsCommandId}/>}
