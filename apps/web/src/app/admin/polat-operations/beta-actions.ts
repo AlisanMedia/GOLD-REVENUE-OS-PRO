@@ -66,6 +66,24 @@ export async function configurePrivateBeta(_previous: BetaActionState, form: For
   return { kind: "success", code: "SAVED" };
 }
 
+/** One authenticated owner action enables the personal chat, or stops all beta
+ * work. It never approves individual replies or creates provider evidence. */
+export async function controlPrivateBetaFounderTest(_previous: BetaActionState, form: FormData): Promise<BetaActionState> {
+  const auth = await writeContext(true);
+  if (!auth) return denied("42501");
+  let program: string, generation: number, stage: "FOUNDER" | "STOPPED";
+  try {
+    program = commandSchema.parse(field(form, "program_id"));
+    generation = Number(z.string().regex(/^[1-9][0-9]{0,8}$/u).parse(field(form, "expected_generation")));
+    stage = z.enum(["FOUNDER", "STOPPED"]).parse(field(form, "stage"));
+  } catch { return denied("22023"); }
+  const result = await auth.db.rpc("admin_private_beta_transition_v1", { target_tenant_id: auth.context.tenantId, program_id_value: program, stage_value: stage, expected_generation_value: generation });
+  const receipt = z.strictObject({ program_id: z.literal(program), stage: z.literal(stage), generation: z.literal(String(generation + 1)) }).safeParse(result.data);
+  if (result.error || !receipt.success) return denied(result.error?.code, result.error?.message);
+  refresh();
+  return { kind: "success", code: "SAVED" };
+}
+
 /** Only DRAFT, fresh-MFA owner selection; this does not invoke a provider or change a global key/model. */
 export async function selectPrivateBetaOpenAI(_previous: BetaActionState, form: FormData): Promise<BetaActionState> {
   const auth = await writeContext(true);

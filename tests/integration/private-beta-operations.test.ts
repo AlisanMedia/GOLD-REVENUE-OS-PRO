@@ -9,7 +9,7 @@ import { PolatPrivateBeta, privateBetaText } from "../../apps/web/src/components
 import { polatOperations } from "../../apps/web/src/lib/polat/admin";
 import { polatSearchSchema } from "../../apps/web/src/lib/polat/read-model";
 import { parsePrivateBetaCanaryResult, parsePrivateBetaBusinessScope, parsePrivateBetaBusinessDiscovery, parsePrivateBetaStarsInvoiceResult, submitPrivateBetaOwnerForm, parsePrivateBetaOperators, parsePrivateBetaWorkspace, privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, privateBetaFeedback, privateBetaHref } from "../../apps/web/src/lib/polat/private-beta-read";
-import { acceptPrivateBetaOperator, configurePrivateBeta, configurePrivateBetaBusiness, createPrivateBetaInvitation, createPrivateBetaTenant, recordPrivateBetaNote, reverifyPrivateBetaBusiness, selectPrivateBetaOpenAI } from "../../apps/web/src/app/admin/polat-operations/beta-actions";
+import { acceptPrivateBetaOperator, configurePrivateBeta, configurePrivateBetaBusiness, controlPrivateBetaFounderTest, createPrivateBetaInvitation, createPrivateBetaTenant, recordPrivateBetaNote, reverifyPrivateBetaBusiness, selectPrivateBetaOpenAI } from "../../apps/web/src/app/admin/polat-operations/beta-actions";
 import { messageDeliveryLabel, manualReplyResult } from "../../apps/web/src/lib/escalations/manual-reply";
 
 const mocks = vi.hoisted(() => ({ require: vi.fn(), rpc: vi.fn(), from: vi.fn(), revalidate: vi.fn(), analytics: vi.fn() }));
@@ -328,5 +328,31 @@ describe('founder setup feedback and draft canary surface', () => {
       const held = render(h(AdminI18nProvider, { locale }, h(PolatPrivateBeta, { workspace: missing, invalid: false, denied: false, size: '25', canConfigure: true, canNote: false, canConversation: false, operators: [] })));
       expect(held.match(/<button[^>]*>[^<]*(?:Start One Genuine Canary Request|Gerçek Tek Canary İsteğini Başlat)<\/button>/u)?.[0]).toContain('disabled');
     }
+  });
+});
+
+
+describe("personal founder conversation control", () => {
+  it("opens one founder test through the authenticated tenant and generation-fenced SQL action", async () => {
+    mocks.rpc.mockResolvedValue({ data: { program_id: program, stage: "FOUNDER", generation: "8" }, error: null });
+    expect(await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "FOUNDER" }))).toEqual({ kind: "success", code: "SAVED" });
+    expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_transition_v1", { target_tenant_id: tenant, program_id_value: program, stage_value: "FOUNDER", expected_generation_value: 7 });
+  });
+  it("keeps a fresh-MFA denial actionable and never retries", async () => {
+    mocks.rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "PRIVATE_BETA_FRESH_AUTH_REQUIRED" } });
+    expect(await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "FOUNDER" }))).toEqual({ kind: "error", code: "MFA_REQUIRED" });
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+  });
+  it("does not turn friend expansion or operator identity input into an owner grant", async () => {
+    expect((await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "FRIENDS" }))).code).toBe("INVALID");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    mocks.require.mockResolvedValue({ tenantId: tenant, userId: user, role: "manager" });
+    expect((await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "FOUNDER" }))).code).toBe("DENIED");
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  });
+  it("stops using the existing durable STOP transition without creating another dispatch", async () => {
+    mocks.rpc.mockResolvedValue({ data: { program_id: program, stage: "STOPPED", generation: "8" }, error: null });
+    expect((await controlPrivateBetaFounderTest(idle, form({ program_id: program, expected_generation: "7", stage: "STOPPED" }))).code).toBe("SAVED");
+    expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_transition_v1", expect.objectContaining({ stage_value: "STOPPED" }));
   });
 });

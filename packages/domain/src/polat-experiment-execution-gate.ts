@@ -78,7 +78,10 @@ const openaiBetaBinding = claudeBetaBinding.omit({ version: true, provider: true
   version: z.literal(2), provider: z.literal("openai"), model: z.literal(POLAT_OPENAI_MODEL), model_version: z.literal(POLAT_OPENAI_MODEL), protocol_version: z.literal(POLAT_OPENAI_PROTOCOL),
   corpus_version: z.enum(["polat-openai-canary-v1", "polat-private-beta-conversation-v1"]),
 });
-export const polatPrivateBetaBindingSchema = z.discriminatedUnion("version", [claudeBetaBinding, openaiBetaBinding]);
+const ownerOnlyOpenaiBetaBinding = openaiBetaBinding.omit({ version: true }).extend({
+  version: z.literal(3), scope: z.literal("OWNER_ONLY"), effective_limit_kind: z.literal("LOCAL_DURABLE_RESERVATION_CAP"), maximum_spend: z.literal("5.00"),
+});
+export const polatPrivateBetaBindingSchema = z.discriminatedUnion("version", [claudeBetaBinding, openaiBetaBinding, ownerOnlyOpenaiBetaBinding]);
 export type PolatPrivateBetaBinding = z.infer<typeof polatPrivateBetaBindingSchema>;
 export function preparePolatPrivateBetaWire(request: ModelRequest, binding: PolatPrivateBetaBinding) {
   return binding.provider === "openai" ? preparePolatOpenAIRequest(request, binding.maximum_output_tokens) : preparePolatClaudeRequest(request, binding.maximum_output_tokens);
@@ -105,7 +108,19 @@ const openaiBetaAccount = claudeBetaAccount.omit({ version: true, workspace_id: 
   version: z.literal(2), provider: z.literal("openai"), model: z.literal(POLAT_OPENAI_MODEL),
   organization_id: z.string().regex(/^org[-_][A-Za-z0-9_-]{1,120}$/u), project_id: z.string().regex(/^proj_[A-Za-z0-9_-]{1,120}$/u), credential_sha256: polatBridgeHashSchema,
 });
-export const polatPrivateBetaAccountEvidenceSchema = z.discriminatedUnion("version", [claudeBetaAccount, openaiBetaAccount]);
+/** Local owner UAT policy is not independent account control or reconciled billing.
+ * The server derives exposure and canary acceptance from its durable attempt journal. */
+const ownerOnlyOpenaiBetaAccount = openaiBetaAccount.omit({
+  version: true, origin: true, region_evidence_hash: true, retention_evidence_hash: true, training_evidence_hash: true,
+  effective_limit_kind: true, enforced_maximum_spend: true, independently_observed_spend: true, remaining_allowance: true,
+  billing_state: true, billing_evidence_hash: true, canary_reconciliation_hash: true,
+}).extend({
+  version: z.literal(3), origin: z.literal("SERVER_DERIVED_OWNER_ONLY_UAT_CONTROL"), scope: z.literal("OWNER_ONLY"),
+  effective_limit_kind: z.literal("LOCAL_DURABLE_RESERVATION_CAP"), local_maximum_spend: z.literal("5.00"),
+  local_reserved_liability: polatBridgeMoneySchema, local_remaining_allowance: polatBridgeMoneySchema,
+  provider_billing: z.literal("UNKNOWN"), provider_enforced_cap: z.literal("UNVERIFIED"), canary_result_hash: polatBridgeHashSchema.nullable(),
+});
+export const polatPrivateBetaAccountEvidenceSchema = z.discriminatedUnion("version", [claudeBetaAccount, openaiBetaAccount, ownerOnlyOpenaiBetaAccount]);
 const betaAccountEnvelope = z.strictObject({ payload: polatPrivateBetaAccountEvidenceSchema, proof: proof.optional() });
 export const polatPrivateBetaAttemptPayloadSchema = z.strictObject({
   version: z.literal(2), purpose: z.literal("POLAT_PRIVATE_BETA_UAT"), program_id: z.uuid(), tenant_id: z.uuid(), run_id: z.uuid(), native_run_id: z.uuid(), conversation_id: z.uuid(), attempt_id: z.uuid(),
@@ -130,7 +145,10 @@ export function polatPrivateBetaAccountSigningBytes(keyId: string, payload: Pola
 }
 const betaUnits = (value: string) => { const [whole, fraction = ""] = value.split("."); return BigInt(whole!) * 10n ** 18n + BigInt(fraction.padEnd(18, "0")); };
 
-/** Server-only extension of the existing control plane. The three independent readers must be the authenticated owner DB, official account-control adapter and committed reservation DB; never decoded HTTP fields or experiment JSON. Optional external signatures reuse the existing distinct authority roots. No fixture reader is accepted by the private-beta server wrapper. */
+/** Server-only control plane: authenticated owner DB, sealed account control and
+ * committed reservation DB, never HTTP fields or pasted experiment JSON. v1/v2
+ * retain independent provider-control requirements; v3 is explicitly owner-only
+ * local journal policy. Optional signatures reuse the distinct authority roots. */
 export function createPolatPrivateBetaNetworkAuthority(dependencies: Readonly<{
   roots?: PolatBridgePublicKeys; deployed_sha: string;
   readOwnerGrant: (programId: string) => Promise<unknown>;
@@ -152,11 +170,23 @@ export function createPolatPrivateBetaNetworkAuthority(dependencies: Readonly<{
     const owner = betaOwner.parse(await dependencies.readOwnerGrant(binding.program_id));
     if (owner.program_id !== binding.program_id || owner.tenant_id !== binding.tenant_id || owner.binding_hash !== bh || Date.parse(owner.starts_at) > now || Date.parse(owner.expires_at) <= now || Date.parse(owner.expires_at) < Date.parse(binding.expires_at) || Date.parse(owner.authenticated_at) > Date.parse(owner.approved_at) || Date.parse(owner.approved_at) - Date.parse(owner.authenticated_at) > 300000 || Date.parse(owner.approved_at) > now) throw Error("POLAT_UAT_AUTHENTICATED_OWNER_REQUIRED");
     const account = betaAccountEnvelope.parse(await dependencies.readIndependentAccount(binding.program_id, requestBinding)), a = account.payload;
+    if ((a.version === 3) !== (binding.version === 3)) throw Error("POLAT_UAT_OWNER_ONLY_SCOPE_REQUIRED");
     const accountScope = a.provider === "openai" ? polatGuardDigest(["OPENAI_PROJECT1", a.organization_id, a.project_id]) : polatGuardDigest(["ANTHROPIC_WORKSPACE1", a.workspace_id]);
     if (a.provider !== binding.provider || a.model !== binding.model || a.program_id !== binding.program_id || a.tenant_id !== binding.tenant_id || a.account_scope_hash !== binding.account_scope_hash || accountScope !== binding.account_scope_hash || a.repository_sha !== sha || a.manifest_hash !== binding.manifest_hash || a.authorization_record_hash !== binding.authorization_record_hash || a.policy_hash !== owner.policy_hash || a.credential_custody_hash !== owner.credential_custody_hash) throw Error("POLAT_UAT_INDEPENDENT_ACCOUNT_REQUIRED");
     if (account.proof && (!roots || account.proof.key_id !== roots.account_control.key_id || !verify(null, polatPrivateBetaAccountSigningBytes(account.proof.key_id, a), roots.account_control.key, Buffer.from(account.proof.signature, "base64url")))) throw Error("POLAT_UAT_ACCOUNT_SIGNATURE_INVALID");
-    if (a.unknown_outcome_count !== 0 || a.billing_state === "BOUNDED_LIABILITY_RESERVED" && (owner.phase === "CANARY" || a.canary_reconciliation_hash === null)) throw Error("POLAT_UAT_CANARY_OR_UNKNOWN_OUTCOME_UNRESOLVED");
-    if (Date.parse(a.observed_at) > now || now - Date.parse(a.observed_at) > 300000 || Date.parse(a.expires_at) <= now || Date.parse(a.expires_at) > Date.parse(a.observed_at) + 300000 || betaUnits(a.enforced_maximum_spend) > betaUnits("5.00") || betaUnits(a.independently_observed_spend) > betaUnits(a.enforced_maximum_spend) || betaUnits(a.remaining_allowance) > betaUnits(a.enforced_maximum_spend) - betaUnits(a.independently_observed_spend) || betaUnits(a.remaining_allowance) < betaUnits(binding.maximum_attempt_liability)) throw Error("POLAT_UAT_ACCOUNT_STALE_OR_ALLOWANCE_UNKNOWN");
+    if (a.version === 3) {
+      if (a.unknown_outcome_count !== 0 || owner.phase === "FRIENDS" || owner.phase === "FOUNDER" && a.canary_result_hash === null || owner.phase === "CANARY" && a.canary_result_hash !== null) throw Error("POLAT_UAT_OWNER_ONLY_CANARY_OR_UNKNOWN_UNRESOLVED");
+      const cap = betaUnits(a.local_maximum_spend), reserved = betaUnits(a.local_reserved_liability), remaining = betaUnits(a.local_remaining_allowance);
+      // During issue the DB has already reserved this attempt. Its committed
+      // identity and inclusion in exposure are checked below before credential use.
+      const available = remaining + (requestBinding ? betaUnits(binding.maximum_attempt_liability) : 0n);
+      if (Date.parse(a.observed_at) > now || now - Date.parse(a.observed_at) > 86400000 || Date.parse(a.expires_at) <= now
+        || Date.parse(a.expires_at) > Date.parse(a.observed_at) + 86400000 || Date.parse(a.expires_at) > Date.parse(owner.expires_at)
+        || reserved > cap || remaining !== cap - reserved || available < betaUnits(binding.maximum_attempt_liability)) throw Error("POLAT_UAT_LOCAL_ALLOWANCE_UNAVAILABLE");
+    } else {
+      if (a.unknown_outcome_count !== 0 || a.billing_state === "BOUNDED_LIABILITY_RESERVED" && (owner.phase === "CANARY" || a.canary_reconciliation_hash === null)) throw Error("POLAT_UAT_CANARY_OR_UNKNOWN_OUTCOME_UNRESOLVED");
+      if (Date.parse(a.observed_at) > now || now - Date.parse(a.observed_at) > 300000 || Date.parse(a.expires_at) <= now || Date.parse(a.expires_at) > Date.parse(a.observed_at) + 300000 || betaUnits(a.enforced_maximum_spend) > betaUnits("5.00") || betaUnits(a.independently_observed_spend) > betaUnits(a.enforced_maximum_spend) || betaUnits(a.remaining_allowance) > betaUnits(a.enforced_maximum_spend) - betaUnits(a.independently_observed_spend) || betaUnits(a.remaining_allowance) < betaUnits(binding.maximum_attempt_liability)) throw Error("POLAT_UAT_ACCOUNT_STALE_OR_ALLOWANCE_UNKNOWN");
+    }
     return { binding, bindingHash: bh, owner, account: a };
   }
   return Object.freeze({
@@ -172,7 +202,10 @@ export function createPolatPrivateBetaNetworkAuthority(dependencies: Readonly<{
       const bound = s.account.request_bound;
       if (!bound || bound.request_hash !== wire.request_hash || bound.body_hash !== wire.body_hash || bound.maximum_output_tokens !== b.maximum_output_tokens || Date.parse(bound.valid_until) <= now || Date.parse(bound.valid_until) > Date.parse(s.account.expires_at) || betaUnits(bound.maximum_possible_charge) <= 0n || betaUnits(bound.maximum_possible_charge) > betaUnits(b.maximum_attempt_liability)) throw Error("POLAT_UAT_REQUEST_PRICING_BOUND_UNVERIFIED");
       if (committed.program_id !== b.program_id || committed.tenant_id !== b.tenant_id || committed.run_id !== input.run_id || committed.native_run_id !== r.requestId || committed.conversation_id !== r.context.conversationId || committed.attempt_id !== input.attempt_id || committed.binding_hash !== s.bindingHash || committed.request_hash !== wire.request_hash || committed.body_hash !== wire.body_hash || committed.generation !== p.generation || committed.dispatch_nonce !== p.dispatch_nonce) throw Error("POLAT_UAT_COMMITTED_RESERVATION_REQUIRED");
-      if (p.program_id !== b.program_id || p.tenant_id !== b.tenant_id || p.run_id !== input.run_id || p.native_run_id !== r.requestId || p.conversation_id !== r.context.conversationId || p.attempt_id !== input.attempt_id || p.binding_hash !== s.bindingHash || p.request_hash !== wire.request_hash || p.body_hash !== wire.body_hash || p.account_scope_hash !== b.account_scope_hash || p.authorization_record_hash !== b.authorization_record_hash || p.global_ordinal > b.maximum_requests || betaUnits(p.liability) !== betaUnits(b.maximum_attempt_liability) || betaUnits(p.reserved_liability) < betaUnits(p.liability) || betaUnits(p.reserved_liability) > betaUnits(b.maximum_spend) || betaUnits(p.liability) > betaUnits(s.account.remaining_allowance)) throw Error("POLAT_UAT_RESERVATION_BINDING_DENIED");
+      const allowance = s.account.version === 3 ? betaUnits(s.account.local_remaining_allowance) + betaUnits(p.liability) : betaUnits(s.account.remaining_allowance);
+      if (p.program_id !== b.program_id || p.tenant_id !== b.tenant_id || p.run_id !== input.run_id || p.native_run_id !== r.requestId || p.conversation_id !== r.context.conversationId || p.attempt_id !== input.attempt_id || p.binding_hash !== s.bindingHash || p.request_hash !== wire.request_hash || p.body_hash !== wire.body_hash || p.account_scope_hash !== b.account_scope_hash || p.authorization_record_hash !== b.authorization_record_hash || p.global_ordinal > b.maximum_requests || betaUnits(p.liability) !== betaUnits(b.maximum_attempt_liability) || betaUnits(p.reserved_liability) < betaUnits(p.liability) || betaUnits(p.reserved_liability) > betaUnits(b.maximum_spend) || betaUnits(p.liability) > allowance) throw Error("POLAT_UAT_RESERVATION_BINDING_DENIED");
+      if (s.account.version === 3 && (p.scope === "FRIEND" || betaUnits(p.reserved_liability) !== betaUnits(s.account.local_reserved_liability)
+        || betaUnits(s.account.local_remaining_allowance) + betaUnits(p.liability) < betaUnits(bound.maximum_possible_charge))) throw Error("POLAT_UAT_OWNER_ONLY_RESERVATION_REQUIRED");
       if (Date.parse(p.issued_at) > now || now - Date.parse(p.issued_at) > 60000 || Date.parse(p.expires_at) <= now || Date.parse(p.expires_at) > Date.parse(p.issued_at) + 60000 || Date.parse(p.expires_at) > Date.parse(b.expires_at)) throw Error("POLAT_UAT_RESERVATION_STALE");
       if (p.scope === "CANARY") {
         const c = b.provider === "openai" ? polatOpenAICanaryPlan() : polatClaudeCanaryPlan();

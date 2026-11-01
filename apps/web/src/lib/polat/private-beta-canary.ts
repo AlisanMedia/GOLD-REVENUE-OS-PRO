@@ -7,7 +7,7 @@ import { polatClaudeCanaryPlan } from "../../../../../packages/domain/src/polat-
 import { polatOpenAICanaryPlan } from "../../../../../packages/domain/src/polat-openai-canary";
 import { createPrivateBetaProviderFromDatabase } from "./private-beta-provider";
 
-const authorizedScope = z.strictObject({ program_id: z.uuid(), tenant_id: z.uuid(), stage: z.literal("CANARY"), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u), provider: z.literal("openai").optional(), model: z.literal("gpt-6.1-sol").optional() }).refine(value => (value.provider === "openai") === (value.model === "gpt-6.1-sol"));
+const authorizedScope = z.strictObject({ program_id: z.uuid(), tenant_id: z.uuid(), stage: z.literal("CANARY"), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u), provider: z.literal("openai").optional(), model: z.literal("gpt-6.1-sol").optional(), owner_only: z.literal(true).optional() }).refine(value => (value.provider === "openai") === (value.model === "gpt-6.1-sol"));
 /** One fixed synthetic-input genuine canary. Existing MFA owner grant, independent
  * account proof and committed reservation are still required by the actual provider.
  * No customer, Telegram transport, fixture response, retry or automatic phase advance. */
@@ -22,10 +22,22 @@ export async function runPrivateBetaCanaryForOwner(input: { tenantId: string; pr
   if (guarded.error && ids.expectedGeneration !== undefined) {
     const read = await auth.rpc("admin_private_beta_workspace_v1", { target_tenant_id: ids.tenantId, page_size_value: 25, cursor_value: null });
     const draft = z.object({ program: z.object({ id: z.literal(ids.programId), stage: z.literal("DRAFT"), generation: z.literal(String(ids.expectedGeneration)),
-      repository_sha: z.string().regex(/^[a-f0-9]{40}$/u), global_requests: z.literal(0), canary_state: z.literal("NOT_STARTED"), account_state: z.literal("OBSERVED") }) }).safeParse(read.data);
-    if (read.error || !draft.success || draft.data.program.repository_sha !== process.env.POLAT_UAT_RELEASE_SHA) throw Error("PRIVATE_BETA_CANARY_OWNER_OR_ACCOUNT_REQUIRED");
-    const transitioned = await auth.rpc("admin_private_beta_transition_v1", { ...args, stage_value: "CANARY", expected_generation_value: ids.expectedGeneration });
-    const acknowledged = z.strictObject({ program_id: z.literal(ids.programId), stage: z.literal("CANARY"), generation: z.literal(String(ids.expectedGeneration + 1)) }).safeParse(transitioned.data);
+      repository_sha: z.string().regex(/^[a-f0-9]{40}$/u).nullable(), global_requests: z.literal(0), canary_state: z.literal("NOT_STARTED"), account_state: z.enum(["OBSERVED", "OWNER_TEST_AVAILABLE"]), model_provider: z.string().optional(), model_name: z.string().optional() }) }).safeParse(read.data);
+    if (read.error || !draft.success) throw Error("PRIVATE_BETA_CANARY_OWNER_OR_ACCOUNT_REQUIRED");
+    let generation = ids.expectedGeneration;
+    if (draft.data.program.account_state === "OWNER_TEST_AVAILABLE") {
+      const declared = process.env.POLAT_UAT_RELEASE_SHA, observed = process.env.VERCEL_GIT_COMMIT_SHA;
+      if (!declared || !/^[a-f0-9]{40}$/u.test(declared) || observed !== undefined && observed !== declared || draft.data.program.model_provider !== "openai" || draft.data.program.model_name !== "gpt-6.1-sol") throw Error("PRIVATE_BETA_CANARY_RELEASE_SCOPE_DENIED");
+      // This RPC uses the real owner session and fresh MFA, then binds only
+      // protected model observations to this personal test. No provider cap or
+      // independently reconciled bill is asserted or supplied by the browser.
+      const prepared = await auth.rpc("admin_private_beta_prepare_founder_test_v1", { ...args, expected_generation_value: generation, repository_sha_value: declared });
+      const receipt = z.strictObject({ program_id: z.literal(ids.programId), stage: z.literal("DRAFT"), generation: z.literal(String(generation + 1)) }).safeParse(prepared.data);
+      if (prepared.error || !receipt.success) throw Error("PRIVATE_BETA_CANARY_OWNER_OR_ACCOUNT_REQUIRED");
+      generation++;
+    } else if (draft.data.program.repository_sha !== process.env.POLAT_UAT_RELEASE_SHA) throw Error("PRIVATE_BETA_CANARY_OWNER_OR_ACCOUNT_REQUIRED");
+    const transitioned = await auth.rpc("admin_private_beta_transition_v1", { ...args, stage_value: "CANARY", expected_generation_value: generation });
+    const acknowledged = z.strictObject({ program_id: z.literal(ids.programId), stage: z.literal("CANARY"), generation: z.literal(String(generation + 1)) }).safeParse(transitioned.data);
     if (transitioned.error || !acknowledged.success) throw Error("PRIVATE_BETA_CANARY_OWNER_OR_ACCOUNT_REQUIRED");
     // Independently reread scope after the committed transition. A timeout or
     // lost transition ACK never triggers a second transition or inference.
@@ -50,7 +62,7 @@ export async function runPrivateBetaCanaryForOwner(input: { tenantId: string; pr
   const response = await service.provider.invoke(request), evidence = service.evidence();
   if (!evidence || !assessment) throw Error("PRIVATE_BETA_CANARY_EVIDENCE_UNAVAILABLE");
   const qa = evidence.outcome.qa;
-  return Object.freeze({ version: 1 as const, stage: "CANARY" as const, status: qa === "APPROVED" ? "CANARY_ACCOUNTING_RECONCILIATION_PENDING" as const : "CANARY_HELD" as const,
+  return Object.freeze({ version: 1 as const, stage: "CANARY" as const, status: qa !== "APPROVED" ? "CANARY_HELD" as const : scope.owner_only ? "CANARY_OWNER_TEST_PASSED" as const : "CANARY_ACCOUNTING_RECONCILIATION_PENDING" as const,
     program_id: ids.programId, attempt_id: evidence.attempt_id, request_id: request.requestId, repository_sha: scope.repository_sha, plan_hash: canary.plan_hash, corpus_hash: canary.corpus_hash,
     provider: response.provider, model: response.model, provider_response_id: response.providerRequestId, response_hash: evidence.outcome.response_hash,
     elapsed_ms: evidence.outcome.elapsed_ms, input_tokens: response.usage.inputTokens, output_tokens: response.usage.outputTokens, qa,

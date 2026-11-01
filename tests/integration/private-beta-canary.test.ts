@@ -159,3 +159,36 @@ it('preserves the selected OpenAI plan and assesses the actual Responses codec o
   const result = await POST(draftForm()); expect(result.status).toBe(200);
   expect(await result.json()).toMatchObject({ provider: 'openai', model: 'gpt-6.1-sol', plan_hash: polatOpenAICanaryPlan().plan_hash, qa: 'APPROVED', actual_billed_amount: null, founder_testing_enabled: false }); expect(state.calls).toBe(1);
 });
+
+describe('owner-only local UAT preparation', () => {
+  function personalRpc(fault?: string) {
+    let reads = 0;
+    return vi.fn(async (name: string) => {
+      if (name === 'admin_private_beta_canary_scope_v1') return ++reads === 1 ? { data: null, error: { code: '42501' } } : { data: { program_id: program, tenant_id: tenant, stage: 'CANARY', repository_sha: sha, provider: 'openai', model: 'gpt-6.1-sol', owner_only: true }, error: null };
+      if (name === 'admin_private_beta_workspace_v1') return { data: { program: { ...draftWorkspace().program, repository_sha: null, account_state: 'OWNER_TEST_AVAILABLE', model_provider: 'openai', model_name: 'gpt-6.1-sol' } }, error: null };
+      if (name === 'admin_private_beta_prepare_founder_test_v1') return fault === 'mfa' ? { data: null, error: { code: '42501' } } : { data: { program_id: program, stage: 'DRAFT', generation: fault === 'lost-ack' ? '99' : '2' }, error: null };
+      if (name === 'admin_private_beta_transition_v1') return { data: { program_id: program, stage: 'CANARY', generation: '3' }, error: null };
+      throw Error('UNEXPECTED_OFFLINE_RPC');
+    });
+  }
+  it('uses a real-owner RPC to bind protected observations before one canary; unknown billing stays unknown', async () => {
+    const rpc = personalRpc(); state.rpc.mockImplementation(rpc);
+    // The factory/transport are offline test doubles, never genuine model evidence.
+    const response = await POST(draftForm()); expect(response.status).toBe(200);
+    expect(rpc.mock.calls.map(c => c[0])).toEqual(['admin_private_beta_canary_scope_v1', 'admin_private_beta_workspace_v1', 'admin_private_beta_prepare_founder_test_v1', 'admin_private_beta_transition_v1', 'admin_private_beta_canary_scope_v1']);
+    expect(state.rpc).toHaveBeenCalledWith('admin_private_beta_prepare_founder_test_v1', { target_tenant_id: tenant, program_id_value: program, expected_generation_value: 1, repository_sha_value: sha });
+    expect(state.rpc).toHaveBeenCalledWith('admin_private_beta_transition_v1', { target_tenant_id: tenant, program_id_value: program, stage_value: 'CANARY', expected_generation_value: 2 });
+    expect(state.calls).toBe(1); expect(await response.json()).toMatchObject({ status: 'CANARY_OWNER_TEST_PASSED', billing_status: 'UNKNOWN_REQUIRES_INDEPENDENT_RECONCILIATION', actual_billed_amount: null, financial_authority: 'NONE', founder_testing_enabled: false, telegram_messages: 0 });
+  });
+  it.each(['mfa', 'lost-ack'])('does not invoke after %s preparation failure or retry preparation', async fault => {
+    const rpc = personalRpc(fault); state.rpc.mockImplementation(rpc);
+    expect((await POST(draftForm())).status).toBe(409); expect(state.calls).toBe(0); expect(state.factory).not.toHaveBeenCalled();
+    expect(rpc.mock.calls.filter(c => c[0] === 'admin_private_beta_prepare_founder_test_v1')).toHaveLength(1);
+    expect(rpc.mock.calls.some(c => c[0] === 'admin_private_beta_transition_v1')).toBe(false);
+  });
+  it('rejects a conflicting platform release before creating a personal owner grant', async () => {
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'b'.repeat(40)); state.rpc.mockImplementation(personalRpc());
+    try { expect((await POST(draftForm())).status).toBe(409); expect(state.calls).toBe(0); expect(state.rpc.mock.calls.some(c => c[0] === 'admin_private_beta_prepare_founder_test_v1')).toBe(false); }
+    finally { vi.stubEnv('VERCEL_GIT_COMMIT_SHA', undefined); }
+  });
+});

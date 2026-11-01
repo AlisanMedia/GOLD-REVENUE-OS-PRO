@@ -4,6 +4,53 @@
 Bu dosya bir sonucu onaylamaz. Actual run/deployment/migration kimlikleri raporda
 ayrı gösterilir. Başarılı mock test, hosted backup veya gerçek Admin girişi değildir.
 
+## Kurucuya özel hızlı konuşma testi — yeni owner kapsamı
+
+Kurucunun harcama belgesi şartını kişisel deneme için kaldıran son talimatı,
+**yalnız OWNER_ONLY** OpenAI testine uygulanır.18USD bakiye doğrulanmış sayılmaz;
+yeni bir bütçe veya yeniden350 çağrı hakkı oluşturulmaz. Aynı programın mevcut
+journal/attempt kayıtları kullanılır. Ticari/friends hesap otoritesi değişmez.
+
+`release_with_business_setup`, mevcut korumalı backup/restore/migration/yayın
+kontrollerinden sonra gerçek model/anahtar ve güncel resmî fiyat metadata'sını
+özel DB'ye kaydeder. Model, key/project header'ları ve SHA gerçekten gözlenir;
+provider hard cap, veri yerleşimi veya gerçek fatura uydurulmaz. Public data-policy
+kaynak hash'i, kuruluşa özel data-control kabulü anlamına gelmez.
+
+Kurucu, güncel MFA ile mevcut Admin'de **Start One Genuine Canary Request**'e
+basar. Aynı gerçek owner RPC'si gözlemi son yayına bağlar, mevcut30 günlük retention'ı
+korur ve en fazla24 saatlik test penceresini açar. Tek Hi/English/DIRECT isteği,
+512 output/10s ve mevcut QA kullanılır. Tekrar, fallback veya regeneration yoktur.
+Başarılı yanıt+pozitif usage+QA yalnız **OWNER_TEST_READY** oluşturur;
+`canary_reconciliation_hash` veya bağımsız fatura kaydı yazılmaz.
+
+Yerel5USD bütçesi önce tam context için4.628448USD muhafazakâr rezerv alır.
+Fiyatlar, resmî4/15 uzun-context oranlarına10% olası bölgesel primi dahil eder.
+Yalnız gerçekten başarılı/QA-approved, kimliği ve usage'si kayıtlı yanıttan sonra
+bu kişisel modda usage × muhafazakâr oran ile **tahmini yerel bütçe hesabı** yapılır.
+Bu tutar actual bill değildir. Başarısız/HELD/UNKNOWN veya eksik/taşan usage tüm
+rezervi tutar ve durur. Eski bağımsız hesap/billing akışı değiştirilmez.
+
+Aynı onaylı job kurucunun gerçek canary işlemini sınırlı süre bekler; sonra gerçek
+getMe ve getUpdates ile aday sayısal Business bağlantılarını özel Admin'e getirir.
+Kurucu, **Configure One Test Chat** ekranında yalnız kendi sohbetini bağlar.
+Job gerçek getBusinessConnection ile izinleri doğrulamadan webhook kurmaz.
+Mevcut Automation Bypass yalnız relay'in özel secret custody'sinde kullanılır;
+Admin SSO/global JWT/CI kapatılmaz. Bir başka webhook üzerine yazılmaz, mesaj
+veya paid inference workflow tarafından otomatik başlatılmaz.
+
+Kurucu daha sonra **Open Founder Conversation Test** ile tek kişisel sohbeti açar;
+bu modda ikinci operatör veya arkadaş daveti gerekmez. Mevcut tek kullanımlık
+FOUNDER daveti ve gerçek Telegram `/agree`/notice yolu korunur. Yanıt ancak
+numeric Business kimliği, participant/source, native QA ve delivery gate'leriyle
+çıkar. START her mesajda tekrarlanmaz. **Stop Test**, aynı durable STOP'u kullanır.
+
+Job bekleme süresinde kullanıcı işlemi tamamlanmazsa artifact
+`OWNER_ACTION_REQUIRED` der; bu Telegram/model acceptance PASS değildir.
+`founder_business_setup`, aynı deployed SHA üzerinde yalnız bağlantıyı sürdürür;
+deployment/migration yapmaz. `founder_model_setup` yalnız korumalı metadata
+collector'ını çalıştırır. Yeni inference denemesi veya başarısız canary reset'i yoktur.
+
 ## Tek korumalı Stage B işlemi
 
 `Private Beta UAT Release` workflow'u yalnız `main` üzerinde manuel başlatılır.
