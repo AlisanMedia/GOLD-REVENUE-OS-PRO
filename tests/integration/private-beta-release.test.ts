@@ -292,3 +292,18 @@ describe("explicit standing-grant recovery workflow boundary", () => {
     expect(workflow.indexOf("Reverify main before explicitly authorized founder recovery")).toBeGreaterThan(workflow.indexOf("Collect real founder model"));
   });
 });
+
+
+it("collects separate bot inventory within the same protected release without a second setup workflow", () => {
+  const workflow = readFileSync(".github/workflows/private-beta-uat.yml", "utf8");
+  const start = workflow.indexOf("- name: Inspect existing separate integration identities without activation");
+  const end = workflow.indexOf("- uses: supabase/setup-cli", start);
+  const step = workflow.slice(start, end);
+  expect(start).toBeGreaterThan(workflow.indexOf("- name: Verify exact SHA, mandatory checks and protected environment"));
+  expect(step).toContain("inputs.operation == 'release_with_business_setup'");
+  expect(step).toContain("scripts/protected-integration-inventory.mjs");
+  for (const name of ["POLAT_UAT_TELEGRAM_BOT_TOKEN", "POLAT_STARS_MERCHANT_BOT_TOKEN", "POLAT_UAT_STARS_TEST_BOT_TOKEN"]) expect(step).toContain(name);
+  expect(step).not.toContain("GH_GOVERNANCE_TOKEN");
+  expect(step).not.toContain("setWebhook");
+  expect(workflow).toContain("${{ runner.temp }}/protected-integration-inventory.json");
+});

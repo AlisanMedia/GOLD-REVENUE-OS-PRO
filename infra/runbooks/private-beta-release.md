@@ -656,3 +656,10 @@ still be reported separately.
 
 Official token-counting contract:
 https://developers.openai.com/api/docs/guides/token-counting
+
+The same reviewed release now runs the existing read-only integration inventory
+before deployment, preserving Business AI / merchant / dedicated TEST identities
+and webhook separation in a redacted artifact. A second inventory review is not
+needed. This observation cannot activate payments or messaging. If the connected
+GitHub identity lacks deployments-write permission (HTTP403), the owner uses the
+existing secure GitHub review screen once; required-reviewer protection remains.

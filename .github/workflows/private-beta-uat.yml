@@ -115,6 +115,29 @@ jobs:
           node-version: 24.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Inspect existing separate integration identities without activation
+        if: ${{ inputs.operation == 'release_with_business_setup' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
+          OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+          POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET }}
+          POLAT_UAT_RELAY_SECRET: ${{ secrets.POLAT_UAT_RELAY_SECRET }}
+          POLAT_UAT_TENANT_ID: ${{ vars.POLAT_UAT_TENANT_ID }}
+          POLAT_UAT_PROGRAM_ID: ${{ vars.POLAT_UAT_PROGRAM_ID }}
+          POLAT_CAMPAIGN_TENANT_ID: ${{ vars.POLAT_CAMPAIGN_TENANT_ID }}
+          POLAT_CAMPAIGN_ID: ${{ vars.POLAT_CAMPAIGN_ID }}
+          POLAT_CAMPAIGN_WEBHOOK_SECRET: ${{ secrets.POLAT_CAMPAIGN_WEBHOOK_SECRET }}
+          POLAT_CAMPAIGN_RELAY_SECRET: ${{ secrets.POLAT_CAMPAIGN_RELAY_SECRET }}
+          POLAT_STARS_MERCHANT_TENANT_ID: ${{ vars.POLAT_STARS_MERCHANT_TENANT_ID }}
+          POLAT_STARS_MERCHANT_BOT_TOKEN: ${{ secrets.POLAT_STARS_MERCHANT_BOT_TOKEN }}
+          POLAT_STARS_MERCHANT_WEBHOOK_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_WEBHOOK_SECRET }}
+          POLAT_STARS_MERCHANT_RELAY_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_RELAY_SECRET }}
+          POLAT_UAT_STARS_TEST_BOT_TOKEN: ${{ secrets.POLAT_UAT_STARS_TEST_BOT_TOKEN }}
+          POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET }}
+          POLAT_UAT_STARS_RELAY_SECRET: ${{ secrets.POLAT_UAT_STARS_RELAY_SECRET }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/protected-integration-inventory.mjs
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1
         with:
           version: 2.117.0
@@ -374,6 +397,7 @@ jobs:
             ${{ runner.temp }}/private-beta-openai-account-observation.json
             ${{ runner.temp }}/private-beta-founder-model-observation.json
             ${{ runner.temp }}/private-beta-founder-canary.json
+            ${{ runner.temp }}/protected-integration-inventory.json
             ${{ runner.temp }}/private-beta-founder-ingress-observation.json
             ${{ runner.temp }}/private-beta-founder-wait-*.json
             ${{ runner.temp }}/private-beta-staging-migration-history.txt
