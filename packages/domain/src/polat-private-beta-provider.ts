@@ -35,9 +35,9 @@ export function boundPolatPrivateBetaLiability(request: ModelRequest, maximumOut
   return boundPolatPrivateBetaWireLiability({ request_hash: wire.request_hash, body_hash: wire.body_hash, maximum_output_tokens: maximumOutputTokens }, rawPricingProof, now);
 }
 /** Same deterministic bound for a wire binding obtained internally from preparePolatClaudeRequest, never a client-provided hash approval. */
-export function boundPolatPrivateBetaWireLiability(rawWire: { request_hash: string; body_hash: string; maximum_output_tokens: number }, rawPricingProof: unknown, now = Date.now()) {
+export function boundPolatPrivateBetaWireLiability(rawWire: { request_hash: string; body_hash: string; maximum_output_tokens: number; maximum_input_tokens?: number }, rawPricingProof: unknown, now = Date.now()) {
   if (rawPricingProof && typeof rawPricingProof === "object" && "version" in rawPricingProof && rawPricingProof.version === 2) {
-    const pricing = openaiLiabilityPricingProof.parse(rawPricingProof), wire = z.strictObject({ request_hash: polatBridgeHashSchema, body_hash: polatBridgeHashSchema, maximum_output_tokens: z.number().int().min(1).max(512) }).parse(rawWire);
+    const pricing = openaiLiabilityPricingProof.parse(rawPricingProof), wire = z.strictObject({ request_hash: polatBridgeHashSchema, body_hash: polatBridgeHashSchema, maximum_output_tokens: z.number().int().min(1).max(512), maximum_input_tokens: z.literal(4096).optional() }).parse(rawWire);
     if (!Number.isFinite(now) || Date.parse(pricing.observed_at) > now || now - Date.parse(pricing.observed_at) > 86400000 || Date.parse(pricing.expires_at) <= now || Date.parse(pricing.expires_at) > Date.parse(pricing.observed_at) + 86400000) throw Error("POLAT_UAT_PRICING_STALE");
     const inputRate = amountUnits(pricing.maximum_input_usd_per_million), outputRate = amountUnits(pricing.maximum_output_usd_per_million);
     // Full capacity exceeds the documented 272K threshold: the ENTIRE request
@@ -45,7 +45,10 @@ export function boundPolatPrivateBetaWireLiability(rawWire: { request_hash: stri
     // 2/10 price is not a full-window liability proof.
     if (inputRate < amountUnits("4") || outputRate < amountUnits("15")) throw Error("POLAT_UAT_PRICING_BOUND_UNVERIFIED");
     // Round liability UP at the 18-decimal atomic boundary; never round away a possible charge.
-    const liability = (inputRate * BigInt(pricing.maximum_input_tokens) + outputRate * BigInt(wire.maximum_output_tokens) + 999999n) / 1000000n;
+    // Recovery v4 enforces this cap with the official input_tokens endpoint on
+    // the SAME immutable input/schema before the one generation. Older bindings
+    // retain their full-window reservation and original historical evidence.
+    const liability = (inputRate * BigInt(wire.maximum_input_tokens ?? pricing.maximum_input_tokens) + outputRate * BigInt(wire.maximum_output_tokens) + 999999n) / 1000000n;
     return Object.freeze({ ...wire, maximum_possible_charge: usdString(liability), pricing_evidence_hash: polatGuardDigest(pricing), valid_until: new Date(Math.min(Date.parse(pricing.expires_at), now + 300000)).toISOString() });
   }
   const pricing = liabilityPricingProof.parse(rawPricingProof), wire = z.strictObject({ request_hash: polatBridgeHashSchema, body_hash: polatBridgeHashSchema, maximum_output_tokens: z.number().int().min(1).max(512) }).parse(rawWire), maximumOutputTokens = wire.maximum_output_tokens;
@@ -139,8 +142,8 @@ export function createPolatPrivateBetaProvider(dependencies: Readonly<{
         const permit = await dependencies.authority.issue({ binding, run_id: reservation.run_id, attempt_id: reservation.attempt_id, request });
         const result = binding.provider === "openai" ? await sendPolatOpenAIHttpsOnce(permit, request) : await sendPolatClaudeHttpsOnce(permit, request);
         response = result.response;
-        if (binding.version === 3 && (response.usage.inputTokens === null || response.usage.outputTokens === null
-          || response.usage.inputTokens <= 0 || response.usage.inputTokens > 1050000 || response.usage.outputTokens <= 0 || response.usage.outputTokens > binding.maximum_output_tokens)) {
+        if ((binding.version === 3 || binding.version === 4) && (response.usage.inputTokens === null || response.usage.outputTokens === null
+          || response.usage.inputTokens <= 0 || response.usage.inputTokens > (binding.version === 4 ? binding.maximum_input_tokens : 1050000) || response.usage.outputTokens <= 0 || response.usage.outputTokens > binding.maximum_output_tokens)) {
           // A response was observed, so its unbounded charge is UNKNOWN. Keep
           // the full reservation, skip QA/delivery and require durable review.
           throw new PolatOpenAIFailure("INVALID_OUTPUT", "POLAT_UAT_USAGE_BOUND_UNVERIFIED", true);

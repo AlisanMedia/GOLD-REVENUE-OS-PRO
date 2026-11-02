@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       operation:
-        description: Disabled release, read-only account evidence or protected bot identity binding (never inference)
+        description: Disabled release, protected setup or explicitly authorized founder recovery
         required: true
         default: release_disabled
         type: choice
@@ -21,6 +21,11 @@ on:
           - verify_bot
           - discover_business
           - verify_business
+      authorized_founder_recovery:
+        description: Execute one bounded recovery canary under an existing real founder grant; preserves UNKNOWN and budget
+        required: false
+        default: false
+        type: boolean
       validated_commit_sha:
         description: Exact current protected main SHA with Application and Database SUCCESS
         required: true
@@ -110,6 +115,29 @@ jobs:
           node-version: 24.19.0
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Inspect existing separate integration identities without activation
+        if: ${{ inputs.operation == 'release_with_business_setup' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
+          OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
+          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+          POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET }}
+          POLAT_UAT_RELAY_SECRET: ${{ secrets.POLAT_UAT_RELAY_SECRET }}
+          POLAT_UAT_TENANT_ID: ${{ vars.POLAT_UAT_TENANT_ID }}
+          POLAT_UAT_PROGRAM_ID: ${{ vars.POLAT_UAT_PROGRAM_ID }}
+          POLAT_CAMPAIGN_TENANT_ID: ${{ vars.POLAT_CAMPAIGN_TENANT_ID }}
+          POLAT_CAMPAIGN_ID: ${{ vars.POLAT_CAMPAIGN_ID }}
+          POLAT_CAMPAIGN_WEBHOOK_SECRET: ${{ secrets.POLAT_CAMPAIGN_WEBHOOK_SECRET }}
+          POLAT_CAMPAIGN_RELAY_SECRET: ${{ secrets.POLAT_CAMPAIGN_RELAY_SECRET }}
+          POLAT_STARS_MERCHANT_TENANT_ID: ${{ vars.POLAT_STARS_MERCHANT_TENANT_ID }}
+          POLAT_STARS_MERCHANT_BOT_TOKEN: ${{ secrets.POLAT_STARS_MERCHANT_BOT_TOKEN }}
+          POLAT_STARS_MERCHANT_WEBHOOK_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_WEBHOOK_SECRET }}
+          POLAT_STARS_MERCHANT_RELAY_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_RELAY_SECRET }}
+          POLAT_UAT_STARS_TEST_BOT_TOKEN: ${{ secrets.POLAT_UAT_STARS_TEST_BOT_TOKEN }}
+          POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET }}
+          POLAT_UAT_STARS_RELAY_SECRET: ${{ secrets.POLAT_UAT_STARS_RELAY_SECRET }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/protected-integration-inventory.mjs
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1
         with:
           version: 2.117.0
@@ -292,6 +320,20 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-model.mjs
+      - name: Reverify main before explicitly authorized founder recovery
+        if: ${{ inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_GOVERNANCE_TOKEN: ${{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN }}
+        run: node scripts/private-beta-release-gate.mjs
+      - name: Execute one explicitly authorized native founder recovery canary
+        if: ${{ inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true }}
+        env:
+          AUTHORIZED_FOUNDER_RECOVERY: 'true'
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-canary.mjs
       - name: Wait for the founder's own authenticated single canary
         if: ${{ inputs.operation == 'release_with_business_setup' }}
         id: founder_canary
@@ -354,6 +396,8 @@ jobs:
             ${{ runner.temp }}/private-beta-bot-control.json
             ${{ runner.temp }}/private-beta-openai-account-observation.json
             ${{ runner.temp }}/private-beta-founder-model-observation.json
+            ${{ runner.temp }}/private-beta-founder-canary.json
+            ${{ runner.temp }}/protected-integration-inventory.json
             ${{ runner.temp }}/private-beta-founder-ingress-observation.json
             ${{ runner.temp }}/private-beta-founder-wait-*.json
             ${{ runner.temp }}/private-beta-staging-migration-history.txt
@@ -376,7 +420,7 @@ jobs:
           else
             echo 'This release does not register a webhook.' >>"$GITHUB_STEP_SUMMARY"
           fi
-          echo 'The workflow never invokes inference, issues invoices, sends Telegram customer messages or enables commercial sales. Owner-triggered canary and conversation results remain separate durable evidence; actual billing may be UNKNOWN.' >>"$GITHUB_STEP_SUMMARY"
+          echo 'The default workflow never invokes inference. Only authorized_founder_recovery explicitly requests one native founder canary under a real standing owner grant. It never issues invoices, sends Telegram customer messages or enables commercial sales. Actual canary, conversation and billing evidence remain separate.' >>"$GITHUB_STEP_SUMMARY"
 
   account_preflight:
     name: Protected read-only Anthropic account evidence (zero inference)

@@ -83,7 +83,7 @@ function programFrom(value, id) {
   assert(Array.isArray(value) && value.length === 1, 'FOUNDER_MODEL_PROGRAM_REQUIRED');
   const p = value[0]?.private_beta_program;
   assert(p?.database_role === 'postgres' && p.program_id === id && uuid.test(p.tenant_id ?? '') && p.tenant_status === 'active'
-    && /^private-beta-[a-z0-9-]+$/u.test(p.tenant_slug ?? '') && p.outbound_messaging_enabled === false && p.stage === 'DRAFT' && p.request_count === '0'
+    && /^private-beta-[a-z0-9-]+$/u.test(p.tenant_slug ?? '') && p.outbound_messaging_enabled === false && (p.stage === 'DRAFT' && p.request_count === '0' || p.stage === 'CANARY' && p.request_count === '1' && p.recovery_available === true)
     && p.model_provider === 'openai' && p.model_name === 'gpt-6.1-sol' && p.notice_version === 'polat-private-beta-notice-openai-v1'
     && hash.test(p.manifest_hash ?? '') && hash.test(p.authorization_record_hash ?? '') && /^[1-9][0-9]{0,17}$/u.test(p.generation ?? '')
     && (p.repository_sha === null || sha.test(p.repository_sha ?? '')), 'FOUNDER_MODEL_PROGRAM_REQUIRED');
@@ -120,7 +120,7 @@ export async function collectPrivateBetaFounderModel({ env, request = fetch, now
     const organization = env.OPENAI_UAT_ORGANIZATION_ID, project = env.OPENAI_UAT_PROJECT_ID, id = env.PRIVATE_BETA_PROGRAM_ID;
     assert(/^org[-_][A-Za-z0-9_-]{1,120}$/u.test(organization ?? '') && /^proj_[A-Za-z0-9_-]{1,120}$/u.test(project ?? ''), 'FOUNDER_MODEL_SCOPE_REQUIRED');
     const query = sql => readOnce(request, DATABASE, { method: 'POST', headers: { authorization: 'Bearer ' + env.SUPABASE_ACCESS_TOKEN, 'content-type': 'application/json' }, body: JSON.stringify({ query: sql }) });
-    const read = "select jsonb_build_object('database_role',current_user,'program_id',p.id,'tenant_id',p.tenant_id,'tenant_status',t.status,'tenant_slug',t.slug,'outbound_messaging_enabled',t.outbound_messaging_enabled,'repository_sha',p.configuration->>'repository_sha','stage',p.stage,'request_count',p.request_count::text,'generation',p.generation::text,'manifest_hash',p.manifest_hash,'authorization_record_hash',p.authorization_record_hash,'model_provider',p.configuration->>'model_provider','model_name',p.configuration->>'model_name','notice_version',p.configuration->>'notice_version') as private_beta_program from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where p.id='" + id + "'::uuid and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled";
+    const read = "select jsonb_build_object('database_role',current_user,'program_id',p.id,'tenant_id',p.tenant_id,'tenant_status',t.status,'tenant_slug',t.slug,'outbound_messaging_enabled',t.outbound_messaging_enabled,'repository_sha',p.configuration->>'repository_sha','stage',p.stage,'request_count',p.request_count::text,'generation',p.generation::text,'recovery_available',private.private_beta_recovery_available(p),'manifest_hash',p.manifest_hash,'authorization_record_hash',p.authorization_record_hash,'model_provider',p.configuration->>'model_provider','model_name',p.configuration->>'model_name','notice_version',p.configuration->>'notice_version') as private_beta_program from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where p.id='" + id + "'::uuid and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled";
     const program = programFrom((await query(read)).value, id);
     const observedModel = await readOnce(request, MODEL, { method: 'GET', headers: { authorization: 'Bearer ' + env.OPENAI_API_KEY, 'OpenAI-Organization': organization, 'OpenAI-Project': project, accept: 'application/json' } });
     const model = observedModel.value;
@@ -139,7 +139,7 @@ export async function collectPrivateBetaFounderModel({ env, request = fetch, now
       model_response_hash: observedModel.response_hash, policy_hash: policy.response_hash, observed_at: observedAt, expires_at: expiresAt };
     const payload = { observation, pricing }, encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('hex');
     const revision = "p.id='" + id + "'::uuid and p.tenant_id='" + program.tenant_id + "'::uuid and p.generation=" + program.generation
-      + " and p.manifest_hash='" + program.manifest_hash + "' and p.authorization_record_hash='" + program.authorization_record_hash + "' and p.stage='DRAFT' and p.request_count=0"
+      + " and p.manifest_hash='" + program.manifest_hash + "' and p.authorization_record_hash='" + program.authorization_record_hash + "' and ((p.stage='DRAFT' and p.request_count=0) or private.private_beta_recovery_available(p))"
       + " and p.configuration->>'model_provider'='openai' and p.configuration->>'model_name'='gpt-6.1-sol' and p.configuration->>'notice_version'='polat-private-beta-notice-openai-v1'"
       + " and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled";
     const writeSql = "do $founder_model$ begin perform 1 from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where " + revision

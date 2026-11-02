@@ -50,7 +50,7 @@ export async function createPrivateBetaProviderFromDatabase(input: {
       const sealed = z.strictObject({ payload: polatPrivateBetaAccountEvidenceSchema, pricing: z.unknown() }).parse(await rpc("private_beta_account_control_v1", {}));
       const payload = sealed.payload;
       if (requestBinding) {
-        const bounded = boundPolatPrivateBetaWireLiability(requestBinding, sealed.pricing);
+        const bounded = boundPolatPrivateBetaWireLiability({ ...requestBinding, ...(binding.version === 4 ? { maximum_input_tokens: binding.maximum_input_tokens } : {}) }, sealed.pricing);
         payload.request_bound = { ...bounded, valid_until: new Date(Math.min(Date.parse(bounded.valid_until), Date.parse(payload.expires_at))).toISOString() };
       } else payload.request_bound = null;
       return { payload };

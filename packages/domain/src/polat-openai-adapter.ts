@@ -48,7 +48,10 @@ const cacheDiagnostics = z.discriminatedUnion("type", [
 ]);
 const reasoningSchema = z.strictObject({ effort: z.literal("low").nullable().optional(), summary: z.null().optional(), generate_summary: z.null().optional() });
 const textFormat = z.strictObject({ type: z.literal("json_schema"), name: z.literal("polat_native_v1"), strict: z.literal(true), schema: z.record(z.string(), z.unknown()), description: z.string().max(1000).nullable().optional() });
-const envelopeSchema = z.strictObject({
+// The provider may add transport metadata without a breaking API version.
+// Strip unknown outer fields; the actual native Polat output stays strict.
+const envelopeSchema = z.object({
+  verified: z.never().optional(),
   id: z.string().regex(/^resp_[A-Za-z0-9_-]{1,160}$/u), object: z.literal("response"), model: z.literal(POLAT_OPENAI_MODEL), status: z.literal("completed"),
   created_at: z.number().finite().nonnegative(), completed_at: z.number().finite().nonnegative().nullable().optional(), error: z.null().optional(), incomplete_details: z.null().optional(),
   output: z.array(z.discriminatedUnion("type", [
