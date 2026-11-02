@@ -90,6 +90,42 @@ function fixture() {
 afterEach(() => { vi.useRealTimers(); for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 
 describe("protected existing founder Business ingress, offline transports only", () => {
+  it("accepts documented Supabase query201 with JSON for scope, write and independent readback", async () => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (url, init) => {
+      const r = await original(url, init);
+      if (String(url) !== DB) return r;
+      const created = new Response(r.body, { status: 201, headers: r.headers }); Object.defineProperty(created, "url", { value: DB }); return created;
+    });
+    expect(await f.run("prepare")).toMatchObject({ state: "PREPARED", actual_inference_requests: 0, telegram_messages: 0 }); f.activate();
+    expect(await f.run("register")).toMatchObject({ state: "REGISTERED", webhook_registration: "VERIFIED", inbound_delivery_observed: false });
+    expect(f.state.queries.filter(q => q.startsWith("do $founder_bot$"))).toHaveLength(1); expect(f.state.methods).not.toContain("sendMessage");
+  });
+  it.each(["empty", "wrong-type", "malformed", "duplicate", "wrong-role", "foreign-url"])("rejects untrusted query201 (%s) before any writes", async kind => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation((url, init) => {
+      if (String(url) !== DB) return original(url, init);
+      if (kind === "empty") { const r = new Response(null, { status: 201, headers: { "content-type": "application/json" } }); Object.defineProperty(r, "url", { value: DB }); return Promise.resolve(r); }
+      if (kind === "wrong-type") { const r = new Response("<html>created</html>", { status: 201, headers: { "content-type": "text/html" } }); Object.defineProperty(r, "url", { value: DB }); return Promise.resolve(r); }
+      if (kind === "malformed") return Promise.resolve(rawJson(DB, "{", 201));
+      if (kind === "duplicate") return Promise.resolve(rawJson(DB, '[{"private_beta_program":{},"private_beta_program":{}}]', 201));
+      return Promise.resolve(json(kind === "foreign-url" ? "https://foreign.invalid" : DB, [{ private_beta_program: { ...f.state.program, database_role: "authenticated" } }], 201));
+    });
+    expect(await f.run("prepare")).toMatchObject({ state: "BLOCKED", mutation_state: "NOT_ATTEMPTED" }); expect(f.state.envWrites).toHaveLength(0); expect(f.state.edgeWrites).toHaveLength(0);
+  });
+  it.each([202, 204, 401, 403, 429, 500])("rejects query HTTP%i without retries or mutation", async status => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation((url, init) => {
+      if (String(url) !== DB) return original(url, init);
+      const r = new Response(status === 204 ? null : "[]", { status, headers: { "content-type": "application/json" } }); Object.defineProperty(r, "url", { value: DB }); return Promise.resolve(r);
+    });
+    expect(await f.run("prepare")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_RESPONSE_INVALID", request_stage: "SUPABASE_PROGRAM", request_http_status: status, mutation_state: "NOT_ATTEMPTED" });
+    expect(f.request.mock.calls.filter(([url]) => url === DB)).toHaveLength(1); expect(f.state.envWrites).toHaveLength(0);
+  });
+  it("does not accept201 on Vercel GET as a side effect of the query status fix", async () => {
+    const f = fixture(); f.request.mockImplementation(async url => json(String(url), f.state.project, 201));
+    expect(await f.run("prepare")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_RESPONSE_INVALID", request_stage: "VERCEL_PROJECT", request_http_status: 201 }); expect(f.request).toHaveBeenCalledOnce();
+  });
   it.each(["project", "team"])("accepts valid finite exponent-form and nested Vercel %s metadata without changing model/payment parsing", async kind => {
     const f = fixture(), original = f.request.getMockImplementation()!, path = kind === "project" ? "/v9/projects/" : "/v2/teams/";
     const raw = JSON.stringify(kind === "project" ? f.state.project : f.state.team).slice(0, -1)

@@ -82,6 +82,30 @@ function fixture() {
 afterEach(() => vi.useRealTimers());
 
 describe("protected founder model/pricing collector, offline fixed HTTP and SQL boundaries", () => {
+  it("accepts documented query201 for scope, observation write and independent readback without granting inference", async () => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (url, init) => { const r = await original(url, init); if (String(url) !== DB) return r;
+      const created = new Response(r.body, { status: 201, headers: r.headers }); Object.defineProperty(created, "url", { value: DB }); return created; });
+    expect(await f.run()).toMatchObject({ state: "RECORDED", database_observation_write: "VERIFIED", actual_inference_requests: 0, owner_authority: "NOT_GRANTED", database_authority_written: false });
+    expect(f.state.writes).toHaveLength(1); expect(f.request).toHaveBeenCalledTimes(6);
+    f.state.readbackChange = () => null;
+    expect(await f.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_PERSISTENCE_UNVERIFIED", database_observation_write: "UNVERIFIED" });
+  });
+  it.each(["empty", "malformed", "duplicate", "wrong-role"])("does not trust query201 without valid authenticated program JSON (%s)", async kind => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation((url, init) => {
+      if (String(url) !== DB) return original(url, init);
+      const raw = kind === "empty" ? null : kind === "malformed" ? "{" : kind === "duplicate" ? '[{"private_beta_program":{},"private_beta_program":{}}]' : JSON.stringify([{ private_beta_program: { ...f.state.program, database_role: "authenticated" } }]);
+      const r = new Response(raw, { status: 201, headers: { "content-type": "application/json" } }); Object.defineProperty(r, "url", { value: DB }); return Promise.resolve(r);
+    });
+    expect(await f.run()).toMatchObject({ state: "BLOCKED", database_observation_write: "NOT_ATTEMPTED", actual_inference_requests: 0 }); expect(f.request).toHaveBeenCalledOnce(); expect(f.state.writes).toHaveLength(0);
+  });
+  it.each([MODEL, PRICING, POLICY])("does not accept201 from other provider or documentation endpoints (%s)", async target => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation(async (url, init) => { const r = await original(url, init); if (String(url) !== target) return r;
+      const created = new Response(r.body, { status: 201, headers: r.headers }); Object.defineProperty(created, "url", { value: target }); return created; });
+    expect(await f.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_RESPONSE_INVALID", database_observation_write: "NOT_ATTEMPTED" }); expect(f.state.writes).toHaveLength(0);
+  });
   it("records only verified scoped metadata and reviewed public rates, then independently verifies persistence", async () => {
     const f = fixture(), result = await f.run(), stored = f.state.stored!;
     expect(result).toMatchObject({ state: "RECORDED", database_observation_write: "VERIFIED", actual_inference_requests: 0, owner_authority: "NOT_GRANTED", provider_billing: "UNKNOWN", provider_enforced_cap: "UNVERIFIED", actual_billed_amount: null, database_authority_written: false, financial_authority: "NONE", commercial_pilot: "NO_GO" });
