@@ -12,7 +12,7 @@ import { polatGuardDigest } from "./polat-experiment-journal";
 import type { ModelRequest, ModelResponse } from "./agent-runtime";
 import { createPolatPrivateBetaNetworkAuthority, polatPrivateBetaBindingSchema, polatPrivateBetaAccountEvidenceSchema, requirePolatNetworkPermit, polatGenuineExecutionGate, type PolatPrivateBetaAttemptPayload } from "./polat-experiment-execution-gate";
 
-const fake = vi.hoisted(() => ({ calls: [] as Array<{ options: RequestOptions; body: string }>, body: "", status: 200, stall: false, disconnect: false, timeline: [] as string[], headers: {} as Record<string, string> }));
+const fake = vi.hoisted(() => ({ calls: [] as Array<{ options: RequestOptions; body: string }>, body: "", status: 200, stall: false, disconnect: false, timeline: [] as string[], headers: {} as Record<string, string | string[] | undefined> }));
 vi.mock("node:https", () => ({ request: (options: RequestOptions, callback: (response: IncomingMessage) => void) => {
   const socket = new EventEmitter() as ClientRequest;
   socket.destroy = (() => socket) as ClientRequest["destroy"];
@@ -136,6 +136,35 @@ describe("OpenAI fixed Responses codec, offline fixtures only", () => {
 });
 
 describe("OpenAI through existing three-reader gate and durable attempt contract, fake sockets", () => {
+  it.each([
+    ["x-client-request-id", "SYNTHETIC_PRIVATE_CLIENT", "CLIENT_ID"],
+    ["openai-organization", "SYNTHETIC_PRIVATE_ORGANIZATION", "ORGANIZATION"],
+    ["openai-project", "SYNTHETIC_PRIVATE_PROJECT", "PROJECT"],
+    ["content-type", "text/event-stream", "CONTENT_TYPE"],
+  ])("keeps %s mismatches unknown while retaining only the failed check name", async (header, value, component) => {
+    const s = fixture(); fake.headers[header] = value;
+    const code = "OPENAI_UAT_RESPONSE_CORRELATION_INVALID_" + component;
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow(code);
+    expect(s.outcomes[0]).toMatchObject({ status: "UNKNOWN", stage: "RESULT_UNKNOWN", error_code: code, qa: "NOT_EVALUATED", input_tokens: null, output_tokens: null, actual_billed_amount: null });
+    expect(s.assess).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(1); expect(s.record).toHaveBeenCalledOnce();
+    expect(JSON.stringify(s.outcomes)).not.toContain(value); expect(s.payload.reserved_liability).toBe("4.20768");
+  });
+  it.each([
+    { header: "x-client-request-id", value: ["SYNTHETIC_PRIVATE_CLIENT"], component: "CLIENT_ID" },
+    { header: "openai-organization", value: ["org-fixture"], component: "ORGANIZATION" },
+    { header: "openai-project", value: ["proj_fixture"], component: "PROJECT" },
+    { header: "content-type", value: ["application/json"], component: "CONTENT_TYPE" },
+    { header: "content-type", value: undefined, component: "CONTENT_TYPE" },
+  ])("continues holding non-scalar or absent required header metadata ($header)", async ({ header, value, component }) => {
+    const s = fixture(); fake.headers[header] = value;
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow("OPENAI_UAT_RESPONSE_CORRELATION_INVALID_" + component);
+    expect(s.outcomes[0]).toMatchObject({ status: "UNKNOWN", qa: "NOT_EVALUATED", actual_billed_amount: null }); expect(s.assess).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(1);
+  });
+  it("accepts exact optional echoes without making header metadata account authority", async () => {
+    const s = fixture(); fake.headers = { "x-client-request-id": s.payload.attempt_id, "openai-organization": "org-fixture", "openai-project": "proj_fixture", "content-type": "application/json; charset=utf-8" };
+    await s.service.provider.invoke(s.prepared.request);
+    expect(s.outcomes[0]).toMatchObject({ status: "SUCCEEDED", qa: "APPROVED", actual_billed_amount: null }); expect(fake.calls).toHaveLength(1);
+  });
   it("reserves and starts before credential use/network, then assesses the exact response", async () => {
     const s = fixture(), actual = await s.service.provider.invoke(s.prepared.request);
     expect(fake.calls).toHaveLength(1); expect(fake.calls[0]!.options).toMatchObject({ hostname: "api.openai.com", path: "/v1/responses", method: "POST", headers: { "OpenAI-Organization": "org-fixture", "OpenAI-Project": "proj_fixture", "x-client-request-id": s.payload.attempt_id } });

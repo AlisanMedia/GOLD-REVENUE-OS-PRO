@@ -32,8 +32,13 @@ export async function sendPolatOpenAIHttpsOnce(permit: unknown, request: ModelRe
       const echoed = response.headers["x-client-request-id"], type = response.headers["content-type"], organization = response.headers["openai-organization"], project = response.headers["openai-project"];
       // These response headers are optional metadata; their absence is not invented account proof.
       // Outbound identities come only from the independent sealed account control above.
-      if (echoed !== undefined && echoed !== context.attempt_id || organization !== undefined && organization !== context.organization_id || project !== undefined && project !== context.project_id
-        || typeof type !== "string" || !/^application\/json(?:\s*;|$)/iu.test(type)) { response.resume(); finish(new PolatOpenAIFailure("INVALID_OUTPUT", "OPENAI_UAT_RESPONSE_CORRELATION_INVALID", true)); return; }
+      // Preserve every rejection, but retain which check failed in the existing
+      // immutable error_code. Never include raw header values or account IDs.
+      const mismatch = echoed !== undefined && echoed !== context.attempt_id ? "CLIENT_ID"
+        : organization !== undefined && organization !== context.organization_id ? "ORGANIZATION"
+        : project !== undefined && project !== context.project_id ? "PROJECT"
+        : typeof type !== "string" || !/^application\/json(?:\s*;|$)/iu.test(type) ? "CONTENT_TYPE" : null;
+      if (mismatch) { response.resume(); finish(new PolatOpenAIFailure("INVALID_OUTPUT", "OPENAI_UAT_RESPONSE_CORRELATION_INVALID_" + mismatch, true)); return; }
       const chunks: Buffer[] = []; let bytes = 0;
       response.on("data", (chunk: Buffer) => { if (settled) return; bytes += chunk.length; if (bytes > 65536) { finish(new PolatOpenAIFailure("INVALID_OUTPUT", "OPENAI_UAT_RESPONSE_BOUND", true)); return; } chunks.push(chunk); });
       response.on("aborted", () => finish(new PolatOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_PARTIAL_RESPONSE_UNKNOWN", true)));

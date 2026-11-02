@@ -550,3 +550,32 @@ and independent exact readback after a write. An empty201,202 pending result,
 redirect, denial, malformed/duplicate JSON or mismatched state holds without
 retry. The separate documented bodyless secret-write201 ACK is unchanged.
 No migration, MFA, payment or provider-spend authority is changed by this fix.
+
+## Canary failure diagnosis without dispatch or reserve reset
+
+An exact authenticated SQL `42501/PRIVATE_BETA_FRESH_AUTH_REQUIRED` before
+provider creation returns `403/CANARY_MFA_REQUIRED`. The existing owner form
+recognizes only that bounded same-origin canary JSON response, shows the current
+TR/EN reauthentication message and links to the existing MFA section. It does
+not enroll a factor, verify MFA, resubmit a form or classify a provider error as
+safe to retry. Other denials and uncertain outcomes retain the review state.
+
+`OPENAI_UAT_RESPONSE_CORRELATION_INVALID` in older evidence did not retain which
+header check rejected a200 response. New errors append only `CLIENT_ID`,
+`ORGANIZATION`, `PROJECT` or `CONTENT_TYPE` in the existing immutable error_code.
+The rejection criteria, optional-header behavior, UNKNOWN disposition, full
+reservation, QA hold and no-retry rules are unchanged. Raw header values,
+credentials and response contents are not added to logs or customer text.
+The historical generic error cannot retrospectively establish the failed field,
+provider response identity, usage, QA result or billed cost. Missing dashboard
+logs do not establish a zero charge. No missing field is guessed or waived.
+
+For provider lookup, the existing outgoing `X-Client-Request-Id` is the durable
+attempt UUID recorded privately. OpenAI documents that support can use it when
+the server-generated `x-request-id` was unavailable:
+https://developers.openai.com/api/reference/overview#debugging-requests
+Use the original request's recorded identity/time; never send a second inference
+as a lookup. A provider result or bill must be genuinely observed and matched
+before accepted reconciliation. This code change does not recover an old reply,
+alter a signed plan, clear UNKNOWN, release liability or authorize another canary.
+No staging release or migration is part of this diagnostic repair.

@@ -55,6 +55,9 @@ export type PrivateBetaStarsInvoiceResult = z.infer<typeof starsInvoiceResult>;
 
 /** Same-origin owner UI only; the authenticated endpoints remain the authority.
  * One POST, no retry/fallback, no secrets, no background invocation. */
+export class PrivateBetaOwnerMfaRequiredError extends Error {
+  constructor() { super("PRIVATE_BETA_OWNER_MFA_REQUIRED"); }
+}
 export async function submitPrivateBetaOwnerForm(path: "/api/v1/admin/private-beta/canary" | "/api/v1/admin/private-beta/stars-test-invoice", values: URLSearchParams, transport: typeof fetch = fetch): Promise<unknown> {
   if (path !== "/api/v1/admin/private-beta/canary" && path !== "/api/v1/admin/private-beta/stars-test-invoice") throw new Error("PRIVATE_BETA_OWNER_ACTION_SCOPE");
   const keys = path === "/api/v1/admin/private-beta/canary" ? ["program_id"] : ["program_id", "approved_offer_id", "command_id"];
@@ -64,14 +67,22 @@ export async function submitPrivateBetaOwnerForm(path: "/api/v1/admin/private-be
     || keys.some(key => values.getAll(key).length !== 1 || !z.uuid().safeParse(values.get(key)).success)
     || generation !== null && (values.getAll("expected_generation").length !== 1 || !/^[1-9][0-9]{0,8}$/u.test(generation))) throw new Error("PRIVATE_BETA_OWNER_ACTION_SCOPE");
   const response = await transport(path, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, credentials: "same-origin", redirect: "error", signal: AbortSignal.timeout(30_000), body: new URLSearchParams(values) });
-  if (!response.ok || !response.body) throw new Error("PRIVATE_BETA_OWNER_ACTION_REVIEW");
+  const mfaResponse = !response.ok && response.status === 403 && path === "/api/v1/admin/private-beta/canary"
+    && /^application\/json(?:\s*;|$)/iu.test(response.headers.get("content-type") ?? "");
+  if (!response.body || !response.ok && !mfaResponse) throw new Error("PRIVATE_BETA_OWNER_ACTION_REVIEW");
   const reader = response.body.getReader(), chunks: Uint8Array[] = []; let bytes = 0, ended = false;
   try {
     for (let index = 0; index < 256; index++) { const part = await reader.read(); if (part.done) { ended = true; break; } bytes += part.value.byteLength; if (bytes > 8192) throw new Error("PRIVATE_BETA_OWNER_ACTION_REVIEW"); chunks.push(part.value); }
     if (!ended) throw new Error("PRIVATE_BETA_OWNER_ACTION_REVIEW");
   } finally { await reader.cancel().catch(() => undefined); reader.releaseLock(); }
   const joined = new Uint8Array(bytes); let offset = 0; for (const part of chunks) { joined.set(part, offset); offset += part.byteLength; }
-  return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(joined));
+  let parsed: unknown;
+  try { parsed = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(joined)); } catch { throw new Error("PRIVATE_BETA_OWNER_ACTION_REVIEW"); }
+  if (mfaResponse) {
+    if (z.strictObject({ error: z.literal("CANARY_MFA_REQUIRED"), retry: z.literal("NONE"), financial_authority: z.literal("NONE") }).safeParse(parsed).success) throw new PrivateBetaOwnerMfaRequiredError();
+    throw new Error("PRIVATE_BETA_OWNER_ACTION_REVIEW");
+  }
+  return parsed;
 }
 export const privateBetaCursorSchema = z.strictObject({
   v: z.literal(1), tenant: z.uuid(), user: z.uuid(), role: z.enum(["super_admin", "manager", "support"]),

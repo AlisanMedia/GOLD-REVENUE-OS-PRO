@@ -36,6 +36,25 @@ beforeEach(() => {
 });
 
 describe("authenticated single-request canary entrypoint (offline controls and provider)", () => {
+  it("returns a specific MFA response only for the exact trusted pre-dispatch SQL denial", async () => {
+    state.rpc.mockResolvedValue({ data: null, error: { code: "42501", message: "PRIVATE_BETA_FRESH_AUTH_REQUIRED" } });
+    const result = await POST(request());
+    expect(result.status).toBe(403); expect(await result.json()).toEqual({ error: "CANARY_MFA_REQUIRED", retry: "NONE", financial_authority: "NONE" });
+    expect(state.rpc).toHaveBeenCalledOnce(); expect(state.factory).not.toHaveBeenCalled(); expect(state.calls).toBe(0);
+  });
+  it.each([
+    { code: "40001", message: "PRIVATE_BETA_FRESH_AUTH_REQUIRED" },
+    { code: "42501", message: "PRIVATE_BETA_FRESH_AUTH_REQUIRED SYNTHETIC_PRIVATE_DETAIL" },
+    { code: "42501", message: "PRIVATE_BETA_UNAVAILABLE" },
+  ])("keeps other SQL denials generic without inventing MFA or retry safety", async error => {
+    state.rpc.mockResolvedValue({ data: null, error });
+    const result = await POST(request()); expect(result.status).toBe(409);
+    expect(await result.json()).toEqual({ error: "CANARY_BLOCKED_OR_REVIEW_REQUIRED", retry: "NONE", financial_authority: "NONE" }); expect(state.factory).not.toHaveBeenCalled();
+  });
+  it("never turns provider-side MFA-like text into a pre-dispatch reauthentication result", async () => {
+    state.factory.mockResolvedValue({ provider: { invoke: async () => { state.calls++; throw Error("PRIVATE_BETA_FRESH_AUTH_REQUIRED"); } }, evidence: () => null });
+    const result = await POST(request()); expect(result.status).toBe(409); expect(await result.text()).not.toContain("CANARY_MFA_REQUIRED"); expect(state.calls).toBe(1);
+  });
   it("rejects cross-origin before authentication, SQL or any provider invocation", async () => {
     expect((await POST(request(undefined, undefined, "https://attacker.invalid"))).status).toBe(403); expect(state.auth).not.toHaveBeenCalled(); expect(state.rpc).not.toHaveBeenCalled(); expect(state.factory).not.toHaveBeenCalled();
   });
@@ -89,6 +108,24 @@ function draftRpc() {
   });
 }
 describe('one explicit owner canary action from an existing draft, offline provider', () => {
+  it.each(["workspace", "prepare", "transition", "scope-readback"])("retains MFA feedback at the %s boundary without creating a provider", async boundary => {
+    let scopes = 0;
+    state.rpc.mockImplementation(async (name: string) => {
+      if (name === "admin_private_beta_canary_scope_v1") {
+        scopes++;
+        return { data: null, error: { code: "42501", message: scopes > 1 && boundary === "scope-readback" ? "PRIVATE_BETA_FRESH_AUTH_REQUIRED" : "PRIVATE_BETA_UNAVAILABLE" } };
+      }
+      if (name === "admin_private_beta_workspace_v1") return boundary === "workspace" ? { data: null, error: { code: "42501", message: "PRIVATE_BETA_FRESH_AUTH_REQUIRED" } }
+        : { data: { program: { ...draftWorkspace().program, account_state: "OWNER_TEST_AVAILABLE", model_provider: "openai", model_name: "gpt-6.1-sol" } }, error: null };
+      if (name === "admin_private_beta_prepare_founder_test_v1") return boundary === "prepare" ? { data: null, error: { code: "42501", message: "PRIVATE_BETA_FRESH_AUTH_REQUIRED" } }
+        : { data: { program_id: program, stage: "DRAFT", generation: "2" }, error: null };
+      if (name === "admin_private_beta_transition_v1") return boundary === "transition" ? { data: null, error: { code: "42501", message: "PRIVATE_BETA_FRESH_AUTH_REQUIRED" } }
+        : { data: { program_id: program, stage: "CANARY", generation: "3" }, error: null };
+      throw Error("OFFLINE_UNEXPECTED_RPC");
+    });
+    const result = await POST(request("program_id=" + program + "&expected_generation=1"));
+    expect(result.status).toBe(403); expect(await result.json()).toEqual({ error: "CANARY_MFA_REQUIRED", retry: "NONE", financial_authority: "NONE" }); expect(state.factory).not.toHaveBeenCalled(); expect(state.calls).toBe(0);
+  });
   it('uses the real owner-scoped transition and generation lock before rereading scope and making one fixture invocation', async () => {
     const rpc = draftRpc(); state.rpc.mockImplementation(rpc);
     const result = await POST(draftForm()); expect(result.status).toBe(200); expect(state.calls).toBe(1);
