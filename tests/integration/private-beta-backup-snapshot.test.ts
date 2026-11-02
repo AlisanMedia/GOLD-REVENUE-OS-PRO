@@ -111,4 +111,13 @@ describe("shared-snapshot recovery with concurrent source progress", () => {
     expect(sql).toContain("set transaction snapshot :'private_beta_snapshot'"); expect(shell).toContain("comparePrivateBetaRecovery"); expect(shell).toContain("comparison.result!=='PASS'"); expect(shell).toContain("--exit-on-error");
     expect(shell).not.toMatch(/--no-owner|--no-acl|--exclude-table|ALTER SYSTEM|pg_terminate_backend|retry/);
   });
+  it("passes one explicitly authorized recovery target to all three independent fingerprints without changing the default", () => {
+    const shell = readFileSync("scripts/private-beta-staging-backup.sh", "utf8"), workflow = readFileSync(".github/workflows/private-beta-uat.yml", "utf8");
+    expect(shell).toContain('case "${AUTHORIZED_FOUNDER_RECOVERY:-false}" in');
+    expect(shell).toContain('private_beta_held_recovery_program=$PRIVATE_BETA_PROGRAM_ID');
+    expect(shell.match(/"\$\{beta_fingerprint_args\[@\]\}"/gu)).toHaveLength(3);
+    const step = workflow.slice(workflow.indexOf("- name: Read-only hosted backup and independent disposable restore"), workflow.indexOf("- name: Retain encrypted recoverable backup before migration"));
+    expect(step).toContain("inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true");
+    expect(step).toContain("PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}");
+  });
 });

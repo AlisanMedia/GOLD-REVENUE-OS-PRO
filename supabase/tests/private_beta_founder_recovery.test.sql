@@ -1,3 +1,7 @@
+-- Load the real temporary read-only backup predicates, before these fixtures.
+\o /dev/null
+\ir ../../infra/sql/private-beta-recovery-fingerprint.sql
+\o
 begin;
 select no_plan();
 \ir helpers/private_beta_openai_fixtures.sql
@@ -54,8 +58,24 @@ end;$$;
 create function pg_temp.recovery_start(n integer)returns jsonb language plpgsql as $$declare p private.private_beta_programs;begin
  select * into p from private.private_beta_programs where id=pg_temp.beta_id(n,'3000');
  return public.admin_private_beta_recover_founder_test_v1(p.tenant_id,p.id,p.generation,repeat('f',40));end;$$;
+-- Backup must distinguish a stopped native journal from a live CANARY window.
+select pg_temp.founder_local_setup(6290);
+select private.private_beta_founder_model_record(pg_temp.beta_id(6290,'2000'),pg_temp.beta_id(6290,'3000'),pg_temp.founder_model_fixture(6290)::text);
+select pg_temp.founder_local_canary(6290);
+select throws_ok($q$select pg_temp.private_beta_require_quiescent(pg_temp.beta_id(6290,'3000'))$q$,'P0001','PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS','even an explicitly selected in-flight canary still blocks backup');
+select pg_temp.founder_local_record(6290,pg_temp.beta_outcome('UNKNOWN','RESULT_UNKNOWN','NOT_EVALUATED')||jsonb_build_object('error_code','OPENAI_UAT_TIMEOUT_UNKNOWN'));
+select throws_ok($q$select pg_temp.private_beta_require_quiescent(pg_temp.beta_id(6290,'3000'))$q$,'P0001','PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS','an unrelated UNKNOWN type cannot use correlation recovery backup');
+select public.admin_private_beta_transition_v1(pg_temp.beta_id(6290,'2000'),pg_temp.beta_id(6290,'3000'),'STOPPED',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6290,'3000')));
+select lives_ok($q$select pg_temp.private_beta_require_quiescent()$q$,'the unchanged default permits stopped programs');
 select pg_temp.recovery_unknown(6201);
+select throws_ok($q$select pg_temp.private_beta_require_quiescent()$q$,'P0001','PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS','held correlation canary remains denied without an explicit recovery target');
+select throws_ok($q$select pg_temp.private_beta_require_quiescent(pg_temp.beta_id(6290,'3000'))$q$,'P0001','PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS','a different program ID grants no backup exception');
+select lives_ok($q$select pg_temp.private_beta_require_quiescent(pg_temp.beta_id(6201,'3000'))$q$,'only the selected stopped first owner-only correlation canary is quiescent');
+select ok((pg_temp.private_beta_snapshot(pg_temp.beta_id(6201,'3000'))#>>'{tables,private.polat_experiment_evidence,rows}')::integer>0,'full snapshot retains the failed canary journal instead of excluding it');
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6201,'3000')),1,'read-only backup eligibility never resets initiated calls');
+select is((select reserved_liability from private.private_beta_programs where id=pg_temp.beta_id(6201,'3000')),4.628448::numeric,'read-only backup eligibility retains the complete UNKNOWN liability');
 select pg_temp.recovery_unknown(6202);
+select throws_ok($q$select pg_temp.private_beta_require_quiescent(pg_temp.beta_id(6201,'3000'))$q$,'P0001','PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS','the exception never silently includes another non-paused program');
 select pg_temp.recovery_unknown(6203);
 create temp table recovery_before as select p.id,p.canary_run_id,p.request_count,p.reserved_liability,p.configuration,p.generation,to_jsonb(r) as run_row,
  (select jsonb_agg(to_jsonb(a)order by a.id)from private.polat_experiment_attempts a where a.run_id=r.id)as attempts,

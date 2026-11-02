@@ -5,6 +5,7 @@
       "codex/canary-error-diagnostics": false,
       "codex/openai-response-metadata": false,
       "codex/founder-genuine-recovery": false,
+      "codex/held-canary-backup": false,
       "codex/fix-supabase-query-created": false,
       "codex/fix-founder-ingress-metadata": false,
       "codex/founder-canary-start": false,
