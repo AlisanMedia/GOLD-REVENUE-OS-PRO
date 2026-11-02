@@ -3,8 +3,23 @@ import { waitForPrivateBetaFounder } from "../../scripts/private-beta-founder-wa
 const sha = "a".repeat(40), program = "93be2000-0000-4000-8000-000000000001";
 const env = () => ({ GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF: "refs/heads/main", GITHUB_REPOSITORY: "AlisanMedia/GOLD-REVENUE-OS-PRO", GITHUB_SHA: sha, VALIDATED_SHA: sha, PRIVATE_BETA_PROGRAM_ID: program, FOUNDER_SETUP_WAIT: "CANARY", SUPABASE_ACCESS_TOKEN: "SYNTHETIC_MANAGEMENT_TOKEN_NOT_A_SECRET" });
 const row = () => ({ role: "postgres", stage: "CANARY", canary_ready: true, local_scope: true, release_matches: true, business_configured: false, held: false });
-function response(value: unknown) { const r = new Response(JSON.stringify([{ setup: value }]), { headers: { "content-type": "application/json" } }); Object.defineProperty(r, "url", { value: "https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query" }); return r; }
+function response(value: unknown, status = 200) { const r = new Response(JSON.stringify([{ setup: value }]), { status, headers: { "content-type": "application/json" } }); Object.defineProperty(r, "url", { value: "https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query" }); return r; }
 describe("protected owner setup status observer (offline HTTP)", () => {
+  it("observes real durable readiness from documented query201 JSON without inference or retries", async () => {
+    const request = vi.fn<typeof fetch>().mockResolvedValue(response(row(), 201)), delay = vi.fn();
+    expect(await waitForPrivateBetaFounder({ env: env(), request, delay })).toMatchObject({ ready: true, state: "READY", model_requests: 0, telegram_messages: 0 });
+    expect(request).toHaveBeenCalledOnce(); expect(delay).not.toHaveBeenCalled();
+  });
+  it.each(["empty", "duplicate", "wrong-role", "foreign-url", "http202"])("holds untrusted query201/read status (%s) instead of polling or claiming readiness", async kind => {
+    let r = response({ ...row(), ...(kind === "wrong-role" ? { role: "authenticated" } : {}) }, kind === "http202" ? 202 : 201);
+    if (kind === "empty" || kind === "duplicate") {
+      r = new Response(kind === "empty" ? null : '[{"setup":{},"setup":{}}]', { status: 201, headers: { "content-type": "application/json" } });
+      Object.defineProperty(r, "url", { value: "https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query" });
+    }
+    if (kind === "foreign-url") { r = new Response(r.body, { status: r.status, headers: r.headers }); Object.defineProperty(r, "url", { value: "https://foreign.invalid" }); }
+    const request = vi.fn<typeof fetch>().mockResolvedValue(r), delay = vi.fn();
+    expect(await waitForPrivateBetaFounder({ env: env(), request, delay })).toMatchObject({ ready: false, state: "STATUS_READ_UNVERIFIED" }); expect(request).toHaveBeenCalledOnce(); expect(delay).not.toHaveBeenCalled();
+  });
   it("uses only fixed private status SELECTs and authentic durable canary state", async () => {
     const request = vi.fn<typeof fetch>().mockResolvedValue(response(row())), delay = vi.fn();
     expect(await waitForPrivateBetaFounder({ env: env(), request, delay })).toMatchObject({ ready: true, state: "READY", model_requests: 0, telegram_messages: 0 });

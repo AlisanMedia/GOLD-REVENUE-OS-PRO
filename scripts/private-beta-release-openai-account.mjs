@@ -36,7 +36,8 @@ async function readJson(url, init, request, validateRaw) {
   const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 10000);
   try {
     const response = await abortable(request(url, { ...init, redirect: 'error', signal: controller.signal }), controller.signal);
-    assert(response.status === 200 && !response.redirected && response.url === url && /^application\/json(?:\s*;|$)/iu.test(response.headers.get('content-type') ?? '') && response.body, 'OPENAI_PREFLIGHT_RESPONSE_INVALID');
+    const acceptedStatus = response.status === 200 || response.status === 201 && url === DATABASE_URL && init.method === 'POST';
+    assert(acceptedStatus && !response.redirected && response.url === url && /^application\/json(?:\s*;|$)/iu.test(response.headers.get('content-type') ?? '') && response.body, 'OPENAI_PREFLIGHT_RESPONSE_INVALID');
     const length = response.headers.get('content-length');
     assert(length === null || /^[0-9]{1,8}$/u.test(length) && Number(length) <= 16384, 'OPENAI_PREFLIGHT_RESPONSE_BOUND');
     const reader = response.body.getReader(), chunks = []; let bytes = 0, complete = false;

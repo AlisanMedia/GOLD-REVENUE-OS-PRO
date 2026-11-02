@@ -39,6 +39,15 @@ describe("protected diagnostic before an account/program has been configured", (
 });
 
 describe("protected OpenAI account observation, offline HTTP boundaries only", () => {
+  it("accepts documented Supabase201 program JSON while retaining OpenAI200 and blocked inference", async () => {
+    const http = vi.fn<typeof fetch>(async input => String(input) === DATABASE ? json(DATABASE, program(), 201) : json(MODEL, model()));
+    expect(await observePrivateBetaOpenAIAccount({ env: env(), request: http })).toMatchObject({ state: "OBSERVED", actual_inference_requests: 0, genuine_execution_authority: "BLOCKED", database_authority_written: false });
+    expect(http).toHaveBeenCalledTimes(2);
+  });
+  it("does not accept OpenAI201 as a consequence of the Management API status correction", async () => {
+    const http = vi.fn<typeof fetch>(async input => String(input) === DATABASE ? json(DATABASE, program(), 201) : json(MODEL, model(), 201));
+    expect(await observePrivateBetaOpenAIAccount({ env: env(), request: http })).toMatchObject({ state: "BLOCKED", reason: "OPENAI_PREFLIGHT_RESPONSE_INVALID", actual_inference_requests: 0 }); expect(http).toHaveBeenCalledTimes(2);
+  });
   it("reads only the exact owned program and one fixed model GET, keeping every genuine gate blocked", async () => {
     const http = request(), result = await observePrivateBetaOpenAIAccount({ env: env(), request: http, now: () => Date.parse("2026-10-27T00:00:00Z") });
     expect(result).toMatchObject({ state: "OBSERVED", model_access: "OBSERVED", model_metadata_requests: 1, actual_inference_requests: 0, genuine_execution_authority: "BLOCKED", provider_account_authority: "UNVERIFIED", effective_experiment_cap: "UNVERIFIED", actual_billed_amount: null, database_authority_written: false, financial_authority: "NONE", commercial_pilot: "NO_GO" });

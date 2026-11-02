@@ -52,7 +52,8 @@ async function readOnce(request, url, init, json = true) {
   try {
     const response = await abortable(request(url, { ...init, redirect: 'error', signal: controller.signal }), controller.signal);
     const contentType = response.headers.get('content-type') ?? '';
-    assert(response.status === 200 && response.url === url && !response.redirected && response.body
+    const acceptedStatus = response.status === 200 || response.status === 201 && url === DATABASE && init.method === 'POST' && json;
+    assert(acceptedStatus && response.url === url && !response.redirected && response.body
       && (json ? /^application\/json(?:\s*;|$)/iu.test(contentType) : /^text\/(?:plain|markdown)(?:\s*;|$)/iu.test(contentType)), 'FOUNDER_MODEL_RESPONSE_INVALID');
     const length = response.headers.get('content-length');
     assert(length === null || /^[0-9]{1,8}$/u.test(length) && Number(length) <= bound, 'FOUNDER_MODEL_RESPONSE_BOUND');

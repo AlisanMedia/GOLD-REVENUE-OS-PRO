@@ -19,7 +19,7 @@ export async function waitForPrivateBetaFounder({ env, request = fetch, delay = 
     const attempts = mode === 'CANARY' ? 33 : 21;
     for (let index = 0; index < attempts; index++) {
       const response = await request(database, { method: 'POST', redirect: 'error', signal: AbortSignal.timeout(10000), headers: { authorization: 'Bearer ' + env.SUPABASE_ACCESS_TOKEN, 'content-type': 'application/json' }, body: JSON.stringify({ query: sql }) });
-      if (response.status !== 200 || response.redirected || response.url !== database || !/^application\/json(?:\s*;|$)/iu.test(response.headers.get('content-type') ?? '') || !response.body) throw Error('read');
+      if (![200, 201].includes(response.status) || response.redirected || response.url !== database || !/^application\/json(?:\s*;|$)/iu.test(response.headers.get('content-type') ?? '') || !response.body) throw Error('read');
       const reader = response.body.getReader(), chunks = []; let bytes = 0, ended = false;
       try { for (let i = 0; i < 256; i++) { const part = await reader.read(); if (part.done) { ended = true; break; } bytes += part.value.byteLength; if (bytes > 16384) throw Error('bound'); chunks.push(part.value); } }
       finally { void reader.cancel().catch(() => undefined); reader.releaseLock(); }

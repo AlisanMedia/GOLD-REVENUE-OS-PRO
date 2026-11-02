@@ -534,3 +534,19 @@ Offline regression reproduces the old reader rejecting valid Vercel metadata;
 this is not genuine provider acceptance. Inspect the next protected run's actual
 observation before classifying its result. The already applied migration is not
 reapplied; deployment, canary and webhook remain independently verified stages.
+
+## Supabase query HTTP201 contract —2 November2026
+
+The actual41418228073 observation stopped before ingress mutations with
+`INGRESS_RESPONSE_INVALID stage=SUPABASE_PROGRAM http_status=201`. The fixed
+Vercel reads had passed; this is a separate Management API status mismatch.
+Supabase documents201 for
+[POST database/query](https://supabase.com/docs/reference/api/v1-run-a-query).
+The ingress, founder model collector, setup observer and existing OpenAI
+preflight accept200/201 only for that exact fixed project query endpoint and
+POST method. Other provider/documentation GET statuses remain unchanged.
+Every query still requires bounded valid JSON, exact role/tenant/program/SHA,
+and independent exact readback after a write. An empty201,202 pending result,
+redirect, denial, malformed/duplicate JSON or mismatched state holds without
+retry. The separate documented bodyless secret-write201 ACK is unchanged.
+No migration, MFA, payment or provider-spend authority is changed by this fix.
