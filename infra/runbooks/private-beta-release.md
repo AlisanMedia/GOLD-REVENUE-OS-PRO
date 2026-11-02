@@ -517,3 +517,20 @@ The official SDK marks this endpoint `adminAPIKeyAuth`; `threshold_amount` is in
 cents and enforcement is `inactive` or `enforcing`. No SDK dependency is added.
 An owner statement about the limit is configuration input, not this independent
 provider read. No Admin credential is created, exposed or claimed to exist by code.
+
+## Founder ingress metadata read failure —2 November2026
+
+Release41359614790 completed its backup/independent restore, reviewed migration
+and build, then stopped before ingress mutations with `INGRESS_READ_UNAVAILABLE`.
+The old observation did not distinguish transport from JSON parsing; it does not
+establish which raw upstream field caused the failure. Vercel metadata now uses
+its own bounded JSON reader, accepting finite exponent-form resource metadata
+and larger nested objects while retaining duplicate/prototype-key rejection,
+safe integers,1MiB bytes,32768 nodes,32 levels and the existing10-second deadline.
+Model, account, Telegram and financial JSON rules are unchanged. Failed reads
+record only a static `request_stage`, optional numeric `request_http_status` and
+sanitized reason; no URL, body, credential key or upstream error text is retained.
+Offline regression reproduces the old reader rejecting valid Vercel metadata;
+this is not genuine provider acceptance. Inspect the next protected run's actual
+observation before classifying its result. The already applied migration is not
+reapplied; deployment, canary and webhook remain independently verified stages.

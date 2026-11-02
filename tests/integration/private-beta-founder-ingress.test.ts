@@ -13,6 +13,7 @@ const UPDATES = ["business_connection", "business_message", "edited_business_mes
 const digest = (v: string) => createHash("sha256").update(v, "utf8").digest("hex");
 const dirs: string[] = [];
 function json(url: string, value: unknown, status = 200) { const r = new Response(JSON.stringify(value), { status, headers: { "content-type": "application/json" } }); Object.defineProperty(r, "url", { value: url }); return r; }
+function rawJson(url: string, raw: string, status = 200) { const r = new Response(raw, { status, headers: { "content-type": "application/json" } }); Object.defineProperty(r, "url", { value: url }); return r; }
 function fixture() {
   const dir = mkdtempSync("/tmp/founder-ingress-offline-"); dirs.push(dir);
   const env: Record<string, string | undefined> = { GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF: "refs/heads/main", GITHUB_REPOSITORY: "AlisanMedia/GOLD-REVENUE-OS-PRO", GITHUB_SHA: SHA, VALIDATED_SHA: SHA,
@@ -89,6 +90,54 @@ function fixture() {
 afterEach(() => { vi.useRealTimers(); for (const dir of dirs.splice(0)) rmSync(dir, { recursive: true, force: true }); });
 
 describe("protected existing founder Business ingress, offline transports only", () => {
+  it.each(["project", "team"])("accepts valid finite exponent-form and nested Vercel %s metadata without changing model/payment parsing", async kind => {
+    const f = fixture(), original = f.request.getMockImplementation()!, path = kind === "project" ? "/v9/projects/" : "/v2/teams/";
+    const raw = JSON.stringify(kind === "project" ? f.state.project : f.state.team).slice(0, -1)
+      + ',"billingMetadata":{"smallUnitPrice":1e-8,"fraction":0.123456789012345678901,"zero":0e3},"nested":'
+      + '['.repeat(20) + 'null' + ']'.repeat(20) + ',"resources":[' + '0,'.repeat(4999) + '0]}';
+    f.request.mockImplementation((url, init) => String(url).includes(path) ? Promise.resolve(rawJson(String(url), raw)) : original(url, init));
+    expect(await f.run("prepare")).toMatchObject({ state: "PREPARED", sso_changed: false, actual_inference_requests: 0, telegram_messages: 0 });
+    expect(f.state.methods).toHaveLength(0); expect(f.state.envWrites).toHaveLength(4);
+  });
+  it.each([
+    '"same":1,"same":2', '"same":1,"s\\u0061me":2', '"__proto__":{}', '"constructor":{}', '"prototype":{}',
+    '"bad":1e309', '"bad":1e-999', '"bad":9007199254740992', '"bad":01', '"bad":NaN', '"bad":"\\ud800"',
+    '"bad":' + '['.repeat(34) + 'null' + ']'.repeat(34), '"bad":[' + '0,'.repeat(32768) + '0]',
+  ])("rejects invalid or ambiguous Vercel metadata before any writes (%#)", async fragment => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation((url, init) => String(url).includes("/v2/teams/")
+      ? Promise.resolve(rawJson(String(url), JSON.stringify(f.state.team).slice(0, -1) + ',' + fragment + '}')) : original(url, init));
+    const result = await f.run("prepare");
+    expect(result).toMatchObject({ state: "BLOCKED", reason: "INGRESS_RESPONSE_JSON_INVALID", request_stage: "VERCEL_TEAM", request_http_status: 200, mutation_state: "NOT_ATTEMPTED" });
+    expect(f.state.envWrites).toHaveLength(0); expect(f.state.edgeWrites).toHaveLength(0); expect(f.state.queries).toHaveLength(0);
+  });
+  it("keeps duplicate protected identity fields invalid even when the last value matches the exact target", async () => {
+    const f = fixture();
+    f.request.mockImplementation(async url => rawJson(String(url), '{"id":"foreign","id":' + JSON.stringify(TARGET.project) + '}'));
+    expect(await f.run("prepare")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_RESPONSE_JSON_INVALID", request_stage: "VERCEL_PROJECT", request_http_status: 200 });
+    expect(f.request).toHaveBeenCalledOnce(); expect(f.state.envWrites).toHaveLength(0);
+  });
+  it("retains the1MiB streamed response bound for infrastructure metadata", async () => {
+    const f = fixture(); f.request.mockImplementation(async url => rawJson(String(url), '{"padding":"' + "x".repeat(1048576) + '"}'));
+    expect(await f.run("prepare")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_RESPONSE_BOUND", request_stage: "VERCEL_PROJECT", request_http_status: 200 });
+    expect(f.state.envWrites).toHaveLength(0); expect(f.request).toHaveBeenCalledOnce();
+  });
+  it("retains strict numbers for Supabase evidence instead of applying the infrastructure parser globally", async () => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation((url, init) => String(url) === DB
+      ? Promise.resolve(rawJson(String(url), '[{"private_beta_program":' + JSON.stringify(f.state.program).slice(0, -1) + ',"value":1e-8}}]')) : original(url, init));
+    expect(await f.run("prepare")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_RESPONSE_JSON_INVALID", request_stage: "SUPABASE_PROGRAM", request_http_status: 200, mutation_state: "NOT_ATTEMPTED" });
+    expect(f.state.envWrites).toHaveLength(0); expect(f.state.edgeWrites).toHaveLength(0);
+  });
+  it("reports only static request stage and HTTP status for a denied read, never upstream body or credentials", async () => {
+    const f = fixture(), original = f.request.getMockImplementation()!;
+    f.request.mockImplementation((url, init) => String(url).includes("/v2/teams/")
+      ? Promise.resolve(rawJson(String(url), JSON.stringify({ error: BOT + BYPASS + MANAGEMENT + VERCEL }), 403)) : original(url, init));
+    const result = await f.run("prepare");
+    expect(result).toMatchObject({ state: "BLOCKED", reason: "INGRESS_RESPONSE_INVALID", request_stage: "VERCEL_TEAM", request_http_status: 403, mutation_state: "NOT_ATTEMPTED" });
+    for (const sensitive of [BOT, BYPASS, MANAGEMENT, VERCEL, TARGET.project, TARGET.team, "api.vercel.com"]) expect(JSON.stringify(result)).not.toContain(sensitive);
+    expect(f.state.envWrites).toHaveLength(0); expect(f.state.edgeWrites).toHaveLength(0); expect(f.request).toHaveBeenCalledTimes(2);
+  });
   it("generates private secrets only when absent, fixes selectors from PostgreSQL and keeps SSO unchanged", async () => {
     const f = fixture(), result = await f.run("prepare");
     expect(result).toMatchObject({ state: "PREPARED", mutation_state: "ACKNOWLEDGED", edge_function_deployed: false, sso_changed: false, actual_inference_requests: 0, telegram_messages: 0, provider_billing: "UNKNOWN", provider_enforced_cap: "UNVERIFIED" });
@@ -225,7 +274,7 @@ describe("protected existing founder Business ingress, offline transports only",
   });
   it("redacts unexpected transport errors and times out without retries", async () => {
     const f = fixture(); f.request.mockRejectedValue(Error(BOT + MANAGEMENT + BYPASS));
-    const result = await f.run("prepare"); expect(result).toMatchObject({ state: "BLOCKED", mutation_state: "NOT_ATTEMPTED" }); expect(JSON.stringify(result)).not.toContain(BOT); expect(f.request).toHaveBeenCalledOnce();
+    const result = await f.run("prepare"); expect(result).toMatchObject({ state: "BLOCKED", reason: "INGRESS_READ_UNAVAILABLE", request_stage: "VERCEL_PROJECT", mutation_state: "NOT_ATTEMPTED" }); expect(result.request_http_status).toBeUndefined(); expect(JSON.stringify(result)).not.toContain(BOT); expect(f.request).toHaveBeenCalledOnce();
     vi.useFakeTimers(); const stalled = fixture(); stalled.request.mockImplementation(() => new Promise(() => undefined));
     const pending = stalled.run("prepare"); await vi.advanceTimersByTimeAsync(10000);
     expect(await pending).toMatchObject({ state: "BLOCKED", reason: "INGRESS_TIMEOUT" }); expect(stalled.request).toHaveBeenCalledOnce();
