@@ -137,6 +137,34 @@ describe("OpenAI fixed Responses codec, offline fixtures only", () => {
       expect(decoded.output.proposed_response).toBe(polatClaudeFixtureWire().proposed_response); expect(decoded.metadata.service_tier).toBeNull(); expect(decoded).not.toHaveProperty("actual_billed_amount");
     }
   });
+  it.each([
+    ["model", "PRIVATE_PROVIDER_MODEL", "MODEL"],
+    ["reasoning", { effort: "PRIVATE_REASONING_VALUE" }, "REASONING"],
+    ["metadata", { PRIVATE_METADATA_KEY: "x".repeat(513) }, "METADATA"],
+    ["usage", { input_tokens: -1, output_tokens: 1, total_tokens: 0 }, "USAGE"],
+    ["output", [{ type: "PRIVATE_OUTPUT_TYPE", text: "PRIVATE_CUSTOMER_TEXT" }], "OUTPUT"],
+    ["text", { verbosity: "PRIVATE_VERBOSITY" }, "TEXT"],
+    ["prompt_cache_options", { mode: "implicit", ttl: "30m" }, "PROMPT_CACHE_OPTIONS"],
+  ])("identifies the rejected %s field without leaking its contents", (field, value, component) => {
+    const s = fixture();
+    try {
+      decodePolatOpenAIResponse(JSON.stringify(response({ [field]: value })), s.prepared.request, 512);
+      expect.fail("Rejected provider envelope must stay rejected");
+    } catch (error) {
+      expect(error).toMatchObject({ code: "OPENAI_UAT_ENVELOPE_INVALID_" + component, outcome_unknown: true, retryable: false });
+      expect(String(error)).not.toMatch(/PRIVATE_|xxxxx/u);
+    }
+  });
+  it.each([
+    ["max_output_tokens", "OUTPUT_LIMIT"], ["max_messages", "MESSAGE_LIMIT"],
+    ["content_filter", "CONTENT_FILTER"], ["steered", "STEERED"],
+    ["PRIVATE_PROVIDER_REASON", "UNSPECIFIED"], [undefined, "UNSPECIFIED"],
+  ])("distinguishes incomplete %s from a completed usable response without increasing the output cap", (reason, suffix) => {
+    const s = fixture();
+    expect(() => decodePolatOpenAIResponse(JSON.stringify(response({ status: "incomplete", incomplete_details: { reason } })), s.prepared.request, 512))
+      .toThrow("OPENAI_UAT_ENVELOPE_INVALID_STATUS_INCOMPLETE_" + suffix);
+    expect(preparePolatOpenAIRequest(s.prepared.request, 512).body.max_output_tokens).toBe(512);
+  });
   it("rejects duplicate keys, malformed JSON, cache write charges, extra messages and foreign evidence", () => {
     const s = fixture(), foreign = polatClaudeFixtureWire(); foreign.claims[1]!.evidence_refs = ["foreign-customer"];
     for (const raw of ["{\"id\":\"resp_a\",\"id\":\"resp_b\"}", "not-json", JSON.stringify(response({ usage: { ...response().usage, input_tokens_details: { cached_tokens: 0, cache_write_tokens: 1 } } })), JSON.stringify(response({ output: [...response().output, ...response().output] })), JSON.stringify(response({ output: [{ ...response().output[0], content: [{ type: "output_text", text: JSON.stringify(foreign) }] }] }))]) expect(() => decodePolatOpenAIResponse(raw, s.prepared.request, 512)).toThrow();
@@ -153,6 +181,16 @@ describe("OpenAI fixed Responses codec, offline fixtures only", () => {
 });
 
 describe("OpenAI through existing three-reader gate and durable attempt contract, fake sockets", () => {
+  it("commits only a sanitized envelope failure to the native UNKNOWN journal, never QA or a retry", async () => {
+    const s = fixture();
+    fake.body = JSON.stringify(response({ usage: { input_tokens: "PRIVATE_USAGE_VALUE", output_tokens: 121, total_tokens: 158 }, metadata: { private_key: "PRIVATE_METADATA_VALUE" } }));
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow("OPENAI_UAT_ENVELOPE_INVALID_USAGE");
+    expect(s.outcomes[0]).toMatchObject({ status: "UNKNOWN", stage: "RESULT_UNKNOWN", error_code: "OPENAI_UAT_ENVELOPE_INVALID_USAGE", qa: "NOT_EVALUATED", input_tokens: null, output_tokens: null, actual_billed_amount: null });
+    expect(s.record).toHaveBeenCalledOnce(); expect(s.assess).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(1);
+    expect(JSON.stringify(s.outcomes)).not.toMatch(/PRIVATE_USAGE_VALUE|PRIVATE_METADATA_VALUE|private_key/u);
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow();
+    expect(fake.calls).toHaveLength(1); expect(s.payload.reserved_liability).toBe("4.20768");
+  });
   it.each([
     ["x-client-request-id", "SYNTHETIC_PRIVATE_CLIENT", "CLIENT_ID"],
     ["openai-organization", "org-SYNTHETIC_PRIVATE_ORGANIZATION", "ORGANIZATION"],

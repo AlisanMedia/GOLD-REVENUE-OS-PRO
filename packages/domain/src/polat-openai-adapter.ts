@@ -74,10 +74,26 @@ const envelopeSchema = z.object({
   prompt_cache_retention: z.enum(["in_memory", "24h"]).nullable().optional(), safety_identifier: z.string().max(256).nullable().optional(), user: z.string().max(256).nullable().optional(),
 });
 
+/** Diagnose a rejected envelope without publishing provider values, Zod messages,
+ * dynamic metadata keys, native output, reasoning or credentials. The suffix is
+ * drawn only from our schema and fixed protocol vocabulary; it grants no retry. */
+function envelopeFailureCode(path: readonly PropertyKey[], raw: unknown): string {
+  const field = path[0];
+  const component = typeof field === "string" && Object.hasOwn(envelopeSchema.shape, field) ? field.toUpperCase() : "ROOT";
+  if (field === "status" && raw && typeof raw === "object" && "status" in raw && raw.status === "incomplete") {
+    const detail = "incomplete_details" in raw ? raw.incomplete_details : null;
+    const reason = detail && typeof detail === "object" && "reason" in detail ? detail.reason : null;
+    const suffix = reason === "max_output_tokens" ? "OUTPUT_LIMIT" : reason === "max_messages" ? "MESSAGE_LIMIT"
+      : reason === "content_filter" ? "CONTENT_FILTER" : reason === "steered" ? "STEERED" : "UNSPECIFIED";
+    return "OPENAI_UAT_ENVELOPE_INVALID_STATUS_INCOMPLETE_" + suffix;
+  }
+  return "OPENAI_UAT_ENVELOPE_INVALID_" + component;
+}
+
 export function decodePolatOpenAIResponse(raw: string, request: ModelRequest, maximumOutputTokens: number) {
   try {
-    const parsed = envelopeSchema.safeParse(parsePolatClaudeJson(raw));
-    if (!parsed.success) throw new PolatOpenAIFailure("INVALID_OUTPUT", "OPENAI_UAT_ENVELOPE_INVALID", true);
+    const json = parsePolatClaudeJson(raw), parsed = envelopeSchema.safeParse(json);
+    if (!parsed.success) throw new PolatOpenAIFailure("INVALID_OUTPUT", envelopeFailureCode(parsed.error.issues[0]?.path ?? [], json), true);
     const envelope = parsed.data, maximum = maximumTokens.parse(maximumOutputTokens);
     if (envelope.max_output_tokens != null && envelope.max_output_tokens !== maximum || envelope.usage && envelope.usage.output_tokens > maximum) throw new PolatOpenAIFailure("INVALID_OUTPUT", "OPENAI_UAT_OUTPUT_LIMIT_BREACH", true);
     if (envelope.usage?.input_tokens_details?.cache_write_tokens) throw new PolatOpenAIFailure("INVALID_OUTPUT", "OPENAI_UAT_UNEXPECTED_CACHE_CHARGE", true);
