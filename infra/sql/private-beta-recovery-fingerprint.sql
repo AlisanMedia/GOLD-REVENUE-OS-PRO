@@ -1,15 +1,42 @@
 -- Ephemeral, bounded recovery fingerprint. Catalog-derived identifiers only;
 -- result contains aggregate hashes/counts, never rows or source definitions.
 set timezone='UTC';
-create or replace function pg_temp.private_beta_snapshot() returns jsonb language plpgsql set search_path=pg_catalog as $$
-declare r record; n bigint; total_rows bigint=0; h text; result jsonb='{}'; definitions text; privileges text; security text; sequences jsonb='{}'; sequence_value text; sequence_called boolean;
+-- A stopped journal is quiescent even when its original immutable program
+-- remains CANARY. Only the explicitly selected first owner-only correlation
+-- failure may be backed up for recovery; every live or unrelated window blocks.
+-- This temporary, read-only check grants no runtime or recovery authority.
+create or replace function pg_temp.private_beta_require_quiescent(recovery_program uuid default null) returns void language plpgsql set search_path=pg_catalog as $$
+declare n bigint;
 begin
- -- Initial/recovery releases never race an active private-beta model/Telegram window.
- -- This is a read-only prerequisite; it does not cancel or rewrite an owner's grant.
  if to_regclass('private.private_beta_programs')is not null then
-  execute 'select count(*)from private.private_beta_programs where stage not in(''DRAFT'',''STOPPED'')'into n;
+  -- Uses the already hosted v3 schema. The pending recovery migration is never
+  -- applied before the verified backup just to make this prerequisite pass.
+  execute $guard$
+   select count(*)from private.private_beta_programs p where p.stage not in('DRAFT','STOPPED')and not coalesce(
+    p.id=$1 and p.stage='CANARY'and p.request_count=1
+    and p.account_control->'version'='3'::jsonb and p.account_control->>'origin'='SERVER_DERIVED_OWNER_ONLY_UAT_CONTROL'and p.account_control->>'scope'='OWNER_ONLY'
+    and not exists(select 1 from private.private_beta_participants q where q.program_id=p.id)
+    and not exists(select 1 from private.private_beta_invites q where q.program_id=p.id)
+    and (select count(*)from private.private_beta_attempt_scope q where q.program_id=p.id)=1
+    and not exists(select 1 from private.polat_experiment_runs r where r.id=p.conversation_run_id)
+    and exists(select 1 from private.polat_experiment_attempts a
+     join private.private_beta_attempt_scope s on s.attempt_id=a.id
+     join private.polat_experiment_runs r on r.id=a.run_id
+     where s.program_id=p.id and s.tenant_id=p.tenant_id and s.scope='CANARY'and r.id=p.canary_run_id and r.tenant_id=p.tenant_id
+     and r.binding->'version'='3'::jsonb and r.binding->>'mode'='PRIVATE_BETA_UAT'and r.binding->>'scope'='OWNER_ONLY'and r.binding->>'provider'='openai'and r.binding->>'model'='gpt-6.1-sol'
+     and r.stop_reason='UNKNOWN_REMOTE_COMPLETION'and r.request_count=1 and a.ordinal=1 and a.liability>0
+     and exists(select 1 from private.polat_experiment_evidence e where e.attempt_id=a.id and e.stage='DISPATCH_STARTED')
+     and exists(select 1 from private.polat_experiment_evidence e where e.attempt_id=a.id and e.stage='RESULT_UNKNOWN'and e.payload->>'status'='UNKNOWN'and e.payload->>'qa'='NOT_EVALUATED'
+      and e.payload->>'error_code'in('OPENAI_UAT_RESPONSE_CORRELATION_INVALID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_ORGANIZATION','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_PROJECT','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_CLIENT_ID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_CONTENT_TYPE'))
+     and not exists(select 1 from private.polat_experiment_evidence e where e.attempt_id=a.id and e.stage in('PROVIDER_RESULT','DELAYED_RESULT','RECONCILIATION'))),false)
+  $guard$ into n using recovery_program;
   if n<>0 then raise exception 'PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS';end if;
  end if;
+end;$$;
+create or replace function pg_temp.private_beta_snapshot(recovery_program uuid default null) returns jsonb language plpgsql set search_path=pg_catalog as $$
+declare r record; n bigint; total_rows bigint=0; h text; result jsonb='{}'; definitions text; privileges text; security text; sequences jsonb='{}'; sequence_value text; sequence_called boolean;
+begin
+ perform pg_temp.private_beta_require_quiescent(recovery_program);
  if(select coalesce(sum(pg_total_relation_size(c.oid)),0)from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in('public','private','auth')and c.relkind in('r','p','m'))>268435456 then raise exception 'BACKUP_SIZE_BOUND_EXCEEDED';end if;
  for r in select schemaname,tablename from pg_catalog.pg_tables where schemaname in('public','private','auth') order by schemaname,tablename loop
   execute format('select count(*) from %I.%I',r.schemaname,r.tablename) into n;
@@ -46,5 +73,9 @@ begin isolation level repeatable read read only;
 \if :{?private_beta_snapshot}
 set transaction snapshot :'private_beta_snapshot';
 \endif
+\if :{?private_beta_held_recovery_program}
+select pg_temp.private_beta_snapshot(:'private_beta_held_recovery_program'::uuid);
+\else
 select pg_temp.private_beta_snapshot();
+\endif
 commit;

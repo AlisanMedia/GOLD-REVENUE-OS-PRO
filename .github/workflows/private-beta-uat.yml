@@ -176,6 +176,8 @@ jobs:
       - name: Read-only hosted backup and independent disposable restore
         id: backup
         env:
+          AUTHORIZED_FOUNDER_RECOVERY: ${{ inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true && 'true' || 'false' }}
+          PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
           STAGING_SUPABASE_PROJECT_ID: xqvwkghpmezcpgugetqc
           STAGING_BACKUP_PASSPHRASE: ${{ secrets.STAGING_BACKUP_PASSPHRASE }}

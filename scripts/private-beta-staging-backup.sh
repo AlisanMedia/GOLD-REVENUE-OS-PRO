@@ -9,6 +9,15 @@ test "${GITHUB_REPOSITORY:-}" = AlisanMedia/GOLD-REVENUE-OS-PRO
 test "${#STAGING_BACKUP_PASSPHRASE}" -ge 32
 test -n "${STAGING_SUPABASE_SSL_ROOT_CERT:-}"
 test -n "${SUPABASE_DB_PASSWORD:-}"
+beta_fingerprint_args=()
+case "${AUTHORIZED_FOUNDER_RECOVERY:-false}" in
+ true)
+  [[ "${PRIVATE_BETA_PROGRAM_ID:-}" =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$ ]]
+  beta_fingerprint_args=(-v "private_beta_held_recovery_program=$PRIVATE_BETA_PROGRAM_ID")
+  ;;
+ false) ;;
+ *) exit 1 ;;
+esac
 beta_container=supabase_db_gold-revenue-os
 beta_tmp=$(mktemp -d)
 beta_restore="beta_restore_$(node -e 'process.stdout.write(require("node:crypto").randomBytes(8).toString("hex"))')"
@@ -64,12 +73,12 @@ remote(){ docker exec -i -e PGHOST -e PGPORT -e PGUSER -e PGDATABASE -e PGPASSWO
 beta_stage=source_exported_snapshot
 beta_snapshot_start
 beta_stage=source_tls_fingerprint
-remote psql -XqAt -v ON_ERROR_STOP=1 -v private_beta_snapshot="$beta_snapshot_id" <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/source-before.json" 2>"$beta_tmp/read.log"
+remote psql -XqAt -v ON_ERROR_STOP=1 "${beta_fingerprint_args[@]}" -v private_beta_snapshot="$beta_snapshot_id" <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/source-before.json" 2>"$beta_tmp/read.log"
 beta_stage=source_atomic_dump
 remote pg_dump --snapshot="$beta_snapshot_id" --format=custom --schema=public --schema=private --schema=auth --schema=extensions --extension=pgcrypto >"$beta_tmp/staging.dump" 2>"$beta_tmp/dump.log"
 beta_snapshot_stop
 beta_stage=source_drift_check
-remote psql -XqAt -v ON_ERROR_STOP=1 <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/source-after.json" 2>"$beta_tmp/read-after.log"
+remote psql -XqAt -v ON_ERROR_STOP=1 "${beta_fingerprint_args[@]}" <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/source-after.json" 2>"$beta_tmp/read-after.log"
 beta_stage=disposable_restore_create
 docker exec -i "$beta_container" pg_restore --list <"$beta_tmp/staging.dump" >"$beta_tmp/source.list" 2>"$beta_tmp/list.log"
 node scripts/private-beta-release-restore.mjs "$beta_tmp/source.list" "$beta_tmp/source-before.json" "$beta_tmp"
@@ -88,7 +97,7 @@ beta_stage=disposable_restore
 docker exec -i "$beta_container" pg_restore -U supabase_admin -d "$beta_restore" --use-list="/tmp/$beta_restore.list" --exit-on-error <"$beta_tmp/staging.dump" >"$beta_tmp/restore.log" 2>&1
 docker exec "$beta_container" rm -f "/tmp/$beta_restore.list" >/dev/null
 beta_stage=restored_fingerprint
-docker exec -i "$beta_container" psql -U supabase_admin -d "$beta_restore" -XqAt -v ON_ERROR_STOP=1 <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/restored.json" 2>"$beta_tmp/restored.log"
+docker exec -i "$beta_container" psql -U supabase_admin -d "$beta_restore" -XqAt -v ON_ERROR_STOP=1 "${beta_fingerprint_args[@]}" <infra/sql/private-beta-recovery-fingerprint.sql >"$beta_tmp/restored.json" 2>"$beta_tmp/restored.log"
 beta_stage=fingerprint_compare
 node --input-type=module - "$beta_tmp" <<'NODE'
 import{readFileSync,writeFileSync}from'node:fs';import{comparePrivateBetaRecovery}from'./scripts/private-beta-backup-verify.mjs';

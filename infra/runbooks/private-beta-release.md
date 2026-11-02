@@ -663,3 +663,23 @@ and webhook separation in a redacted artifact. A second inventory review is not
 needed. This observation cannot activate payments or messaging. If the connected
 GitHub identity lacks deployments-write permission (HTTP403), the owner uses the
 existing secure GitHub review screen once; required-reviewer protection remains.
+
+## Held canary backup prerequisite
+
+Release41461061379 received the real staging approval and stopped before migration
+at `source_tls_fingerprint`. The existing snapshot predicate rejected every
+CANARY row as active, including the founder's already stopped first correlation
+UNKNOWN. Read-only hosted evidence showed one such v3 owner-only program, one
+stopped native attempt, no participants/invites, and82 migrations. The stage was
+not an MFA, provider credential or missing-review failure.
+
+The snapshot now accepts a recovery target only when the existing reviewed
+`authorized_founder_recovery` option selects that program. It independently
+requires the exact stopped first v3 owner-only correlation UNKNOWN, no conversation
+run, participants or invites, and no result/reconciliation. Other windows and
+unrelated UNKNOWN types still block. The same target is passed to source-before,
+source-after and restored fingerprints. Full data, function/ACL/RLS/constraint
+hashes, sequences, independent restore and encrypted backup remain mandatory.
+No program is marked STOPPED/DRAFT, no Auth row changes, no budget or evidence is
+reset, and no pending migration is applied to make backup prerequisites pass.
+The guard uses the already hosted v3 schema and grants no inference authority.
