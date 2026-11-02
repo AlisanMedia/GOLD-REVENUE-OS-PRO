@@ -76,6 +76,9 @@ async function readOnce(request, url, init, json = true) {
     throw Error(controller.signal.aborted ? 'FOUNDER_MODEL_TIMEOUT' : 'FOUNDER_MODEL_READ_UNAVAILABLE');
   } finally { clearTimeout(timer); controller.abort(); }
 }
+function scopeMetadata(value, id, prefix) {
+  return value === null || typeof value === 'string' && /^[\x20-\x7e]{1,256}$/u.test(value) && (!value.startsWith(prefix) || value === id);
+}
 function programFrom(value, id) {
   assert(Array.isArray(value) && value.length === 1, 'FOUNDER_MODEL_PROGRAM_REQUIRED');
   const p = value[0]?.private_beta_program;
@@ -123,7 +126,7 @@ export async function collectPrivateBetaFounderModel({ env, request = fetch, now
     const model = observedModel.value;
     assert(model?.id === 'gpt-6.1-sol' && model.object === 'model' && Number.isSafeInteger(model.created) && model.created >= 0
       && typeof model.owned_by === 'string' && model.owned_by.length > 0 && model.owned_by.length <= 160
-      && (observedModel.organization === null || observedModel.organization === organization) && (observedModel.project === null || observedModel.project === project), 'FOUNDER_MODEL_ACCESS_UNVERIFIED');
+      && scopeMetadata(observedModel.organization, organization, 'org-') && scopeMetadata(observedModel.organization, organization, 'org_') && scopeMetadata(observedModel.project, project, 'proj_'), 'FOUNDER_MODEL_ACCESS_UNVERIFIED');
     const source = await readOnce(request, PRICING, { method: 'GET', headers: { accept: 'text/markdown, text/plain' } }, false);
     const policy = await readOnce(request, POLICY, { method: 'GET', headers: { accept: 'text/markdown, text/plain' } }, false);
     assert(/^# Data controls in the OpenAI platform\r?\n/u.test(policy.raw) && /Understand how OpenAI uses your data, and how you can control it\./u.test(policy.raw), 'FOUNDER_MODEL_POLICY_UNVERIFIED');

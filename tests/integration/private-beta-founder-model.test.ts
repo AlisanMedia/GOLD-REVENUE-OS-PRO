@@ -210,3 +210,18 @@ describe("protected founder model/pricing collector, offline fixed HTTP and SQL 
     }
   });
 });
+
+
+describe("provider display metadata is not an account-ID echo", () => {
+  it("records fixed-credential model access with opaque organization/project labels and no inference", async () => {
+    const f = fixture(); f.state.modelHeaders = { "openai-organization": "user-legacy-account", "openai-project": "Default project" };
+    expect(await f.run()).toMatchObject({ state: "RECORDED", actual_inference_requests: 0, owner_authority: "NOT_GRANTED", provider_billing: "UNKNOWN" });
+    expect(f.state.writes).toHaveLength(1);
+    const [, init] = f.request.mock.calls.find(([url]) => String(url) === MODEL)!;
+    expect(init?.headers).toMatchObject({ "OpenAI-Organization": "org-fixture", "OpenAI-Project": "proj_fixture" });
+  });
+  it.each(["org-foreign", "org_foreign"])("rejects a canonical foreign organization ID %s", async organization => {
+    const f = fixture(); f.state.modelHeaders = { "openai-organization": organization };
+    expect(await f.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_ACCESS_UNVERIFIED", actual_inference_requests: 0 }); expect(f.state.writes).toHaveLength(0);
+  });
+});

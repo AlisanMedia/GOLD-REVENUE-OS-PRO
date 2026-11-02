@@ -138,8 +138,8 @@ describe("OpenAI fixed Responses codec, offline fixtures only", () => {
 describe("OpenAI through existing three-reader gate and durable attempt contract, fake sockets", () => {
   it.each([
     ["x-client-request-id", "SYNTHETIC_PRIVATE_CLIENT", "CLIENT_ID"],
-    ["openai-organization", "SYNTHETIC_PRIVATE_ORGANIZATION", "ORGANIZATION"],
-    ["openai-project", "SYNTHETIC_PRIVATE_PROJECT", "PROJECT"],
+    ["openai-organization", "org-SYNTHETIC_PRIVATE_ORGANIZATION", "ORGANIZATION"],
+    ["openai-project", "proj_SYNTHETIC_PRIVATE_PROJECT", "PROJECT"],
     ["content-type", "text/event-stream", "CONTENT_TYPE"],
   ])("keeps %s mismatches unknown while retaining only the failed check name", async (header, value, component) => {
     const s = fixture(); fake.headers[header] = value;
@@ -381,5 +381,23 @@ describe("exact OpenAI liability is not billed cost", () => {
     const usage = { input_tokens: 37, output_tokens: 121, total_tokens: 158 };
     expect(() => estimatePolatOwnerOnlyOpenAIUsageLiability(usage, { ...proof(), maximum_input_usd_per_million: "2", maximum_output_usd_per_million: "10" })).toThrow("PRICING_BOUND_UNVERIFIED");
     expect(() => estimatePolatOwnerOnlyOpenAIUsageLiability(usage, { ...proof(), observed_at: new Date(Date.now() - 86400001).toISOString() })).toThrow("PRICING_STALE");
+  });
+});
+
+
+describe("OpenAI optional display metadata compatibility, fake sockets only", () => {
+  it.each(["genesis", "user-legacy-account", "Organization display name"])("accepts %s as non-authoritative display metadata", async organization => {
+    const s = fixture(); fake.headers["openai-organization"] = organization; fake.headers["openai-project"] = "Default project";
+    const actual = await s.service.provider.invoke(s.prepared.request);
+    expect(actual).toMatchObject({ provider: "openai", model: "gpt-6.1-sol" });
+    expect(fake.calls).toHaveLength(1); expect(fake.calls[0]!.options.headers).toMatchObject({ "OpenAI-Organization": "org-fixture", "OpenAI-Project": "proj_fixture" });
+    expect(s.outcomes[0]).toMatchObject({ qa: "APPROVED", actual_billed_amount: null });
+    expect(JSON.stringify(s.outcomes)).not.toContain(organization);
+  });
+  it.each(["", "x".repeat(257), "invalid\nmetadata"])("holds malformed display metadata without QA or a retry", async organization => {
+    const s = fixture(); fake.headers["openai-organization"] = organization;
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow("CORRELATION_INVALID_ORGANIZATION");
+    expect(s.assess).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(1);
+    expect(s.outcomes[0]).toMatchObject({ status: "UNKNOWN", actual_billed_amount: null });
   });
 });
