@@ -2,6 +2,7 @@ import { EventEmitter } from "node:events";
 import { createHash } from "node:crypto";
 import type { RequestOptions, IncomingMessage, ClientRequest } from "node:http";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { preparePolatConversation, assessPolatDraft } from "./polat-conversation";
 import { polatFixture } from "./polat-conversation.fixtures";
 import { polatClaudeFixtureWire } from "../../../tests/helpers/polat-bridge-fixtures";
@@ -12,7 +13,7 @@ import { polatGuardDigest } from "./polat-experiment-journal";
 import type { ModelRequest, ModelResponse } from "./agent-runtime";
 import { createPolatPrivateBetaNetworkAuthority, polatPrivateBetaBindingSchema, polatPrivateBetaAccountEvidenceSchema, requirePolatNetworkPermit, polatGenuineExecutionGate, type PolatPrivateBetaAttemptPayload } from "./polat-experiment-execution-gate";
 
-const fake = vi.hoisted(() => ({ calls: [] as Array<{ options: RequestOptions; body: string }>, body: "", status: 200, stall: false, disconnect: false, timeline: [] as string[], headers: {} as Record<string, string | string[] | undefined> }));
+const fake = vi.hoisted(() => ({ calls: [] as Array<{ options: RequestOptions; body: string }>, body: "", countBody: "", status: 200, stall: false, disconnect: false, timeline: [] as string[], headers: {} as Record<string, string | string[] | undefined> }));
 vi.mock("node:https", () => ({ request: (options: RequestOptions, callback: (response: IncomingMessage) => void) => {
   const socket = new EventEmitter() as ClientRequest;
   socket.destroy = (() => socket) as ClientRequest["destroy"];
@@ -24,7 +25,7 @@ vi.mock("node:https", () => ({ request: (options: RequestOptions, callback: (res
       const response = new EventEmitter() as IncomingMessage;
       response.statusCode = fake.status; response.headers = { "content-type": "application/json", "x-request-id": "req_fixture_001", ...fake.headers };
       response.resume = (() => response) as IncomingMessage["resume"]; callback(response);
-      response.emit("data", Buffer.from(fake.body)); response.emit("end");
+      response.emit("data", Buffer.from(options.path === "/v1/responses/input_tokens" ? fake.countBody : fake.body)); response.emit("end");
     });
     return socket;
   }) as ClientRequest["end"];
@@ -90,7 +91,23 @@ function ownerOnlyFixture(founder = false) {
   const service = createPolatPrivateBetaProvider({ binding, authority, store: { reserve, begin: original.begin, record: original.record }, assess: original.assess });
   return { ...original, binding, owner, account, payload, committed, reservation, reserve, authority, service };
 }
-beforeEach(() => { fake.calls = []; fake.body = JSON.stringify(response()); fake.status = 200; fake.stall = false; fake.disconnect = false; fake.timeline = []; fake.headers = {}; });
+function recoveryFixture() {
+  const s = ownerOnlyFixture();
+  const retained = { retained_unknown_attempt_id: "91cc3000-0000-4000-8000-000000000099", retained_unknown_run_id: "91cc4000-0000-4000-8000-000000000099", recovery_authorization_hash: "9".repeat(64), recovery_authority: "OWNER_FRESH_MFA", recovery_execution_ref: "OWNER_RPC" };
+  const binding = polatPrivateBetaBindingSchema.parse({ ...s.binding, version: 4, maximum_requests: 2, maximum_input_tokens: 4096, maximum_attempt_liability: "0.0264704", ...retained });
+  if (binding.version !== 4) throw Error("RECOVERY_FIXTURE_REQUIRED");
+  const hash = polatGuardDigest(binding), owner = { ...s.owner, binding_hash: hash };
+  const account = polatPrivateBetaAccountEvidenceSchema.parse({ ...s.account, version: 4, ...retained, retained_unknown_liability: "4.628448", local_reserved_liability: "4.628448", local_remaining_allowance: "0.371552", request_bound: { ...s.account.request_bound, maximum_input_tokens: 4096, maximum_possible_charge: "0.0264704" } });
+  if (account.version !== 4) throw Error("RECOVERY_FIXTURE_REQUIRED");
+  const payload = { ...s.payload, binding_hash: hash, global_ordinal: 2, liability: "0.0264704", reserved_liability: "4.6549184" };
+  const committed = { ...s.committed, binding_hash: hash, payload }, reservation = { ...s.reservation, binding_hash: hash, liability: "0.0264704" };
+  const reserve = vi.fn(() => { account.local_reserved_liability = payload.reserved_liability; account.local_remaining_allowance = "0.3450816"; return Promise.resolve(reservation); });
+  const authority = createPolatPrivateBetaNetworkAuthority({ deployed_sha: binding.repository_sha, readOwnerGrant: () => Promise.resolve(owner), readIndependentAccount: () => Promise.resolve({ payload: account }), readCommittedAttempt: () => Promise.resolve(committed), resolveCredential: s.credentialRead });
+  const service = createPolatPrivateBetaProvider({ binding, authority, store: { reserve, begin: s.begin, record: s.record }, assess: s.assess });
+  return { ...s, binding, owner, account, payload, committed, reservation, reserve, authority, service };
+}
+
+beforeEach(() => { fake.calls = []; fake.body = JSON.stringify(response()); fake.countBody = JSON.stringify({ object: "response.input_tokens", input_tokens: 37 }); fake.status = 200; fake.stall = false; fake.disconnect = false; fake.timeline = []; fake.headers = {}; });
 
 describe("OpenAI fixed Responses codec, offline fixtures only", () => {
   it("uses exact model/native schema, scoped source handles, explicit identity and locked cost-affecting parameters", () => {
@@ -385,6 +402,42 @@ describe("exact OpenAI liability is not billed cost", () => {
 });
 
 
+describe("bounded founder recovery, offline sockets only", () => {
+  it("accepts provider display labels without treating them as account identity or financial proof", async () => {
+    const s = fixture(); fake.headers["openai-organization"] = "user-legacy-organization"; fake.headers["openai-project"] = "Default project";
+    await expect(s.service.provider.invoke(s.prepared.request)).resolves.toMatchObject({ provider: "openai" });
+    expect(fake.calls).toHaveLength(1); expect(fake.calls[0]!.options.headers).toMatchObject({ "OpenAI-Organization": "org-fixture", "OpenAI-Project": "proj_fixture" });
+    expect(s.outcomes[0]).toMatchObject({ qa: "APPROVED", actual_billed_amount: null });
+  });
+  it("counts the same input and schema, then generates once while retaining historical debt", async () => {
+    const s = recoveryFixture();
+    expect(await s.authority.preflight(s.binding)).toMatchObject({ state: "READY" });
+    const actual = await s.service.provider.invoke(s.prepared.request);
+    expect(fake.calls.map(c => c.options.path)).toEqual(["/v1/responses/input_tokens", "/v1/responses"]);
+    const counted = z.record(z.string(), z.unknown()).parse(JSON.parse(fake.calls[0]!.body)), generated = z.record(z.string(), z.unknown()).parse(JSON.parse(fake.calls[1]!.body));
+    for (const key of ["model", "input", "text", "tools", "reasoning", "tool_choice", "truncation"]) expect(counted[key]).toEqual(generated[key]);
+    expect(s.account.retained_unknown_liability).toBe("4.628448"); expect(s.payload.global_ordinal).toBe(2);
+    expect(actual.usage.billedAmount).toBeNull(); expect(s.record).toHaveBeenCalledOnce(); expect(s.service.automatic_retries).toBe(0);
+  });
+  it.each(["{", '{"object":"response.input_tokens","input_tokens":4097}', '{"object":"response.input_tokens","input_tokens":0}', '{"object":"response.input_tokens","input_tokens":37,"verified":true}'])("never generates for invalid or over-cap token count", async body => {
+    const s = recoveryFixture(); fake.countBody = body;
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow("INPUT_TOKEN_BOUND");
+    expect(fake.calls.map(c => c.options.path)).toEqual(["/v1/responses/input_tokens"]); expect(s.assess).not.toHaveBeenCalled();
+    expect(s.outcomes[0]).toMatchObject({ status: "FAILED", qa: "NOT_EVALUATED", actual_billed_amount: null });
+    expect(s.account.retained_unknown_liability).toBe("4.628448");
+  });
+  it.each(["debt", "authorization", "parent", "unknown", "quota", "ordinal"])("blocks mismatched recovery %s before any generation", async change => {
+    const s = recoveryFixture();
+    if (change === "debt") s.account.retained_unknown_liability = "0";
+    if (change === "authorization") s.account.recovery_authorization_hash = "0".repeat(64);
+    if (change === "parent") s.account.retained_unknown_attempt_id = s.payload.attempt_id;
+    if (change === "unknown") s.account.unknown_outcome_count = 1;
+    if (change === "quota") s.account.local_remaining_allowance = "0";
+    if (change === "ordinal") s.payload.global_ordinal = 3;
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow(); expect(fake.calls).toHaveLength(0);
+  });
+});
+
 describe("OpenAI optional display metadata compatibility, fake sockets only", () => {
   it.each(["genesis", "user-legacy-account", "Organization display name"])("accepts %s as non-authoritative display metadata", async organization => {
     const s = fixture(); fake.headers["openai-organization"] = organization; fake.headers["openai-project"] = "Default project";
@@ -399,5 +452,14 @@ describe("OpenAI optional display metadata compatibility, fake sockets only", ()
     await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow("CORRELATION_INVALID_ORGANIZATION");
     expect(s.assess).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(1);
     expect(s.outcomes[0]).toMatchObject({ status: "UNKNOWN", actual_billed_amount: null });
+  });
+});
+
+
+describe("Responses transport forward metadata compatibility", () => {
+  it("discards new outer transport metadata without treating it as permission", () => {
+    const s = fixture(), decoded = decodePolatOpenAIResponse(JSON.stringify(response({ provider_diagnostic_v2: { payment_verified: true, executable_tools: ["grant_vip"] } })), s.prepared.request, 512);
+    expect(decoded.output.proposed_tool_calls).toHaveLength(0); expect(decoded.output.claims.some(c => c.capability !== null)).toBe(false);
+    expect(JSON.stringify(decoded)).not.toContain("provider_diagnostic_v2"); expect(decoded.metadata).not.toHaveProperty("payment_verified");
   });
 });

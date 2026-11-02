@@ -97,13 +97,13 @@ describe("protected release governance credential boundary (offline HTTP only)",
   it("scopes credential custody to every existing gate step without granting Actions write or adding dispatch triggers", () => {
     const workflow = readFileSync(".github/workflows/private-beta-uat.yml", "utf8");
     // Seven existing gates plus fresh exact-main checks before initial/resumed Business connection.
-    expect(workflow.match(/^          GH_TOKEN: \$\{\{ github.token \}\}$/gmu)).toHaveLength(9);
-    expect(workflow.match(/^          GH_GOVERNANCE_TOKEN: \$\{\{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN \}\}$/gmu)).toHaveLength(9);
-    expect(workflow.match(/STAGING_GITHUB_GOVERNANCE_TOKEN/gu)).toHaveLength(9);
+    expect(workflow.match(/^          GH_TOKEN: \$\{\{ github.token \}\}$/gmu)).toHaveLength(10);
+    expect(workflow.match(/^          GH_GOVERNANCE_TOKEN: \$\{\{ secrets.STAGING_GITHUB_GOVERNANCE_TOKEN \}\}$/gmu)).toHaveLength(10);
+    expect(workflow.match(/STAGING_GITHUB_GOVERNANCE_TOKEN/gu)).toHaveLength(10);
     expect(workflow).not.toMatch(/(?:contents|checks|actions|administration): write/iu);
     expect(workflow).not.toMatch(/workflow_run:|pull_request_target:|schedule:/u);
     const steps = workflow.split(/^      - /mu).filter(step => step.includes("GH_GOVERNANCE_TOKEN:"));
-    expect(steps).toHaveLength(9);
+    expect(steps).toHaveLength(10);
     for (const step of steps) {
       expect(step).toContain("node scripts/private-beta-release-gate.mjs");
       expect(step).not.toMatch(/pnpm |vercel@|SUPABASE_ACCESS_TOKEN|curl |db push/u);
@@ -276,5 +276,19 @@ describe('explicit reviewed release plus genuine Business setup', () => {
     expect(step).not.toMatch(/OPENAI_API_KEY|ANTHROPIC|setWebhook|deleteWebhook|sendMessage|sendInvoice|continue-on-error/u);
     const gate = workflow.slice(workflow.indexOf('- name: Verify exact SHA'),workflow.indexOf('- uses: pnpm/action-setup'));
     expect(gate).toContain('PRIVATE_BETA_PROGRAM_ID'); expect(gate).toContain('release_with_business_setup'); expect(gate).toContain('node scripts/private-beta-release-gate.mjs');
+  });
+});
+
+
+describe("explicit standing-grant recovery workflow boundary", () => {
+  it("keeps inference off by default and scopes the only recovery invocation to the reviewed release operation", () => {
+    const workflow = readFileSync(".github/workflows/private-beta-uat.yml", "utf8");
+    const flag = workflow.slice(workflow.indexOf("      authorized_founder_recovery:"), workflow.indexOf("      validated_commit_sha:"));
+    expect(flag).toContain("default: false"); expect(flag).toContain("type: boolean");
+    const steps = workflow.split(/^      - /mu).filter(s => s.includes("private-beta-founder-canary.mjs"));
+    expect(steps).toHaveLength(1); expect(steps[0]).toContain("inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true");
+    expect(steps[0]).toContain("AUTHORIZED_FOUNDER_RECOVERY: 'true'"); expect(steps[0]).not.toMatch(/GH_GOVERNANCE_TOKEN:|GH_TOKEN:/u);
+    expect(workflow.indexOf("Execute one explicitly authorized native founder recovery canary")).toBeGreaterThan(workflow.indexOf("Verify both canonical staging aliases"));
+    expect(workflow.indexOf("Reverify main before explicitly authorized founder recovery")).toBeGreaterThan(workflow.indexOf("Collect real founder model"));
   });
 });

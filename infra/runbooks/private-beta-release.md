@@ -597,3 +597,62 @@ The historical correlation failure did not retain its failed header, so this
 protocol correction does not identify that original field retrospectively.
 It neither recovers a discarded reply nor clears UNKNOWN, consumes another
 canary, changes limits/grants, runs a migration or publishes a release.
+
+## Explicit bounded founder recovery
+
+An existing owner-only program can recover once from its first recorded OpenAI
+response-correlation failure. The original request, UNKNOWN evidence, full
+reservation, global request count, original start/deadline and actual owner
+identity remain intact. A separate version4 canary run records the new attempt;
+it cannot reuse the old run's authorization key or send a third canary. All old
+liability remains in the same durable5USD/350-attempt budget. No screenshot or
+owner-reported spend is converted into independently reconciled billing.
+
+Version4 limits input to4096 tokens and output to512. The existing one-use native
+network permit calls the official fixed `/v1/responses/input_tokens` endpoint
+with the same model/input/reasoning/schema/tools before the single generation.
+An invalid count or count above4096 blocks generation; it does not truncate,
+retry, change model or discard history. The local bound uses conservative public
+maximum prices for that enforced input cap. Native usage and Phase7 QA are still
+required. The codec discards unrecognized outer transport metadata while keeping
+known response restrictions, the reserved `verified` field and actual Polat
+output strict. Real model access, provider output and billing remain distinct.
+
+Two authorization paths use the same private recovery primitive:
+
+- The existing authenticated Admin can use a real fresh owner MFA action.
+- A reviewed protected runner may execute a specifically delegated recovery under
+  the owner's already recorded, unexpired test grant. Current active owner
+  membership and an actually verified Auth factor are read independently. No
+  factor, challenge, session, JWT claim or authentication time is created.
+  The original `approved_at`/`authenticated_at` remain unchanged and the mutation
+  actor is SYSTEM with the actual standing-owner and GitHub-run reference.
+
+The protected primitive and canary scope have no authenticated/service-role
+EXECUTE grant. The same owner/account/committed-reservation gate, native request
+builder, actual codec and QA path serve Admin and the protected connector.
+Explicit source-bound recovery provenance is included in both binding and sealed
+account control. Only the specifically retained old UNKNOWN is quarantined from
+active-run dispatch checks; its entire liability and immutable history remain.
+Any new UNKNOWN/QA hold, revoked factor/membership, STOP, expired window, stale
+source or missing provider evidence blocks subsequent work.
+
+The workflow input `authorized_founder_recovery` defaults to false. It is only
+used with `release_with_business_setup` after reviewed migrations, exact-SHA
+publication, protected model/pricing observations and a fresh governance check.
+Code deployment alone cannot invoke inference or activate a campaign. The caller
+must explicitly authorize this bounded operation. The connector performs no
+Telegram send, invoice, payment, membership or commercial START. Public artifacts
+contain only redacted QA/usage/hash/status evidence. Before/after independent
+hashes verify the old UNKNOWN journal and actual owner Auth records unchanged.
+Unknown mutation/result/commit acknowledgement is never blindly retried.
+
+An explicitly delegated normal GitHub environment review may be performed through
+its authenticated API only as the configured actual reviewer when repository
+policy permits it. Required checks/reviewers, environment branch restrictions and
+`can_admins_bypass=false` remain enforced; no protection is disabled or approval
+fabricated. Genuine provider, transport, device and TEST-payment acceptance must
+still be reported separately.
+
+Official token-counting contract:
+https://developers.openai.com/api/docs/guides/token-counting

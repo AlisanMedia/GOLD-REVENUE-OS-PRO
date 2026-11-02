@@ -88,6 +88,7 @@ const copy = {
   ownerTestPassed: ["Gerçek canary yanıtı ve QA başarılı. Fatura hâlâ bilinmiyor. Kişisel sohbet testi yerel kullanım bütçesiyle açılabilir; Telegram bağlantısı ayrıca doğrulanmalıdır. Arkadaşlar ve ticari gönderimler açılmaz.", "The real canary response and QA passed. Actual billing remains unknown. Personal conversation testing may use the local usage budget once Telegram connectivity is verified. Friends and commercial outreach remain disabled."],
   canaryHeld: ["Canary QA tarafından durduruldu. Güvenli başka bir yanıtla değiştirilmedi ve test aşaması ilerletilmedi. Gerçek deneme kaydını inceleyin; otomatik tekrar yok.", "QA held the canary. No substitute safe response was used and the test stage was not advanced. Inspect the actual attempt evidence; there is no automatic retry."],
   canaryReview: ["İstek engellendi veya sonucu doğrulanamadı. Yeni bir istek göndermeden önce kalıcı deneme/muhasebe kayıtlarını inceleyip sayfayı yenileyin. Belirsiz maliyet sıfır sayılmaz.", "The request was blocked or its outcome could not be confirmed. Inspect durable attempt/accounting evidence and refresh before any new request. Unknown cost is not zero."],
+  canaryRecovery: ["İlk belirsiz deneme ve rezervi korunur. Bu düzeltilmiş sürümde yalnız kendi hesabınız için tek ek canary çalıştırır; otomatik tekrar veya müşteri gönderimi yoktur.", "The original unknown attempt and its reservation are retained. Run one additional canary on the repaired release for your own account only. No automatic retry or customer dispatch."],
   canaryMfa: ["Bu işlem için güncel MFA doğrulaması gerekiyor. Bu tıklamada model isteği başlatılmadı.", "This operation requires a current MFA verification. This click did not initiate a model request."],
   canaryMfaLink: ["Mevcut MFA ile yeniden doğrula", "Reauthenticate with existing MFA"],
   canaryOutput: ["QA'dan geçen gerçek canary yanıtı", "Actual QA-approved canary response"],
@@ -200,19 +201,20 @@ function CanaryControl({ program }: { program: NonNullable<PrivateBetaWorkspace[
   const [result, setResult] = useState<PrivateBetaCanaryResult | null>(null);
   // The fixed synthetic Hi canary needs a window/retention and real account
   // evidence. Human staffing remains required by SQL before conversation stages.
+  const recovery = program.canary_state === "RECOVERY_AVAILABLE";
   const prepareOwnerTest = program.stage === "DRAFT" && program.model_provider === "openai" && program.account_state === "OWNER_TEST_AVAILABLE";
-  const enabled = prepareOwnerTest || program.repository_sha !== null && program.starts_at !== null && program.expires_at !== null && program.retention_days !== null && program.account_state === "OBSERVED";
+  const enabled = recovery || prepareOwnerTest || program.repository_sha !== null && program.starts_at !== null && program.expires_at !== null && program.retention_days !== null && program.account_state === "OBSERVED";
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (attempted.current || !enabled || !prepareOwnerTest && program.repository_sha === null) return;
     attempted.current = true; setPhase("PENDING");
     try {
       const body = new URLSearchParams({ program_id: program.id });
-      if (program.stage === "DRAFT") body.set("expected_generation", program.generation);
+      if (program.stage === "DRAFT" || recovery) body.set("expected_generation", program.generation);
       const raw = await submitPrivateBetaOwnerForm("/api/v1/admin/private-beta/canary", body);
-      setResult(parsePrivateBetaCanaryResult(raw, program.id, prepareOwnerTest ? null : program.repository_sha)); setPhase("RESULT");
+      setResult(parsePrivateBetaCanaryResult(raw, program.id, prepareOwnerTest || recovery ? null : program.repository_sha)); setPhase("RESULT");
     } catch (error) { setPhase(error instanceof PrivateBetaOwnerMfaRequiredError ? "MFA_REQUIRED" : "REVIEW"); }
   }
-  return <section className="form-panel" aria-labelledby="private-beta-canary-heading"><h3 id="private-beta-canary-heading">{text("canaryRun")}</h3><p>{text("canaryText")}</p>
+  return <section className="form-panel" aria-labelledby="private-beta-canary-heading"><h3 id="private-beta-canary-heading">{text("canaryRun")}</h3><p>{text(recovery ? "canaryRecovery" : "canaryText")}</p>
     {!enabled && <p className="warning-box">{text("canaryBlocked")}</p>}
     <form action="/api/v1/admin/private-beta/canary" method="post" onSubmit={submit}><input type="hidden" name="program_id" value={program.id}/>{program.stage === "DRAFT" && <input type="hidden" name="expected_generation" value={program.generation}/>}<button className="primary-button" type="submit" disabled={!enabled || phase !== "IDLE"}>{text("canaryRun")}</button></form>
     {phase === "PENDING" && <p role="status">{text("canaryPending")}</p>}{phase === "REVIEW" && <p className="warning-box" role="alert">{text("canaryReview")}</p>}
@@ -292,7 +294,7 @@ export function PolatPrivateBeta({ workspace, invalid, denied, size, canConfigur
   return <section aria-labelledby="private-beta-heading"><h2 id="private-beta-heading">{text("title")}</h2><p className="muted">{text("basis")}</p><p className="warning-box">{text("ceiling")}</p>
     {(canConfigure || canAcceptOperator) && <PrivateBetaMfa canRecover={canConfigure}/>}
     {!program ? <><p className="empty-state">{text("empty")}</p>{canConfigure && <section className="form-panel"><h3>{text("setup")}</h3><p>{text("setupText")}</p><ActionForm action={createPrivateBetaTenant} repeatable={false}><button className="secondary-button" type="submit">{text("bootstrap")}</button></ActionForm></section>}</> : <>
-      {canConfigure && ["DRAFT", "CANARY"].includes(program.stage) && program.canary_state === "NOT_STARTED" && <CanaryControl program={program}/>}
+      {canConfigure && ["DRAFT", "CANARY"].includes(program.stage) && ["NOT_STARTED", "RECOVERY_AVAILABLE"].includes(program.canary_state) && <CanaryControl program={program}/>}
       {program.owner_only_test && <section className="form-panel"><p>{text("ownerOnly")}</p>
         {canConfigure && program.stage === "CANARY" && program.canary_state === "OWNER_TEST_READY" && <ActionForm action={controlPrivateBetaFounderTest} repeatable={false}><input type="hidden" name="program_id" value={program.id}/><input type="hidden" name="expected_generation" value={program.generation}/><input type="hidden" name="stage" value="FOUNDER"/><button className="primary-button" type="submit" disabled={businessScope?.state !== "READY_FOR_FRESH_PROVIDER_READ"}>{text("openFounder")}</button></ActionForm>}
         {canConfigure && program.stage !== "STOPPED" && <ActionForm action={controlPrivateBetaFounderTest} repeatable={false}><input type="hidden" name="program_id" value={program.id}/><input type="hidden" name="expected_generation" value={program.generation}/><input type="hidden" name="stage" value="STOPPED"/><button className="secondary-button" type="submit">{text("stopProgram")}</button></ActionForm>}
