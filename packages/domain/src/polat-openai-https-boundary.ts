@@ -30,13 +30,14 @@ export async function sendPolatOpenAIHttpsOnce(permit: unknown, request: ModelRe
           status >= 300 && status < 400 ? "OPENAI_UAT_REDIRECT_DENIED" : status === 401 || status === 403 ? "OPENAI_UAT_AUTH_DENIED" : status === 429 ? "OPENAI_UAT_RATE_LIMIT" : "OPENAI_UAT_HTTP_FAILURE", status >= 500 || status === 408)); return;
       }
       const echoed = response.headers["x-client-request-id"], type = response.headers["content-type"], organization = response.headers["openai-organization"], project = response.headers["openai-project"];
-      // These response headers are optional metadata; their absence is not invented account proof.
-      // Outbound identities come only from the independent sealed account control above.
-      // Preserve every rejection, but retain which check failed in the existing
-      // immutable error_code. Never include raw header values or account IDs.
+      // OpenAI documents organization metadata, not an organization-ID echo
+      // contract. Display names and legacy user-* labels are not canonical IDs.
+      // A canonical ID still has to match the sealed outbound account. No
+      // optional metadata establishes owner, account or financial authority.
+      const invalidMetadata = (value: unknown) => value !== undefined && (typeof value !== "string" || !/^[\x20-\x7e]{1,256}$/u.test(value));
       const mismatch = echoed !== undefined && echoed !== context.attempt_id ? "CLIENT_ID"
-        : organization !== undefined && organization !== context.organization_id ? "ORGANIZATION"
-        : project !== undefined && project !== context.project_id ? "PROJECT"
+        : invalidMetadata(organization) || typeof organization === "string" && /^org[-_]/u.test(organization) && organization !== context.organization_id ? "ORGANIZATION"
+        : invalidMetadata(project) || typeof project === "string" && /^proj_/u.test(project) && project !== context.project_id ? "PROJECT"
         : typeof type !== "string" || !/^application\/json(?:\s*;|$)/iu.test(type) ? "CONTENT_TYPE" : null;
       if (mismatch) { response.resume(); finish(new PolatOpenAIFailure("INVALID_OUTPUT", "OPENAI_UAT_RESPONSE_CORRELATION_INVALID_" + mismatch, true)); return; }
       const chunks: Buffer[] = []; let bytes = 0;

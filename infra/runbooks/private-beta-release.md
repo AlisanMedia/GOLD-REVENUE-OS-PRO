@@ -579,3 +579,21 @@ as a lookup. A provider result or bill must be genuinely observed and matched
 before accepted reconciliation. This code change does not recover an old reply,
 alter a signed plan, clear UNKNOWN, release liability or authorize another canary.
 No staging release or migration is part of this diagnostic repair.
+
+## Optional OpenAI response metadata compatibility
+
+The official API overview describes `openai-organization` as organization
+metadata; it does not promise an organization-ID echo. The fixed-origin TLS
+request, sealed credential fingerprint, explicit outbound organization/project,
+owner grant and committed request binding remain the authority. Bounded printable
+organization/project display labels (including legacy `user-*` labels) are not
+compared to canonical IDs and never establish account or billing proof. An
+explicit canonical `org-`/`org_`/`proj_` ID must still match the sealed scope.
+Malformed/multiple metadata values, an explicit client-ID mismatch and non-JSON
+content remain rejected. The protected model metadata reader uses the same rule.
+
+Reference: https://developers.openai.com/api/reference/overview#debugging-requests
+The historical correlation failure did not retain its failed header, so this
+protocol correction does not identify that original field retrospectively.
+It neither recovers a discarded reply nor clears UNKNOWN, consumes another
+canary, changes limits/grants, runs a migration or publishes a release.
