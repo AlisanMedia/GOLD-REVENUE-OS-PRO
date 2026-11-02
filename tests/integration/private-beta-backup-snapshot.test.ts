@@ -119,5 +119,8 @@ describe("shared-snapshot recovery with concurrent source progress", () => {
     const step = workflow.slice(workflow.indexOf("- name: Read-only hosted backup and independent disposable restore"), workflow.indexOf("- name: Retain encrypted recoverable backup before migration"));
     expect(step).toContain("inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true");
     expect(step).toContain("PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}");
+    const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+    expect(ci).toContain("cp infra/sql/private-beta-recovery-fingerprint.sql supabase/tests/helpers/private_beta_backup_fingerprint.sql");
+    expect(ci).toContain("trap 'rm -f supabase/tests/helpers/private_beta_backup_fingerprint.sql' EXIT");
   });
 });

@@ -1,6 +1,6 @@
 -- Load the real temporary read-only backup predicates, before these fixtures.
 \o /dev/null
-\ir ../../infra/sql/private-beta-recovery-fingerprint.sql
+\ir helpers/private_beta_backup_fingerprint.sql
 \o
 begin;
 select no_plan();
