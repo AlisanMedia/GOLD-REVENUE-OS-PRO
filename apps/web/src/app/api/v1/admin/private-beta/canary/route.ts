@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserContext } from "@/lib/auth/context";
-import { runPrivateBetaCanaryForOwner } from "@/lib/polat/private-beta-canary";
+import { CanaryFreshMfaRequiredError, runPrivateBetaCanaryForOwner } from "@/lib/polat/private-beta-canary";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -25,5 +25,8 @@ export async function POST(request: Request) {
     if (generation !== null) expectedGeneration = Number(z.string().regex(/^[1-9][0-9]{0,8}$/u).parse(generation));
   } catch { return response({ error: "INVALID_CANARY_REQUEST" }, 400); }
   try { return response(await runPrivateBetaCanaryForOwner({ tenantId: selected.id, programId: program, ...(expectedGeneration !== undefined ? { expectedGeneration } : {}) }), 200); }
-  catch { return response({ error: "CANARY_BLOCKED_OR_REVIEW_REQUIRED", retry: "NONE", financial_authority: "NONE" }, 409); }
+  catch (error) {
+    if (error instanceof CanaryFreshMfaRequiredError) return response({ error: "CANARY_MFA_REQUIRED", retry: "NONE", financial_authority: "NONE" }, 403);
+    return response({ error: "CANARY_BLOCKED_OR_REVIEW_REQUIRED", retry: "NONE", financial_authority: "NONE" }, 409);
+  }
 }

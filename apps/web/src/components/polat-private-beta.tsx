@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useActionState, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { AdminDate, AdminDecimal, AdminNumber, useAdminI18n } from "./admin-i18n";
-import { parsePrivateBetaCanaryResult, parsePrivateBetaStarsInvoiceResult, submitPrivateBetaOwnerForm, privateBetaFeedback, privateBetaHref, type PrivateBetaWorkspace, type PrivateBetaNotesPage, type PrivateBetaCanaryResult, type PrivateBetaStarsInvoiceResult, type PrivateBetaBusinessScope, type PrivateBetaBusinessDiscovery } from "../lib/polat/private-beta-read";
+import { PrivateBetaOwnerMfaRequiredError, parsePrivateBetaCanaryResult, parsePrivateBetaStarsInvoiceResult, submitPrivateBetaOwnerForm, privateBetaFeedback, privateBetaHref, type PrivateBetaWorkspace, type PrivateBetaNotesPage, type PrivateBetaCanaryResult, type PrivateBetaStarsInvoiceResult, type PrivateBetaBusinessScope, type PrivateBetaBusinessDiscovery } from "../lib/polat/private-beta-read";
 import { acceptPrivateBetaOperator, configurePrivateBeta, configurePrivateBetaBusiness, controlPrivateBetaFounderTest, createPrivateBetaInvitation, createPrivateBetaTenant, recordPrivateBetaNote, reverifyPrivateBetaBusiness, selectPrivateBetaOpenAI, type BetaActionState } from "../app/admin/polat-operations/beta-actions";
 import type { AdminLocale } from "../lib/i18n/core";
 import { PrivateBetaMfa } from "./private-beta-mfa";
@@ -88,6 +88,8 @@ const copy = {
   ownerTestPassed: ["Gerçek canary yanıtı ve QA başarılı. Fatura hâlâ bilinmiyor. Kişisel sohbet testi yerel kullanım bütçesiyle açılabilir; Telegram bağlantısı ayrıca doğrulanmalıdır. Arkadaşlar ve ticari gönderimler açılmaz.", "The real canary response and QA passed. Actual billing remains unknown. Personal conversation testing may use the local usage budget once Telegram connectivity is verified. Friends and commercial outreach remain disabled."],
   canaryHeld: ["Canary QA tarafından durduruldu. Güvenli başka bir yanıtla değiştirilmedi ve test aşaması ilerletilmedi. Gerçek deneme kaydını inceleyin; otomatik tekrar yok.", "QA held the canary. No substitute safe response was used and the test stage was not advanced. Inspect the actual attempt evidence; there is no automatic retry."],
   canaryReview: ["İstek engellendi veya sonucu doğrulanamadı. Yeni bir istek göndermeden önce kalıcı deneme/muhasebe kayıtlarını inceleyip sayfayı yenileyin. Belirsiz maliyet sıfır sayılmaz.", "The request was blocked or its outcome could not be confirmed. Inspect durable attempt/accounting evidence and refresh before any new request. Unknown cost is not zero."],
+  canaryMfa: ["Bu işlem için güncel MFA doğrulaması gerekiyor. Bu tıklamada model isteği başlatılmadı.", "This operation requires a current MFA verification. This click did not initiate a model request."],
+  canaryMfaLink: ["Mevcut MFA ile yeniden doğrula", "Reauthenticate with existing MFA"],
   canaryOutput: ["QA'dan geçen gerçek canary yanıtı", "Actual QA-approved canary response"],
   canaryEvidence: ["Canary kaynak kanıtı", "Canary source evidence"],
   providerResponse: ["Sağlayıcı yanıt kimliği", "Provider response ID"],
@@ -194,7 +196,7 @@ function ActionForm({ action, children, repeatable = true }: { action: (previous
 
 function CanaryControl({ program }: { program: NonNullable<PrivateBetaWorkspace["program"]> }) {
   const { text } = useCopy(); const attempted = useRef(false);
-  const [phase, setPhase] = useState<"IDLE" | "PENDING" | "REVIEW" | "RESULT">("IDLE");
+  const [phase, setPhase] = useState<"IDLE" | "PENDING" | "REVIEW" | "MFA_REQUIRED" | "RESULT">("IDLE");
   const [result, setResult] = useState<PrivateBetaCanaryResult | null>(null);
   // The fixed synthetic Hi canary needs a window/retention and real account
   // evidence. Human staffing remains required by SQL before conversation stages.
@@ -208,12 +210,13 @@ function CanaryControl({ program }: { program: NonNullable<PrivateBetaWorkspace[
       if (program.stage === "DRAFT") body.set("expected_generation", program.generation);
       const raw = await submitPrivateBetaOwnerForm("/api/v1/admin/private-beta/canary", body);
       setResult(parsePrivateBetaCanaryResult(raw, program.id, prepareOwnerTest ? null : program.repository_sha)); setPhase("RESULT");
-    } catch { setPhase("REVIEW"); }
+    } catch (error) { setPhase(error instanceof PrivateBetaOwnerMfaRequiredError ? "MFA_REQUIRED" : "REVIEW"); }
   }
   return <section className="form-panel" aria-labelledby="private-beta-canary-heading"><h3 id="private-beta-canary-heading">{text("canaryRun")}</h3><p>{text("canaryText")}</p>
     {!enabled && <p className="warning-box">{text("canaryBlocked")}</p>}
     <form action="/api/v1/admin/private-beta/canary" method="post" onSubmit={submit}><input type="hidden" name="program_id" value={program.id}/>{program.stage === "DRAFT" && <input type="hidden" name="expected_generation" value={program.generation}/>}<button className="primary-button" type="submit" disabled={!enabled || phase !== "IDLE"}>{text("canaryRun")}</button></form>
     {phase === "PENDING" && <p role="status">{text("canaryPending")}</p>}{phase === "REVIEW" && <p className="warning-box" role="alert">{text("canaryReview")}</p>}
+    {phase === "MFA_REQUIRED" && <p className="warning-box" role="alert">{text("canaryMfa")} <a href="#private-beta-mfa-title">{text("canaryMfaLink")}</a></p>}
     {result && <><p className="warning-box" role="status">{text(result.status === "CANARY_HELD" ? "canaryHeld" : result.status === "CANARY_OWNER_TEST_PASSED" ? "ownerTestPassed" : "canaryAccounting")}</p>
       {result.response_preview !== null && <section className="detail-card"><h4>{text("canaryOutput")}</h4><p lang="en">{result.response_preview}</p></section>}
       <dl className="polat-facts"><div><dt>{text("tokens")}</dt><dd>{result.input_tokens === null ? text("unknown") : <AdminNumber value={result.input_tokens}/>} / {result.output_tokens === null ? text("unknown") : <AdminNumber value={result.output_tokens}/>}</dd></div><div><dt>{text("actual")}</dt><dd>{text("unknown")}</dd></div></dl>

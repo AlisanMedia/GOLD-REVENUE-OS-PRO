@@ -8,7 +8,7 @@ import { PolatOperationsView } from "../../apps/web/src/components/polat-operati
 import { PolatPrivateBeta, privateBetaText } from "../../apps/web/src/components/polat-private-beta";
 import { polatOperations } from "../../apps/web/src/lib/polat/admin";
 import { polatSearchSchema } from "../../apps/web/src/lib/polat/read-model";
-import { parsePrivateBetaCanaryResult, parsePrivateBetaBusinessScope, parsePrivateBetaBusinessDiscovery, parsePrivateBetaStarsInvoiceResult, submitPrivateBetaOwnerForm, parsePrivateBetaOperators, parsePrivateBetaWorkspace, privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, privateBetaFeedback, privateBetaHref } from "../../apps/web/src/lib/polat/private-beta-read";
+import { PrivateBetaOwnerMfaRequiredError, parsePrivateBetaCanaryResult, parsePrivateBetaBusinessScope, parsePrivateBetaBusinessDiscovery, parsePrivateBetaStarsInvoiceResult, submitPrivateBetaOwnerForm, parsePrivateBetaOperators, parsePrivateBetaWorkspace, privateBetaCursor, privateBetaNotesCursor, parsePrivateBetaNotesPage, privateBetaFeedback, privateBetaHref } from "../../apps/web/src/lib/polat/private-beta-read";
 import { acceptPrivateBetaOperator, configurePrivateBeta, configurePrivateBetaBusiness, controlPrivateBetaFounderTest, createPrivateBetaInvitation, createPrivateBetaTenant, recordPrivateBetaNote, reverifyPrivateBetaBusiness, selectPrivateBetaOpenAI } from "../../apps/web/src/app/admin/polat-operations/beta-actions";
 import { messageDeliveryLabel, manualReplyResult } from "../../apps/web/src/lib/escalations/manual-reply";
 
@@ -302,6 +302,20 @@ describe("OpenAI and founder-only account setup reuse authenticated private-beta
 });
 
 describe('founder setup feedback and draft canary surface', () => {
+  it("recognizes only the bounded exact canary MFA response and never retries it", async () => {
+    const network = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ error: "CANARY_MFA_REQUIRED", retry: "NONE", financial_authority: "NONE" }, { status: 403 }));
+    await expect(submitPrivateBetaOwnerForm("/api/v1/admin/private-beta/canary", new URLSearchParams({ program_id: program }), network)).rejects.toBeInstanceOf(PrivateBetaOwnerMfaRequiredError);
+    expect(network).toHaveBeenCalledOnce();
+  });
+  it.each(["status", "endpoint", "type", "extra", "code", "retry", "malformed", "oversize"])("does not label an untrusted or unknown failure as safe MFA reauthentication (%s)", async change => {
+    const value = { error: "CANARY_MFA_REQUIRED", retry: "NONE", financial_authority: "NONE", ...(change === "extra" ? { execution_enabled: true } : {}), ...(change === "code" ? { error: "SYNTHETIC_PRIVATE_DIAGNOSTIC" } : {}), ...(change === "retry" ? { retry: "AUTOMATIC" } : {}) };
+    const raw = change === "malformed" ? "{SYNTHETIC_PRIVATE_DIAGNOSTIC" : change === "oversize" ? "x".repeat(8193) : JSON.stringify(value);
+    const network = vi.fn<typeof fetch>().mockResolvedValue(new Response(raw, { status: change === "status" ? 409 : 403, headers: { "content-type": change === "type" ? "text/plain" : "application/json" } }));
+    const path = change === "endpoint" ? "/api/v1/admin/private-beta/stars-test-invoice" : "/api/v1/admin/private-beta/canary";
+    const values = new URLSearchParams({ program_id: program, ...(change === "endpoint" ? { approved_offer_id: program, command_id: program } : {}) });
+    const error: unknown = await submitPrivateBetaOwnerForm(path, values, network).catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(Error); expect(error).not.toBeInstanceOf(PrivateBetaOwnerMfaRequiredError); expect(String(error)).not.toContain("SYNTHETIC_PRIVATE_DIAGNOSTIC"); expect(network).toHaveBeenCalledOnce();
+  });
   it('maps only the exact fresh-MFA SQL denial to the existing MFA instruction', async () => {
     for (const message of ['PRIVATE_BETA_FRESH_AUTH_REQUIRED', 'PRIVATE_BETA_UNAVAILABLE', 'SYNTHETIC_PRIVATE_DIAGNOSTIC']) {
       mocks.rpc.mockResolvedValue({ data: null, error: { code: '42501', message } });
