@@ -683,3 +683,36 @@ hashes, sequences, independent restore and encrypted backup remain mandatory.
 No program is marked STOPPED/DRAFT, no Auth row changes, no budget or evidence is
 reset, and no pending migration is applied to make backup prerequisites pass.
 The guard uses the already hosted v3 schema and grants no inference authority.
+
+## Rejected response envelope diagnosis
+
+Release41532122156 received the founder's real staging approval, completed the
+encrypted backup and independent restore, applied the reviewed83rd migration,
+and promoted deployment`dpl_EHYY1yW4hGJc44tShNqC5yYGTuFd` at
+`e0b075a008f67d27c48ef01b5cf0ba8494773e65`. Both canonical staging aliases were
+independently read back on that deployment. The later protected canary step failed
+with`OPENAI_UAT_ENVELOPE_INVALID`; this is not a missing review or MFA failure.
+
+The second native attempt`0830e52b-ccb0-4e45-b35e-6fcdd9e5308d` remains UNKNOWN,
+QA NOT_EVALUATED, with its full0.0264704USD reservation. The earlier UNKNOWN is
+also retained; the same program has2 initiated attempts and4.6549184USD reserved.
+The original approval, authentication timestamp and test deadline are unchanged.
+No Business discovery, webhook registration or Telegram send followed this failure.
+
+The old generic decoder error discarded the failed schema field. The raw response
+and provider response ID were not retained, so this evidence cannot identify the
+specific rejected field, prove an output-token shortage or reconstruct a successful
+response. Do not report a guessed cause as observed, retroactively pass the old
+attempt, reset the budget, or rerun the entire release.
+
+Rejected envelopes now record a suffix selected only from the code-owned schema
+field names. An incomplete response can additionally identify a documented output
+limit, message limit, content filter or steering reason. Unknown reason text and
+dynamic metadata keys are never copied into errors. Native result/QA requirements,
+512 output tokens,10 seconds, UNKNOWN reservations and no-retry behavior are
+unchanged. This diagnostic change does not recover a lost response, authorize a
+third canary or establish genuine model/Telegram acceptance.
+
+Official response contract checked2026-11-02:
+https://developers.openai.com/api/reference/resources/responses/methods/create/
+https://github.com/openai/openai-node/blob/master/src/resources/responses/responses.ts
