@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type { ClientRequest, IncomingMessage, RequestOptions } from "node:http";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { disposablePolatDatabase, polatSqlClient } from "../helpers/polat-local-database";
-import { polatClaudeCompleteEnvelope, polatClaudeFixtureWire } from "../helpers/polat-bridge-fixtures";
+import { polatClaudeCompleteEnvelope, polatClaudeFixtureWire, polatSupportFixtureWire } from "../helpers/polat-bridge-fixtures";
 import { polatGuardDigest } from "../../packages/domain/src/polat-experiment-journal";
 import { preparePolatConversation, assessPolatDraft } from "../../packages/domain/src/polat-conversation";
 import { polatFixture } from "../../packages/domain/src/polat-conversation.fixtures";
@@ -122,6 +122,7 @@ describe.runIf(Boolean(connection))("private beta actual native runtime with dis
     expect(service(`public.private_beta_invite_accept_v1('${tenant}','${fake.bot.split(":")[0]}','${fake.chat}','${fake.chat}','/agree')`)).toMatchObject({ status: "ACTIVE" });
     expect(service(`public.private_beta_bind_conversation_v1('${tenant}','${accepted.participant_id}','${initial.conversation_id}')`)).toEqual({ bound: true });
     expect(fake.telegramCalls).toBe(1);
+    fake.wire = polatSupportFixtureWire();
     return scope;
   }
   function retire(s: Pick<Scope, "tenant">) {
@@ -136,7 +137,7 @@ describe.runIf(Boolean(connection))("private beta actual native runtime with dis
       const first = inbound(s, "Hi", 2);
       expect(await work(s, "first")).toMatchObject({ tasksClaimed: 1, tasksFailed: 0 });
       expect(fake.calls).toBe(2); expect(fake.telegramCalls).toBe(2);
-      expect(aiMessages(s)).toEqual([expect.objectContaining({ status: "sent", provider_id: "1002", body: "Hi! I'm Polat's AI assistant. What would you like to know?" })]);
+      expect(aiMessages(s)).toEqual([expect.objectContaining({ status: "sent", provider_id: "1002", body: "Hi! What would you like to know?" })]);
       const wire = polatClaudeFixtureWire(); wire.classification = "ACKNOWLEDGEMENT"; wire.proposed_response = "You're welcome.";
       wire.semantic_response = { response_goal: "Acknowledge the thanks", key_points: ["You're welcome."], factual_grounding: { classification: "unknown", evidence_refs: [], missing_information: ["approved_scoped_fact"] } };
       wire.claims = [{ text: "You're welcome.", kind: "social", speech_act: "ACKNOWLEDGEMENT", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null }]; fake.wire = wire;
@@ -145,7 +146,7 @@ describe.runIf(Boolean(connection))("private beta actual native runtime with dis
       const customer = db.query(`select to_jsonb(customer_id)from public.conversations where id='${s.conversation}'`) as string;
       const source = privateBetaSourceSchema.parse(service(`public.private_beta_source_scope_v1('${s.tenant}','${s.conversation}','${second.event_id}')`));
       const built = await buildAgentContext({ tenant_id: s.tenant, customer_id: customer, conversation_id: s.conversation, source_event_id: second.event_id }, { polatPrivateBeta: source });
-      expect(built.manifest.private_beta_history_basis).toBe("PROVIDER_ACK_ONLY"); expect(built.context.recentMessages.some(m => m.direction === "outbound" && m.content === "Hi! I'm Polat's AI assistant. What would you like to know?")).toBe(true);
+      expect(built.manifest.private_beta_history_basis).toBe("PROVIDER_ACK_ONLY"); expect(built.context.recentMessages.some(m => m.direction === "outbound" && m.content === "Hi! What would you like to know?")).toBe(true);
       inbound(s, "Hi", 2); expect(await work(s, "duplicate")).toMatchObject({ tasksClaimed: 0 });
       expect(fake.calls).toBe(3); expect(fake.telegramCalls).toBe(3);
       const admin = owner(s, `public.admin_private_beta_workspace_v1('${s.tenant}')`) as { program: unknown; participants: unknown[]; attempts: unknown[] };
@@ -172,6 +173,36 @@ describe.runIf(Boolean(connection))("private beta actual native runtime with dis
       await work(s, "human-race"); expect(fake.calls).toBe(2); expect(fake.telegramCalls).toBe(1); expect(aiMessages(s)).toHaveLength(0);
       expect(db.query(`select jsonb_build_object('mode',runtime_mode,'human',human_takeover)from public.conversations where id='${s.conversation}'`)).toEqual({ mode: "HUMAN_TAKEOVER", human: true });
       await work(s, "restart"); expect(fake.calls).toBe(2); expect(fake.telegramCalls).toBe(1);
+    } finally { retire(s); }
+  }, 60000);
+
+  it("holds the forbidden AI-assistant introduction in the native journal without sending or regenerating it", async () => {
+    const s = await setup(base + 6); try {
+      fake.wire = polatClaudeFixtureWire();
+      inbound(s, "Hi", 2); await work(s, "identity-held");
+      expect(fake.calls).toBe(2); expect(fake.telegramCalls).toBe(1); expect(aiMessages(s)).toHaveLength(0);
+      expect(db.query(`select to_jsonb(customer_facing_blocked)from public.conversation_quality_evaluations where tenant_id='${s.tenant}'limit 1`)).toBe(true);
+      expect(db.query(`select to_jsonb(evidence#>>'{original_output,proposed_response}')from public.quality_stage_evidence where tenant_id='${s.tenant}'limit 1`)).toBe(polatClaudeFixtureWire().proposed_response);
+      await work(s, "identity-restart"); expect(fake.calls).toBe(2); expect(fake.telegramCalls).toBe(1);
+    } finally { retire(s); }
+  }, 60000);
+
+  it("answers a direct identity question truthfully using the existing authoritative identity records", async () => {
+    const s = await setup(base + 7); try {
+      const wire = polatSupportFixtureWire();
+      const identity = "This is Polat VIP's automated support.", denial = "I'm not Polat.";
+      wire.classification = "IDENTITY";
+      wire.proposed_response = identity + " " + denial;
+      wire.semantic_response = { response_goal: "Answer the identity question truthfully", key_points: [identity, denial], factual_grounding: { classification: "known_from_system", evidence_refs: ["EVIDENCE_COMMERCIAL_1", "EVIDENCE_COMMERCIAL_2"], missing_information: [] } };
+      wire.claims = [
+        { text: identity, kind: "fact", speech_act: "IDENTITY_RESPONSE", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: ["EVIDENCE_COMMERCIAL_1"], action_category: null },
+        { text: denial, kind: "fact", speech_act: "BUSINESS_FACT", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: ["EVIDENCE_COMMERCIAL_2"], action_category: null },
+      ];
+      fake.wire = wire;
+      inbound(s, "Are you Polat?", 2);
+      expect(await work(s, "truthful-identity")).toMatchObject({ tasksClaimed: 1, tasksFailed: 0 });
+      expect(fake.calls).toBe(2); expect(fake.telegramCalls).toBe(2);
+      expect(aiMessages(s)).toEqual([expect.objectContaining({ status: "sent", body: wire.proposed_response })]);
     } finally { retire(s); }
   }, 60000);
 

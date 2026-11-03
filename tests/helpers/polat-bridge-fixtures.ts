@@ -9,6 +9,15 @@ export function polatClaudeFixtureWire() {return {
     {text:"I'm Polat's AI assistant.",kind:"fact",speech_act:"BUSINESS_FACT",capability:null,grounding:"KNOWN_FROM_SYSTEM",evidence_refs:["EVIDENCE_COMMERCIAL_1"],action_category:null},
     {text:"What would you like to know?",kind:"question",speech_act:"QUESTION",capability:null,grounding:"UNKNOWN",evidence_refs:[],action_category:null}],memory_proposals:[],proposed_tool_calls:[],
 };}
+/** Current customer greeting; legacy canary/accepted fixture output stays above. */
+export function polatSupportFixtureWire() {
+  const output = polatClaudeFixtureWire();
+  output.proposed_response = "Hi! What would you like to know?";
+  output.semantic_response.key_points = ["Hi!", "What would you like to know?"];
+  output.semantic_response.factual_grounding.evidence_refs = [];
+  output.claims = [output.claims[0]!, output.claims[2]!];
+  return output;
+}
 export function polatClaudeCompleteEnvelope(extra:Record<string,unknown>={}) {return {
   id:"msg_bridge_fixture_001",type:"message",role:"assistant",model:POLAT_CLAUDE_MODEL,
   container:null,diagnostics:{cache_miss_reason:{type:"messages_changed",cache_missed_input_tokens:10}},stop_details:null,stop_reason:"end_turn",stop_sequence:null,
