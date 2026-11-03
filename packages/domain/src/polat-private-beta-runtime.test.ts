@@ -42,7 +42,8 @@ describe("native Polat private-beta profile and shared Phase7 policy", () => {
   });
   it("honors Turkish customer language and does not read an Admin locale", () => {
     const x = setup("Selam", "tr"), uat = preparePolatPrivateBetaRuntime(x.context, run, x.scope);
-    expect(uat.request.styleProfile?.language).toBe("tr"); expect(uat.evidence[0]?.statement).toBe("Polat VIP destek.");
+    expect(uat.request.styleProfile?.language).toBe("tr"); expect(uat.evidence[0]?.statement).toBe("Ben Polat’ın yapay zekâ asistanıyım.");
+    expect(uat.disclosureRequired).toBe(false);
   });
   it("preserves bounded prior conversation context without invented familiarity", () => {
     const x = setup("Thanks");

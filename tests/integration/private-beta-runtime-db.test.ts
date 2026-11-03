@@ -187,6 +187,25 @@ describe.runIf(Boolean(connection))("private beta actual native runtime with dis
     } finally { retire(s); }
   }, 60000);
 
+  it("answers a direct identity question truthfully using the existing authoritative identity records", async () => {
+    const s = await setup(base + 7); try {
+      const wire = polatSupportFixtureWire();
+      const identity = "This is Polat VIP's automated support.", denial = "I'm not Polat.";
+      wire.classification = "IDENTITY";
+      wire.proposed_response = identity + " " + denial;
+      wire.semantic_response = { response_goal: "Answer the identity question truthfully", key_points: [identity, denial], factual_grounding: { classification: "known_from_system", evidence_refs: ["EVIDENCE_COMMERCIAL_1", "EVIDENCE_COMMERCIAL_2"], missing_information: [] } };
+      wire.claims = [
+        { text: identity, kind: "fact", speech_act: "IDENTITY_RESPONSE", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: ["EVIDENCE_COMMERCIAL_1"], action_category: null },
+        { text: denial, kind: "fact", speech_act: "BUSINESS_FACT", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: ["EVIDENCE_COMMERCIAL_2"], action_category: null },
+      ];
+      fake.wire = wire;
+      inbound(s, "Are you Polat?", 2);
+      expect(await work(s, "truthful-identity")).toMatchObject({ tasksClaimed: 1, tasksFailed: 0 });
+      expect(fake.calls).toBe(2); expect(fake.telegramCalls).toBe(2);
+      expect(aiMessages(s)).toEqual([expect.objectContaining({ status: "sent", body: wire.proposed_response })]);
+    } finally { retire(s); }
+  }, 60000);
+
   it("invalidates a pending AI reply after numeric-identity opt-out and denies subsequent work", async () => {
     const s = await setup(base + 4); try {
       inbound(s, "Hi", 2); fake.beforeResponse = () => { expect(service(`public.private_beta_invite_accept_v1('${s.tenant}','${fake.bot.split(":")[0]}','${fake.chat}','${fake.chat}','/stop')`)).toMatchObject({ status: "REVOKED" }); };

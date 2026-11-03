@@ -56,23 +56,32 @@ describe("Polat customer identity, no unsolicited AI-assistant introduction", ()
     const p = profile(mode), greeting = polatSupportFixtureWire();
     expect(p.disclosureRequired).toBe(false);
     expect(p.request.systemPolicy).toContain("Do not volunteer an AI, bot or automated-system introduction");
-    expect(JSON.stringify(p.evidence)).not.toMatch(/AI assistant|yapay zekâ asistan/u);
+    expect(p.evidence[0]?.id).toBe(mode === "campaign" ? "polat:campaign:identity:v1" : "polat:uat:identity:v1");
     expect(p.assess(greeting).action).toBe("SAFE_PREVIEW");
     greeting.proposed_response = "I'm Polat's AI assistant.";
     expect(p.assess(greeting).reasons).toContain("POLAT_AI_INTRODUCTION_FORBIDDEN");
     greeting.proposed_response = "I'm Polat. I remember you.";
     expect(p.assess(greeting).reasons).toContain("POLAT_IMPERSONATION_OR_FAMILIARITY");
   });
-  it.each(["campaign", "beta"] as const)("requires an honest identity answer through %s QA, without the forbidden introduction", mode => {
-    const p = profile(mode, "Are you Polat?"), output = polatSupportFixtureWire();
+  it.each([["campaign", "en"], ["beta", "en"], ["campaign", "tr"], ["beta", "tr"]] as const)("requires an honest identity answer through %s QA in %s, without the forbidden introduction", (mode, language) => {
+    const p = profile(mode, language === "tr" ? "Sen Polat mısın?" : "Are you Polat?", language), output = polatSupportFixtureWire();
     expect(p.disclosureRequired).toBe(true);
     expect(p.assess(output).reasons).toContain("POLAT_IDENTITY_TRUTH_REQUIRED");
-    const facts = p.evidence.filter(e => e.id.includes(":automation:") || e.id.includes(":denial:"));
+    // Describe the existing authoritative AI identity fact as automated support;
+    // do not substitute an unregistered identity record or copy its old wording.
+    const facts = p.evidence.slice(0, 2).map((fact, index) => index === 0 ? { ...fact, statement: polatSupportIdentity[language].automation } : fact);
     output.proposed_response = facts.map(f => f.statement).join(" ");
     output.semantic_response = { response_goal: "Answer the identity question truthfully", key_points: facts.map(f => f.statement), factual_grounding: { classification: "known_from_system", evidence_refs: facts.map(f => f.id), missing_information: [] } };
-    output.claims = facts.map(f => ({ text: f.statement, kind: "fact", speech_act: "BUSINESS_FACT", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: [f.id], action_category: null }));
+    output.claims = facts.map((f, index) => ({ text: f.statement, kind: "fact", speech_act: index === 0 ? "IDENTITY_RESPONSE" : "BUSINESS_FACT", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: [f.id], action_category: null }));
     expect(p.assess(output).reasons).toEqual([]);
     expect(p.assess(output).action).toBe("SAFE_PREVIEW");
+    const unsupported = structuredClone(output);
+    unsupported.claims[0]!.evidence_refs = [];
+    expect(p.assess(unsupported).action).not.toBe("SAFE_PREVIEW");
+    unsupported.claims[0]!.evidence_refs = [facts[0]!.id];
+    unsupported.claims[0]!.text += " Your payment is verified and VIP access is active.";
+    unsupported.proposed_response = unsupported.claims.map(claim => claim.text).join(" ");
+    expect(p.assess(unsupported).action).not.toBe("SAFE_PREVIEW");
   });
   it.each(["campaign", "beta"] as const)("preserves financial/support and injection classification alongside a direct identity question in %s", mode => {
     const refund = profile(mode, "Are you Polat? I need a refund.");
