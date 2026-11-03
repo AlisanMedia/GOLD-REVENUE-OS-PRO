@@ -22,11 +22,15 @@ describe("Polat customer identity, no unsolicited AI-assistant introduction", ()
     "أنا مساعد بولات بالذكاء الاصطناعي.", "Я ИИ-помощник Полата.",
     "I'm an AI assistant.", "As an AI assistant, I can help.", "Ben bir yapay zekâ asistanıyım.",
     "أنا مساعد يعمل بالذكاء الاصطناعي.", "Я ИИ-ассистент.",
+    "I’m Polat’s A.I. assistant.", "Ben   Polat'ın yapay  zekâ asistanıyım.",
+    "I'm Polat's AI-powered assistant.", "I'm\nPolat's AI assistant.",
+    "I'm Polat's A\u200bI assistant.",
   ])("holds the forbidden introduction even if identity was asked: %s", text => {
     for (const asked of [false, true]) expect(assessPolatSupportIdentity(text, asked)).toContain("POLAT_AI_INTRODUCTION_FORBIDDEN");
   });
   it.each([
     "Are you Polat?", "Who are you?", "Are you a human?", "Are you an AI?", "Is this automated?",
+    "Are you AI?", "Are you human?", "Sen bir AI asistanı mısın?", "AI asistanı mısın?",
     "Sen Polat mısın?", "Bot musun?", "Yapay zeka mısın?", "Kimle konuşuyorum?",
     "من أنت؟", "هل أنت روبوت؟", "Кто вы?", "Ты бот?",
   ])("recognizes a direct identity question: %s", text => expect(isPolatSupportIdentityQuestion(text)).toBe(true));

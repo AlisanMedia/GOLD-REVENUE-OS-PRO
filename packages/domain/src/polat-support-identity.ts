@@ -8,14 +8,14 @@ export const polatSupportIdentity = {
   ru: { brand: "Поддержка Polat VIP.", automation: "Это автоматическая поддержка Polat VIP.", denial: "Я не Полат." },
 } as const;
 
-const normalize = (text: string) => text.normalize("NFKC").replace(/[’‘`]/gu, "'").replaceAll("İ", "i").toLowerCase();
+const normalize = (text: string) => text.normalize("NFKC").replace(/\p{Cf}/gu, "").replace(/[’‘`]/gu, "'").replace(/\ba\.\s*i\./giu, "ai ").replace(/[-‐‑‒–—]/gu, " ").replace(/\s+/gu, " ").replaceAll("İ", "i").toLowerCase();
 const automation = /\bautomated support\b|\bautomatic support\b|\b(?:i'm|i am|this is) (?:an? )?(?:ai|chatbot|bot)\b|otomatik (?:destek|sistem)|(?:ben|bu).{0,15}yapay zek[aâ]|(?:الدعم|دعم|نظام).{0,15}(?:الآلي|آلي)|автоматическ\p{L}* (?:поддержк|систем)/iu;
 const prohibitedIntroduction = /polat['\s]*s.{0,12}(?:ai|artificial intelligence)[-\s]*(?:powered[-\s]*)?assistant|(?:ai|artificial intelligence).{0,15}assistant.{0,15}(?:for|of) polat|polat.{0,12}(?:ai|yapay zek[aâ]).{0,15}asistan|(?:مساعد|مساعدة).{0,20}بولات.{0,25}(?:ذكاء|آلي)|(?:مساعد|مساعدة).{0,20}(?:ذكاء|آلي).{0,25}بولات|(?:ии|искусственн).{0,20}(?:помощник|ассистент).{0,20}полат|(?:помощник|ассистент).{0,20}полат.{0,20}(?:ии|искусственн)/iu;
 const assistantSelfTitle = /\b(?:i'm|i am|as an?|this is).{0,30}(?:ai|artificial intelligence)[-\s]+assistant|(?:ben|bu).{0,25}(?:ai|yapay zek[aâ]).{0,15}asistan|أنا.{0,20}(?:مساعد|مساعدة).{0,30}ذكاء|я.{0,16}(?:ии|искусственн).{0,20}(?:помощник|ассистент)/iu;
 const falseHumanClaim = /\b(?:i'm|i am) (?:a |an |a real )?(?:human|real person)\b|\b(?:i'm|i am) not (?:an? )?(?:ai|bot|automated)\b|\b(?:ben )?(?:gerçek bir insanım|insanım|bot değilim|yapay zek[aâ] değilim)\b|أنا (?:إنسان|بشر)|я (?:настоящий человек|человек|не бот)/iu;
 
 export function isPolatSupportIdentityQuestion(text: string): boolean {
-  return /(?:are you|is this) (?:really |actually |the real )?(?:polat|a human|an? ai|a bot|automated)|who are you|who am i (?:speaking|talking) to|sen (?:polat|kimsin|insan|yapay)|(?:polat|bot|insan|yapay zek[aâ]|otomatik).{0,12}m[ıiuü]s[ıiuü]n|kimle (?:konuş|görüş)|من أنت|هل أنت.{0,20}(?:بولات|إنسان|روبوت|ذكاء|آلي)|кто (?:ты|вы)|(?:ты|вы).{0,12}(?:полат|бот|человек)/iu.test(normalize(text));
+  return /(?:are you|is this) (?:really |actually |the real )?(?:polat|(?:an? )?(?:human|ai|bot)|automated)|who are you|who am i (?:speaking|talking) to|sen (?:polat|kimsin|insan|yapay|(?:bir )?ai)|(?:polat|bot|insan|\bai\b|yapay zek[aâ]|otomatik).{0,20}m[ıiuü]s[ıiuü]n|kimle (?:konuş|görüş)|من أنت|هل أنت.{0,20}(?:بولات|إنسان|روبوت|ذكاء|آلي)|кто (?:ты|вы)|(?:ты|вы).{0,12}(?:полат|бот|человек)/iu.test(normalize(text));
 }
 
 export function polatSupportIdentityInstructions(identityAsked: boolean): string {
