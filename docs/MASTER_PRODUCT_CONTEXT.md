@@ -5,6 +5,18 @@ Living continuation index, initially reconstructed on **2026-10-16 UTC** and upd
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
 
 
+## 3 November2026 — owner-selected customer identity copy
+
+The owner explicitly removed the unsolicited “Polat’s AI assistant” introduction
+from genuine campaign and private-beta customer replies. The current shared
+`polat-support-identity-v1` prompt/QA policy uses neutral Polat VIP support branding,
+blocks the prohibited wording, and requires truthful automated-support answers to
+direct identity questions. Impersonation, false human claims, opt-out, takeover,
+source grounding, payment/VIP evidence and native budget controls remain enforced.
+Historical fixtures, canary plans, participation notices and old evidence are not
+rewritten. No migration, new canary, customer send or commercial activation is
+implied by this source change; publication/genuine acceptance are separate.
+
 ## 31 October2026 — genuine Stars receipt integration
 
 The [existing financial/VIP bridge](../infra/runbooks/stars-genuine-receipt-bridge.md)

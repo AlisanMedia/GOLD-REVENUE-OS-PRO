@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { disposablePolatDatabase, polatSqlClient } from "../helpers/polat-local-database";
-import { polatClaudeFixtureWire } from "../helpers/polat-bridge-fixtures";
+import { polatClaudeFixtureWire, polatSupportFixtureWire } from "../helpers/polat-bridge-fixtures";
 import { polatGuardDigest } from "../../packages/domain/src/polat-experiment-journal";
 
 // Real independent PG connections + native worker/context/QA. Every external socket
@@ -35,7 +35,7 @@ vi.mock("node:https", () => ({ request: (options: RequestOptions, callback: (r: 
       callback(response as unknown as IncomingMessage);
       if (fake.modelStatus !== 200) return;
       response.emit("data", Buffer.from(JSON.stringify({ id: `resp_campaign_${fake.calls}`, object: "response", model: "gpt-6.1-sol", status: "completed", created_at: Math.floor(Date.now() / 1000),
-        output: [{ type: "message", id: `msg_campaign_${fake.calls}`, role: "assistant", status: "completed", content: [{ type: "output_text", text: JSON.stringify(typeof fake.wire === "function" ? fake.wire(body) : fake.wire ?? polatClaudeFixtureWire()), annotations: [] }] }],
+        output: [{ type: "message", id: `msg_campaign_${fake.calls}`, role: "assistant", status: "completed", content: [{ type: "output_text", text: JSON.stringify(typeof fake.wire === "function" ? fake.wire(body) : fake.wire ?? polatSupportFixtureWire()), annotations: [] }] }],
         usage: { input_tokens: 37, output_tokens: 121, total_tokens: 158 } })));
       fake.afterModel?.(); response.emit("end");
     });
@@ -135,14 +135,15 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     expect(claimed.data).toHaveLength(1);
     const scope = await fake.db!.rpc("campaign_source_scope_v1", { target_tenant_id: s.tenant, target_conversation_id: source.conversation_id, target_event_id: second.event_id });
     const context = await buildAgentContext({ tenant_id: s.tenant, customer_id: id(s.n, "5000"), conversation_id: source.conversation_id, source_event_id: second.event_id }, { polatCampaign: scope.data });
-    expect(context.context.recentMessages.some(m => m.direction === "outbound" && m.content.includes("Polat"))).toBe(true);
+    expect(context.context.recentMessages.some(m => m.direction === "outbound" && m.content === "Hi! What would you like to know?")).toBe(true);
   }, 30000);
-  it.each(["MODEL_UNKNOWN", "TELEGRAM_UNKNOWN", "QA_UNSAFE", "PERMISSION_LOST", "STOP_RACE", "OPT_OUT_RACE"])("%s never becomes fixture success or a blind retry", async (kind) => {
-    const n = 97110 + ["MODEL_UNKNOWN", "TELEGRAM_UNKNOWN", "QA_UNSAFE", "PERMISSION_LOST", "STOP_RACE", "OPT_OUT_RACE"].indexOf(kind);
+  it.each(["MODEL_UNKNOWN", "TELEGRAM_UNKNOWN", "QA_UNSAFE", "AI_INTRODUCTION", "PERMISSION_LOST", "STOP_RACE", "OPT_OUT_RACE"])("%s never becomes fixture success or a blind retry", async (kind) => {
+    const n = 97110 + ["MODEL_UNKNOWN", "TELEGRAM_UNKNOWN", "QA_UNSAFE", "AI_INTRODUCTION", "PERMISSION_LOST", "STOP_RACE", "OPT_OUT_RACE"].indexOf(kind);
     const s = setup(n + seed), source = inbound(s);
     if (kind === "MODEL_UNKNOWN") fake.timeout = true;
     if (kind === "TELEGRAM_UNKNOWN") fake.sendUnknown = true;
     if (kind === "PERMISSION_LOST") fake.permission = false;
+    if (kind === "AI_INTRODUCTION") fake.wire = polatClaudeFixtureWire();
     if (kind === "QA_UNSAFE") { const wire = polatClaudeFixtureWire(); wire.proposed_response = "I guarantee trading profits and your VIP is active."; fake.wire = wire; }
     if (kind === "STOP_RACE") fake.afterModel = () => db.execute(`update private.sales_campaigns set state='STOPPED',revision=revision+1 where id='${s.campaign}';`);
     if (kind === "OPT_OUT_RACE") fake.afterModel = () => { fake.afterModel = null; inbound(s, "Do not contact me again", 3); };
@@ -226,7 +227,7 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     vi.stubEnv("POLAT_STARS_MERCHANT_BOT_TOKEN",token);vi.stubEnv("POLAT_STARS_MERCHANT_WEBHOOK_SECRET",secret);
     const previous = fetch;let checkouts=0;
     vi.stubGlobal("fetch",vi.fn<typeof fetch>().mockImplementation(async(url,init)=>{if(url===`https://api.telegram.org/bot${token}/getMe`)return Response.json({ok:true,result:{id:Number(merchant),is_bot:true}});if(url===`https://api.telegram.org/bot${token}/createInvoiceLink`){checkouts++;return Response.json({ok:true,result:'https://t.me/$synthetic_native_checkout'});}return previous(url,init);}));
-    fake.wire=(body:string)=>{const data=JSON.parse(body)as{input:{content:{text:string}[]}[]};const context=JSON.parse(data.input[1]!.content[0]!.text)as{context:{approved_commercial_facts:{statement:string;evidence_handle:string}[]}};const facts=context.context.approved_commercial_facts;const selected=facts.find(f=>f.statement.startsWith('Telegram Stars checkout:'))??facts.find(f=>f.statement.includes('costs 100.00 XTR'))!;expect(selected).toBeTruthy();const w=polatClaudeFixtureWire();w.classification='PRICE_OR_CHECKOUT';const checkout=selected.statement.startsWith('Telegram Stars checkout:');w.proposed_response=(checkout?'':"I'm Polat's AI assistant. ")+selected.statement;w.claims=[...(checkout?[]:[w.claims[1]!]),{...w.claims[1]!,text:selected.statement,evidence_refs:[selected.evidence_handle]}];w.semantic_response.key_points=[w.proposed_response];w.semantic_response.factual_grounding.evidence_refs=['EVIDENCE_COMMERCIAL_1',selected.evidence_handle];return w;};
+    fake.wire=(body:string)=>{const data=JSON.parse(body)as{input:{content:{text:string}[]}[]};const context=JSON.parse(data.input[1]!.content[0]!.text)as{context:{approved_commercial_facts:{statement:string;evidence_handle:string}[]}};const facts=context.context.approved_commercial_facts;const selected=facts.find(f=>f.statement.startsWith('Telegram Stars checkout:'))??facts.find(f=>f.statement.includes('costs 100.00 XTR'))!;expect(selected).toBeTruthy();const w=polatClaudeFixtureWire();w.classification='PRICE_OR_CHECKOUT';w.proposed_response=selected.statement;w.claims=[{...w.claims[1]!,text:selected.statement,evidence_refs:[selected.evidence_handle]}];w.semantic_response.key_points=[w.proposed_response];w.semantic_response.factual_grounding.evidence_refs=[selected.evidence_handle];return w;};
     const originalDb=fake.db!,checkoutDb:unknown[]=[];fake.db={...originalDb,rpc:async(name,args)=>{const value=await originalDb.rpc(name,args);if(name==="campaign_prepare_purchase_v1")checkoutDb.push(value);return value;}};
     const assessment=vi.spyOn(polatPolicy,"assessPolatResponsePolicy"),checkoutAssessment=vi.spyOn(checkoutModule,"prepareCampaignCheckoutEvidence");
     try {

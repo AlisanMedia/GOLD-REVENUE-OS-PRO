@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { preparePolatPrivateBetaRuntime } from "./polat-private-beta-runtime";
 import { preparePolatConversation, renderPolatFixture } from "./polat-conversation";
 import { polatFixture } from "./polat-conversation.fixtures";
+import { polatSupportFixtureWire } from "../../../tests/helpers/polat-bridge-fixtures";
 
 const run = "11a00000-0000-4000-8000-000000000001";
 function setup(text = "Hi", language: "en" | "tr" = "en") {
@@ -16,9 +17,7 @@ describe("native Polat private-beta profile and shared Phase7 policy", () => {
     expect(uat.request.systemPolicy).toContain("free invited-user beta");
     expect(uat.request.systemPolicy).not.toContain("SYNTHETIC fixture request");
     expect(uat.request.rewriteFeedback).toBeUndefined(); expect(uat.financial_authority).toBe("NONE");
-    const output = renderPolatFixture(x.p);
-    output.claims = output.claims.map(c => ({ ...c, evidence_refs: c.evidence_refs.map(id => id.replace("polat:identity:", "polat:uat:identity:")) }));
-    output.semantic_response.factual_grounding.evidence_refs = output.semantic_response.factual_grounding.evidence_refs.map(id => id.replace("polat:identity:", "polat:uat:identity:"));
+    const output = polatSupportFixtureWire();
     expect(uat.assess(output).action).toBe("SAFE_PREVIEW");
   });
   it("assesses the provided unsafe output, never a replacement safe answer", () => {
@@ -43,7 +42,7 @@ describe("native Polat private-beta profile and shared Phase7 policy", () => {
   });
   it("honors Turkish customer language and does not read an Admin locale", () => {
     const x = setup("Selam", "tr"), uat = preparePolatPrivateBetaRuntime(x.context, run, x.scope);
-    expect(uat.request.styleProfile?.language).toBe("tr"); expect(uat.evidence[0]?.statement).toBe("Ben Polat’ın yapay zekâ asistanıyım.");
+    expect(uat.request.styleProfile?.language).toBe("tr"); expect(uat.evidence[0]?.statement).toBe("Polat VIP destek.");
   });
   it("preserves bounded prior conversation context without invented familiarity", () => {
     const x = setup("Thanks");

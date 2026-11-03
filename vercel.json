@@ -2,6 +2,7 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "git": {
     "deploymentEnabled": {
+      "codex/polat-brand-support-identity": false,
       "codex/openai-envelope-diagnostics": false,
       "codex/canary-error-diagnostics": false,
       "codex/openai-response-metadata": false,

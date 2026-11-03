@@ -4,6 +4,7 @@ import { assertSafeContext,requestFingerprint,ModelProviderError,type AgentConte
 import { CONVERSATION_QUALITY_VERSIONS,conversationModelOutputSchema,directConversation,evaluateConversationQuality,inferStyleProfile,renderNaturalResponse,type ConversationModelOutput } from "./conversation-quality";
 import { detectedCompletedActions,type BackendEvidence,type ResponseClaim } from "./conversation-evidence";
 import { isUnsafeCommercialContent } from "./commercial";
+import { assessPolatSupportIdentity } from "./polat-support-identity";
 
 export const POLAT_PROFILE=Object.freeze({version:"polat-ai-fixture-v2",representative:"Polat",mode:"SYNTHETIC",financial_authority:"NONE",live_operations_authorized:false,default_customer_language:"en",maximum_reply_characters:600});
 export const polatIdentity={en:"I'm Polat's AI assistant.",tr:"Ben Polat’ın yapay zekâ asistanıyım.",ar:"أنا مساعد بولات بالذكاء الاصطناعي.",ru:"Я ИИ-помощник Полата."} as const;
@@ -64,14 +65,17 @@ export type PreparedPolatConversation=ReturnType<typeof preparePolatConversation
 export function assessPolatDraft(p:PreparedPolatConversation,raw:unknown){
  return assessPolatResponsePolicy({request:p.request,tenant_id:p.input.tenant_id,conversation_id:p.input.conversation_id,boundary:p.input.boundary,runtime_mode:p.input.runtime_mode,contactability:p.input.contactability,intent:p.intent,disclosureRequired:p.disclosureRequired,evidence:p.evidence},raw);
 }
-/** The same Polat identity/QA policy is shared by fixtures and authenticated UAT.
+/** Native QA is shared; genuine customer profiles select the current support
+ * identity policy. The default retains historical fixture/canary semantics.
  * Pure assessment does not grant model, messaging, financial or access authority. */
-export function assessPolatResponsePolicy(p:{request:ModelRequest;tenant_id:string;conversation_id:string;boundary:string;runtime_mode:string;contactability:string;intent:PolatIntent;disclosureRequired:boolean;evidence:BackendEvidence[]},raw:unknown){
+export function assessPolatResponsePolicy(p:{request:ModelRequest;tenant_id:string;conversation_id:string;boundary:string;runtime_mode:string;contactability:string;intent:PolatIntent;disclosureRequired:boolean;evidence:BackendEvidence[];identityPolicy?:"BRAND_SUPPORT"},raw:unknown){
  const output=conversationModelOutputSchema.parse(raw),text=output.proposed_response;
  const qa=evaluateConversationQuality({response:text,output,director:p.request.director!,style:p.request.styleProfile!,recentMessages:p.request.context.recentMessages,tenantId:p.tenant_id,conversationId:p.conversation_id,boundary:p.boundary,backendEvidence:p.evidence});
  const reasons=[...qa.reasons];const identity=polatIdentity[p.request.styleProfile!.language as keyof typeof polatIdentity];
- if(p.disclosureRequired&&(!identity||!text.includes(identity)))reasons.push("POLAT_AI_DISCLOSURE_REQUIRED");
- const withoutDisclosure=Object.values(polatIdentity).reduce((v,s)=>v.replaceAll(s,""),text);
+ if(p.identityPolicy==="BRAND_SUPPORT")reasons.push(...assessPolatSupportIdentity(text,p.disclosureRequired));
+ else if(p.disclosureRequired&&(!identity||!text.includes(identity)))reasons.push("POLAT_AI_DISCLOSURE_REQUIRED");
+ const withoutLegacyDisclosure=Object.values(polatIdentity).reduce((v,s)=>v.replaceAll(s,""),text);
+ const withoutDisclosure=p.identityPolicy==="BRAND_SUPPORT"?withoutLegacyDisclosure.replace(/\b(?:I'm|I am|this is) Polat VIP(?:['’]s)? (?:automated )?(?:customer )?support\b|\bBen Polat VIP destek\b/giu,""):withoutLegacyDisclosure;
  if(/(?:^|[.!?]\s)(?:I'm|I am|this is) Polat\b|\bBen Polat[.!\s]|\bPolat benim\b|we (?:spoke|talked) (?:before|last)|seni hatırlıyorum|daha önce konuşmuştuk/iu.test(withoutDisclosure))reasons.push("POLAT_IMPERSONATION_OR_FAMILIARITY");
  if(text.length>600)reasons.push("POLAT_EXCESSIVE_LENGTH");if((text.match(/\?/gu)?.length??0)>1)reasons.push("POLAT_TOO_MANY_QUESTIONS");
  if(output.proposed_tool_calls.length||output.memory_proposals.length)reasons.push("POLAT_ACTION_PROPOSAL_DENIED");

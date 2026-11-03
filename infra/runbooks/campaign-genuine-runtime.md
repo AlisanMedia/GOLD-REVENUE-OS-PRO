@@ -108,3 +108,17 @@ It cannot write genuine LIVE receipts or authorize financial authority. Genuine
 merchant/product/XTR price, supplier/market/support terms and actual payment/VIP
 acceptance remain separate. No genuine model, Telegram, payment or hosted release
 success may be inferred from this runbook or local tests.
+
+## Current customer identity copy — 2026-11-03
+
+The owner's current instruction removes the unsolicited “Polat’s AI assistant”
+introduction in campaign and private-beta customer replies. Both native profiles
+use the shared `polat-support-identity-v1` prompt and existing Phase7 QA entry point.
+A neutral first greeting needs no identity introduction. The prohibited wording is
+held even if a model ignores the prompt. Direct identity/automation questions must
+receive truthful automated-support wording, without pretending to be Polat or human.
+The same QA, source/tenant fences, opt-out, takeover, budgets and payment/VIP guards
+still apply. Accepted historical fixture/canary plans and private-beta consent
+notices are unchanged; they are not silently relabelled as the new customer policy.
+This policy change neither repairs the held provider-envelope result nor authorizes
+a third canary, a budget reset or a customer campaign.

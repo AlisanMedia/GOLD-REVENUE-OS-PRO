@@ -12,13 +12,14 @@ function sample(text = "Hi", language: "en" | "tr" = "en") {
   return { context: prepared.request.context, scope };
 }
 describe("native Polat campaign profile", () => {
-  it.each(["en", "tr"] as const)("preserves %s source/context and disclosed identity without generating a fixture reply", language => {
+  it.each(["en", "tr"] as const)("preserves %s source/context with a neutral support identity without generating a fixture reply", language => {
     const { context, scope } = sample(language === "tr" ? "Merhaba" : "Hi", language);
     const profile = preparePolatCampaignRuntime(context, randomUUID(), scope);
     expect(profile.request.context.recentMessages).toEqual(context.recentMessages);
     expect(profile.request.styleProfile?.language).toBe(language);
-    expect(profile.disclosureRequired).toBe(true);
-    expect(profile.evidence[0]?.id).toBe("polat:campaign:identity:v1");
+    expect(profile.disclosureRequired).toBe(false);
+    expect(profile.evidence[0]?.id).toBe("polat:campaign:identity:v2");
+    expect(profile.request.systemPolicy).toContain("Do not volunteer an AI, bot or automated-system introduction");
     expect(profile.request.systemPolicy).toContain("No retries, fallback or QA regeneration");
     expect("provider" in profile).toBe(false);
   });

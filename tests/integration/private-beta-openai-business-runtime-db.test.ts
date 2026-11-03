@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import type { ClientRequest, IncomingMessage, RequestOptions } from "node:http";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { disposablePolatDatabase, polatSqlClient } from "../helpers/polat-local-database";
-import { polatClaudeFixtureWire } from "../helpers/polat-bridge-fixtures";
+import { polatClaudeFixtureWire, polatSupportFixtureWire } from "../helpers/polat-bridge-fixtures";
 import { polatGuardDigest } from "../../packages/domain/src/polat-experiment-journal";
 import { preparePolatConversation, assessPolatDraft } from "../../packages/domain/src/polat-conversation";
 import { polatFixture } from "../../packages/domain/src/polat-conversation.fixtures";
@@ -103,13 +103,14 @@ describe.runIf(Boolean(connection))("combined native Polat OpenAI + BUSINESS + P
     const initial = inbound(partial, "/start [invitation redacted]", 1), s: Scope = { n, tenant, program, owner: user, conversation: initial.conversation_id, participant: accepted.participant_id, claims, account, pricing, accountHash };
     const notice = service(`public.private_beta_queue_notice_v1('${tenant}','${program}','${s.participant}','${s.conversation}','${initial.message_id}','NOTICE')`) as { queued: boolean; message_id: string }; expect(notice.queued).toBe(true); await dispatchPrivateBetaMessage(tenant, program, notice.message_id); expect(fake.sends).toBe(1);
     expect(service(`public.private_beta_invite_accept_v1('${tenant}','${fake.botKey.split(":")[0]}','${fake.founder}','${fake.founder}','/agree')`)).toMatchObject({ status: "ACTIVE" }); inbound(s, "/agree", 2); expect(service(`public.private_beta_bind_conversation_v1('${tenant}','${s.participant}','${s.conversation}')`)).toEqual({ bound: true });
+    fake.wire = polatSupportFixtureWire();
     return s;
   }
   const work = (s: Scope, suffix: string) => runDeterministicWorker({ workerId: "combined-" + s.n + "-" + suffix, conversation: { tenantId: s.tenant, conversationId: s.conversation }, polatUat: { programId: s.program } });
   it("carries two turns through native context/OpenAI/QA/BUSINESS ACK, preserves replay budget, then commits real-pipeline human pause", async () => {
     const s = await setup(base + 1);
     const first = inbound(s, "Hi", 3); expect(await work(s, "first")).toMatchObject({ tasksClaimed: 1, tasksFailed: 0 }); expect(fake.modelCalls).toBe(2); expect(fake.sends).toBe(2);
-    expect(db.query(`select to_jsonb(original_payload->>'proposed_response')from public.agent_proposals where tenant_id='${s.tenant}'order by created_at desc limit 1`)).toBe("Hi! I'm Polat's AI assistant. What would you like to know?");
+    expect(db.query(`select to_jsonb(original_payload->>'proposed_response')from public.agent_proposals where tenant_id='${s.tenant}'order by created_at desc limit 1`)).toBe("Hi! What would you like to know?");
     expect(db.query(`select to_jsonb(customer_facing_blocked)from public.conversation_quality_evaluations where tenant_id='${s.tenant}'order by created_at desc limit 1`)).toBe(false);
     // A full conservative4.20768 reservation cannot fund a second unknown call;
     // explicitly reconcile this synthetic first turn before another reservation.
@@ -117,7 +118,7 @@ describe.runIf(Boolean(connection))("combined native Polat OpenAI + BUSINESS + P
     const wire = polatClaudeFixtureWire(); wire.classification = "ACKNOWLEDGEMENT"; wire.proposed_response = "You're welcome."; wire.semantic_response = { response_goal: "Acknowledge the thanks", key_points: ["You're welcome."], factual_grounding: { classification: "unknown", evidence_refs: [], missing_information: ["approved_scoped_fact"] } }; wire.claims = [{ text: "You're welcome.", kind: "social", speech_act: "ACKNOWLEDGEMENT", capability: null, grounding: "GENERAL_SAFE_STATEMENT", evidence_refs: [], action_category: null }]; fake.wire = wire;
     const second = inbound(s, "Thanks", 4); expect(await work(s, "second")).toMatchObject({ tasksClaimed: 1, tasksFailed: 0 }); expect(fake.modelCalls).toBe(3); expect(fake.sends).toBe(3);
     const secondRequest = fake.bodies[2] as { input: Array<{ content: Array<{ text: string }> }> }; const sentContext = JSON.parse(secondRequest.input[1]!.content[0]!.text) as { source_message: { content: string }; context: { recentMessages: Array<{ direction: string; content: string }> } };
-    expect(sentContext.source_message.content).toBe("Thanks"); expect(sentContext.context.recentMessages.some(m => m.direction === "outbound" && m.content === "Hi! I'm Polat's AI assistant. What would you like to know?")).toBe(true);
+    expect(sentContext.source_message.content).toBe("Thanks"); expect(sentContext.context.recentMessages.some(m => m.direction === "outbound" && m.content === "Hi! What would you like to know?")).toBe(true);
     const source = privateBetaSourceSchema.parse(service(`public.private_beta_source_scope_v1('${s.tenant}','${s.conversation}','${second.event_id}')`)); const customer = db.query(`select to_jsonb(customer_id)from public.conversations where id='${s.conversation}'`) as string;
     const built = await buildAgentContext({ tenant_id: s.tenant, customer_id: customer, conversation_id: s.conversation, source_event_id: second.event_id }, { polatPrivateBeta: source, polatPrivateBetaCodec: "openai-responses-v1" }); expect(built.manifest.private_beta_codec).toBe("openai-responses-v1"); expect(built.manifest.private_beta_history_basis).toBe("PROVIDER_ACK_ONLY");
     expect(inbound(s, "Thanks", 4).duplicate).toBe(true); expect(await work(s, "replay")).toMatchObject({ tasksClaimed: 0 }); expect(fake.modelCalls).toBe(3); expect(fake.sends).toBe(3); expect(first.message_id).not.toBe(second.message_id);
