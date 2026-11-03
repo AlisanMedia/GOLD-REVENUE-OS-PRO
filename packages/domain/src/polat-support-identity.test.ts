@@ -20,6 +20,8 @@ describe("Polat customer identity, no unsolicited AI-assistant introduction", ()
     "I'm Polat's AI assistant.", "I am Polat’s AI assistant.", "I'm an AI assistant for Polat.",
     "Ben Polat’ın yapay zekâ asistanıyım.", "Ben Polat'ın AI asistanıyım.",
     "أنا مساعد بولات بالذكاء الاصطناعي.", "Я ИИ-помощник Полата.",
+    "I'm an AI assistant.", "As an AI assistant, I can help.", "Ben bir yapay zekâ asistanıyım.",
+    "أنا مساعد يعمل بالذكاء الاصطناعي.", "Я ИИ-ассистент.",
   ])("holds the forbidden introduction even if identity was asked: %s", text => {
     for (const asked of [false, true]) expect(assessPolatSupportIdentity(text, asked)).toContain("POLAT_AI_INTRODUCTION_FORBIDDEN");
   });
