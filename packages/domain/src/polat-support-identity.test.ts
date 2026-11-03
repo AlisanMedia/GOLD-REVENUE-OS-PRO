@@ -7,7 +7,7 @@ import { preparePolatCampaignRuntime } from "./polat-campaign-runtime";
 import { preparePolatPrivateBetaRuntime } from "./polat-private-beta-runtime";
 import { polatSupportFixtureWire } from "../../../tests/helpers/polat-bridge-fixtures";
 
-function profile(mode: "campaign" | "beta", text = "Hi", language: "en" | "tr" = "en") {
+function profile(mode: "campaign" | "beta", text = "Hi", language: keyof typeof polatSupportIdentity = "en") {
   const input = polatFixture(text, language), context = preparePolatConversation(input).request.context;
   const common = { tenant_id: input.tenant_id, conversation_id: input.conversation_id, source_message_id: input.source_message_id, revision: 1, boundary: input.boundary };
   return mode === "campaign"
@@ -63,13 +63,14 @@ describe("Polat customer identity, no unsolicited AI-assistant introduction", ()
     greeting.proposed_response = "I'm Polat. I remember you.";
     expect(p.assess(greeting).reasons).toContain("POLAT_IMPERSONATION_OR_FAMILIARITY");
   });
-  it.each([["campaign", "en"], ["beta", "en"], ["campaign", "tr"], ["beta", "tr"]] as const)("requires an honest identity answer through %s QA in %s, without the forbidden introduction", (mode, language) => {
+  it.each([["campaign", "en"], ["beta", "en"], ["campaign", "tr"], ["beta", "tr"], ["campaign", "ar"], ["beta", "ar"], ["campaign", "ru"], ["beta", "ru"]] as const)("requires an honest identity answer through %s QA in %s, without the forbidden introduction", (mode, language) => {
     const p = profile(mode, language === "tr" ? "Sen Polat mısın?" : "Are you Polat?", language), output = polatSupportFixtureWire();
     expect(p.disclosureRequired).toBe(true);
     expect(p.assess(output).reasons).toContain("POLAT_IDENTITY_TRUTH_REQUIRED");
     // Describe the existing authoritative AI identity fact as automated support;
     // do not substitute an unregistered identity record or copy its old wording.
-    const facts = p.evidence.slice(0, 2).map((fact, index) => index === 0 ? { ...fact, statement: polatSupportIdentity[language].automation } : fact);
+    expect(p.request.systemPolicy).toContain(polatSupportIdentity[language].automation);
+    const facts = p.evidence.slice(0, language === "en" || language === "tr" ? 2 : 1).map((fact, index) => index === 0 ? { ...fact, statement: polatSupportIdentity[language].automation } : fact);
     output.proposed_response = facts.map(f => f.statement).join(" ");
     output.semantic_response = { response_goal: "Answer the identity question truthfully", key_points: facts.map(f => f.statement), factual_grounding: { classification: "known_from_system", evidence_refs: facts.map(f => f.id), missing_information: [] } };
     output.claims = facts.map((f, index) => ({ text: f.statement, kind: "fact", speech_act: index === 0 ? "IDENTITY_RESPONSE" : "BUSINESS_FACT", capability: null, grounding: "KNOWN_FROM_SYSTEM", evidence_refs: [f.id], action_category: null }));
