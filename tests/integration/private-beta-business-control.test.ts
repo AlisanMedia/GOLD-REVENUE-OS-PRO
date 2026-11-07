@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
-import { discoverPrivateBetaBusinessConnections, discoverAndRecordPrivateBetaBusinessConnections, privateBetaBotWebhookRequest, verifyAndRecordPrivateBetaBusiness } from "../../scripts/private-beta-release-bot.mjs";
+import { waitAndRecordPrivateBetaBusinessConnections, discoverPrivateBetaBusinessConnections, discoverAndRecordPrivateBetaBusinessConnections, privateBetaBotWebhookRequest, verifyAndRecordPrivateBetaBusiness } from "../../scripts/private-beta-release-bot.mjs";
 const t = "92cb3000-0000-4000-8000-000000000001", p = "92cb3000-0000-4000-8000-000000000002", sha = "f".repeat(40), bot = "7100000001", representative = "7100000003", founder = "7100000002", key = bot + ":OFFLINE_BUSINESS_FIXTURE_CREDENTIAL_ONLY", now = Date.parse("2026-10-27T09:00:00Z");
 const hash = (value: string) => createHash("sha256").update(value).digest("hex"), connection = "Opaque:BUSINESS/Fixture", expiration = new Date(now + 600000).toISOString();
 function program(changes: Record<string, unknown> = {}) { return { database_role: "postgres", program_id: p, tenant_id: t, repository_sha: sha, stage: "DRAFT", generation: "1", manifest_hash: "a".repeat(64), authorization_record_hash: "b".repeat(64), bot_id: bot, credential_sha256: hash(key), has_participants: false, ...changes }; }
@@ -81,5 +81,45 @@ describe("protected independent BUSINESS enrollment and separate database read-b
   });
   it("keeps BOT subscriptions unchanged and requires explicit BUSINESS update classes", () => {
     const secret = "OFFLINE_WEBHOOK_FIXTURE_".padEnd(48, "x"); expect(privateBetaBotWebhookRequest(secret).allowed_updates).toEqual(["message"]); expect(privateBetaBotWebhookRequest(secret, "BUSINESS").allowed_updates).toEqual(["business_connection", "business_message", "edited_business_message", "deleted_business_messages"]); expect(privateBetaBotWebhookRequest(secret, "BUSINESS").drop_pending_updates).toBe(false);
+  });
+});
+
+describe("same reviewed phone connection wait", () => {
+  it("waits through verified empty observations until the real-shaped connection and test chat arrive", async () => {
+    const updates: unknown[] = [];
+    const f = fixture({ updates });
+    const delay = vi.fn(async () => {
+      if (updates.length === 0) updates.push({ update_id: 31, business_connection: actualConnection() });
+      else updates.push({ update_id: 32, business_message: { business_connection_id: connection, from: { id: Number(founder), is_bot: false }, chat: { id: Number(founder), type: "private" }, message_id: 1 } });
+    });
+    const result = await waitAndRecordPrivateBetaBusinessConnections(f.input, { delay });
+    expect(result).toMatchObject({ candidate_count: 1, founder_chat_candidate_count: 1, database_readback_verified: true, connection_authority: "NONE", webhook_registered: false, telegram_messages: 0, model_requests: 0 });
+    expect(delay).toHaveBeenCalledTimes(2);
+    expect(f.writes).toHaveLength(3);
+  });
+  it("bounds empty successful discovery without fabricating a candidate or permission", async () => {
+    const f = fixture({ updates: [] }), delay = vi.fn().mockResolvedValue(undefined);
+    expect(await waitAndRecordPrivateBetaBusinessConnections(f.input, { delay })).toMatchObject({ state: "NO_CANDIDATE", candidate_count: 0, connection_authority: "NONE" });
+    expect(delay).toHaveBeenCalledTimes(20);
+    expect(f.network.mock.calls.filter(([url]) => url.includes("/getUpdates"))).toHaveLength(21);
+  });
+  it("never retries an active webhook conflict", async () => {
+    const f = fixture({ discoveryStatus: 409 }), delay = vi.fn();
+    await expect(waitAndRecordPrivateBetaBusinessConnections(f.input, { delay })).rejects.toThrow("BUSINESS_DISCOVERY_WEBHOOK_ACTIVE");
+    expect(delay).not.toHaveBeenCalled();
+    expect(f.writes).toHaveLength(0);
+    expect(f.network.mock.calls.filter(([url]) => url.includes("/getUpdates"))).toHaveLength(1);
+  });
+  it("never repeats discovery after an unknown database write acknowledgement", async () => {
+    const f = fixture({ updates: [] }), original = f.network.getMockImplementation()!, delay = vi.fn();
+    f.network.mockImplementation(async (url: string, init: RequestInit) => {
+      const result = await original(url, init);
+      if (String(init.body).includes("business_discovery_record")) throw Error("SYNTHETIC_UNKNOWN_ACK");
+      return result;
+    });
+    await expect(waitAndRecordPrivateBetaBusinessConnections(f.input, { delay })).rejects.toThrow();
+    expect(f.writes).toHaveLength(1);
+    expect(delay).not.toHaveBeenCalled();
+    expect(f.network.mock.calls.filter(([url]) => url.includes("/getUpdates"))).toHaveLength(1);
   });
 });

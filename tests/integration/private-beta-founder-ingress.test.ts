@@ -24,7 +24,7 @@ function fixture() {
     team: { id: TARGET.team, slug: TARGET.name },
     program: { database_role: "postgres", program_id: PROGRAM, tenant_id: TENANT, tenant_status: "active", tenant_slug: "private-beta-ingress-fixture", outbound_messaging_enabled: false,
       provider: "openai", model: "gpt-6.1-sol", stage: "DRAFT", generation: "1", manifest_hash: "c".repeat(64), authorization_record_hash: "d".repeat(64), repository_sha: "b".repeat(40), model_observation_sha: null as string | null,
-      owner_only_test: false, canary_result_hash: null as string | null, business_permitted: false, bot_id: "7012345", bot_credential_hash: digest(BOT), representative_user_id: "9001234", founder_chat_id: "5001234" },
+      owner_only_test: false, continuation_available: false, canary_result_hash: null as string | null, business_permitted: false, bot_id: "7012345", bot_credential_hash: digest(BOT), representative_user_id: "9001234", founder_chat_id: "5001234" },
     entries: [] as Array<{ id: string; key: string; type: string; target: string[]; value: string; decrypted: boolean }>, paginationNext: null as number | null,
     envWrites: [] as Array<Record<string, unknown>>, edgeWrites: [] as Array<Array<{ name: string; value: string }>>, queries: [] as string[], botProof: null as Record<string, unknown> | null, readbackValid: true,
     deployment: { id: "dpl_fixture01", projectId: TARGET.project, name: TARGET.name, target: "production", readyState: "READY", gitSource: { sha: SHA } }, aliasDeployment: "dpl_fixture01",
@@ -220,6 +220,28 @@ describe("protected existing founder Business ingress, offline transports only",
   it("can prepare a local technical-passed CANARY without changing the active application or deploying a function", async () => {
     const f = fixture(); f.activate();
     expect(await f.run("prepare")).toMatchObject({ state: "PREPARED", edge_function_deployed: false }); expect(f.state.methods).toHaveLength(0);
+  });
+  it("prepares the independently eligible continuation without inference, webhook registration or a manufactured owner grant", async () => {
+    const f = fixture();
+    Object.assign(f.state.program, { stage: "CANARY", owner_only_test: true, continuation_available: true, canary_result_hash: null });
+    const result = await f.run("prepare");
+    expect(result).toMatchObject({ state: "PREPARED", actual_inference_requests: 0, telegram_messages: 0, webhook_registration: "NOT_ATTEMPTED" });
+    expect(f.state.queries.some(sql => sql.includes("private.private_beta_continuation_available(p)"))).toBe(true);
+    expect(f.state.methods).toEqual([]);
+    expect(f.state.queries.every(sql => sql.startsWith("select "))).toBe(true);
+  });
+  it("still rejects registration before the real new canary even when continuation is eligible", async () => {
+    const f = fixture();
+    Object.assign(f.state.program, { stage: "CANARY", owner_only_test: true, continuation_available: true, canary_result_hash: null });
+    await f.run("prepare");
+    expect(await f.run("register")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_OWNER_BUSINESS_REQUIRED" });
+    expect(f.state.setCalls).toHaveLength(0);
+  });
+  it("never uses continuation eligibility to prepare a non-owner-only program", async () => {
+    const f = fixture();
+    Object.assign(f.state.program, { stage: "CANARY", continuation_available: true, owner_only_test: false });
+    expect(await f.run("prepare")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_PROGRAM_REQUIRED", mutation_state: "NOT_ATTEMPTED" });
+    expect(f.state.envWrites).toHaveLength(0);
   });
   it.each(["missing-bypass", "share-bypass", "selector", "unreadable", "duplicate", "preview-scope", "pagination"])("holds %s before any configuration mutation", async kind => {
     const f = fixture();

@@ -178,7 +178,7 @@ jobs:
         env:
           AUTHORIZED_FOUNDER_RECOVERY: ${{ inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true && 'true' || 'false' }}
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
-          QUIESCENT_IDENTITY_PROGRAM_ID: ${{ inputs.operation == 'release_disabled' && inputs.program_id || '' }}
+          QUIESCENT_IDENTITY_PROGRAM_ID: ${{ inputs.authorized_founder_recovery != true && inputs.program_id || '' }}
           SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
           STAGING_SUPABASE_PROJECT_ID: xqvwkghpmezcpgugetqc
           STAGING_BACKUP_PASSPHRASE: ${{ secrets.STAGING_BACKUP_PASSPHRASE }}
@@ -355,7 +355,7 @@ jobs:
           set -euo pipefail
           PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
           mv "$RUNNER_TEMP/private-beta-bot-control.json" "$RUNNER_TEMP/private-beta-bot-identity-control.json"
-          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          PRIVATE_BETA_DISCOVERY_WAIT=true PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
       - name: Wait for the founder's authenticated numeric test-chat configuration
         if: ${{ inputs.operation == 'release_with_business_setup' && steps.founder_canary.outputs.ready == 'true' }}
         id: founder_business
@@ -670,7 +670,7 @@ jobs:
           set -euo pipefail
           PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
           mv "$RUNNER_TEMP/private-beta-bot-control.json" "$RUNNER_TEMP/private-beta-bot-identity-control.json"
-          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          PRIVATE_BETA_DISCOVERY_WAIT=true PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
       - name: Wait for the founder's own numeric test-chat configuration
         if: ${{ inputs.operation == 'founder_business_setup' }}
         id: founder_business
