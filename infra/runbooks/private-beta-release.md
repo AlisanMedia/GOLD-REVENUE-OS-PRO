@@ -784,3 +784,8 @@ yabancı tenant, eski generation ve güncelliğini yitirmiş MFA sınırları, s
 korunması, süresi bitmiş pencerenin sınırlı yenilenmesi, tek yeni canary rezervi,
 sonuç ve gerçek Business kanıtı olmadan sohbet açılmaması. Test fixtures gerçek
 kimlik doğrulaması, model, fatura veya Telegram teslimatı değildir.
+
+Aynı kurulum işi telefon bağlantısını beklerken mevcut discovery işlemini en fazla
+21 başarılı gözlemle yeniler. Yalnız teyitli ve kalıcı boş/eksik aday sonucu sonraki
+gözleme izin verir; webhook çatışması, timeout veya sonucu belirsiz DB yazısı işi
+durdurur. Yeni bir canary, mesaj, owner grant veya bağlantı yetkisi üretilmez.

@@ -10,7 +10,7 @@
       "path": ".github/workflows/private-beta-uat.yml",
       "occurrences": 58,
       "reason": "Temporary exact old stored secret/variable aliases in protected bootstrap; all runtime environment keys are Jeff.",
-      "sha256": "82e55b28513bbd3603308e0bb494cbb5cc5c97e619cbb88c8de5e1cd2d4c8d38"
+      "sha256": "f452d16597999537eafe16e5f59af5f0daf6fcf09ec8b45b1a4fc10b5f512840"
     },
     {
       "path": "CAMPAIGN_GENUINE_RUNTIME_IMPLEMENTATION_REPORT.md",

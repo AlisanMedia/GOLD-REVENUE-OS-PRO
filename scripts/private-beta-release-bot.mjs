@@ -140,6 +140,18 @@ export async function discoverAndRecordPrivateBetaBusinessConnections(input) {
     observed_at: observed.observed_at, expires_at: observed.expires_at, database_readback_verified: true, connection_authority: 'NONE', webhook_registered: false, telegram_messages: 0, model_requests: 0, financial_authority: 'NONE', commercial_pilot: 'NO_GO' });
 }
 
+/** Re-observe only a successful, committed discovery while the founder connects
+ * the selected phone chat. An unknown/failed observation propagates immediately:
+ * no mutation, webhook conflict or uncertain acknowledgement is retried. */
+export async function waitAndRecordPrivateBetaBusinessConnections(input, { delay = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
+  for (let index = 0; index < 21; index++) {
+    const result = await discoverAndRecordPrivateBetaBusinessConnections(input);
+    if (result.founder_chat_candidate_count > 0 || index === 20) return result;
+    await delay(15000);
+  }
+  throw Error('BUSINESS_DISCOVERY_WAIT_INVALID');
+}
+
 /** Independent getMe/getBusinessConnection proof, not a callback/JSON approval. */
 export async function verifyAndRecordPrivateBetaBusiness(input) {
   const network = input.network ?? fetch, now = input.now ?? Date.now;
@@ -173,8 +185,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     assert(process.argv.length === 2 && env.GITHUB_REPOSITORY === 'AlisanMedia/GOLD-REVENUE-OS-PRO' && env.GITHUB_REF === 'refs/heads/main' && env.VALIDATED_SHA === env.GITHUB_SHA && env.RUNNER_TEMP, 'PROTECTED_EXACT_BOT_JOB_REQUIRED');
     const operation = env.PRIVATE_BETA_BOT_OPERATION ?? 'verify_bot';
     assert(['verify_bot', 'verify_business', 'discover_business'].includes(operation), 'PROTECTED_BOT_OPERATION_REQUIRED');
+    assert(env.PRIVATE_BETA_DISCOVERY_WAIT === undefined || ['true', 'false'].includes(env.PRIVATE_BETA_DISCOVERY_WAIT), 'BUSINESS_DISCOVERY_WAIT_INVALID');
     const input = { programId: env.PRIVATE_BETA_PROGRAM_ID, sha: env.VALIDATED_SHA, managementToken: env.SUPABASE_ACCESS_TOKEN, botToken: env.JEFF_UAT_TELEGRAM_BOT_TOKEN };
-    const result = operation === 'verify_business' ? await verifyAndRecordPrivateBetaBusiness(input) : operation === 'discover_business' ? await discoverAndRecordPrivateBetaBusinessConnections(input) : await verifyAndRecordPrivateBetaBot(input);
+    const result = operation === 'verify_business' ? await verifyAndRecordPrivateBetaBusiness(input) : operation === 'discover_business' ? await (env.PRIVATE_BETA_DISCOVERY_WAIT === 'true' ? waitAndRecordPrivateBetaBusinessConnections(input) : discoverAndRecordPrivateBetaBusinessConnections(input)) : await verifyAndRecordPrivateBetaBot(input);
     writeFileSync(env.RUNNER_TEMP + '/private-beta-bot-control.json', JSON.stringify(result, null, 2) + '\n', { mode: 0o600 });
     process.stdout.write('PASS: protected bot control operation completed with explicit evidence classification. No webhook, message or model execution.\n');
   } catch (error) {
