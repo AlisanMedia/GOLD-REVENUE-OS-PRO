@@ -85,10 +85,10 @@ function scopeMetadata(value, id, prefix) {
 function programFrom(value, id) {
   assert(Array.isArray(value) && value.length === 1, 'FOUNDER_MODEL_PROGRAM_REQUIRED');
   const p = value[0]?.private_beta_program;
-  const continuation = p?.stage === 'CANARY' && p.request_count === '2' && p.continuation_available === true;
+  const continuation = p?.stage === 'CANARY' && ['2', '3'].includes(p.request_count) && p.continuation_available === true;
   assert(p?.database_role === 'postgres' && p.program_id === id && uuid.test(p.tenant_id ?? '') && p.tenant_status === 'active'
     && /^private-beta-[a-z0-9-]+$/u.test(p.tenant_slug ?? '') && p.outbound_messaging_enabled === false && (p.stage === 'DRAFT' && p.request_count === '0' || p.stage === 'CANARY' && p.request_count === '1' && p.recovery_available === true || continuation)
-    && p.model_provider === 'openai' && p.model_name === 'gpt-6.1-sol' && (p.notice_version === NOTICE || continuation && p.notice_version === IDENTITY_WIRE_V1[NOTICE])
+    && p.model_provider === 'openai' && p.model_name === 'gpt-6.1-sol' && (p.notice_version === NOTICE || continuation && p.request_count === '2' && p.notice_version === IDENTITY_WIRE_V1[NOTICE])
     && hash.test(p.manifest_hash ?? '') && hash.test(p.authorization_record_hash ?? '') && /^[1-9][0-9]{0,17}$/u.test(p.generation ?? '')
     && (p.repository_sha === null || sha.test(p.repository_sha ?? '')), 'FOUNDER_MODEL_PROGRAM_REQUIRED');
   return p;

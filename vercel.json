@@ -66,7 +66,8 @@
       "codex/protected-integration-inventory": false,
       "codex/founder-mfa-enrollment-recovery": false,
       "codex/jeff-identity-migration": false,
-      "codex/founder-telegram-continuation": false
+      "codex/founder-telegram-continuation": false,
+      "codex/founder-openai-usage-repair": false
     }
   },
   "framework": "nextjs",

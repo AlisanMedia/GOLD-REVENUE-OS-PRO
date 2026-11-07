@@ -93,7 +93,7 @@ const continuationFields = {
   continuation_authorization_hash: jeffBridgeHashSchema,
   continuation_authenticated_at: z.iso.datetime({ offset: true }), continuation_approved_at: z.iso.datetime({ offset: true }),
   continuation_source_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u),
-  retained_unknown_attempts: z.tuple([retainedUnknownAttempt, retainedUnknownAttempt]),
+  retained_unknown_attempts: z.union([z.tuple([retainedUnknownAttempt, retainedUnknownAttempt]), z.tuple([retainedUnknownAttempt, retainedUnknownAttempt, retainedUnknownAttempt])]),
 };
 // One fresh owner action renews the expired second-attempt program. Historical
 // v4 recovery provenance and both unknown debts remain bound, never reconciled.
@@ -203,11 +203,13 @@ export function createJeffPrivateBetaNetworkAuthority(dependencies: Readonly<{
     if (a.version === 5) {
       if (binding.version !== 5) throw Error("JEFF_UAT_CONTINUATION_REQUIRED");
       const keys = ["continuation_authority", "continuation_execution_ref", "continuation_authorization_hash", "continuation_authenticated_at", "continuation_approved_at", "continuation_source_generation"] as const;
-      const [first, second] = a.retained_unknown_attempts;
-      const debt = betaUnits(first.liability) + betaUnits(second.liability);
+      const [first] = a.retained_unknown_attempts;
+      const debt = a.retained_unknown_attempts.reduce((sum, old) => sum + betaUnits(old.liability), 0n);
       if (keys.some(key => a[key] !== binding[key]) || jeffGuardDigest(a.retained_unknown_attempts) !== jeffGuardDigest(binding.retained_unknown_attempts)
         || first.attempt_id !== a.retained_unknown_attempt_id || first.run_id !== a.retained_unknown_run_id || first.liability !== a.retained_unknown_liability
-        || first.attempt_id === second.attempt_id || first.run_id === second.run_id || betaUnits(first.liability) <= 0n || betaUnits(second.liability) <= 0n
+        || new Set(a.retained_unknown_attempts.map(old => old.attempt_id)).size !== a.retained_unknown_attempts.length
+        || new Set(a.retained_unknown_attempts.map(old => old.run_id)).size !== a.retained_unknown_attempts.length
+        || a.retained_unknown_attempts.some(old => betaUnits(old.liability) <= 0n)
         || debt > betaUnits(a.local_reserved_liability) || Date.parse(a.continuation_authenticated_at) > Date.parse(a.continuation_approved_at)
         || Date.parse(a.continuation_approved_at) - Date.parse(a.continuation_authenticated_at) > 300000
         || Date.parse(a.continuation_approved_at) > Date.parse(owner.approved_at)
@@ -258,7 +260,7 @@ export function createJeffPrivateBetaNetworkAuthority(dependencies: Readonly<{
       if (Date.parse(p.issued_at) > now || now - Date.parse(p.issued_at) > 60000 || Date.parse(p.expires_at) <= now || Date.parse(p.expires_at) > Date.parse(p.issued_at) + 60000 || Date.parse(p.expires_at) > Date.parse(b.expires_at)) throw Error("JEFF_UAT_RESERVATION_STALE");
       if (p.scope === "CANARY") {
         const c = b.provider === "openai" ? jeffOpenAICanaryPlan() : jeffClaudeCanaryPlan();
-        const ordinal = b.version === 5 ? 3 : b.version === 4 ? 2 : 1;
+        const ordinal = b.version === 5 ? b.retained_unknown_attempts.length + 1 : b.version === 4 ? 2 : 1;
         if (s.owner.phase !== "CANARY" || b.corpus_version !== c.plan.version || b.corpus_hash !== c.corpus_hash || b.plan_hash !== c.plan_hash || b.maximum_requests !== ordinal || b.maximum_output_tokens !== c.plan.proposed_maximum_output_tokens || b.timeout_ms !== c.plan.proposed_timeout_ms || p.global_ordinal !== ordinal || p.participant_id !== null || p.source_message_id !== null || p.participant_ordinal !== 0 || r.context.recentMessages.length !== 1 || r.context.recentMessages[0]?.content !== "Hi" || r.styleProfile?.language !== "en") throw Error("JEFF_UAT_CANARY_SCOPE_DENIED");
       } else if (s.owner.phase !== "FOUNDER" && s.owner.phase !== "FRIENDS" || p.scope === "FRIEND" && s.owner.phase !== "FRIENDS" || b.corpus_version !== "jeff-private-beta-conversation-v1" || p.participant_id === null || p.source_message_id === null || p.source_message_id !== r.context.recentMessages.at(-1)?.id || p.participant_ordinal < 1 || p.participant_ordinal > (p.scope === "FOUNDER" ? 20 : 30)) throw Error("JEFF_UAT_PARTICIPANT_SCOPE_DENIED");
       if (envelope) for (const role of ["owner", "account_control", "committed_reservation"] as const) {
