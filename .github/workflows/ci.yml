@@ -507,7 +507,7 @@ jobs:
           STARS_COMMERCE_DB_URL="$campaign_genuine_db_url" pnpm exec vitest run tests/integration/stars-genuine-bridge-db.test.ts | tee "$RUNNER_TEMP/stars-genuine-bridge.log"
       - name: Upload database evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: database-test-evidence
           path: |
