@@ -75,6 +75,9 @@ begin
  source:=regexp_replace(source,'([a-z_][a-z_0-9]*\.slug) like ''jeff-sandbox-%''','(\1 like ''jeff-sandbox-%'' or \1 like ''polat-sandbox-%'')','g');
  source:=regexp_replace(source,'([a-z_][a-z_0-9]*\.context_manifest)->>''jeff_([a-z_]+)''','coalesce(\1->>''jeff_\2'',\1->>''polat_\2'')','g');
  source:=replace(source,'coalesce(r.context_manifest->>''jeff_profile'',r.context_manifest->>''polat_profile'')','private.jeff_identity_tag_v1(coalesce(r.context_manifest->>''jeff_profile'',r.context_manifest->>''polat_profile''))');
+ -- Incoming requests for the former representative still require human takeover.
+ source:=replace(source,'(human|Jeff)','(human|Jeff|Polat)');
+ source:=replace(source,'|Jeff.{0,15}görüş','|(Jeff|Polat).{0,15}görüş');
  -- Current summaries include old evidence without changing the invocation rows.
  source:=replace(source,'i.model=''jeff-test-runtime-v1''','private.jeff_identity_tag_v1(i.model)=''jeff-test-runtime-v1''');
  source:=replace(source,'r.model_name=''jeff-test-runtime-v1''','private.jeff_identity_tag_v1(r.model_name)=''jeff-test-runtime-v1''');

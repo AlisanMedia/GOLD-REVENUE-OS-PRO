@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { jeffConversationInputSchema,type JeffIntent } from "@gold-revenue-os/contracts";
+import { IDENTITY_NAMES_V1, jeffConversationInputSchema,type JeffIntent } from "@gold-revenue-os/contracts";
 import { assertSafeContext,requestFingerprint,ModelProviderError,type AgentContext,type ModelRequest,type ModelProvider,type ModelResponse } from "./agent-runtime";
 import { CONVERSATION_QUALITY_VERSIONS,conversationModelOutputSchema,directConversation,evaluateConversationQuality,inferStyleProfile,renderNaturalResponse,type ConversationModelOutput } from "./conversation-quality";
 import { detectedCompletedActions,type BackendEvidence,type ResponseClaim } from "./conversation-evidence";
@@ -11,7 +11,7 @@ export const jeffIdentity={en:"I'm Jeff's AI assistant.",tr:"Ben Jeff’ın yapa
 const hash=(s:string)=>createHash("sha256").update(s,"utf8").digest("hex");
 const secret=/\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]+|sb_secret_[A-Za-z0-9_-]+)|\b\d{8,12}:[A-Za-z0-9_-]{30,}|-----BEGIN .*PRIVATE KEY-----/u;
 export function jeffIntent(rawText:string):JeffIntent{
- const text=rawText.normalize("NFKC").replaceAll("İ","i"); // Classification only; original text/opaque identities never change.
+ const text=rawText.normalize("NFKC").replaceAll("İ","i").replace(new RegExp("\\b" + IDENTITY_NAMES_V1.display + "\\b", "giu"), "Jeff"); // Classification only; original text/opaque identities never change.
  if(/ignore.{0,40}(?:rules|instructions)|system prompt|mark me as paid|sistem (?:prompt|talimat)|önceki.{0,20}talimat/iu.test(text))return "INJECTION";
  if(/(?:what|explain|mean|nedir).{0,40}unsubscribe|do not(?: want to)? unsubscribe|don't(?: want to)? unsubscribe|not asking.{0,20}unsubscribe/iu.test(text))return "CONSENT_QUESTION";
  if(/(?:don't|do not|stop|no more).{0,30}(?:contact|messag|marketing)|unsubscribe|bir daha.{0,25}(?:yazma|mesaj)|iletişim istemiyorum/iu.test(text))return "OPT_OUT";

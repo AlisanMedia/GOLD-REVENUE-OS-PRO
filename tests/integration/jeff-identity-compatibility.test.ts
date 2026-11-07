@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { jeffTransportHeaders } from "../../apps/web/src/lib/jeff/transport-headers";
 import { IDENTITY_NAMES_V1 } from "../../packages/contracts/src/historical/identity-names-v1";
 import { currentIdentityTag } from "../../packages/contracts/src/historical/identity-wire-v1";
-import { assessJeffSupportIdentity } from "../../packages/domain/src/jeff-support-identity";
+import { jeffIntent } from "../../packages/domain/src/jeff-conversation";
+import { isJeffSupportIdentityQuestion, assessJeffSupportIdentity } from "../../packages/domain/src/jeff-support-identity";
 import { readJeffSecret } from "../../supabase/functions/_shared/identity-secrets";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -30,6 +31,13 @@ describe("identity cutover compatibility, without new authority", () => {
     expect(currentIdentityTag(record.model)).toBe("jeff-test-runtime-v1");
     expect(record.model).toBe(IDENTITY_NAMES_V1.display.toLowerCase() + "-test-runtime-v1");
     expect(currentIdentityTag("gpt-6.1-sol")).toBe("gpt-6.1-sol");
+  });
+  it("continues honoring requests for the former representative without changing customer text", () => {
+    const input = Object.freeze({ text: `Can I speak to ${IDENTITY_NAMES_V1.display}?` });
+    expect(jeffIntent(input.text)).toBe("HUMAN");
+    expect(jeffIntent(`Are you ${IDENTITY_NAMES_V1.display}?`)).toBe("IDENTITY");
+    expect(isJeffSupportIdentityQuestion(`Are you ${IDENTITY_NAMES_V1.display}?`)).toBe(true);
+    expect(input.text).toBe(`Can I speak to ${IDENTITY_NAMES_V1.display}?`);
   });
   it("holds an obsolete self-introduction but preserves unrelated names in customer text", () => {
     const previous = IDENTITY_NAMES_V1.display;

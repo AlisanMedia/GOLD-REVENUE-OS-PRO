@@ -3,7 +3,7 @@
   "baseline": "96aa1c83dab1ffaff0975dfa0f62d33c38c48d8f",
   "scope": "Case-insensitive content occurrences in tracked and non-ignored source files, including this inventory; Git history and external immutable artifacts excluded.",
   "unexplained": 0,
-  "total_occurrences": 1713,
+  "total_occurrences": 1715,
   "files": 60,
   "entries": [
     {
@@ -326,9 +326,9 @@
     },
     {
       "path": "supabase/migrations/20261107091336_jeff_identity_namespace.sql",
-      "occurrences": 63,
+      "occurrences": 65,
       "reason": "Additive in-place namespace migration, frozen domains, read aliases and old RPC forwarding; no historical row rewrite.",
-      "sha256": "30618fdd5745ee8fe465c53fbafb9ad75da7689b0e1a3f6af1e487e0533d2219"
+      "sha256": "e870f931068357c5f4ea8a7201342f21528d07cde35c813375db02dcf24aff82"
     },
     {
       "path": "supabase/tests/helpers/historical/identity_before.sql",
@@ -352,7 +352,7 @@
       "path": "tests/integration/jeff-identity-migration.test.ts",
       "occurrences": 5,
       "reason": "Negative source-identity guard and explicit old-route redirect acceptance tests.",
-      "sha256": "82a07c39bbc81fcf9876315eef0d3ffacdea217fdb7a8ecbb4b92efeaf4f93ad"
+      "sha256": "701723fd6c63864ad274e821ffb6edfe1b54cdf6d0b6861f58734a524b29196f"
     },
     {
       "path": "vercel.json",

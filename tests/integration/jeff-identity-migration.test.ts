@@ -42,7 +42,7 @@ describe("single Jeff identity migration", () => {
         } else if (/\.(?:tsx?|mjs|mts|css|json)$/u.test(path)) {
           const frozen = ["identity-domains-v1.ts", "identity-names-v1.ts", "identity-wire-v1.ts"].map(file => "packages/contracts/src/historical/" + file);
           if (frozen.includes(name)) continue;
-          if (/Polat|POLAT_|\/polat-operations/u.test(readFileSync(path, "utf8"))) violations.push(name);
+          if (/Polat|POLAT_|\/polat-operations/iu.test(readFileSync(path, "utf8"))) violations.push(name);
           if (/polat/iu.test(entry.name)) violations.push(name + " (filename)");
         }
       }

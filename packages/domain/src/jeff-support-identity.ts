@@ -17,7 +17,7 @@ const assistantSelfTitle = /\b(?:i'm|i am|as an?|this is).{0,30}(?:ai|artificial
 const falseHumanClaim = /\b(?:i'm|i am) (?:a |an |a real )?(?:human|real person)\b|\b(?:i'm|i am) not (?:an? )?(?:ai|bot|automated)\b|\b(?:ben )?(?:gerçek bir insanım|insanım|bot değilim|yapay zek[aâ] değilim)\b|أنا (?:إنسان|بشر)|я (?:настоящий человек|человек|не бот)/iu;
 
 export function isJeffSupportIdentityQuestion(text: string): boolean {
-  return /(?:are you|is this) (?:really |actually |the real )?(?:jeff|(?:an? )?(?:human|ai|bot)|automated)|who are you|who am i (?:speaking|talking) to|sen (?:jeff|kimsin|insan|yapay|(?:bir )?ai)|(?:jeff|bot|insan|\bai\b|yapay zek[aâ]|otomatik).{0,20}m[ıiuü]s[ıiuü]n|kimle (?:konuş|görüş)|من أنت|هل أنت.{0,20}(?:جيف|إنسان|روبوت|ذكاء|آلي)|кто (?:ты|вы)|(?:ты|вы).{0,12}(?:джефф|бот|человек)/iu.test(normalize(text));
+  return /(?:are you|is this) (?:really |actually |the real )?(?:jeff|(?:an? )?(?:human|ai|bot)|automated)|who are you|who am i (?:speaking|talking) to|sen (?:jeff|kimsin|insan|yapay|(?:bir )?ai)|(?:jeff|bot|insan|\bai\b|yapay zek[aâ]|otomatik).{0,20}m[ıiuü]s[ıiuü]n|kimle (?:konuş|görüş)|من أنت|هل أنت.{0,20}(?:جيف|إنسان|روبوت|ذكاء|آلي)|кто (?:ты|вы)|(?:ты|вы).{0,12}(?:джефф|бот|человек)/iu.test(normalize(text).replace(new RegExp("\\b" + normalize(IDENTITY_NAMES_V1.display) + "\\b", "giu"), "jeff"));
 }
 
 export function jeffSupportIdentityInstructions(identityAsked: boolean, language = "en"): string {
