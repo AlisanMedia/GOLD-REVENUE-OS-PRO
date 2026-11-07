@@ -307,3 +307,11 @@ it("collects separate bot inventory within the same protected release without a 
   expect(step).not.toContain("setWebhook");
   expect(workflow).toContain("${{ runner.temp }}/protected-integration-inventory.json");
 });
+
+ describe("same reviewed founder continuation release", () => {
+  it("selects the existing read-only expired-journal backup exception without enabling runner recovery", () => {
+    const source = readFileSync(".github/workflows/private-beta-uat.yml", "utf8");
+    expect(source).toContain("QUIESCENT_IDENTITY_PROGRAM_ID: ${{ inputs.authorized_founder_recovery != true && inputs.program_id || '' }}");
+    expect(source).toContain("inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true");
+  });
+ });

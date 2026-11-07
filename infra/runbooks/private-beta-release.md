@@ -732,6 +732,12 @@ bulunan program bu dar yola giremez. Adaylık süreyi uzatmaz veya sağlayıcı 
 metadata gözlemcisi aday programı güncel yayımlanmış SHA için gözlemleyebilir.
 Yeni SHA ve geçerli metadata olmadan panel `CONTINUATION_AVAILABLE` göstermez.
 
+Aynı `release_with_business_setup` işi, runner recovery kapalıyken mevcut
+süresi bitmiş iki-UNKNOWN programının salt-okunur yedek istisnasını kullanır.
+Ingress hazırlığı sunucunun hesapladığı devam adayını kabul eder; hazırlık
+model çağırmaz, owner grant üretmez veya webhook kaydetmez. Kayıt aşaması
+yine yeni gerçek canary/QA ve Business izin kanıtlarını zorunlu tutar.
+
 Kurucu `/admin/jeff-operations?view=beta` ekranında kendi Supabase hesabıyla,
 son beş dakika içinde gerçek authenticator doğrulamasını tamamlar. Paneldeki
 **Kişisel Konuşma Testine Devam Et** düğmesi mevcut `/api/v1/admin/private-beta/canary` yolunu kullanır.
