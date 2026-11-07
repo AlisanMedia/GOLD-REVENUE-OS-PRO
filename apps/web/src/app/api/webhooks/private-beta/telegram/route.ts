@@ -1,9 +1,9 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { polatIntent } from "@gold-revenue-os/domain";
-import { authenticatePrivateBetaIngress } from "@/lib/polat/private-beta-webhook";
-import { privateBetaBusinessUpdateId } from "@/lib/polat/private-beta-business";
-import { queuePrivateBetaNotice, dispatchPrivateBetaMessage, privateBetaRpc, privateBetaTransportScope } from "@/lib/polat/private-beta-runtime";
+import { jeffIntent } from "@gold-revenue-os/domain";
+import { authenticatePrivateBetaIngress } from "@/lib/jeff/private-beta-webhook";
+import { privateBetaBusinessUpdateId } from "@/lib/jeff/private-beta-business";
+import { queuePrivateBetaNotice, dispatchPrivateBetaMessage, privateBetaRpc, privateBetaTransportScope } from "@/lib/jeff/private-beta-runtime";
 import { runDeterministicWorker } from "@/lib/agent-runtime/worker";
 
 export const runtime = "nodejs";
@@ -16,7 +16,7 @@ const ok = (duplicate = false) => NextResponse.json({ ok: true, duplicate }, { h
 export async function POST(request: Request) {
   let verified: Awaited<ReturnType<typeof authenticatePrivateBetaIngress>>;
   try {
-    verified = await authenticatePrivateBetaIngress(request, { tenantId: process.env.POLAT_UAT_TENANT_ID, programId: process.env.POLAT_UAT_PROGRAM_ID, releaseSha: process.env.POLAT_UAT_RELEASE_SHA, webhookSecret: process.env.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET, relaySecret: process.env.POLAT_UAT_RELAY_SECRET });
+    verified = await authenticatePrivateBetaIngress(request, { tenantId: process.env.JEFF_UAT_TENANT_ID, programId: process.env.JEFF_UAT_PROGRAM_ID, releaseSha: process.env.JEFF_UAT_RELEASE_SHA, webhookSecret: process.env.JEFF_UAT_TELEGRAM_WEBHOOK_SECRET, relaySecret: process.env.JEFF_UAT_RELAY_SECRET });
   } catch { return NextResponse.json({ error: "PRIVATE_BETA_INGRESS_DENIED" }, { status: 401 }); }
   const { config } = verified;
   try {
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
     const common = { target_tenant_id: config.tenantId, bot_id_value: scope.bot_id, provider_user_id_value: envelope.providerUserId, provider_chat_id_value: envelope.providerChatId };
     const text = envelope.text.trim();
     // Only a matching numeric identity and a committed, one-use invitation can enter.
-    const naturalOptOut = polatIntent(text) === "OPT_OUT";
+    const naturalOptOut = jeffIntent(text) === "OPT_OUT";
     const control = /^\/(?:start(?:\s+[a-f0-9]{48})?|agree|stop|delete)$/u.test(text) || naturalOptOut;
     const accepted = participant.parse(await privateBetaRpc(control ? "private_beta_invite_accept_v1" : "private_beta_participant_for_chat_v1", { ...common, ...(control ? { command_value: naturalOptOut ? "/stop" : text } : {}) }));
     if (accepted.status === "UNINVITED" || accepted.program_id !== config.programId || !accepted.participant_id) return ok();
@@ -94,7 +94,7 @@ export async function POST(request: Request) {
       const messageId = await queuePrivateBetaNotice({ tenantId: config.tenantId, programId: config.programId, participantId, conversationId: source.conversation_id, sourceMessageId: source.message_id, kind: notice });
       if (messageId) after(() => dispatchPrivateBetaMessage(config.tenantId, config.programId, messageId).catch(() => undefined));
     } else if (accepted.status === "ACTIVE" && !text.startsWith("/")) {
-      after(async () => { await runDeterministicWorker({ deploymentRef: config.releaseSha, conversation: { tenantId: config.tenantId, conversationId: source.conversation_id }, polatUat: { programId: config.programId } }).catch(() => undefined); });
+      after(async () => { await runDeterministicWorker({ deploymentRef: config.releaseSha, conversation: { tenantId: config.tenantId, conversationId: source.conversation_id }, jeffUat: { programId: config.programId } }).catch(() => undefined); });
     }
     return ok(source.duplicate);
   } catch { return NextResponse.json({ error: "PRIVATE_BETA_PROCESSING_UNAVAILABLE" }, { status: 503 }); }

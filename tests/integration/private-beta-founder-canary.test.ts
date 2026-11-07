@@ -1,12 +1,13 @@
+import { IDENTITY_DOMAINS_V1 } from "../../packages/contracts/src/historical/identity-domains-v1";
 import { createHash } from "node:crypto";
 import { EventEmitter } from "node:events";
 import type { ClientRequest, IncomingMessage, RequestOptions } from "node:http";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { runPrivateBetaProtectedCanary } from "../../scripts/private-beta-founder-canary.mjs";
-import { createPolatPrivateBetaProvider } from "../../packages/domain/src/polat-private-beta-provider";
-import { polatGuardDigest } from "../../packages/domain/src/polat-experiment-journal";
-import { polatOpenAICanaryPlan } from "../../packages/domain/src/polat-openai-canary";
-import { polatClaudeFixtureWire } from "../helpers/polat-bridge-fixtures";
+import { createJeffPrivateBetaProvider } from "../../packages/domain/src/jeff-private-beta-provider";
+import { jeffGuardDigest } from "../../packages/domain/src/jeff-experiment-journal";
+import { jeffOpenAICanaryPlan } from "../../packages/domain/src/jeff-openai-canary";
+import { jeffClaudeFixtureWire } from "../helpers/jeff-bridge-fixtures";
 
 // Offline HTTP/database/socket doubles only. These do not establish an actual
 // founder login, MFA, workflow review, provider success, bill or Telegram result.
@@ -26,12 +27,12 @@ const A = "91cc4000-0000-4000-8000-000000000001", R = "91cc3000-0000-4000-8000-0
 const DB = "https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query";
 const H = (v: string) => createHash("sha256").update(v, "utf8").digest("hex");
 function fixture() {
-  const at = Date.now(), expiry = new Date(at + 120000).toISOString(), plan = polatOpenAICanaryPlan();
+  const at = Date.now(), expiry = new Date(at + 120000).toISOString(), plan = jeffOpenAICanaryPlan();
   const env: Record<string,string|undefined> = { GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REPOSITORY: "AlisanMedia/GOLD-REVENUE-OS-PRO", GITHUB_REF: "refs/heads/main", GITHUB_RUN_ID: "1234", GITHUB_SHA: SHA, VALIDATED_SHA: SHA, AUTHORIZED_FOUNDER_RECOVERY: "true", PRIVATE_BETA_PROGRAM_ID: P, SUPABASE_ACCESS_TOKEN: "SYNTHETIC_MANAGEMENT_KEY_NEVER_AUTHORITY", OPENAI_API_KEY: KEY };
-  const scopeHash = polatGuardDigest(["OPENAI_PROJECT1", "org-fixture", "proj_fixture"]), custody = polatGuardDigest(["POLAT_UAT_CREDENTIAL_CUSTODY1", scopeHash, H(KEY)]);
+  const scopeHash = jeffGuardDigest(["OPENAI_PROJECT1", "org-fixture", "proj_fixture"]), custody = jeffGuardDigest([IDENTITY_DOMAINS_V1["JEFF_UAT_CREDENTIAL_CUSTODY1"], scopeHash, H(KEY)]);
   const binding = { version: 4, mode: "PRIVATE_BETA_UAT", program_id: P, tenant_id: T, conversation_style: "DIRECT", provider: "openai", model: "gpt-6.1-sol", model_version: "gpt-6.1-sol", protocol_version: "responses-v1", repository_sha: SHA, manifest_hash: "b".repeat(64), authorization_record_hash: "c".repeat(64), account_scope_hash: scopeHash, corpus_version: plan.plan.version, corpus_hash: plan.corpus_hash, plan_hash: plan.plan_hash, maximum_requests: 2, maximum_spend: "5.00", maximum_attempt_liability: "0.0264704", currency: "USD", maximum_output_tokens: 512, timeout_ms: 10000, expires_at: expiry, financial_authority: "NONE", commercial_sales: false,
     scope: "OWNER_ONLY", effective_limit_kind: "LOCAL_DURABLE_RESERVATION_CAP", maximum_input_tokens: 4096, retained_unknown_attempt_id: "91cc4000-0000-4000-8000-000000000099", retained_unknown_run_id: "91cc3000-0000-4000-8000-000000000099", recovery_authorization_hash: "9".repeat(64), recovery_authority: "PROTECTED_EXISTING_OWNER_GRANT", recovery_execution_ref: "GITHUB_RUN:1234:" + SHA };
-  const bindingHash = polatGuardDigest(binding);
+  const bindingHash = jeffGuardDigest(binding);
   const owner = { version: 1, origin: "SERVER_AUTHENTICATED_OWNER_GRANT", program_id: P, tenant_id: T, owner_user_id: "91cc6000-0000-4000-8000-000000000001", role: "super_admin", aal: "aal2", authenticated_at: new Date(at - 2000).toISOString(), approved_at: new Date(at - 1000).toISOString(), starts_at: new Date(at - 2000).toISOString(), expires_at: expiry, revoked: false, phase: "CANARY", binding_hash: bindingHash, policy_hash: "d".repeat(64), credential_custody_hash: custody };
   const payload = { version: 4, origin: "SERVER_DERIVED_OWNER_ONLY_UAT_CONTROL", scope: "OWNER_ONLY", program_id: P, tenant_id: T, account_scope_hash: scopeHash, repository_sha: SHA, manifest_hash: binding.manifest_hash, authorization_record_hash: binding.authorization_record_hash, provider: "openai", model: binding.model, model_access: true, organization_id: "org-fixture", project_id: "proj_fixture", credential_sha256: H(KEY), policy_hash: owner.policy_hash, credential_custody_hash: custody, currency: "USD", effective_limit_kind: "LOCAL_DURABLE_RESERVATION_CAP", local_maximum_spend: "5.00", local_reserved_liability: "4.628448", local_remaining_allowance: "0.371552", provider_billing: "UNKNOWN", provider_enforced_cap: "UNVERIFIED", canary_result_hash: null, unknown_outcome_count: 0, request_bound: null, observed_at: new Date(at).toISOString(), expires_at: expiry,
     retained_unknown_attempt_id: binding.retained_unknown_attempt_id, retained_unknown_run_id: binding.retained_unknown_run_id, retained_unknown_liability: "4.628448", recovery_authorization_hash: binding.recovery_authorization_hash, recovery_authority: binding.recovery_authority, recovery_execution_ref: binding.recovery_execution_ref };
@@ -53,7 +54,7 @@ function fixture() {
       value = { version: 1, mode: "PRIVATE_BETA_UAT", program_id: P, tenant_id: T, run_id: R, native_run_id: state.native, attempt_id: A, binding_hash: bindingHash, request_hash: state.requestHash, body_hash: state.bodyHash, replay: false, dispatch_started: false, liability: binding.maximum_attempt_liability };
     } else if (sql.includes("public.private_beta_begin_v1(")) { state.nonce = args[3]!; value = { dispatch: true }; }
     else if (sql.includes("public.private_beta_committed_attempt_v1(")) {
-      const attempt = { version: 2, purpose: "POLAT_PRIVATE_BETA_UAT", program_id: P, tenant_id: T, run_id: R, native_run_id: state.native, conversation_id: state.conversation, attempt_id: A, participant_id: null, scope: "CANARY", source_message_id: null, binding_hash: bindingHash, request_hash: state.requestHash, body_hash: state.bodyHash, account_scope_hash: scopeHash, authorization_record_hash: binding.authorization_record_hash, global_ordinal: 2, participant_ordinal: 0, liability: binding.maximum_attempt_liability, reserved_liability: payload.local_reserved_liability, generation: "5", dispatch_nonce: state.nonce, issued_at: new Date(at).toISOString(), expires_at: new Date(at + 30000).toISOString() };
+      const attempt = { version: 2, purpose: "JEFF_PRIVATE_BETA_UAT", program_id: P, tenant_id: T, run_id: R, native_run_id: state.native, conversation_id: state.conversation, attempt_id: A, participant_id: null, scope: "CANARY", source_message_id: null, binding_hash: bindingHash, request_hash: state.requestHash, body_hash: state.bodyHash, account_scope_hash: scopeHash, authorization_record_hash: binding.authorization_record_hash, global_ordinal: 2, participant_ordinal: 0, liability: binding.maximum_attempt_liability, reserved_liability: payload.local_reserved_liability, generation: "5", dispatch_nonce: state.nonce, issued_at: new Date(at).toISOString(), expires_at: new Date(at + 30000).toISOString() };
       value = { version: 1, mode: "PRIVATE_BETA_UAT", state: "DISPATCH_STARTED", ownership: "AI_ACTIVE", participation: "ACTIVE", program_id: P, tenant_id: T, run_id: R, native_run_id: state.native, conversation_id: state.conversation, attempt_id: A, request_hash: state.requestHash, body_hash: state.bodyHash, binding_hash: bindingHash, generation: "5", dispatch_nonce: state.nonce, payload: attempt };
     } else if (sql.includes("public.private_beta_record_v1(")) { const hex = /decode\('([a-f0-9]+)','hex'\)/u.exec(sql)?.[1]; expect(hex).toBeTruthy(); state.outcome = JSON.parse(Buffer.from(hex!, "hex").toString("utf8")); value = { recorded: true }; }
     else if (sql.includes("jsonb_build_object('accepted'")) value = { accepted: state.outcome?.qa === "APPROVED", retained_fingerprint: state.afterParent, auth_fingerprint: state.afterAuth };
@@ -61,9 +62,9 @@ function fixture() {
     const failing = state.failPrepareAck && sql.includes("private.private_beta_recover_founder_test(") || state.failRecordAck && sql.includes("public.private_beta_record_v1(");
     const response = new Response(JSON.stringify([{ database_role: state.role, value }]), { status: failing ? 500 : 201, headers: { "content-type": "application/json" } }); Object.defineProperty(response, "url", { value: DB }); return response;
   });
-  return { env, state, request, payload, owner, run: () => runPrivateBetaProtectedCanary({ env, request, providerFactory: createPolatPrivateBetaProvider }) };
+  return { env, state, request, payload, owner, run: () => runPrivateBetaProtectedCanary({ env, request, providerFactory: createJeffPrivateBetaProvider }) };
 }
-beforeEach(() => { network.calls = []; network.inputTokens = 37; network.body = JSON.stringify({ id: "resp_offline_fixture", object: "response", model: "gpt-6.1-sol", status: "completed", created_at: 1, output: [{ type: "message", id: "msg_offline_fixture", role: "assistant", status: "completed", content: [{ type: "output_text", text: JSON.stringify(polatClaudeFixtureWire()) }] }], usage: { input_tokens: 37, output_tokens: 121, total_tokens: 158 } }); });
+beforeEach(() => { network.calls = []; network.inputTokens = 37; network.body = JSON.stringify({ id: "resp_offline_fixture", object: "response", model: "gpt-6.1-sol", status: "completed", created_at: 1, output: [{ type: "message", id: "msg_offline_fixture", role: "assistant", status: "completed", content: [{ type: "output_text", text: JSON.stringify(jeffClaudeFixtureWire()) }] }], usage: { input_tokens: 37, output_tokens: 121, total_tokens: 158 } }); });
 
 describe("protected founder canary connector, offline controls and native QA", () => {
   it("uses one native attempt/count/generation and independently verifies old evidence and actual Auth records unchanged", async () => {

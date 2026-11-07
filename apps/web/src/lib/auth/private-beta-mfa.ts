@@ -89,7 +89,7 @@ export function createPrivateBetaMfaController(api: PrivateBetaMfaApi, now: () =
         const current = await read();
         if (current.factors.length) return { ok: false as const, error: "ALREADY_ENROLLED" as const };
         if (current.pendingEnrollment) return { ok: false as const, error: "ENROLLMENT_PENDING" as const };
-        const result = await api.enroll({ factorType: "totp", friendlyName: "Polat VIP private beta" });
+        const result = await api.enroll({ factorType: "totp", friendlyName: "Jeff VIP private beta" });
         if (result.error) throw Error("unavailable");
         const value = enrollment.parse(result.data);
         ownEnrollment = value.id;

@@ -3,14 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => { throw Error("UNEXPECTED_REAL_DB_ACCESS"); } }));
 import { processTelegramStarsUatWebhook, starsUatRelaySignature } from "../../apps/web/src/lib/payments/telegram-stars-uat-handler";
-import { handleStarsTestRelay, starsTestRelaySignature } from "../../supabase/functions/polat-private-beta-stars-ingress/relay";
+import { handleStarsTestRelay, starsTestRelaySignature } from "../../supabase/functions/jeff-private-beta-stars-ingress/relay";
 
 const now = Date.parse("2026-10-26T12:00:00Z"), timestamp = String(now / 1000), tenant = randomUUID(), program = randomUUID(), invoiceId = randomUUID();
 const config = { tenantId: tenant, programId: program, webhookSecret: "SYNTHETIC_STARS_WEBHOOK_SECRET_NOT_CREDENTIAL", relaySecret: "SYNTHETIC_STARS_RELAY_SECRET_NOT_CREDENTIAL" };
-const invoice = { version: 1, environment: "TELEGRAM_DEDICATED_TEST", program_id: program, tenant_id: tenant, invoice_id: invoiceId, bot_user_id: "7400000001", payer_user_id: "7300000001", product_code: "POLAT_VIP_30D_DRAFT", duration_days: 30, currency: "XTR", amount_units: "1", issued_at: new Date(now - 60000).toISOString(), expires_at: new Date(now + 60000).toISOString() };
+const invoice = { version: 1, environment: "TELEGRAM_DEDICATED_TEST", program_id: program, tenant_id: tenant, invoice_id: invoiceId, bot_user_id: "7400000001", payer_user_id: "7300000001", product_code: "JEFF_VIP_30D_DRAFT", duration_days: 30, currency: "XTR", amount_units: "1", issued_at: new Date(now - 60000).toISOString(), expires_at: new Date(now + 60000).toISOString() };
 const payment = (kind = "successful_payment") => JSON.stringify({ update_id: 55, message: { from: { id: 7300000001, is_bot: false }, [kind]: { invoice_payload: "uat-stars:" + invoiceId, currency: "XTR", total_amount: 1, telegram_payment_charge_id: "TEST-charge" } } });
 function request(raw = payment(), changed: Record<string, string> = {}) { return new Request("https://gold-revenue-os-staging.vercel.app/api/webhooks/private-beta-stars", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": config.webhookSecret,
-  "x-polat-stars-uat-timestamp": timestamp, "x-polat-stars-uat-signature": starsUatRelaySignature(raw, timestamp, config.relaySecret), ...changed }, body: raw }); }
+  "x-jeff-stars-uat-timestamp": timestamp, "x-jeff-stars-uat-signature": starsUatRelaySignature(raw, timestamp, config.relaySecret), ...changed }, body: raw }); }
 function fixture() {
   const s = { state: "CONNECTED_TO_DEDICATED_TEST", authenticateWebhook: vi.fn().mockReturnValue({ kind: "AUTHENTICATED_STARS_TEST_UPDATE" }), answerPreCheckout: vi.fn().mockResolvedValue({ state: "ACKNOWLEDGED" }),
     readLedger: vi.fn().mockResolvedValue({ state: "ACKNOWLEDGED", value: { kind: "AUTHENTICATED_STARS_TEST_LEDGER" } }), recordTestEvidence: vi.fn().mockResolvedValue({ state: "ACKNOWLEDGED", value: { receipt_id: randomUUID(), subscription_id: randomUUID(), replay: false } }),
@@ -20,7 +20,7 @@ function fixture() {
 }
 describe("separate Stars dedicated TEST authenticated ingress; offline only", () => {
   it.each(["wrong-secret", "wrong-mac", "expired", "missing-config"])("rejects %s before database or provider work", async kind => {
-    const f = fixture(); const headers = kind === "wrong-secret" ? { "x-telegram-bot-api-secret-token": "WRONG" } : kind === "wrong-mac" ? { "x-polat-stars-uat-signature": "f".repeat(64) } : kind === "expired" ? { "x-polat-stars-uat-timestamp": "1000000000" } : {};
+    const f = fixture(); const headers = kind === "wrong-secret" ? { "x-telegram-bot-api-secret-token": "WRONG" } : kind === "wrong-mac" ? { "x-jeff-stars-uat-signature": "f".repeat(64) } : kind === "expired" ? { "x-jeff-stars-uat-timestamp": "1000000000" } : {};
     const response = await processTelegramStarsUatWebhook(request(payment(), headers), { ...f.deps, config: kind === "missing-config" ? { ...config, relaySecret: "" } : config });
     expect(response.status).toBe(kind === "missing-config" ? 503 : 401); expect(f.deps.claim).not.toHaveBeenCalled(); expect(f.deps.connect).not.toHaveBeenCalled();
   });
@@ -77,7 +77,7 @@ describe("separate Stars dedicated TEST authenticated ingress; offline only", ()
     const network = vi.fn<typeof fetch>().mockResolvedValue(Response.json({ private_staff: "DO_NOT_REFLECT" }));
     const r = await handleStarsTestRelay(new Request("https://fixture.invalid?target=https://attacker.invalid", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": cfg.webhookSecret }, body: raw }), cfg, network, now);
     expect(r.status).toBe(200); expect(await r.text()).not.toContain("DO_NOT_REFLECT"); expect(network).toHaveBeenCalledOnce(); expect(network.mock.calls[0]?.[0]).toBe("https://gold-revenue-os-staging.vercel.app/api/webhooks/private-beta-stars");
-    expect(network.mock.calls[0]?.[1]?.redirect).toBe("error"); expect(new Headers(network.mock.calls[0]?.[1]?.headers).get("x-polat-stars-uat-signature")).toBe(starsUatRelaySignature(raw, timestamp, cfg.relaySecret));
+    expect(network.mock.calls[0]?.[1]?.redirect).toBe("error"); expect(new Headers(network.mock.calls[0]?.[1]?.headers).get("x-jeff-stars-uat-signature")).toBe(starsUatRelaySignature(raw, timestamp, cfg.relaySecret));
   });
   it("does not expose or retry an unknown relay result", async () => {
     const cfg = { webhookSecret: config.webhookSecret, relaySecret: config.relaySecret, vercelBypass: "SYNTHETIC_PROJECT_ONLY_SSO_CREDENTIAL" }, network = vi.fn<typeof fetch>().mockRejectedValue(Error("PRIVATE_PROVIDER_SECRET"));

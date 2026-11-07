@@ -1,3 +1,4 @@
+\ir helpers/historical/identity_domains_v1.sql
 -- Load the real temporary read-only backup predicates, before these fixtures.
 \o /dev/null
 \ir helpers/private_beta_backup_fingerprint.sql
@@ -15,7 +16,7 @@ declare p private.private_beta_programs;o jsonb;q jsonb;at_value timestamptz:=cl
  scope_hash:=private.fse_hash(private.fse_canonical(jsonb_build_array('OPENAI_PROJECT1','org-fixture-'||n,'proj_fixture_'||n)));
  o:=jsonb_build_object('version',1,'origin','PROTECTED_OPENAI_MODEL_AND_PRICING_OBSERVATION','program_id',p.id,'tenant_id',p.tenant_id,'repository_sha',repeat('e',40),
  'organization_id','org-fixture-'||n,'project_id','proj_fixture_'||n,'credential_sha256',key_hash,'account_scope_hash',scope_hash,
- 'credential_custody_hash',private.fse_hash(private.fse_canonical(jsonb_build_array('POLAT_UAT_CREDENTIAL_CUSTODY1',scope_hash,key_hash))),
+ 'credential_custody_hash',private.fse_hash(private.fse_canonical(jsonb_build_array(pg_temp.jeff_domain('JEFF_UAT_CREDENTIAL_CUSTODY1'),scope_hash,key_hash))),
  'provider','openai','model','gpt-6.1-sol','model_access',true,'model_response_hash',repeat('2',64),'policy_hash',repeat('3',64),'observed_at',at_value,'expires_at',at_value+interval '24 hours');
  q:=(pg_temp.beta_openai_envelope(n)->'pricing')||jsonb_build_object('source_url','https://developers.openai.com/api/docs/models/gpt-6.1-sol',
  'maximum_input_usd_per_million','4.4','maximum_output_usd_per_million','16.5','observed_at',at_value,'expires_at',at_value+interval '24 hours');
@@ -71,16 +72,16 @@ select pg_temp.recovery_unknown(6201);
 select throws_ok($q$select pg_temp.private_beta_require_quiescent()$q$,'P0001','PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS','held correlation canary remains denied without an explicit recovery target');
 select throws_ok($q$select pg_temp.private_beta_require_quiescent(pg_temp.beta_id(6290,'3000'))$q$,'P0001','PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS','a different program ID grants no backup exception');
 select lives_ok($q$select pg_temp.private_beta_require_quiescent(pg_temp.beta_id(6201,'3000'))$q$,'only the selected stopped first owner-only correlation canary is quiescent');
-select ok((pg_temp.private_beta_snapshot(pg_temp.beta_id(6201,'3000'))#>>'{tables,private.polat_experiment_evidence,rows}')::integer>0,'full snapshot retains the failed canary journal instead of excluding it');
+select ok((pg_temp.private_beta_snapshot(pg_temp.beta_id(6201,'3000'))#>>'{tables,private.jeff_experiment_evidence,rows}')::integer>0,'full snapshot retains the failed canary journal instead of excluding it');
 select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6201,'3000')),1,'read-only backup eligibility never resets initiated calls');
 select is((select reserved_liability from private.private_beta_programs where id=pg_temp.beta_id(6201,'3000')),4.628448::numeric,'read-only backup eligibility retains the complete UNKNOWN liability');
 select pg_temp.recovery_unknown(6202);
 select throws_ok($q$select pg_temp.private_beta_require_quiescent(pg_temp.beta_id(6201,'3000'))$q$,'P0001','PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS','the exception never silently includes another non-paused program');
 select pg_temp.recovery_unknown(6203);
 create temp table recovery_before as select p.id,p.canary_run_id,p.request_count,p.reserved_liability,p.configuration,p.generation,to_jsonb(r) as run_row,
- (select jsonb_agg(to_jsonb(a)order by a.id)from private.polat_experiment_attempts a where a.run_id=r.id)as attempts,
- (select jsonb_agg(to_jsonb(e)order by e.sequence)from private.polat_experiment_evidence e where e.run_id=r.id)as evidence
- from private.private_beta_programs p join private.polat_experiment_runs r on r.id=p.canary_run_id where p.id=pg_temp.beta_id(6201,'3000');
+ (select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a where a.run_id=r.id)as attempts,
+ (select jsonb_agg(to_jsonb(e)order by e.sequence)from private.jeff_experiment_evidence e where e.run_id=r.id)as evidence
+ from private.private_beta_programs p join private.jeff_experiment_runs r on r.id=p.canary_run_id where p.id=pg_temp.beta_id(6201,'3000');
 select ok(private.private_beta_recovery_available((select p from private.private_beta_programs p where p.id=pg_temp.beta_id(6201,'3000'))),'exact first correlation UNKNOWN is recoverable');
 select ok(not has_function_privilege('service_role','public.admin_private_beta_recover_founder_test_v1(uuid,uuid,bigint,text)','execute'),'service role cannot manufacture owner recovery');
 select ok(not has_function_privilege('anon','public.admin_private_beta_recover_founder_test_v1(uuid,uuid,bigint,text)','execute'),'anonymous cannot recover owner test');
@@ -102,9 +103,9 @@ select is((select configuration->>'expires_at'from private.private_beta_programs
 select is((select account_control->>'provider_billing'from private.private_beta_programs where id=pg_temp.beta_id(6201,'3000')),'UNKNOWN','owner screenshot is not fabricated reconciled billing');
 select is((select account_control->>'provider_enforced_cap'from private.private_beta_programs where id=pg_temp.beta_id(6201,'3000')),'UNVERIFIED','external cap is not fabricated');
 select is((select account_control->>'version'from private.private_beta_programs where id=pg_temp.beta_id(6201,'3000')),'4','recovery has a distinct native binding protocol');
-select is((select to_jsonb(r)from private.polat_experiment_runs r join recovery_before b on r.id=b.canary_run_id),(select run_row from recovery_before),'original held run is byte-for-byte unchanged');
-select is((select jsonb_agg(to_jsonb(a)order by a.id)from private.polat_experiment_attempts a join recovery_before b on a.run_id=b.canary_run_id),(select attempts from recovery_before),'original attempt is unchanged');
-select is((select jsonb_agg(to_jsonb(e)order by e.sequence)from private.polat_experiment_evidence e join recovery_before b on e.run_id=b.canary_run_id),(select evidence from recovery_before),'original UNKNOWN/audit evidence is unchanged');
+select is((select to_jsonb(r)from private.jeff_experiment_runs r join recovery_before b on r.id=b.canary_run_id),(select run_row from recovery_before),'original held run is byte-for-byte unchanged');
+select is((select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join recovery_before b on a.run_id=b.canary_run_id),(select attempts from recovery_before),'original attempt is unchanged');
+select is((select jsonb_agg(to_jsonb(e)order by e.sequence)from private.jeff_experiment_evidence e join recovery_before b on e.run_id=b.canary_run_id),(select evidence from recovery_before),'original UNKNOWN/audit evidence is unchanged');
 select is(private.private_beta_exposure(pg_temp.beta_id(6201,'3000')),4.628448::numeric,'historical UNKNOWN remains in global exposure');
 select is(public.private_beta_account_control_v1(pg_temp.beta_id(6201,'2000'),pg_temp.beta_id(6201,'3000'))#>>'{payload,retained_unknown_liability}','4.628448','retained debt is explicit in the server control');
 select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(6201,'3000')),true)->>'maximum_attempt_liability','0.0264704','new request has provider-count-enforced4096 input plus512 output bound');
@@ -120,11 +121,11 @@ select ok(private.private_beta_founder_canary_hash((select p from private.privat
 select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(6201,'2000'),25,null)#>>'{program,canary_state}','OWNER_TEST_READY','existing founder conversation controls become available after current QA evidence');
 select ok(private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6201,'3000'))),'numeric Business setup can continue at the preserved second ordinal');
 select ok(private.private_beta_exposure(pg_temp.beta_id(6201,'3000'))>=4.628448,'successful new usage never releases old UNKNOWN debt');
-select is((select count(*)::int from private.polat_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=pg_temp.beta_id(6201,'3000')and e.stage='RECONCILIATION'),0,'no provider bill is fabricated');
+select is((select count(*)::int from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=pg_temp.beta_id(6201,'3000')and e.stage='RECONCILIATION'),0,'no provider bill is fabricated');
 select throws_ok($q$select public.admin_private_beta_transition_v1(pg_temp.beta_id(6201,'2000'),pg_temp.beta_id(6201,'3000'),'FOUNDER',6)$q$,'55000',null,'real bot/Business permissions are still required before conversation dispatch');
 select public.admin_private_beta_transition_v1(pg_temp.beta_id(6201,'2000'),pg_temp.beta_id(6201,'3000'),'STOPPED',6);
 select throws_ok($q$select public.admin_private_beta_canary_scope_v1(pg_temp.beta_id(6201,'2000'),pg_temp.beta_id(6201,'3000'))$q$,'42501',null,'emergency STOP still prevents scope issuance');
-select is((select to_jsonb(r)from private.polat_experiment_runs r join recovery_before b on r.id=b.canary_run_id),(select run_row from recovery_before),'STOP also leaves the historical UNKNOWN run intact');
+select is((select to_jsonb(r)from private.jeff_experiment_runs r join recovery_before b on r.id=b.canary_run_id),(select run_row from recovery_before),'STOP also leaves the historical UNKNOWN run intact');
 
 -- Protected-runner fixture. This is not a genuine GitHub review, founder login,
 -- MFA verification, provider inference or bill. No fixture is applied hosted.

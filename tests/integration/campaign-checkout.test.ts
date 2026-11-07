@@ -3,7 +3,7 @@ vi.mock("server-only", () => ({}));
 const fake = vi.hoisted(() => ({ rpc: vi.fn(), connect: vi.fn(), purchase: vi.fn() }));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => ({ rpc: fake.rpc }) }));
 vi.mock("../../apps/web/src/lib/payments/telegram-stars-commerce", () => ({ createStarsCommerce: fake.connect }));
-import { prepareCampaignCheckoutEvidence } from "../../apps/web/src/lib/polat/campaign-checkout";
+import { prepareCampaignCheckoutEvidence } from "../../apps/web/src/lib/jeff/campaign-checkout";
 const id = "d9000000-0000-4000-8000-000000000001";
 const scope = { tenantId: id, campaignId: id, jobId: id, conversationId: id, sourceEventId: id,
   sourceText: "/buy", boundary: "2026-10-31T01:00:00Z", language: "en" };

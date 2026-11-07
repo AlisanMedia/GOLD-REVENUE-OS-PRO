@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { polatSupportIdentity } from "./polat-support-identity";
+import { jeffSupportIdentity } from "./jeff-support-identity";
 import { SPEECH_ACTS, CONVERSATION_CAPABILITIES, inferredSpeechAct, validateServiceSpeechAct, isConversationalClarificationOffer, isMembershipClarificationQuestion, isDraftedReviewIntroduction, isDraftedReviewQuestion, isProspectiveReviewNoteOffer, isBoundedTurkishKnowledgeLimitation, isBoundedTurkishAnaphoricLimitation, isOperationalDenial, withoutNegativeOperationalClauses, type ConversationCapability } from "./speech-acts";
 
 export const CLAIM_GROUNDINGS = ["KNOWN_FROM_SYSTEM", "VERIFIED_BY_TOOL", "CUSTOMER_REPORTED", "INFERRED", "GENERAL_SAFE_STATEMENT", "UNKNOWN", "UNSUPPORTED_CLAIM"] as const;
@@ -131,15 +131,15 @@ export function reviewClaimGrounding(input: {
           capability: claim.capability, availableCapabilities: input.availableCapabilities ?? ["conversation.reply", "conversation.prepare_review"],
           guaranteedCommitments: input.guaranteedCommitments ?? [] }));
     const identityDeclaration = /\b(?:i['’]m|i am) (?:an? )?(?:ai|automated|human|real human|person)\b|ben (?:bir )?yapay zeka|ai destekli bir asistanım|أنا مساعد ذكاء اصطناعي|я ии помощник/iu.test(claim.text);
-    // Only these whole identity paraphrases may use the existing scoped Polat
+    // Only these whole identity paraphrases may use the existing scoped Jeff
     // identity fact. A source ID alone never authorizes appended business facts.
-    const exactPolatSupportIdentity = speechAct === "IDENTITY_RESPONSE" && claim.grounding === "KNOWN_FROM_SYSTEM"
+    const exactJeffSupportIdentity = speechAct === "IDENTITY_RESPONSE" && claim.grounding === "KNOWN_FROM_SYSTEM"
       && claim.capability == null && claim.action_category == null
-      && Object.values(polatSupportIdentity).some(identity => normalizeConversationText(identity.automation) === normalizeConversationText(claim.text))
+      && Object.values(jeffSupportIdentity).some(identity => normalizeConversationText(identity.automation) === normalizeConversationText(claim.text))
       && evidence.some(item => item.category === "fact" && claim.evidence_refs.includes(item.id)
-        && ["polat:uat:identity:v1", "polat:campaign:identity:v1"].includes(item.id)
-        && ["I'm Polat's AI assistant.", "Ben Polat’ın yapay zekâ asistanıyım."].some(statement => normalizeConversationText(statement) === normalizeConversationText(item.statement)));
-    const exactIdentity = exactPolatSupportIdentity || (speechAct === "IDENTITY_RESPONSE" || identityDeclaration) && [
+        && ["jeff:uat:identity:v1", "jeff:campaign:identity:v1"].includes(item.id)
+        && ["I'm Jeff's AI assistant.", "Ben Jeff’ın yapay zekâ asistanıyım."].some(statement => normalizeConversationText(statement) === normalizeConversationText(item.statement)));
+    const exactIdentity = exactJeffSupportIdentity || (speechAct === "IDENTITY_RESPONSE" || identityDeclaration) && [
       "i m an ai assistant not a human", "i am an ai assistant not a human", "i m an ai assistant", "i am an ai assistant",
       "i m an ai assistant not a real human", "i am an ai assistant not a real human",
       "i m an ai not a real human", "i am an ai not a real human",

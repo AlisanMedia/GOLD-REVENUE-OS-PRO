@@ -64,7 +64,8 @@
       "codex/genuine-campaign-integration": false,
       "codex/stars-genuine-receipt-bridge": false,
       "codex/protected-integration-inventory": false,
-      "codex/founder-mfa-enrollment-recovery": false
+      "codex/founder-mfa-enrollment-recovery": false,
+      "codex/jeff-identity-migration": false
     }
   },
   "framework": "nextjs",

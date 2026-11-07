@@ -2,10 +2,10 @@ import { createHash, randomUUID } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { executePolatPrivateBetaCanary } from '../packages/domain/src/polat-private-beta-canary.ts';
-import { createPolatPrivateBetaProvider, boundPolatPrivateBetaWireLiability } from '../packages/domain/src/polat-private-beta-provider.ts';
-import { createPolatPrivateBetaNetworkAuthority, polatPrivateBetaBindingSchema, polatPrivateBetaAccountEvidenceSchema } from '../packages/domain/src/polat-experiment-execution-gate.ts';
-import { parsePolatClaudeJson } from '../packages/domain/src/polat-claude-json.ts';
+import { executeJeffPrivateBetaCanary } from '../packages/domain/src/jeff-private-beta-canary.ts';
+import { createJeffPrivateBetaProvider, boundJeffPrivateBetaWireLiability } from '../packages/domain/src/jeff-private-beta-provider.ts';
+import { createJeffPrivateBetaNetworkAuthority, jeffPrivateBetaBindingSchema, jeffPrivateBetaAccountEvidenceSchema } from '../packages/domain/src/jeff-experiment-execution-gate.ts';
+import { parseJeffClaudeJson } from '../packages/domain/src/jeff-claude-json.ts';
 
 const DATABASE = 'https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query';
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/u;
@@ -17,7 +17,7 @@ const literal = value => "'" + String(value).replaceAll("'", "''") + "'";
 /** Existing native canary on a protected reviewed runner. No browser session,
  * TOTP, new MFA verification, customer message, bill or commercial authority is
  * manufactured. The initial authenticated owner grant and deadline stay intact. */
-export async function runPrivateBetaProtectedCanary({ env, request = fetch, providerFactory = createPolatPrivateBetaProvider }) {
+export async function runPrivateBetaProtectedCanary({ env, request = fetch, providerFactory = createJeffPrivateBetaProvider }) {
   const base = { version: 1, mode: 'PROTECTED_EXISTING_OWNER_CANARY_RECOVERY', state: 'BLOCKED',
     financial_authority: 'NONE', commercial_pilot: 'NO_GO', actual_billed_amount: null, provider_billing: 'UNKNOWN',
     automatic_retries: 0, telegram_messages: 0, original_unknown_preserved: 'NOT_YET_VERIFIED', owner_mfa_manufactured: false };
@@ -38,13 +38,13 @@ export async function runPrivateBetaProtectedCanary({ env, request = fetch, prov
       finally { void reader.cancel().catch(() => {}); reader.releaseLock(); }
       assert(ended, 'FOUNDER_CANARY_DATABASE_BOUND');
       let rows;
-      try { rows = parsePolatClaudeJson(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes)), 65536); }
+      try { rows = parseJeffClaudeJson(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes)), 65536); }
       catch { throw Error('FOUNDER_CANARY_DATABASE_UNVERIFIED'); }
       assert(Array.isArray(rows) && rows.length === 1 && rows[0]?.database_role === 'postgres' && Object.hasOwn(rows[0], 'value'), 'FOUNDER_CANARY_DATABASE_ROLE_REQUIRED');
       return rows[0].value;
     };
     const p = env.PRIVATE_BETA_PROGRAM_ID, release = env.VALIDATED_SHA;
-    const snapshotSql = "private.fse_hash(private.fse_canonical(jsonb_build_object('run',(select to_jsonb(r)from private.polat_experiment_runs r where r.id=coalesce((p.account_control->>'retained_unknown_run_id')::uuid,p.canary_run_id)),'attempts',(select jsonb_agg(to_jsonb(a)order by a.id)from private.polat_experiment_attempts a where a.run_id=coalesce((p.account_control->>'retained_unknown_run_id')::uuid,p.canary_run_id)),'evidence',(select jsonb_agg(to_jsonb(e)order by e.sequence)from private.polat_experiment_evidence e where e.run_id=coalesce((p.account_control->>'retained_unknown_run_id')::uuid,p.canary_run_id)))))";
+    const snapshotSql = "private.fse_hash(private.fse_canonical(jsonb_build_object('run',(select to_jsonb(r)from private.jeff_experiment_runs r where r.id=coalesce((p.account_control->>'retained_unknown_run_id')::uuid,p.canary_run_id)),'attempts',(select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a where a.run_id=coalesce((p.account_control->>'retained_unknown_run_id')::uuid,p.canary_run_id)),'evidence',(select jsonb_agg(to_jsonb(e)order by e.sequence)from private.jeff_experiment_evidence e where e.run_id=coalesce((p.account_control->>'retained_unknown_run_id')::uuid,p.canary_run_id)))))";
     const authSql = "private.fse_hash(private.fse_canonical(jsonb_build_array(p.owner_user_id,p.approved_at,p.authenticated_at,(select count(*)from auth.mfa_factors f where f.user_id=p.owner_user_id and f.status='verified'))))";
 
     const program = await query("select current_user as database_role,jsonb_build_object('tenant_id',p.tenant_id,'stage',p.stage,'generation',p.generation::text,'request_count',p.request_count,'account_version',p.account_control->>'version','repository_sha',p.configuration->>'repository_sha','eligible',private.private_beta_recovery_available(p),'standing_owner',private.private_beta_standing_owner_valid(p),'canary_accepted',private.private_beta_founder_canary_hash(p)is not null,'retained_fingerprint'," + snapshotSql + ",'auth_fingerprint'," + authSql + ")as value from private.private_beta_programs p where p.id=" + literal(p) + '::uuid');
@@ -76,17 +76,17 @@ export async function runPrivateBetaProtectedCanary({ env, request = fetch, prov
       } else throw Error('FOUNDER_CANARY_NATIVE_RPC_DENIED');
       return query('select current_user as database_role,public.' + name + '(' + args + ')as value');
     };
-    const binding = polatPrivateBetaBindingSchema.parse(await rpc('private_beta_binding_v1'));
+    const binding = jeffPrivateBetaBindingSchema.parse(await rpc('private_beta_binding_v1'));
     assert(binding.version === 4 && binding.repository_sha === release && binding.program_id === p && binding.tenant_id === t
       && binding.recovery_authority === 'PROTECTED_EXISTING_OWNER_GRANT', 'FOUNDER_CANARY_BINDING_UNVERIFIED');
     const nonce = new Map();
     const account = async wire => {
       const sealed = await rpc('private_beta_account_control_v1');
-      const payload = polatPrivateBetaAccountEvidenceSchema.parse(sealed?.payload);
-      if (wire) { const bound = boundPolatPrivateBetaWireLiability({ ...wire, maximum_input_tokens: binding.maximum_input_tokens }, sealed.pricing); payload.request_bound = { ...bound, valid_until: new Date(Math.min(Date.parse(bound.valid_until), Date.parse(payload.expires_at))).toISOString() }; }
+      const payload = jeffPrivateBetaAccountEvidenceSchema.parse(sealed?.payload);
+      if (wire) { const bound = boundJeffPrivateBetaWireLiability({ ...wire, maximum_input_tokens: binding.maximum_input_tokens }, sealed.pricing); payload.request_bound = { ...bound, valid_until: new Date(Math.min(Date.parse(bound.valid_until), Date.parse(payload.expires_at))).toISOString() }; }
       return payload;
     };
-    const authority = createPolatPrivateBetaNetworkAuthority({ deployed_sha: release, readOwnerGrant: () => rpc('private_beta_owner_grant_v1'), readIndependentAccount: async (_id, wire) => ({ payload: await account(wire) }),
+    const authority = createJeffPrivateBetaNetworkAuthority({ deployed_sha: release, readOwnerGrant: () => rpc('private_beta_owner_grant_v1'), readIndependentAccount: async (_id, wire) => ({ payload: await account(wire) }),
       readCommittedAttempt: async (_id, attemptId) => { const proof = await rpc('private_beta_committed_attempt_v1', { attempt_id: attemptId }); assert(proof?.dispatch_nonce === nonce.get(attemptId), 'FOUNDER_CANARY_OWNED_START_REQUIRED'); return proof; },
       resolveCredential: async scopeHash => { const sealed = await account(); const key = env.OPENAI_API_KEY;
         assert(binding.account_scope_hash === scopeHash && sealed.provider === 'openai' && sealed.credential_sha256 === digest(key ?? '') && typeof key === 'string' && /^[\x21-\x7e]{20,4096}$/u.test(key), 'FOUNDER_CANARY_CREDENTIAL_UNVERIFIED'); return key; } });
@@ -95,14 +95,14 @@ export async function runPrivateBetaProtectedCanary({ env, request = fetch, prov
       begin: async v => { const value = randomUUID(); nonce.set(v.attempt_id, value); return rpc('private_beta_begin_v1', { attempt_id: v.attempt_id, dispatch_nonce: value }); },
       record: async (v, outcome) => { const value = nonce.get(v.attempt_id); assert(value, 'FOUNDER_CANARY_OWNED_START_REQUIRED'); const receipt = await rpc('private_beta_record_v1', { attempt_id: v.attempt_id, dispatch_nonce: value, outcome }); assert(receipt?.recorded === true, 'FOUNDER_CANARY_JOURNAL_ACK_UNKNOWN'); },
     };
-    const result = await executePolatPrivateBetaCanary(scope, async ({ assess }) => providerFactory({ binding, authority, store, assess }));
+    const result = await executeJeffPrivateBetaCanary(scope, async ({ assess }) => providerFactory({ binding, authority, store, assess }));
     const accepted = await query("select current_user as database_role,jsonb_build_object('accepted',private.private_beta_founder_canary_hash(p)is not null,'retained_fingerprint'," + snapshotSql + ",'auth_fingerprint'," + authSql + ")as value from private.private_beta_programs p where p.id=" + literal(p) + '::uuid and p.tenant_id=' + literal(t) + '::uuid');
     assert(result.qa === 'APPROVED' && result.status === 'CANARY_OWNER_TEST_PASSED' && accepted?.accepted === true && accepted.retained_fingerprint === program.retained_fingerprint && accepted.auth_fingerprint === program.auth_fingerprint, 'FOUNDER_CANARY_QUALITY_OR_READBACK_HELD');
     return { ...base, state: 'REAL_CANARY_QA_ACCEPTED', original_unknown_preserved: true, original_unknown_readback_hash: accepted.retained_fingerprint, existing_owner_auth_preserved: true, recovery_mutation: recovery, initiated_attempts: 1, actual_inference_requests: 1,
       repository_sha: release, model: result.model, attempt_id: result.attempt_id, request_id: result.request_id, provider_response_id: result.provider_response_id, input_tokens: result.input_tokens, output_tokens: result.output_tokens,
       response_hash: result.response_hash, elapsed_ms: result.elapsed_ms, qa: result.qa, independent_journal_readback: true };
   } catch (error) {
-    const code = error instanceof Error && /^(?:FOUNDER_CANARY|PROTECTED_|REAL_STANDING_|OPENAI_UAT_|POLAT_UAT_)[A-Z0-9_]{1,100}$/u.test(error.message) ? error.message : 'FOUNDER_CANARY_REVIEW_REQUIRED';
+    const code = error instanceof Error && /^(?:FOUNDER_CANARY|PROTECTED_|REAL_STANDING_|OPENAI_UAT_|JEFF_UAT_)[A-Z0-9_]{1,100}$/u.test(error.message) ? error.message : 'FOUNDER_CANARY_REVIEW_REQUIRED';
     return { ...base, reason: code, recovery_mutation: recovery, initiated_attempts: journalAttempt ? 1 : 0 };
   }
 }

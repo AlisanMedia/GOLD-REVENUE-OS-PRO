@@ -164,7 +164,7 @@ describe("private-beta protected release gates (offline only)", () => {
     expect(() => validatePrivateBetaVercelProject({ ...project(), ssoProtection: { deploymentType: "all_except_custom_domains", enabled } }, team)).toThrow("EXISTING_SSO_REQUIRED");
   });
   it("does not put model, admin, bot, database-secret or backup credentials into build inputs", () => {
-    const content = privateBetaBuildEnvironment({ NEXT_PUBLIC_SUPABASE_URL: "https://xqvwkghpmezcpgugetqc.supabase.co", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "public-test-publishable-key", POLAT_UAT_ANTHROPIC_API_KEY: "private-model-fixture", POLAT_UAT_ANTHROPIC_ADMIN_KEY: "private-admin-fixture", POLAT_UAT_TELEGRAM_BOT_TOKEN: "private-bot-fixture", POLAT_UAT_STARS_TEST_BOT_TOKEN: "private-stars-fixture", POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: "private-stars-webhook-fixture", POLAT_UAT_STARS_RELAY_SECRET: "private-stars-relay-fixture", SUPABASE_SECRET_KEY: "private-db-fixture", STAGING_BACKUP_PASSPHRASE: "private-backup-fixture" });
+    const content = privateBetaBuildEnvironment({ NEXT_PUBLIC_SUPABASE_URL: "https://xqvwkghpmezcpgugetqc.supabase.co", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "public-test-publishable-key", JEFF_UAT_ANTHROPIC_API_KEY: "private-model-fixture", JEFF_UAT_ANTHROPIC_ADMIN_KEY: "private-admin-fixture", JEFF_UAT_TELEGRAM_BOT_TOKEN: "private-bot-fixture", JEFF_UAT_STARS_TEST_BOT_TOKEN: "private-stars-fixture", JEFF_UAT_STARS_TEST_WEBHOOK_SECRET: "private-stars-webhook-fixture", JEFF_UAT_STARS_RELAY_SECRET: "private-stars-relay-fixture", SUPABASE_SECRET_KEY: "private-db-fixture", STAGING_BACKUP_PASSPHRASE: "private-backup-fixture" });
     expect(content).toContain("\nNEXT_PUBLIC_SUPABASE_URL="); expect(content).not.toMatch(/private-(model|admin|bot|stars|db|backup)/);
     expect(() => privateBetaBuildEnvironment({ NEXT_PUBLIC_SUPABASE_URL: "https://foreign.supabase.co", NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "public" })).toThrow();
   });
@@ -178,10 +178,10 @@ describe("private-beta protected release gates (offline only)", () => {
     expect(workflow).toContain("workflow_dispatch:"); expect(workflow).not.toMatch(/pull_request_target|schedule:|workflow_run:/u);
     expect(workflow).toContain("environment: staging"); expect(workflow).toContain("group: staging-validation");
     expect(workflow.indexOf("Retain encrypted recoverable backup before migration")).toBeLessThan(workflow.indexOf("Apply only reviewed pending staging migrations"));
-    expect(workflow).toContain("--skip-vault"); expect(workflow).toContain("--skip-domain"); expect(workflow.split("\n  account_preflight:")[0]).not.toContain("POLAT_UAT_ANTHROPIC_ADMIN_KEY:");
+    expect(workflow).toContain("--skip-vault"); expect(workflow).toContain("--skip-domain"); expect(workflow.split("\n  account_preflight:")[0]).not.toContain("JEFF_UAT_ANTHROPIC_ADMIN_KEY:");
     expect(workflow.indexOf("Authenticated infrastructure smoke")).toBeLessThan(workflow.indexOf("Promote only the verified isolated staging build"));
     const attach = workflow.slice(workflow.indexOf("Attach the narrowly scoped runtime configuration"), workflow.indexOf("Reverify protected main before publication"));
-    expect(attach).toContain("POLAT_UAT_STARS_TEST_BOT_TOKEN"); expect(attach).not.toContain("POLAT_UAT_ANTHROPIC_ADMIN_KEY");
+    expect(attach).toContain("JEFF_UAT_STARS_TEST_BOT_TOKEN"); expect(attach).not.toContain("JEFF_UAT_ANTHROPIC_ADMIN_KEY");
   });
   it("requires a real owned program read before a read-only account observation", () => {
     const program = "b0b00000-0000-4000-8000-000000000001", tenant = "b0b00000-0000-4000-8000-000000000002";
@@ -253,7 +253,7 @@ describe("protected real bot identity import (offline HTTP fixtures only)", () =
   });
   it("only prepares a fixed authenticated ingress payload and never drops queued updates", () => {
     const plan = privateBetaBotWebhookRequest("fixture_webhook_" + "x".repeat(32));
-    expect(plan).toMatchObject({ url: "https://xqvwkghpmezcpgugetqc.supabase.co/functions/v1/polat-private-beta-ingress", allowed_updates: ["message"], max_connections: 1, drop_pending_updates: false });
+    expect(plan).toMatchObject({ url: "https://xqvwkghpmezcpgugetqc.supabase.co/functions/v1/jeff-private-beta-ingress", allowed_updates: ["message"], max_connections: 1, drop_pending_updates: false });
     expect(() => privateBetaBotWebhookRequest("bad\nsecret")).toThrow();
     const workflow = readFileSync(".github/workflows/private-beta-uat.yml", "utf8"), botJob = workflow.split("\n  verify_bot:\n")[1]!;
     expect(botJob).toContain("environment: staging"); expect(botJob).toContain("private-beta-release-gate.mjs");
@@ -302,7 +302,7 @@ it("collects separate bot inventory within the same protected release without a 
   expect(start).toBeGreaterThan(workflow.indexOf("- name: Verify exact SHA, mandatory checks and protected environment"));
   expect(step).toContain("inputs.operation == 'release_with_business_setup'");
   expect(step).toContain("scripts/protected-integration-inventory.mjs");
-  for (const name of ["POLAT_UAT_TELEGRAM_BOT_TOKEN", "POLAT_STARS_MERCHANT_BOT_TOKEN", "POLAT_UAT_STARS_TEST_BOT_TOKEN"]) expect(step).toContain(name);
+  for (const name of ["JEFF_UAT_TELEGRAM_BOT_TOKEN", "JEFF_STARS_MERCHANT_BOT_TOKEN", "JEFF_UAT_STARS_TEST_BOT_TOKEN"]) expect(step).toContain(name);
   expect(step).not.toContain("GH_GOVERNANCE_TOKEN");
   expect(step).not.toContain("setWebhook");
   expect(workflow).toContain("${{ runner.temp }}/protected-integration-inventory.json");

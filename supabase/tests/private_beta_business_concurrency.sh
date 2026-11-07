@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 business_db="${1:?DISPOSABLE_PG17_REQUIRED}"
-[[ "$business_db" =~ ^postgresql://[A-Za-z0-9_]+(:[A-Za-z0-9._~-]+)?@127\.0\.0\.1:[0-9]{1,5}/(postgres|goldpolat_runtime_[A-Za-z0-9_]+)$ ]] || exit 1
+[[ "$business_db" =~ ^postgresql://[A-Za-z0-9_]+(:[A-Za-z0-9._~-]+)?@127\.0\.0\.1:[0-9]{1,5}/(postgres|goldjeff_runtime_[A-Za-z0-9_]+)$ ]] || exit 1
 business_root=$(cd "$(dirname "$0")" && pwd)
 business_tmp=$(mktemp -d);business_created=false;business_case=SETUP
 business_sql(){ psql "$business_db" -X -qAt -v ON_ERROR_STOP=1 -v VERBOSITY=sqlstate "$@"; }
@@ -93,7 +93,7 @@ business_first business-read-hold "$business_hold"
 business_sql -c "begin;set local application_name='business-after-hold-begin';set local statement_timeout='8s';select public.private_beta_begin_v1('$(business_id 9827 2000)','$(business_id 9827 3000)',(select attempt_id from private.private_beta_attempt_scope where program_id='$(business_id 9827 3000)'and scope='FOUNDER'),'$(business_id 9827 5000)');commit;" >"$business_tmp/after-hold-begin" 2>&1 &
 business_second=$!;business_wait business-after-hold-begin Lock;wait "$business_first_pid";if wait "$business_second";then exit 1;fi
 grep -q 40001 "$business_tmp/after-hold-begin"
-test "$(business_sql -c "select count(*)from private.polat_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id='$(business_id 9827 3000)'and s.scope='FOUNDER'and e.stage='DISPATCH_STARTED'")" = 0
+test "$(business_sql -c "select count(*)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id='$(business_id 9827 3000)'and s.scope='FOUNDER'and e.stage='DISPATCH_STARTED'")" = 0
 test "$(business_sql -c "select request_count from private.private_beta_programs where id='$(business_id 9827 3000)'")" = 2
 test "$(business_sql -c "select count(*)from public.message_delivery_attempts where tenant_id in(select id from public.tenants where slug in('private-beta-fixture-9821','private-beta-fixture-9822','private-beta-fixture-9823','private-beta-fixture-9824','private-beta-fixture-9825','private-beta-fixture-9826','private-beta-fixture-9827'))")" = 0
 echo 'PASS BUSINESS-C7: permission-read uncertainty fences reserved AI start while preserving its consumed request/liability; no external dispatch evidence invented'

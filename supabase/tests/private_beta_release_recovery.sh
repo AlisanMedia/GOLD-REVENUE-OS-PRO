@@ -5,7 +5,7 @@ umask 077
 beta_local_container=${PRIVATE_BETA_PG_CONTAINER:-supabase_db_gold-revenue-os}
 beta_local_source=${1:-postgres}
 [[ "$beta_local_container" = supabase_db_gold-revenue-os || "$beta_local_container" = gold16c1b-pg17 ]]
-[[ "$beta_local_source" = postgres || "$beta_local_source" = goldpolat_runtime_master_regress || "$beta_local_source" =~ ^private_beta_uat_[a-z0-9_]{1,40}$ ]]
+[[ "$beta_local_source" = postgres || "$beta_local_source" = goldjeff_runtime_master_regress || "$beta_local_source" =~ ^private_beta_uat_[a-z0-9_]{1,40}$ ]]
 beta_local_tmp=$(mktemp -d)
 beta_local_restore="beta_release_test_$(node -e 'process.stdout.write(require("node:crypto").randomBytes(8).toString("hex"))')"
 beta_local_created=false

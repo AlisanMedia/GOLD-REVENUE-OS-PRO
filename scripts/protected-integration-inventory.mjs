@@ -3,22 +3,22 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { observeConfiguredOpenAIModel } from './private-beta-release-openai-account.mjs';
-import { parsePolatClaudeJson } from '../packages/domain/src/polat-claude-json.ts';
+import { parseJeffClaudeJson } from '../packages/domain/src/jeff-claude-json.ts';
 
 const hash = value => createHash('sha256').update(value, 'utf8').digest('hex');
 const assert = (value, code) => { if (!value) throw Error(code); };
 const roles = Object.freeze([
-  { role: 'BUSINESS_AI', credential: 'POLAT_UAT_TELEGRAM_BOT_TOKEN', test: false },
-  { role: 'MERCHANT', credential: 'POLAT_STARS_MERCHANT_BOT_TOKEN', test: false },
-  { role: 'STARS_DEDICATED_TEST', credential: 'POLAT_UAT_STARS_TEST_BOT_TOKEN', test: true },
+  { role: 'BUSINESS_AI', credential: 'JEFF_UAT_TELEGRAM_BOT_TOKEN', test: false },
+  { role: 'MERCHANT', credential: 'JEFF_STARS_MERCHANT_BOT_TOKEN', test: false },
+  { role: 'STARS_DEDICATED_TEST', credential: 'JEFF_UAT_STARS_TEST_BOT_TOKEN', test: true },
 ]);
 const configurationNames = Object.freeze([
   'OPENAI_API_KEY', 'OPENAI_UAT_ORGANIZATION_ID', 'OPENAI_UAT_PROJECT_ID',
-  'POLAT_UAT_TELEGRAM_BOT_TOKEN', 'POLAT_UAT_TELEGRAM_WEBHOOK_SECRET', 'POLAT_UAT_RELAY_SECRET',
-  'POLAT_UAT_TENANT_ID', 'POLAT_UAT_PROGRAM_ID',
-  'POLAT_CAMPAIGN_TENANT_ID', 'POLAT_CAMPAIGN_ID', 'POLAT_CAMPAIGN_WEBHOOK_SECRET', 'POLAT_CAMPAIGN_RELAY_SECRET',
-  'POLAT_STARS_MERCHANT_TENANT_ID', 'POLAT_STARS_MERCHANT_BOT_TOKEN', 'POLAT_STARS_MERCHANT_WEBHOOK_SECRET', 'POLAT_STARS_MERCHANT_RELAY_SECRET',
-  'POLAT_UAT_STARS_TEST_BOT_TOKEN', 'POLAT_UAT_STARS_TEST_WEBHOOK_SECRET', 'POLAT_UAT_STARS_RELAY_SECRET',
+  'JEFF_UAT_TELEGRAM_BOT_TOKEN', 'JEFF_UAT_TELEGRAM_WEBHOOK_SECRET', 'JEFF_UAT_RELAY_SECRET',
+  'JEFF_UAT_TENANT_ID', 'JEFF_UAT_PROGRAM_ID',
+  'JEFF_CAMPAIGN_TENANT_ID', 'JEFF_CAMPAIGN_ID', 'JEFF_CAMPAIGN_WEBHOOK_SECRET', 'JEFF_CAMPAIGN_RELAY_SECRET',
+  'JEFF_STARS_MERCHANT_TENANT_ID', 'JEFF_STARS_MERCHANT_BOT_TOKEN', 'JEFF_STARS_MERCHANT_WEBHOOK_SECRET', 'JEFF_STARS_MERCHANT_RELAY_SECRET',
+  'JEFF_UAT_STARS_TEST_BOT_TOKEN', 'JEFF_UAT_STARS_TEST_WEBHOOK_SECRET', 'JEFF_UAT_STARS_RELAY_SECRET',
 ]);
 const errorCode = status => ({ 401: 'AUTHENTICATION_REJECTED', 403: 'ACCESS_REJECTED', 404: 'NOT_FOUND_OR_NOT_VISIBLE', 429: 'RATE_OR_ACCOUNT_LIMIT_RESPONSE' })[status] ?? 'PROVIDER_RESPONSE_REJECTED';
 
@@ -56,7 +56,7 @@ async function telegramRead(token, test, method, request) {
       assert(ended, 'METADATA_RESPONSE_BOUND');
     } finally { void reader.cancel().catch(() => undefined); reader.releaseLock(); }
     const raw = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes));
-    const envelope = parsePolatClaudeJson(raw, 16384);
+    const envelope = parseJeffClaudeJson(raw, 16384);
     assert(envelope?.ok === true && envelope.result && typeof envelope.result === 'object' && !Array.isArray(envelope.result), 'METADATA_ENVELOPE_INVALID');
     return { state: 'OBSERVED', provider_status: status, source_hash: hash(raw), value: envelope.result };
   } catch (error) {
@@ -89,8 +89,8 @@ async function inspectBot(role, env, request) {
   // A provider's URL may contain a secret path/query. Return only known route
   // classification and a digest, never the URL, IP, diagnostic text or profile.
   const paths = new Map([
-    ['/functions/v1/polat-campaign-ingress', 'CAMPAIGN'], ['/functions/v1/polat-private-beta-ingress', 'PRIVATE_BETA'],
-    ['/functions/v1/polat-commerce-ingress', 'MERCHANT'], ['/functions/v1/polat-private-beta-stars-ingress', 'STARS_DEDICATED_TEST'],
+    ['/functions/v1/jeff-campaign-ingress', 'CAMPAIGN'], ['/functions/v1/jeff-private-beta-ingress', 'PRIVATE_BETA'],
+    ['/functions/v1/jeff-commerce-ingress', 'MERCHANT'], ['/functions/v1/jeff-private-beta-stars-ingress', 'STARS_DEDICATED_TEST'],
   ]);
   let target = webhook.url === '' ? 'NOT_REGISTERED' : 'OTHER_EXISTING_WEBHOOK';
   if (webhook.url !== '') {

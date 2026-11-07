@@ -1,7 +1,8 @@
+import { IDENTITY_DOMAINS_V1 } from "../../packages/contracts/src/historical/identity-domains-v1";
 import { createHash, createHmac } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
-import { authenticateCampaignIngress, authenticatePrivateBetaIngress } from "../../apps/web/src/lib/polat/private-beta-webhook";
+import { authenticateCampaignIngress, authenticatePrivateBetaIngress } from "../../apps/web/src/lib/jeff/private-beta-webhook";
 
 const config = { tenantId: "912ac000-0000-4000-8000-000000000001", programId: "912ac000-0000-4000-8000-000000000002",
   releaseSha: "a".repeat(40), webhookSecret: "SYNTHETIC_WEBHOOK_SECRET".padEnd(40,"x"), relaySecret: "SYNTHETIC_RELAY_SECRET".padEnd(40,"y") };
@@ -9,10 +10,10 @@ function body() { return JSON.stringify({ update_id: 14, business_message: { bus
   date: Math.floor(Date.now()/1000), chat: { id: 123456789, type: "private" }, from: { id: 123456789, is_bot: false }, text: "Hi" } }); }
 function signed(raw: string, binding = config, beta = false, timestamp = Math.floor(Date.now()/1000).toString()) {
   const hash = createHash("sha256").update(raw).digest("hex");
-  const signature = createHmac("sha256", binding.relaySecret).update(JSON.stringify(beta ? ["POLAT_UAT_RELAY1",timestamp,hash]
-    : ["POLAT_CAMPAIGN_RELAY1",binding.tenantId,binding.programId,binding.releaseSha,timestamp,hash])).digest("hex");
+  const signature = createHmac("sha256", binding.relaySecret).update(JSON.stringify(beta ? [IDENTITY_DOMAINS_V1["JEFF_UAT_RELAY1"],timestamp,hash]
+    : [IDENTITY_DOMAINS_V1["JEFF_CAMPAIGN_RELAY1"],binding.tenantId,binding.programId,binding.releaseSha,timestamp,hash])).digest("hex");
   return new Request("https://fixture.invalid/api/webhooks/campaign/telegram", { method: "POST", headers: { "content-type":"application/json",
-    "x-telegram-bot-api-secret-token":binding.webhookSecret,"x-polat-uat-timestamp":timestamp,"x-polat-uat-signature":signature },body:raw });
+    "x-telegram-bot-api-secret-token":binding.webhookSecret,"x-jeff-uat-timestamp":timestamp,"x-jeff-uat-signature":signature },body:raw });
 }
 describe("authenticated existing parser, separate campaign relay signature scope", () => {
   it("parses genuine-shaped numeric Business input with no credential lookup or model call", async () => {

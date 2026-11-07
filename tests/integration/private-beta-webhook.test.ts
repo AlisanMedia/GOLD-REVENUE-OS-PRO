@@ -1,13 +1,14 @@
+import { IDENTITY_DOMAINS_V1 } from "../../packages/contracts/src/historical/identity-domains-v1";
 import { createHash, createHmac } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { authenticatePrivateBetaUpdate, privateBetaSecretMatches } from "../../apps/web/src/lib/polat/private-beta-webhook";
+import { authenticatePrivateBetaUpdate, privateBetaSecretMatches } from "../../apps/web/src/lib/jeff/private-beta-webhook";
 
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), scope: vi.fn(), queue: vi.fn(), dispatch: vi.fn(), worker: vi.fn(), after: vi.fn(), callbacks: [] as Array<() => unknown> }));
 vi.mock("server-only", () => ({}));
 vi.mock("next/server", async importOriginal => ({ ...await importOriginal<typeof import("next/server")>(), after: mocks.after }));
-vi.mock("@/lib/polat/private-beta-webhook", () => import("../../apps/web/src/lib/polat/private-beta-webhook"));
-vi.mock("@/lib/polat/private-beta-business", () => import("../../apps/web/src/lib/polat/private-beta-business"));
-vi.mock("@/lib/polat/private-beta-runtime", () => ({ privateBetaRpc: mocks.rpc, privateBetaTransportScope: mocks.scope, queuePrivateBetaNotice: mocks.queue, dispatchPrivateBetaMessage: mocks.dispatch }));
+vi.mock("@/lib/jeff/private-beta-webhook", () => import("../../apps/web/src/lib/jeff/private-beta-webhook"));
+vi.mock("@/lib/jeff/private-beta-business", () => import("../../apps/web/src/lib/jeff/private-beta-business"));
+vi.mock("@/lib/jeff/private-beta-runtime", () => ({ privateBetaRpc: mocks.rpc, privateBetaTransportScope: mocks.scope, queuePrivateBetaNotice: mocks.queue, dispatchPrivateBetaMessage: mocks.dispatch }));
 vi.mock("@/lib/agent-runtime/worker", () => ({ runDeterministicWorker: mocks.worker }));
 import { POST } from "../../apps/web/src/app/api/webhooks/private-beta/telegram/route";
 
@@ -17,15 +18,15 @@ const numericId = 9123456789;
 function update(text = "Hello", changes: Record<string, unknown> = {}) { return { update_id: 91001, message: { message_id: 91002, date: Math.floor(Date.now() / 1000), chat: { id: numericId, type: "private" }, from: { id: numericId, is_bot: false, username: "untrusted_test_alias", first_name: "UNTRUSTED TEST NAME" }, text }, ...changes }; }
 function signedRequest(body: string, overrides: Record<string, string> = {}, now = Date.now()) {
   const timestamp = String(Math.floor(now / 1000));
-  const signature = createHmac("sha256", config.relaySecret).update(JSON.stringify(["POLAT_UAT_RELAY1", timestamp, createHash("sha256").update(Buffer.from(body)).digest("hex")])).digest("hex");
-  return new Request("https://gold-revenue-os-staging.vercel.app/api/webhooks/private-beta/telegram", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": config.webhookSecret, "x-polat-uat-timestamp": timestamp, "x-polat-uat-signature": signature, ...overrides }, body });
+  const signature = createHmac("sha256", config.relaySecret).update(JSON.stringify([IDENTITY_DOMAINS_V1["JEFF_UAT_RELAY1"], timestamp, createHash("sha256").update(Buffer.from(body)).digest("hex")])).digest("hex");
+  return new Request("https://gold-revenue-os-staging.vercel.app/api/webhooks/private-beta/telegram", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": config.webhookSecret, "x-jeff-uat-timestamp": timestamp, "x-jeff-uat-signature": signature, ...overrides }, body });
 }
-function accepted(status = "ACTIVE", extra: Record<string, unknown> = {}) { return { status, program_id: programId, participant_id: participantId, notice_version: "polat-private-beta-notice-v1", notice_text: status === "NOTICE_REQUIRED" ? "Offline notice fixture" : null, ...extra }; }
+function accepted(status = "ACTIVE", extra: Record<string, unknown> = {}) { return { status, program_id: programId, participant_id: participantId, notice_version: "jeff-private-beta-notice-v1", notice_text: status === "NOTICE_REQUIRED" ? "Offline notice fixture" : null, ...extra }; }
 function source(duplicate = false) { return { conversation_id: conversationId, message_id: messageId, event_id: null, duplicate }; }
 async function flushAfter() { for (const callback of mocks.callbacks.splice(0)) await callback(); }
 beforeEach(() => {
   vi.clearAllMocks(); mocks.callbacks.length = 0;
-  vi.stubEnv("POLAT_UAT_TENANT_ID", tenantId); vi.stubEnv("POLAT_UAT_PROGRAM_ID", programId); vi.stubEnv("POLAT_UAT_RELEASE_SHA", config.releaseSha); vi.stubEnv("POLAT_UAT_TELEGRAM_WEBHOOK_SECRET", config.webhookSecret); vi.stubEnv("POLAT_UAT_RELAY_SECRET", config.relaySecret);
+  vi.stubEnv("JEFF_UAT_TENANT_ID", tenantId); vi.stubEnv("JEFF_UAT_PROGRAM_ID", programId); vi.stubEnv("JEFF_UAT_RELEASE_SHA", config.releaseSha); vi.stubEnv("JEFF_UAT_TELEGRAM_WEBHOOK_SECRET", config.webhookSecret); vi.stubEnv("JEFF_UAT_RELAY_SECRET", config.relaySecret);
   mocks.scope.mockResolvedValue({ bot_id: "900000001" }); mocks.queue.mockResolvedValue(messageId); mocks.dispatch.mockResolvedValue({ status: "sent", message_id: messageId }); mocks.worker.mockResolvedValue({ tasksClaimed: 1 });
   mocks.after.mockImplementation((callback: () => unknown) => { mocks.callbacks.push(callback); });
   mocks.rpc.mockImplementation(async name => name === "ingest_telegram_message" ? source() : name === "private_beta_track_source_v1" ? true : name === "private_beta_bind_conversation_v1" || name === "private_beta_feedback_v1" ? { recorded: true } : accepted());
@@ -41,7 +42,7 @@ describe("actual private beta webhook authentication, offline requests only", ()
   it.each(["missing", "wrong", "changed-body", "expired", "future"])("rejects %s authentication before any participant or model work", async kind => {
     const body = JSON.stringify(update()), now = Date.now(); let request: Request;
     if (kind === "changed-body") { const signed = signedRequest(body, {}, now); request = new Request(signed.url, { method: "POST", headers: signed.headers, body: JSON.stringify(update("tampered")) }); }
-    else request = signedRequest(body, kind === "missing" ? { "x-polat-uat-signature": "" } : kind === "wrong" ? { "x-telegram-bot-api-secret-token": "WRONG_OFFLINE" } : {}, now + (kind === "expired" ? -301_000 : kind === "future" ? 301_000 : 0));
+    else request = signedRequest(body, kind === "missing" ? { "x-jeff-uat-signature": "" } : kind === "wrong" ? { "x-telegram-bot-api-secret-token": "WRONG_OFFLINE" } : {}, now + (kind === "expired" ? -301_000 : kind === "future" ? 301_000 : 0));
     await expect(authenticatePrivateBetaUpdate(request, config, now)).rejects.toThrow(); expect(mocks.rpc).not.toHaveBeenCalled(); expect(mocks.worker).not.toHaveBeenCalled();
   });
   it("rejects duplicate JSON keys even with a valid relay signature", async () => {
@@ -84,7 +85,7 @@ describe("actual private beta webhook authentication, offline requests only", ()
 
 describe("actual private beta BOT route with injected offline persistence and dispatch", () => {
   it("denies invalid authentication without reading provider configuration or scheduling work", async () => {
-    const response = await POST(signedRequest(JSON.stringify(update()), { "x-polat-uat-signature": "0".repeat(64) }));
+    const response = await POST(signedRequest(JSON.stringify(update()), { "x-jeff-uat-signature": "0".repeat(64) }));
     expect(response.status).toBe(401); expect(await response.json()).toEqual({ error: "PRIVATE_BETA_INGRESS_DENIED" }); expect(mocks.scope).not.toHaveBeenCalled(); expect(mocks.rpc).not.toHaveBeenCalled(); expect(mocks.after).not.toHaveBeenCalled();
   });
   it("uninvited users trigger no message, model, notice or paid attempt", async () => {
@@ -109,7 +110,7 @@ describe("actual private beta BOT route with injected offline persistence and di
     const response = await POST(signedRequest(JSON.stringify(update("What does the fictional test membership include?")))); expect(response.status).toBe(200); expect(mocks.worker).not.toHaveBeenCalled();
     expect(mocks.rpc.mock.calls.map(([name]) => name)).toEqual(["private_beta_participant_for_chat_v1", "ingest_telegram_message", "private_beta_bind_conversation_v1", "private_beta_track_source_v1"]);
     expect(mocks.rpc).toHaveBeenCalledWith("private_beta_track_source_v1", { target_tenant_id: tenantId, target_conversation_id: conversationId, source_message_id_value: messageId });
-    await flushAfter(); expect(mocks.worker).toHaveBeenCalledTimes(1); expect(mocks.worker).toHaveBeenCalledWith({ deploymentRef: config.releaseSha, conversation: { tenantId, conversationId }, polatUat: { programId } }); expect(mocks.queue).not.toHaveBeenCalled();
+    await flushAfter(); expect(mocks.worker).toHaveBeenCalledTimes(1); expect(mocks.worker).toHaveBeenCalledWith({ deploymentRef: config.releaseSha, conversation: { tenantId, conversationId }, jeffUat: { programId } }); expect(mocks.queue).not.toHaveBeenCalled();
   });
   it.each(["/stop", "do not message me again"])("%s commits participation suppression before any further worker work", async text => {
     mocks.rpc.mockImplementation(async name => name === "ingest_telegram_message" ? source() : accepted("REVOKED"));

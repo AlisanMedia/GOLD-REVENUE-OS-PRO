@@ -33,10 +33,10 @@ cannot activate it. The binding has exact SHA, bot/key/header hashes, private VI
 channel, expiry, external evidence references and eligible markets; Türkiye and
 unknown markets are denied for genuine purchase, independently of free UAT.
 
-- `POLAT_STARS_MERCHANT_TENANT_ID`: selects the one sealed merchant tenant.
-- `POLAT_STARS_MERCHANT_BOT_TOKEN`: protected verified merchant bot credential.
-- `POLAT_STARS_MERCHANT_WEBHOOK_SECRET`: protected Telegram secret token,32+ chars.
-- `POLAT_STARS_MERCHANT_RELAY_SECRET`: dedicated fixed-relay HMAC custody.
+- `JEFF_STARS_MERCHANT_TENANT_ID`: selects the one sealed merchant tenant.
+- `JEFF_STARS_MERCHANT_BOT_TOKEN`: protected verified merchant bot credential.
+- `JEFF_STARS_MERCHANT_WEBHOOK_SECRET`: protected Telegram secret token,32+ chars.
+- `JEFF_STARS_MERCHANT_RELAY_SECRET`: dedicated fixed-relay HMAC custody.
 - `VERCEL_GIT_COMMIT_SHA`: platform-owned release binding.
 
 These are names only. Do not print values, read credentials in chat, copy TEST bot
@@ -103,13 +103,13 @@ custody and conservative local request/liability reservation remain necessary.
 
 ## Exact isolated ingress configuration
 
-Reuse the reviewed relay implementation. Deploy only `polat-campaign-ingress` or
-`polat-commerce-ingress` with `--no-verify-jwt` for that exact function after the
+Reuse the reviewed relay implementation. Deploy only `jeff-campaign-ingress` or
+`jeff-commerce-ingress` with `--no-verify-jwt` for that exact function after the
 corresponding identities/custody/tenant are verified; never change global JWT/SSO.
-Edge-only `POLAT_UAT_VERCEL_BYPASS` stays out of application variables and artifacts.
-Campaign Edge scope also needs `POLAT_CAMPAIGN_TENANT_ID`, `POLAT_CAMPAIGN_ID` and
-`POLAT_CAMPAIGN_RELEASE_SHA`. Merchant Edge scope needs
-`POLAT_STARS_MERCHANT_TENANT_ID` and `POLAT_STARS_MERCHANT_RELEASE_SHA`.
+Edge-only `JEFF_UAT_VERCEL_BYPASS` stays out of application variables and artifacts.
+Campaign Edge scope also needs `JEFF_CAMPAIGN_TENANT_ID`, `JEFF_CAMPAIGN_ID` and
+`JEFF_CAMPAIGN_RELEASE_SHA`. Merchant Edge scope needs
+`JEFF_STARS_MERCHANT_TENANT_ID` and `JEFF_STARS_MERCHANT_RELEASE_SHA`.
 The SHA equals the actual reviewed application release, not a proposed branch.
 Use matching protected webhook/relay secrets on both ends. Each signature binds
 its own domain, tenant, release, timestamp and original body; campaign also binds

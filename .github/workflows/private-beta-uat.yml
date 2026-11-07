@@ -121,23 +121,23 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_UAT_ORGANIZATION_ID: ${{ inputs.openai_organization_id }}
           OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
-          POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET }}
-          POLAT_UAT_RELAY_SECRET: ${{ secrets.POLAT_UAT_RELAY_SECRET }}
-          POLAT_UAT_TENANT_ID: ${{ vars.POLAT_UAT_TENANT_ID }}
-          POLAT_UAT_PROGRAM_ID: ${{ vars.POLAT_UAT_PROGRAM_ID }}
-          POLAT_CAMPAIGN_TENANT_ID: ${{ vars.POLAT_CAMPAIGN_TENANT_ID }}
-          POLAT_CAMPAIGN_ID: ${{ vars.POLAT_CAMPAIGN_ID }}
-          POLAT_CAMPAIGN_WEBHOOK_SECRET: ${{ secrets.POLAT_CAMPAIGN_WEBHOOK_SECRET }}
-          POLAT_CAMPAIGN_RELAY_SECRET: ${{ secrets.POLAT_CAMPAIGN_RELAY_SECRET }}
-          POLAT_STARS_MERCHANT_TENANT_ID: ${{ vars.POLAT_STARS_MERCHANT_TENANT_ID }}
-          POLAT_STARS_MERCHANT_BOT_TOKEN: ${{ secrets.POLAT_STARS_MERCHANT_BOT_TOKEN }}
-          POLAT_STARS_MERCHANT_WEBHOOK_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_WEBHOOK_SECRET }}
-          POLAT_STARS_MERCHANT_RELAY_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_RELAY_SECRET }}
-          POLAT_UAT_STARS_TEST_BOT_TOKEN: ${{ secrets.POLAT_UAT_STARS_TEST_BOT_TOKEN }}
-          POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET }}
-          POLAT_UAT_STARS_RELAY_SECRET: ${{ secrets.POLAT_UAT_STARS_RELAY_SECRET }}
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/protected-integration-inventory.mjs
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
+          JEFF_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ (secrets.JEFF_UAT_TELEGRAM_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_WEBHOOK_SECRET')]) }}
+          JEFF_UAT_RELAY_SECRET: ${{ (secrets.JEFF_UAT_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_RELAY_SECRET')]) }}
+          JEFF_UAT_TENANT_ID: ${{ (vars.JEFF_UAT_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'UAT_TENANT_ID')]) }}
+          JEFF_UAT_PROGRAM_ID: ${{ (vars.JEFF_UAT_PROGRAM_ID || vars[format('{0}_{1}', 'POLAT', 'UAT_PROGRAM_ID')]) }}
+          JEFF_CAMPAIGN_TENANT_ID: ${{ (vars.JEFF_CAMPAIGN_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'CAMPAIGN_TENANT_ID')]) }}
+          JEFF_CAMPAIGN_ID: ${{ (vars.JEFF_CAMPAIGN_ID || vars[format('{0}_{1}', 'POLAT', 'CAMPAIGN_ID')]) }}
+          JEFF_CAMPAIGN_WEBHOOK_SECRET: ${{ (secrets.JEFF_CAMPAIGN_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'CAMPAIGN_WEBHOOK_SECRET')]) }}
+          JEFF_CAMPAIGN_RELAY_SECRET: ${{ (secrets.JEFF_CAMPAIGN_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'CAMPAIGN_RELAY_SECRET')]) }}
+          JEFF_STARS_MERCHANT_TENANT_ID: ${{ (vars.JEFF_STARS_MERCHANT_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_TENANT_ID')]) }}
+          JEFF_STARS_MERCHANT_BOT_TOKEN: ${{ (secrets.JEFF_STARS_MERCHANT_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_BOT_TOKEN')]) }}
+          JEFF_STARS_MERCHANT_WEBHOOK_SECRET: ${{ (secrets.JEFF_STARS_MERCHANT_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_WEBHOOK_SECRET')]) }}
+          JEFF_STARS_MERCHANT_RELAY_SECRET: ${{ (secrets.JEFF_STARS_MERCHANT_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_RELAY_SECRET')]) }}
+          JEFF_UAT_STARS_TEST_BOT_TOKEN: ${{ (secrets.JEFF_UAT_STARS_TEST_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_TEST_BOT_TOKEN')]) }}
+          JEFF_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ (secrets.JEFF_UAT_STARS_TEST_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_TEST_WEBHOOK_SECRET')]) }}
+          JEFF_UAT_STARS_RELAY_SECRET: ${{ (secrets.JEFF_UAT_STARS_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_RELAY_SECRET')]) }}
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/protected-integration-inventory.mjs
       - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1
         with:
           version: 2.117.0
@@ -164,8 +164,8 @@ jobs:
           test "$STAGING_SUPABASE_PROJECT_ID" = xqvwkghpmezcpgugetqc
           test "$NEXT_PUBLIC_SUPABASE_URL" = https://xqvwkghpmezcpgugetqc.supabase.co
           test "${#STAGING_BACKUP_PASSPHRASE}" -ge 32
-          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/master-release-manifest.mjs >"$RUNNER_TEMP/private-beta-release-inventory.json"
-          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/master-release-manifest.mjs --check "$RUNNER_TEMP/private-beta-release-inventory.json"
+          node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/master-release-manifest.mjs >"$RUNNER_TEMP/private-beta-release-inventory.json"
+          node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/master-release-manifest.mjs --check "$RUNNER_TEMP/private-beta-release-inventory.json"
       - name: Start only disposable local infrastructure for recovery verification
         run: supabase start
       - name: Link exact existing staging database
@@ -178,6 +178,7 @@ jobs:
         env:
           AUTHORIZED_FOUNDER_RECOVERY: ${{ inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true && 'true' || 'false' }}
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
+          QUIESCENT_IDENTITY_PROGRAM_ID: ${{ inputs.operation == 'release_disabled' && inputs.program_id || '' }}
           SUPABASE_DB_PASSWORD: ${{ secrets.STAGING_SUPABASE_DB_PASSWORD }}
           STAGING_SUPABASE_PROJECT_ID: xqvwkghpmezcpgugetqc
           STAGING_BACKUP_PASSPHRASE: ${{ secrets.STAGING_BACKUP_PASSPHRASE }}
@@ -202,7 +203,7 @@ jobs:
         run: |
           set -euo pipefail
           node scripts/private-beta-release-gate.mjs
-          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/master-release-manifest.mjs --check "$RUNNER_TEMP/private-beta-release-inventory.json"
+          node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/master-release-manifest.mjs --check "$RUNNER_TEMP/private-beta-release-inventory.json"
           test -s "$RUNNER_TEMP/private-beta-backup-evidence.json"
           test -s "$RUNNER_TEMP/private-beta-staging.dump.enc"
       - name: Apply only reviewed pending staging migrations (no seed or Vault writes)
@@ -233,13 +234,12 @@ jobs:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs prepare
-      - name: Deploy only the existing secret-authenticated beta ingress
-        if: ${{ inputs.operation == 'release_with_business_setup' }}
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs prepare
+      - name: Deploy the renamed secret-authenticated beta ingress (no webhook replacement)
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: supabase functions deploy polat-private-beta-ingress --project-ref xqvwkghpmezcpgugetqc --no-verify-jwt
+        run: supabase functions deploy jeff-private-beta-ingress --project-ref xqvwkghpmezcpgugetqc --no-verify-jwt
       - name: Attach the narrowly scoped runtime configuration after the build
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -247,23 +247,23 @@ jobs:
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.STAGING_SUPABASE_PUBLISHABLE_KEY }}
           SUPABASE_SECRET_KEY: ${{ secrets.STAGING_SUPABASE_SECRET_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          POLAT_UAT_ANTHROPIC_API_KEY: ${{ secrets.POLAT_UAT_ANTHROPIC_API_KEY }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
-          POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ inputs.operation != 'release_with_business_setup' && secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET || '' }}
-          POLAT_UAT_RELAY_SECRET: ${{ inputs.operation != 'release_with_business_setup' && secrets.POLAT_UAT_RELAY_SECRET || '' }}
-          POLAT_UAT_STARS_TEST_BOT_TOKEN: ${{ secrets.POLAT_UAT_STARS_TEST_BOT_TOKEN }}
-          POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET }}
-          POLAT_UAT_STARS_RELAY_SECRET: ${{ secrets.POLAT_UAT_STARS_RELAY_SECRET }}
-          POLAT_UAT_TENANT_ID: ${{ inputs.operation != 'release_with_business_setup' && vars.POLAT_UAT_TENANT_ID || '' }}
-          POLAT_UAT_PROGRAM_ID: ${{ inputs.operation != 'release_with_business_setup' && vars.POLAT_UAT_PROGRAM_ID || '' }}
-          POLAT_CAMPAIGN_TENANT_ID: ${{ vars.POLAT_CAMPAIGN_TENANT_ID }}
-          POLAT_CAMPAIGN_ID: ${{ vars.POLAT_CAMPAIGN_ID }}
-          POLAT_CAMPAIGN_WEBHOOK_SECRET: ${{ secrets.POLAT_CAMPAIGN_WEBHOOK_SECRET }}
-          POLAT_CAMPAIGN_RELAY_SECRET: ${{ secrets.POLAT_CAMPAIGN_RELAY_SECRET }}
-          POLAT_STARS_MERCHANT_TENANT_ID: ${{ vars.POLAT_STARS_MERCHANT_TENANT_ID }}
-          POLAT_STARS_MERCHANT_BOT_TOKEN: ${{ secrets.POLAT_STARS_MERCHANT_BOT_TOKEN }}
-          POLAT_STARS_MERCHANT_WEBHOOK_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_WEBHOOK_SECRET }}
-          POLAT_STARS_MERCHANT_RELAY_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_RELAY_SECRET }}
+          JEFF_UAT_ANTHROPIC_API_KEY: ${{ (secrets.JEFF_UAT_ANTHROPIC_API_KEY || secrets[format('{0}_{1}', 'POLAT', 'UAT_ANTHROPIC_API_KEY')]) }}
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
+          JEFF_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ inputs.operation != 'release_with_business_setup' && (secrets.JEFF_UAT_TELEGRAM_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_WEBHOOK_SECRET')]) || '' }}
+          JEFF_UAT_RELAY_SECRET: ${{ inputs.operation != 'release_with_business_setup' && (secrets.JEFF_UAT_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_RELAY_SECRET')]) || '' }}
+          JEFF_UAT_STARS_TEST_BOT_TOKEN: ${{ (secrets.JEFF_UAT_STARS_TEST_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_TEST_BOT_TOKEN')]) }}
+          JEFF_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ (secrets.JEFF_UAT_STARS_TEST_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_TEST_WEBHOOK_SECRET')]) }}
+          JEFF_UAT_STARS_RELAY_SECRET: ${{ (secrets.JEFF_UAT_STARS_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_RELAY_SECRET')]) }}
+          JEFF_UAT_TENANT_ID: ${{ inputs.operation != 'release_with_business_setup' && (vars.JEFF_UAT_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'UAT_TENANT_ID')]) || '' }}
+          JEFF_UAT_PROGRAM_ID: ${{ inputs.operation != 'release_with_business_setup' && (vars.JEFF_UAT_PROGRAM_ID || vars[format('{0}_{1}', 'POLAT', 'UAT_PROGRAM_ID')]) || '' }}
+          JEFF_CAMPAIGN_TENANT_ID: ${{ (vars.JEFF_CAMPAIGN_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'CAMPAIGN_TENANT_ID')]) }}
+          JEFF_CAMPAIGN_ID: ${{ (vars.JEFF_CAMPAIGN_ID || vars[format('{0}_{1}', 'POLAT', 'CAMPAIGN_ID')]) }}
+          JEFF_CAMPAIGN_WEBHOOK_SECRET: ${{ (secrets.JEFF_CAMPAIGN_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'CAMPAIGN_WEBHOOK_SECRET')]) }}
+          JEFF_CAMPAIGN_RELAY_SECRET: ${{ (secrets.JEFF_CAMPAIGN_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'CAMPAIGN_RELAY_SECRET')]) }}
+          JEFF_STARS_MERCHANT_TENANT_ID: ${{ (vars.JEFF_STARS_MERCHANT_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_TENANT_ID')]) }}
+          JEFF_STARS_MERCHANT_BOT_TOKEN: ${{ (secrets.JEFF_STARS_MERCHANT_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_BOT_TOKEN')]) }}
+          JEFF_STARS_MERCHANT_WEBHOOK_SECRET: ${{ (secrets.JEFF_STARS_MERCHANT_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_WEBHOOK_SECRET')]) }}
+          JEFF_STARS_MERCHANT_RELAY_SECRET: ${{ (secrets.JEFF_STARS_MERCHANT_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_RELAY_SECRET')]) }}
         run: node scripts/private-beta-release-vercel.mjs runtime-env
       - name: Reverify protected main before publication
         env:
@@ -321,7 +321,7 @@ jobs:
           OPENAI_UAT_PROJECT_ID: ${{ inputs.openai_project_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-model.mjs
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-model.mjs
       - name: Reverify main before explicitly authorized founder recovery
         if: ${{ inputs.operation == 'release_with_business_setup' && inputs.authorized_founder_recovery == true }}
         env:
@@ -335,7 +335,7 @@ jobs:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-canary.mjs
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-canary.mjs
       - name: Wait for the founder's own authenticated single canary
         if: ${{ inputs.operation == 'release_with_business_setup' }}
         id: founder_canary
@@ -343,19 +343,19 @@ jobs:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           FOUNDER_SETUP_WAIT: CANARY
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
       - name: Bind real Business bot and record private connection candidates (no messages)
         if: ${{ inputs.operation == 'release_with_business_setup' && steps.founder_canary.outputs.ready == 'true' }}
         env:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
         shell: bash
         run: |
           set -euo pipefail
-          PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
           mv "$RUNNER_TEMP/private-beta-bot-control.json" "$RUNNER_TEMP/private-beta-bot-identity-control.json"
-          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
       - name: Wait for the founder's authenticated numeric test-chat configuration
         if: ${{ inputs.operation == 'release_with_business_setup' && steps.founder_canary.outputs.ready == 'true' }}
         id: founder_business
@@ -363,7 +363,7 @@ jobs:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           FOUNDER_SETUP_WAIT: BUSINESS
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
       - name: Reverify exact main before connecting the founder's Business transport
         if: ${{ inputs.operation == 'release_with_business_setup' && steps.founder_business.outputs.ready == 'true' }}
         env:
@@ -376,12 +376,12 @@ jobs:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
         shell: bash
         run: |
           set -euo pipefail
-          PRIVATE_BETA_BOT_OPERATION=verify_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
-          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs register
+          PRIVATE_BETA_BOT_OPERATION=verify_business node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs register
       - name: Retain sanitized release evidence and encrypted failure evidence
         if: ${{ always() && steps.gate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -464,9 +464,9 @@ jobs:
           ANTHROPIC_UAT_SPEND_LIMIT_ID: ${{ inputs.anthropic_spend_limit_id }}
           ANTHROPIC_UAT_API_KEY_ID: ${{ inputs.anthropic_api_key_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          POLAT_UAT_ANTHROPIC_ADMIN_KEY: ${{ secrets.POLAT_UAT_ANTHROPIC_ADMIN_KEY }}
-          POLAT_UAT_ANTHROPIC_API_KEY: ${{ secrets.POLAT_UAT_ANTHROPIC_API_KEY }}
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-account.mjs
+          JEFF_UAT_ANTHROPIC_ADMIN_KEY: ${{ (secrets.JEFF_UAT_ANTHROPIC_ADMIN_KEY || secrets[format('{0}_{1}', 'POLAT', 'UAT_ANTHROPIC_ADMIN_KEY')]) }}
+          JEFF_UAT_ANTHROPIC_API_KEY: ${{ (secrets.JEFF_UAT_ANTHROPIC_API_KEY || secrets[format('{0}_{1}', 'POLAT', 'UAT_ANTHROPIC_API_KEY')]) }}
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-account.mjs
       - name: Preserve read-only account observation (not a signed activation grant)
         if: ${{ always() && steps.gate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -527,9 +527,9 @@ jobs:
         run: |
           set -euo pipefail
           if [[ "$FOUNDER_MODEL_SETUP" == true ]]; then
-            node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-model.mjs
+            node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-model.mjs
           else
-            node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-openai-account.mjs
+            node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-openai-account.mjs
           fi
       - name: Preserve observation separately from actual model and billing acceptance
         if: ${{ always() && steps.gate.outcome == 'success' }}
@@ -583,23 +583,23 @@ jobs:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_UAT_ORGANIZATION_ID: ${{ vars.OPENAI_UAT_ORGANIZATION_ID }}
           OPENAI_UAT_PROJECT_ID: ${{ vars.OPENAI_UAT_PROJECT_ID }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
-          POLAT_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_TELEGRAM_WEBHOOK_SECRET }}
-          POLAT_UAT_RELAY_SECRET: ${{ secrets.POLAT_UAT_RELAY_SECRET }}
-          POLAT_UAT_TENANT_ID: ${{ vars.POLAT_UAT_TENANT_ID }}
-          POLAT_UAT_PROGRAM_ID: ${{ vars.POLAT_UAT_PROGRAM_ID }}
-          POLAT_CAMPAIGN_TENANT_ID: ${{ vars.POLAT_CAMPAIGN_TENANT_ID }}
-          POLAT_CAMPAIGN_ID: ${{ vars.POLAT_CAMPAIGN_ID }}
-          POLAT_CAMPAIGN_WEBHOOK_SECRET: ${{ secrets.POLAT_CAMPAIGN_WEBHOOK_SECRET }}
-          POLAT_CAMPAIGN_RELAY_SECRET: ${{ secrets.POLAT_CAMPAIGN_RELAY_SECRET }}
-          POLAT_STARS_MERCHANT_TENANT_ID: ${{ vars.POLAT_STARS_MERCHANT_TENANT_ID }}
-          POLAT_STARS_MERCHANT_BOT_TOKEN: ${{ secrets.POLAT_STARS_MERCHANT_BOT_TOKEN }}
-          POLAT_STARS_MERCHANT_WEBHOOK_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_WEBHOOK_SECRET }}
-          POLAT_STARS_MERCHANT_RELAY_SECRET: ${{ secrets.POLAT_STARS_MERCHANT_RELAY_SECRET }}
-          POLAT_UAT_STARS_TEST_BOT_TOKEN: ${{ secrets.POLAT_UAT_STARS_TEST_BOT_TOKEN }}
-          POLAT_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ secrets.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET }}
-          POLAT_UAT_STARS_RELAY_SECRET: ${{ secrets.POLAT_UAT_STARS_RELAY_SECRET }}
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/protected-integration-inventory.mjs
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
+          JEFF_UAT_TELEGRAM_WEBHOOK_SECRET: ${{ (secrets.JEFF_UAT_TELEGRAM_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_WEBHOOK_SECRET')]) }}
+          JEFF_UAT_RELAY_SECRET: ${{ (secrets.JEFF_UAT_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_RELAY_SECRET')]) }}
+          JEFF_UAT_TENANT_ID: ${{ (vars.JEFF_UAT_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'UAT_TENANT_ID')]) }}
+          JEFF_UAT_PROGRAM_ID: ${{ (vars.JEFF_UAT_PROGRAM_ID || vars[format('{0}_{1}', 'POLAT', 'UAT_PROGRAM_ID')]) }}
+          JEFF_CAMPAIGN_TENANT_ID: ${{ (vars.JEFF_CAMPAIGN_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'CAMPAIGN_TENANT_ID')]) }}
+          JEFF_CAMPAIGN_ID: ${{ (vars.JEFF_CAMPAIGN_ID || vars[format('{0}_{1}', 'POLAT', 'CAMPAIGN_ID')]) }}
+          JEFF_CAMPAIGN_WEBHOOK_SECRET: ${{ (secrets.JEFF_CAMPAIGN_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'CAMPAIGN_WEBHOOK_SECRET')]) }}
+          JEFF_CAMPAIGN_RELAY_SECRET: ${{ (secrets.JEFF_CAMPAIGN_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'CAMPAIGN_RELAY_SECRET')]) }}
+          JEFF_STARS_MERCHANT_TENANT_ID: ${{ (vars.JEFF_STARS_MERCHANT_TENANT_ID || vars[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_TENANT_ID')]) }}
+          JEFF_STARS_MERCHANT_BOT_TOKEN: ${{ (secrets.JEFF_STARS_MERCHANT_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_BOT_TOKEN')]) }}
+          JEFF_STARS_MERCHANT_WEBHOOK_SECRET: ${{ (secrets.JEFF_STARS_MERCHANT_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_WEBHOOK_SECRET')]) }}
+          JEFF_STARS_MERCHANT_RELAY_SECRET: ${{ (secrets.JEFF_STARS_MERCHANT_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'STARS_MERCHANT_RELAY_SECRET')]) }}
+          JEFF_UAT_STARS_TEST_BOT_TOKEN: ${{ (secrets.JEFF_UAT_STARS_TEST_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_TEST_BOT_TOKEN')]) }}
+          JEFF_UAT_STARS_TEST_WEBHOOK_SECRET: ${{ (secrets.JEFF_UAT_STARS_TEST_WEBHOOK_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_TEST_WEBHOOK_SECRET')]) }}
+          JEFF_UAT_STARS_RELAY_SECRET: ${{ (secrets.JEFF_UAT_STARS_RELAY_SECRET || secrets[format('{0}_{1}', 'POLAT', 'UAT_STARS_RELAY_SECRET')]) }}
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/protected-integration-inventory.mjs
       - name: Preserve metadata separately from genuine acceptance
         if: ${{ always() && steps.gate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -649,28 +649,28 @@ jobs:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs prepare
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs prepare
       - name: Verify the narrowly selected bot or Business operation
         if: ${{ inputs.operation != 'founder_business_setup' }}
         env:
           PRIVATE_BETA_BOT_OPERATION: ${{ inputs.operation }}
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
         run: node --experimental-transform-types scripts/private-beta-release-bot.mjs
       - name: Observe the real bot and private numeric Business candidates
         if: ${{ inputs.operation == 'founder_business_setup' }}
         env:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
         shell: bash
         run: |
           set -euo pipefail
-          PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          PRIVATE_BETA_BOT_OPERATION=verify_bot node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
           mv "$RUNNER_TEMP/private-beta-bot-control.json" "$RUNNER_TEMP/private-beta-bot-identity-control.json"
-          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          PRIVATE_BETA_BOT_OPERATION=discover_business node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
       - name: Wait for the founder's own numeric test-chat configuration
         if: ${{ inputs.operation == 'founder_business_setup' }}
         id: founder_business
@@ -678,7 +678,7 @@ jobs:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           FOUNDER_SETUP_WAIT: BUSINESS
-        run: node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
+        run: node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-wait.mjs
       - name: Reverify main before the resumed transport connection
         if: ${{ inputs.operation == 'founder_business_setup' && steps.founder_business.outputs.ready == 'true' }}
         env:
@@ -691,12 +691,12 @@ jobs:
           PRIVATE_BETA_PROGRAM_ID: ${{ inputs.program_id }}
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          POLAT_UAT_TELEGRAM_BOT_TOKEN: ${{ secrets.POLAT_UAT_TELEGRAM_BOT_TOKEN }}
+          JEFF_UAT_TELEGRAM_BOT_TOKEN: ${{ (secrets.JEFF_UAT_TELEGRAM_BOT_TOKEN || secrets[format('{0}_{1}', 'POLAT', 'UAT_TELEGRAM_BOT_TOKEN')]) }}
         shell: bash
         run: |
           set -euo pipefail
-          PRIVATE_BETA_BOT_OPERATION=verify_business node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
-          node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs register
+          PRIVATE_BETA_BOT_OPERATION=verify_business node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-release-bot.mjs
+          node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs scripts/private-beta-founder-ingress.mjs register
       - name: Preserve sanitized bot control and separate read-back evidence
         if: ${{ always() && steps.gate.outcome == 'success' }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

@@ -36,16 +36,16 @@ with evidence_rows as (
  union all select 'signal_source_observations',to_jsonb(x)::text from private.signal_source_observations x
  union all select 'signal_source_recovery_log',to_jsonb(x)::text from private.signal_source_recovery_log x
  union all select 'signal_reviews',to_jsonb(x)::text from private.signal_reviews x
- union all select 'polat_conversation_controls',to_jsonb(x)::text from private.polat_conversation_controls x
- union all select 'polat_inbound_work',to_jsonb(x)::text from private.polat_inbound_work x
- union all select 'polat_response_evidence',to_jsonb(x)::text from private.polat_response_evidence x
- union all select 'polat_runtime_profiles',to_jsonb(x)::text from private.polat_runtime_profiles x
- union all select 'polat_runtime_drafts',to_jsonb(x)::text from private.polat_runtime_drafts x
- union all select 'polat_runtime_steps',to_jsonb(x)::text from private.polat_runtime_steps x
- union all select 'polat_escalation_controls',to_jsonb(x)::text from private.escalation_controls x where exists(select 1 from private.polat_runtime_profiles p where p.tenant_id=x.tenant_id)
- union all select 'polat_contact_evidence',to_jsonb(x)::text from private.polat_contact_evidence x
- union all select 'polat_contact_tickets',to_jsonb(x)::text from private.polat_contact_tickets x
- union all select 'polat_work_history',to_jsonb(x)::text from private.polat_work_history x
+ union all select 'jeff_conversation_controls',to_jsonb(x)::text from private.jeff_conversation_controls x
+ union all select 'jeff_inbound_work',to_jsonb(x)::text from private.jeff_inbound_work x
+ union all select 'jeff_response_evidence',to_jsonb(x)::text from private.jeff_response_evidence x
+ union all select 'jeff_runtime_profiles',to_jsonb(x)::text from private.jeff_runtime_profiles x
+ union all select 'jeff_runtime_drafts',to_jsonb(x)::text from private.jeff_runtime_drafts x
+ union all select 'jeff_runtime_steps',to_jsonb(x)::text from private.jeff_runtime_steps x
+ union all select 'jeff_escalation_controls',to_jsonb(x)::text from private.escalation_controls x where exists(select 1 from private.jeff_runtime_profiles p where p.tenant_id=x.tenant_id)
+ union all select 'jeff_contact_evidence',to_jsonb(x)::text from private.jeff_contact_evidence x
+ union all select 'jeff_contact_tickets',to_jsonb(x)::text from private.jeff_contact_tickets x
+ union all select 'jeff_work_history',to_jsonb(x)::text from private.jeff_work_history x
 ), row_hashes as (
  select k,encode(extensions.digest(v,'sha256'),'hex') h from evidence_rows
 ), fingerprints as (
@@ -53,11 +53,11 @@ with evidence_rows as (
 ), objects as (
  select 'table:'||c.relname k,jsonb_build_array(c.relrowsecurity,c.relforcerowsecurity,
   (select jsonb_agg(to_jsonb(a) order by grantee,grantor,privilege_type,is_grantable) from aclexplode(coalesce(c.relacl,acldefault((case when c.relkind='S' then 's' else 'r' end)::"char",c.relowner))) a),pg_get_userbyid(c.relowner))::text v
- from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='private' and (c.relname like 'signal_%' or c.relname like 'polat_%' or c.relname like 'fse_%' or c.relname in ('entitlement_test_runtime','entitlement_test_policy'))
+ from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='private' and (c.relname like 'signal_%' or c.relname like 'jeff_%' or c.relname like 'fse_%' or c.relname in ('entitlement_test_runtime','entitlement_test_policy'))
  union all
  select 'function:'||p.proname||':'||pg_get_function_identity_arguments(p.oid),jsonb_build_array(pg_get_functiondef(p.oid),
   (select jsonb_agg(to_jsonb(a) order by grantee,grantor,privilege_type,is_grantable) from aclexplode(coalesce(p.proacl,acldefault('f',p.proowner))) a),pg_get_userbyid(p.proowner))::text
- from pg_proc p join pg_namespace n on n.oid=p.pronamespace where (n.nspname='private' and (p.proname like 'signal_%' or p.proname like 'polat_%' or p.proname like 'fse_%' or p.proname like 'entitlement_test_%' or p.proname in ('prepare_financial_evidence_v1','record_financial_evidence_v1','read_financial_evidence_command_v1'))) or (n.nspname='public' and (p.proname like 'admin_signal_%' or p.proname like 'admin_polat_%' or p.proname like 'admin_financial_evidence_%' or p.proname in ('admin_entitlement_job_health_v1','entitlement_test_maintenance_v1','entitlement_test_claim_cycle_v1','entitlement_test_begin_effect_v1','entitlement_claim_job','entitlement_complete_job')))
+ from pg_proc p join pg_namespace n on n.oid=p.pronamespace where (n.nspname='private' and (p.proname like 'signal_%' or p.proname like 'jeff_%' or p.proname like 'fse_%' or p.proname like 'entitlement_test_%' or p.proname in ('prepare_financial_evidence_v1','record_financial_evidence_v1','read_financial_evidence_command_v1'))) or (n.nspname='public' and (p.proname like 'admin_signal_%' or p.proname like 'admin_jeff_%' or p.proname like 'admin_financial_evidence_%' or p.proname in ('admin_entitlement_job_health_v1','entitlement_test_maintenance_v1','entitlement_test_claim_cycle_v1','entitlement_test_begin_effect_v1','entitlement_claim_job','entitlement_complete_job')))
 )
 select jsonb_build_object('version',1,'classification','SYNTHETIC','financial_authority','NONE',
  'tables',(select jsonb_object_agg(k,jsonb_build_object('rows',n,'sha256',digest) order by k) from fingerprints),

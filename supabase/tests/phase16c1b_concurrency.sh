@@ -106,7 +106,7 @@ fse_publish="insert into private.fse_binding_versions(namespace_id,tenant_id,id,
 select namespace_id,tenant_id,gen_random_uuid(),merchant_binding_id,revision+1,state,provider_id,merchant_account_id,environment,approval_reference,policy_hash,policy_snapshot,expected_asset,expected_basis
 from private.fse_binding_versions where namespace_id=private.phase16c1b_id('namespace') and tenant_id=private.phase16c1b_id('tenant:1') and merchant_binding_id=private.phase16c1b_id('merchant:1') order by revision desc limit 1;"
 fse_sql -c "$fse_publish" >"$fse_tmp/revision-publication.log"
-# psql variables are expanded in stdin; never interpolate raw command JSON in SQL.
+# psql variables are expanded in stdin; never interjeffe raw command JSON in SQL.
 fse_sql -v d="$(cat "$fse_tmp/revision.json")" >"$fse_tmp/revision.log" 2>&1 <<'SQL' && { echo 'REVISION_FENCE_NOT_ENFORCED' >&2;exit 1; } || true
 select private.phase16c1b_apply(:'d'::jsonb);
 SQL

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useActionState } from "react";
 import type { CampaignOptions, CampaignWorkspace } from "@gold-revenue-os/contracts";
 import { AdminNumber, useAdminI18n } from "./admin-i18n";
-import { authorizeCampaignImport, saveCampaign, changeCampaignState, type CampaignActionState } from "../app/admin/polat-operations/campaigns/actions";
+import { authorizeCampaignImport, saveCampaign, changeCampaignState, type CampaignActionState } from "../app/admin/jeff-operations/campaigns/actions";
 
 const initial: CampaignActionState = { state: "IDLE" };
 function Feedback({ state }: { state: CampaignActionState }) {
@@ -16,7 +16,7 @@ export function CampaignBatchAuthorization({ batchId, source, hash, completed, r
   const { locale } = useAdminI18n(), tr = locale === "tr-TR";
   const [state, action, pending] = useActionState(authorizeCampaignImport, initial);
   return <section className="detail-card"><h2>{tr ? "Toplu müşteri izni ve aktarım" : "Batch permission and import"}</h2>
-    {reconciliation && <dl className="polat-facts"><div><dt>{tr ? "Aktarılan satır" : "Imported rows"}</dt><dd><AdminNumber value={reconciliation.imported_rows}/></dd></div><div><dt>{tr ? "Tekil müşteri" : "Unique customers"}</dt><dd><AdminNumber value={reconciliation.unique_customers}/></dd></div><div><dt>{tr ? "Kimlik incelemesinde" : "Identity exceptions"}</dt><dd><AdminNumber value={reconciliation.pending_identity_review}/></dd></div></dl>}
+    {reconciliation && <dl className="jeff-facts"><div><dt>{tr ? "Aktarılan satır" : "Imported rows"}</dt><dd><AdminNumber value={reconciliation.imported_rows}/></dd></div><div><dt>{tr ? "Tekil müşteri" : "Unique customers"}</dt><dd><AdminNumber value={reconciliation.unique_customers}/></dd></div><div><dt>{tr ? "Kimlik incelemesinde" : "Identity exceptions"}</dt><dd><AdminNumber value={reconciliation.pending_identity_review}/></dd></div></dl>}
     <p>{tr ? "Tek beyan, bu dosyanın uygun satırlarını kapsar. İzin kurucu beyanı olarak kaydedilir; bağımsız bireysel rıza sayılmaz. Belirsiz kimlikler incelemede kalır. Aktarım mesaj göndermez." : "One declaration covers eligible rows in this file. It records founder-attested permission, not independently verified individual consent. Ambiguous identities remain held. Import sends no messages."}</p>
     {completed ? <p role="status">{tr ? "Aktarım tamamlandı. Kampanya yapılandırmasına geçebilirsiniz." : "Import completed. You can configure the campaign."}</p> : <form action={action} className="form-stack">
       <input type="hidden" name="batch_id" value={batchId}/><input type="hidden" name="source" value={source}/><input type="hidden" name="dataset_hash" value={hash ?? ""}/>
@@ -26,14 +26,14 @@ export function CampaignBatchAuthorization({ batchId, source, hash, completed, r
       <label>{tr ? "İzin kapsamındaki ülke kodları (virgülle)" : "Permitted country codes (comma separated)"}<input name="markets" required placeholder="GB, DE"/></label>
       <label><input name="attested" type="checkbox" value="yes" required/>{tr ? "Bu dosya ve belirtilen kanaldaki mevcut müşteri iletişim izinlerini kurucu olarak beyan ediyorum." : "As founder, I attest the existing customer communication permissions for this file and channel."}</label>
       <button className="primary-button" disabled={pending || !hash}>{tr ? "BEYANI KAYDET VE UYGUN SATIRLARI AKTAR" : "RECORD DECLARATION AND IMPORT ELIGIBLE ROWS"}</button>
-    </form>}<Feedback state={state}/><Link href="/admin/polat-operations/campaigns" className="text-button">{tr ? "Kampanya merkezi" : "Campaign center"}</Link>
+    </form>}<Feedback state={state}/><Link href="/admin/jeff-operations/campaigns" className="text-button">{tr ? "Kampanya merkezi" : "Campaign center"}</Link>
   </section>;
 }
 
 function CampaignStateControl({ id, revision, state: current }: { id: string; revision: number; state: string }) {
   const { locale } = useAdminI18n(), tr = locale === "tr-TR";
   const [state, action, pending] = useActionState(changeCampaignState, initial);
-  return <><form action={action} className="polat-actions"><input type="hidden" name="campaign_id" value={id}/><input type="hidden" name="revision" value={revision}/>
+  return <><form action={action} className="jeff-actions"><input type="hidden" name="campaign_id" value={id}/><input type="hidden" name="revision" value={revision}/>
     {current !== "ACTIVE" && current !== "STOPPED" && <button className="primary-button" name="action" value="START" disabled={pending}>{tr ? "KAMPANYAYI BAŞLAT" : "START CAMPAIGN"}</button>}
     {current === "ACTIVE" && <button className="secondary-button" name="action" value="PAUSE" disabled={pending}>{tr ? "DURAKLAT" : "PAUSE CAMPAIGN"}</button>}
     {current !== "STOPPED" && <button className="secondary-button" name="action" value="STOP" disabled={pending}>{tr ? "DURDUR" : "STOP CAMPAIGN"}</button>}
@@ -44,7 +44,7 @@ export function CampaignCenter({ workspace, options, owner, commandId, starts, e
   const { locale } = useAdminI18n(), tr = locale === "tr-TR", say = (a: string, b: string) => tr ? a : b;
   const [state, action, pending] = useActionState(saveCampaign, initial);
   const labels: Record<string, string> = { CONFIGURING: say("Yapılandırılıyor", "Configuring"), READY: say("Yapılandırma hazır", "Configuration ready"), ACTIVE: say("Etkin", "Active"), PAUSED: say("Duraklatıldı", "Paused"), STOPPED: say("Durduruldu", "Stopped") };
-  return <main className="admin-main polat-operations"><Link className="back-link" href="/admin/polat-operations">{say("← Polat İşlemleri", "← Polat Operations")}</Link>
+  return <main className="admin-main jeff-operations"><Link className="back-link" href="/admin/jeff-operations">{say("← Jeff İşlemleri", "← Jeff Operations")}</Link>
     <h1>{say("Kampanya merkezi", "Campaign center")}</h1><p className="lede">{say("Kitle, fiyat ve sınırlar bir kez belirlenir; rutin mesajlar ayrıca kurucu onayına gönderilmez.", "Configure audience, price and limits once; routine messages require no further founder approval.")}</p>
     <p className="warning-box">{say("Gerçek yürütücü, doğrulanmış model hesabı ve Telegram Business bağlantısıyla çalışır. START rutin işlemleri tek seferde etkinleştirir; eksik sağlayıcı kanıtını veya ödeme yetkisini oluşturmaz. API onayı müşterinin mesajı okuduğu anlamına gelmez.", "The genuine executor requires a verified model account and Telegram Business connection. START activates routine operations once; it does not create missing provider evidence or payment authority. An API acknowledgement does not mean the customer read the message.")}</p>
     {!workspace && <p role="status" className="warning-box">{say("Veri okunamadı. Yetkili hesapta MFA doğrulayın; veritabanı sürümünü kontrol edin.", "Data unavailable. Verify MFA on an authorized account and check the database version.")}</p>}
@@ -56,7 +56,7 @@ export function CampaignCenter({ workspace, options, owner, commandId, starts, e
         ["active_vip", "Doğrulanmış VIP", "Verified VIP"], ["unknown", "Başarısız / inceleme", "Failed / review"], ["suppressed", "İletişim engelli", "Suppressed"],
       ] as const).map(([key, a, b]) => <article className="metric-card" key={key}><span>{say(a, b)}</span><strong><AdminNumber value={c[key]}/></strong></article>)}</div>
       <p>{say("Gelir ödeme kanıtı gerektirir. Uzlaştırılmamış maliyet BİLİNMİYOR; ayrılan azami yükümlülük fatura değildir.", "Revenue requires payment evidence. Unreconciled cost is UNKNOWN; reserved maximum liability is not billed cost.")}</p>
-      {c.runtime && <dl className="polat-facts"><div><dt>{say("Sağlayıcı yürütücüsü", "Provider executor")}</dt><dd>{c.runtime.state === "READY_TO_DISPATCH" ? say("Doğrulanmış bağlantı; kampanya etkin", "Verified connection; campaign active") : c.runtime.state === "HELD" ? say("Gönderim bekletiliyor", "Dispatch held") : say("Bağımsız hesap/bağlantı kanıtı gerekli", "Independent account/connection evidence required")}</dd></div><div><dt>{say("Model çağrıları", "Model calls")}</dt><dd><AdminNumber value={c.runtime.model_calls}/></dd></div><div><dt>{say("Faturası uzlaştırılmamış çağrı", "Calls with unreconciled billing")}</dt><dd><AdminNumber value={c.runtime.unknown_billing}/></dd></div><div><dt>{say("Bağımsız doğrulanmış maliyet (USD)", "Independently reconciled cost (USD)")}</dt><dd>{c.runtime.actual_billed_usd ?? say("BİLİNMİYOR", "UNKNOWN")}</dd></div></dl>}
+      {c.runtime && <dl className="jeff-facts"><div><dt>{say("Sağlayıcı yürütücüsü", "Provider executor")}</dt><dd>{c.runtime.state === "READY_TO_DISPATCH" ? say("Doğrulanmış bağlantı; kampanya etkin", "Verified connection; campaign active") : c.runtime.state === "HELD" ? say("Gönderim bekletiliyor", "Dispatch held") : say("Bağımsız hesap/bağlantı kanıtı gerekli", "Independent account/connection evidence required")}</dd></div><div><dt>{say("Model çağrıları", "Model calls")}</dt><dd><AdminNumber value={c.runtime.model_calls}/></dd></div><div><dt>{say("Faturası uzlaştırılmamış çağrı", "Calls with unreconciled billing")}</dt><dd><AdminNumber value={c.runtime.unknown_billing}/></dd></div><div><dt>{say("Bağımsız doğrulanmış maliyet (USD)", "Independently reconciled cost (USD)")}</dt><dd>{c.runtime.actual_billed_usd ?? say("BİLİNMİYOR", "UNKNOWN")}</dd></div></dl>}
       {c.blockers.length > 0 && <details open><summary>{say("Yürütme engelleri", "Execution blockers")}</summary><ul>{c.blockers.map(reason => <li key={reason}><code>{reason}</code></li>)}</ul></details>}
       {owner && <CampaignStateControl id={c.id} revision={c.revision} state={c.state}/>}
       <Link href={`/admin/imports/${c.configuration.batch_id}`}>{say("Aktarım uzlaştırması", "Import reconciliation")}</Link>

@@ -15,7 +15,12 @@ case "${AUTHORIZED_FOUNDER_RECOVERY:-false}" in
   [[ "${PRIVATE_BETA_PROGRAM_ID:-}" =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$ ]]
   beta_fingerprint_args=(-v "private_beta_held_recovery_program=$PRIVATE_BETA_PROGRAM_ID")
   ;;
- false) ;;
+ false)
+  if test -n "${QUIESCENT_IDENTITY_PROGRAM_ID:-}";then
+   [[ "$QUIESCENT_IDENTITY_PROGRAM_ID" =~ ^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[1-5][a-fA-F0-9]{3}-[89abAB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$ ]]
+   beta_fingerprint_args=(-v "private_beta_identity_program=$QUIESCENT_IDENTITY_PROGRAM_ID")
+  fi
+  ;;
  *) exit 1 ;;
 esac
 beta_container=supabase_db_gold-revenue-os

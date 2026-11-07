@@ -7,7 +7,7 @@ import { starsUatInvoicePayload } from "../../packages/domain/src/telegram-stars
 const now = Date.parse("2026-10-26T12:00:00Z"), stamp = now / 1000;
 const program = "9fcc1400-0000-4000-8000-000000000001", tenant = "9fcc1400-0000-4000-8000-000000000002", invoiceId = "9fcc1400-0000-4000-8000-000000000003";
 const token = "7100000001:SYNTHETIC_NOT_A_REAL_BOT_CREDENTIAL", secret = "SYNTHETIC_WEBHOOK_SECRET_NOT_A_CREDENTIAL";
-const invoice = { version: 1, environment: "TELEGRAM_DEDICATED_TEST", program_id: program, tenant_id: tenant, invoice_id: invoiceId, bot_user_id: "7100000001", payer_user_id: "7100000002", product_code: "POLAT_VIP_30D_DRAFT", duration_days: 30, currency: "XTR", amount_units: "1", issued_at: new Date(now - 60000).toISOString(), expires_at: new Date(now + 60000).toISOString() };
+const invoice = { version: 1, environment: "TELEGRAM_DEDICATED_TEST", program_id: program, tenant_id: tenant, invoice_id: invoiceId, bot_user_id: "7100000001", payer_user_id: "7100000002", product_code: "JEFF_VIP_30D_DRAFT", duration_days: 30, currency: "XTR", amount_units: "1", issued_at: new Date(now - 60000).toISOString(), expires_at: new Date(now + 60000).toISOString() };
 const authority = { version: 1, scope: "TELEGRAM_STARS_PRIVATE_BETA_TEST", environment: "TELEGRAM_DEDICATED_TEST", program_id: program, tenant_id: tenant,
   bot_user_id: "7100000001", authority_record_id: "9fcc1400-0000-4000-8000-000000000004", binding_revision: 1, release_sha: "a".repeat(40), expires_at: new Date(now + 60000).toISOString(),
   permitted_payers: ["7100000002"], approved_test_amount_units: "1", allowed_operations: ["getMe", "sendInvoice", "answerPreCheckoutQuery", "getStarTransactions", "refundStarPayment"] };

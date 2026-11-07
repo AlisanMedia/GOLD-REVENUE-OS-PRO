@@ -7,9 +7,9 @@ vi.mock("@/lib/admin/permissions", () => import("../../apps/web/src/lib/admin/pe
 vi.mock("@/lib/supabase/server", () => ({ createSupabaseServerClient: async () => ({ rpc: mocks.rpc }) }));
 vi.mock("@/lib/messaging/server-env", () => ({ createSupabaseAdminClient: mocks.admin, telegramServerEnv: mocks.env }));
 vi.mock("@/lib/messaging/telegram-adapter", () => ({ sendTelegramText: mocks.legacySend }));
-vi.mock("@/lib/polat/private-beta-runtime", () => ({ privateBetaConversation: mocks.conversation, dispatchPrivateBetaMessage: mocks.dispatch, drainPrivateBetaRecovery: mocks.recovery }));
-vi.mock("@/lib/polat/campaign-execution", () => ({ campaignScope: mocks.campaign, dispatchCampaignMessage: mocks.campaignDispatch, drainCampaignRecovery: mocks.campaignRecovery }));
-vi.mock("@/lib/polat/private-beta-isolation", () => import("../../apps/web/src/lib/polat/private-beta-isolation"));
+vi.mock("@/lib/jeff/private-beta-runtime", () => ({ privateBetaConversation: mocks.conversation, dispatchPrivateBetaMessage: mocks.dispatch, drainPrivateBetaRecovery: mocks.recovery }));
+vi.mock("@/lib/jeff/campaign-execution", () => ({ campaignScope: mocks.campaign, dispatchCampaignMessage: mocks.campaignDispatch, drainCampaignRecovery: mocks.campaignRecovery }));
+vi.mock("@/lib/jeff/private-beta-isolation", () => import("../../apps/web/src/lib/jeff/private-beta-isolation"));
 vi.mock("@/lib/agent-runtime/worker", () => ({ runDeterministicWorker: mocks.worker }));
 vi.mock("@/lib/customer-success/worker", () => ({ drainCustomerSuccess: mocks.success }));
 vi.mock("@/lib/surveys/worker", () => ({ drainSurveys: mocks.surveys }));
@@ -17,16 +17,16 @@ vi.mock("@/lib/messaging/automatic-replies", () => ({ drainAutomaticReplies: moc
 vi.mock("@/lib/escalations/service", () => ({ drainEscalations: mocks.escalation }));
 import { POST as manualReply } from "../../apps/web/src/app/api/v1/conversations/[id]/messages/route";
 import { GET as cron } from "../../apps/web/src/app/api/internal/agent-worker/route";
-import { privateBetaIsolationActive } from "../../apps/web/src/lib/polat/private-beta-isolation";
+import { privateBetaIsolationActive } from "../../apps/web/src/lib/jeff/private-beta-isolation";
 
 const tenantId = "91cd2000-0000-4000-8000-000000000001", programId = "91cd2000-0000-4000-8000-000000000002", conversationId = "91cd2000-0000-4000-8000-000000000003", messageId = "91cd2000-0000-4000-8000-000000000004", correlationId = "91cd2000-0000-4000-8000-000000000005";
 const staffId = "91cd2000-0000-4000-8000-000000000006";
 const scope = () => ({ params: Promise.resolve({ id: conversationId }) });
-function request(body: Record<string, unknown> = { content: "Polat Support: I'll review the test access question.", correlation_id: correlationId }, headers: Record<string, string> = {}) { return new Request(`https://fixture.invalid/api/v1/conversations/${conversationId}/messages`, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "offline-manual-idempotency", ...headers }, body: JSON.stringify(body) }); }
+function request(body: Record<string, unknown> = { content: "Jeff Support: I'll review the test access question.", correlation_id: correlationId }, headers: Record<string, string> = {}) { return new Request(`https://fixture.invalid/api/v1/conversations/${conversationId}/messages`, { method: "POST", headers: { "content-type": "application/json", "idempotency-key": "offline-manual-idempotency", ...headers }, body: JSON.stringify(body) }); }
 function scheduled(workload?: string, auth = "Bearer OFFLINE_CRON_FIXTURE") { const url = new URL("https://fixture.invalid/api/internal/agent-worker"); if (workload) url.searchParams.set("workload", workload); return new Request(url, { headers: { authorization: auth } }); }
 beforeEach(() => {
-  vi.clearAllMocks(); vi.stubEnv("POLAT_UAT_RELEASE_SHA", "f".repeat(40)); vi.stubEnv("CRON_SECRET", "OFFLINE_CRON_FIXTURE");
-  vi.stubEnv("POLAT_CAMPAIGN_ID", ""); mocks.campaign.mockResolvedValue({ bound: false, campaign_id: null, genuine_executor_accepted: false, reason: "UNBOUND" });
+  vi.clearAllMocks(); vi.stubEnv("JEFF_UAT_RELEASE_SHA", "f".repeat(40)); vi.stubEnv("CRON_SECRET", "OFFLINE_CRON_FIXTURE");
+  vi.stubEnv("JEFF_CAMPAIGN_ID", ""); mocks.campaign.mockResolvedValue({ bound: false, campaign_id: null, genuine_executor_accepted: false, reason: "UNBOUND" });
   mocks.campaignDispatch.mockResolvedValue({ status: "sent", message_id: messageId }); mocks.campaignRecovery.mockResolvedValue({ conversations: 0, tasks_claimed: 0 });
   mocks.context.mockResolvedValue({ user: { id: staffId, email: "private-staff@example.test" }, tenants: [{ id: tenantId, role: "manager" }] });
   mocks.conversation.mockResolvedValue({ program_id: programId }); mocks.rpc.mockResolvedValue({ data: { message_id: messageId, status: "pending", duplicate: false }, error: null }); mocks.dispatch.mockResolvedValue({ status: "sent", message_id: messageId }); mocks.recovery.mockResolvedValue({ conversations: 0, tasks_claimed: 0 });
@@ -57,7 +57,7 @@ describe("private beta manual replies retain named ownership and isolate unrelat
   it("uses only authenticated tenant and the MFA/ownership queue before the private-beta dispatcher", async () => {
     const response = await manualReply(request(), scope()); expect(response.status).toBe(201); expect(await response.json()).toEqual({ status: "sent", message_id: messageId, duplicate: false });
     expect(mocks.conversation).toHaveBeenCalledWith(tenantId, conversationId);
-    expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_queue_manual_v1", { target_tenant_id: tenantId, target_conversation_id: conversationId, content_value: "Polat Support: I'll review the test access question.", idempotency_key_value: "offline-manual-idempotency", correlation_id_value: correlationId, reply_to_message_id_value: null });
+    expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_queue_manual_v1", { target_tenant_id: tenantId, target_conversation_id: conversationId, content_value: "Jeff Support: I'll review the test access question.", idempotency_key_value: "offline-manual-idempotency", correlation_id_value: correlationId, reply_to_message_id_value: null });
     expect(mocks.dispatch).toHaveBeenCalledWith(tenantId, programId, messageId); expectLegacyUnused();
     expect(JSON.stringify(mocks.dispatch.mock.calls)).not.toContain(staffId); expect(JSON.stringify(mocks.dispatch.mock.calls)).not.toContain("private-staff@example.test");
   });
@@ -105,6 +105,6 @@ describe("private beta scheduled recovery is restrictive, bounded and separate f
     mocks.recovery.mockRejectedValue(Error("PRIVATE_RECOVERY_DIAGNOSTIC")); const response = await cron(scheduled()); expect(response.status).toBe(500); expect(await response.json()).toEqual({ error: "WORKER_EXECUTION_FAILED" }); expectLegacyUnused();
   });
   it("the deployment marker is a restriction, never independent operational authority", () => {
-    expect(privateBetaIsolationActive()).toBe(true); vi.stubEnv("POLAT_UAT_RELEASE_SHA", "invalid-unverified-marker"); expect(privateBetaIsolationActive()).toBe(true); vi.stubEnv("POLAT_UAT_RELEASE_SHA", ""); expect(privateBetaIsolationActive()).toBe(false); expect(mocks.dispatch).not.toHaveBeenCalled(); expect(mocks.recovery).not.toHaveBeenCalled();
+    expect(privateBetaIsolationActive()).toBe(true); vi.stubEnv("JEFF_UAT_RELEASE_SHA", "invalid-unverified-marker"); expect(privateBetaIsolationActive()).toBe(true); vi.stubEnv("JEFF_UAT_RELEASE_SHA", ""); expect(privateBetaIsolationActive()).toBe(false); expect(mocks.dispatch).not.toHaveBeenCalled(); expect(mocks.recovery).not.toHaveBeenCalled();
   });
 });

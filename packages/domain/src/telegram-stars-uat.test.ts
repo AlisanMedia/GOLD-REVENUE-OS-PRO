@@ -4,7 +4,7 @@ import { assessTelegramStarsUatEvidence, parseTelegramStarsUatLedger, parseTeleg
 
 const now = Date.parse("2026-10-26T12:00:00Z"), iso = new Date(now).toISOString(), stamp = now / 1000;
 const invoice: TelegramStarsUatInvoice = { version: 1, environment: "TELEGRAM_DEDICATED_TEST", program_id: "9fcc1200-0000-4000-8000-000000000001", tenant_id: "9fcc1200-0000-4000-8000-000000000002", invoice_id: "9fcc1200-0000-4000-8000-000000000003",
-  bot_user_id: "7100000001", payer_user_id: "7100000002", product_code: "POLAT_VIP_30D_DRAFT", duration_days: 30, currency: "XTR", amount_units: "1", issued_at: new Date(now - 60000).toISOString(), expires_at: new Date(now + 60000).toISOString() };
+  bot_user_id: "7100000001", payer_user_id: "7100000002", product_code: "JEFF_VIP_30D_DRAFT", duration_days: 30, currency: "XTR", amount_units: "1", issued_at: new Date(now - 60000).toISOString(), expires_at: new Date(now + 60000).toISOString() };
 const body = (kind: "PAYMENT" | "REFUND" = "PAYMENT", charge = "opaque-CHARGE-AbC") => {
   const payment = { currency: "XTR", total_amount: 1, invoice_payload: starsUatInvoicePayload(invoice.invoice_id), telegram_payment_charge_id: charge, provider_payment_charge_id: "" };
   return { update_id: kind === "PAYMENT" ? 101 : 102, message: { from: { id: 7100000002, is_bot: false }, chat: { id: 7100000002, type: "private" }, date: stamp, successful_payment: kind === "PAYMENT" ? payment : undefined, refunded_payment: kind === "REFUND" ? payment : undefined } };

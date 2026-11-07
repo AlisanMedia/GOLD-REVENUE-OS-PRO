@@ -78,26 +78,32 @@ export * from "./signal-parser";
 export * from "./signal-wave";
 
 export * from "./signal-review";
-export * from "./polat-conversation";
-export * from "./polat-response";
+export * from "./jeff-conversation";
+export * from "./jeff-response";
 
-export * from "./polat-sales";
+export * from "./jeff-sales";
 export * from "./campaign";
 
-export * from "./polat-operations";
+export * from "./jeff-operations";
 
-export * from "./polat-runtime";
-export * from "./polat-contact";
+export * from "./jeff-runtime";
+export * from "./jeff-contact";
 export * from "./private-beta-uat";
 
-export * from "./polat-model-evaluation";
+export * from "./jeff-model-evaluation";
 
-export * from "./polat-human-review";
+export * from "./jeff-human-review";
 
-export * from "./polat-model-acceptance";
+export * from "./jeff-model-acceptance";
 
-export * from "./polat-experiment-guard";
-export * from "./polat-claude-adapter";
-export * from "./polat-openai-adapter";
-export * from "./polat-experiment-bridge";
-export * from "./polat-campaign-execution";
+export * from "./jeff-experiment-guard";
+export * from "./jeff-claude-adapter";
+export * from "./jeff-openai-adapter";
+export * from "./jeff-experiment-bridge";
+export * from "./jeff-campaign-execution";
+
+export { IDENTITY_DOMAINS_V1 } from "./historical/identity-domains-v1";
+export * from "./jeff-identity";
+export { IDENTITY_NAMES_V1 } from "./historical/identity-names-v1";
+
+export { IDENTITY_WIRE_V1, currentIdentityTag } from "./historical/identity-wire-v1";

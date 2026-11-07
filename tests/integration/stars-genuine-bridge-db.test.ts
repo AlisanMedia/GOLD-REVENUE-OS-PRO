@@ -2,21 +2,21 @@ import { createHash } from "node:crypto";
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { beforeAll, afterAll, describe, it, expect, vi } from "vitest";
-import { disposablePolatDatabase, polatSqlClient } from "../helpers/polat-local-database";
+import { disposableJeffDatabase, jeffSqlClient } from "../helpers/jeff-local-database";
 vi.mock("server-only",()=>({}));
-const state=vi.hoisted(()=>({db:null as ReturnType<typeof polatSqlClient>|null}));
+const state=vi.hoisted(()=>({db:null as ReturnType<typeof jeffSqlClient>|null}));
 vi.mock("@/lib/supabase/admin",()=>({createSupabaseAdminClient:()=>state.db}));
 import { createStarsCommerce } from "../../apps/web/src/lib/payments/telegram-stars-commerce";
 import { runGenuineEntitlementCycle } from "../../apps/web/src/lib/entitlements/genuine-service";
 const url=process.env.STARS_COMMERCE_DB_URL,sha="b".repeat(40),q=(s:string)=>"'"+s.replaceAll("'","''")+"'";
 const id=(n:number,kind:string)=>`61b0${kind}-0000-4000-8000-${String(n).padStart(12,"0")}`;
 describe.runIf(Boolean(url))("Stars production-shaped bridge, disposable PG17 and OFFLINE Telegram only",()=>{
- let db:ReturnType<typeof disposablePolatDatabase>;const owned=new Set<string>();
- beforeAll(()=>{db=disposablePolatDatabase(url!);state.db=polatSqlClient(db);vi.stubEnv("VERCEL_GIT_COMMIT_SHA",sha);});
+ let db:ReturnType<typeof disposableJeffDatabase>;const owned=new Set<string>();
+ beforeAll(()=>{db=disposableJeffDatabase(url!);state.db=jeffSqlClient(db);vi.stubEnv("VERCEL_GIT_COMMIT_SHA",sha);});
  afterAll(()=>{for(const tenant of owned)db.execute(`update private.entitlement_controls set live_enabled=false where tenant_id='${tenant}';update private.sales_campaigns set state='STOPPED'where tenant_id='${tenant}';update public.tenants set status='suspended'where id='${tenant}';`);vi.unstubAllEnvs();});
  function setup(n:number){
   const t=id(n,"2000"),c=id(n,"5000"),p=id(n,"9000"),bot=String(9400000+n),payer="710000"+n,token=bot+":SYNTHETIC_MERCHANT_CREDENTIAL_ONLY",secret="SYNTHETIC_WEBHOOK_SECRET_"+"s".repeat(40),channel="-100"+n;
-  const helpers=readFileSync("supabase/tests/helpers/campaign_fixtures.sql","utf8").replace("\\ir polat_inbound_fixtures.sql",()=>readFileSync("supabase/tests/helpers/polat_inbound_fixtures.sql","utf8")).replaceAll("'currency','USD'","'currency','XTR'").replace("'amount','10.00'","'amount','100.00'");
+  const helpers=readFileSync("supabase/tests/helpers/campaign_fixtures.sql","utf8").replace("\\ir jeff_inbound_fixtures.sql",()=>readFileSync("supabase/tests/helpers/jeff_inbound_fixtures.sql","utf8")).replaceAll("'currency','USD'","'currency','XTR'").replace("'amount','10.00'","'amount','100.00'");
   db.execute(`begin;${helpers}select pg_temp.campaign_setup(${n},false,true);update public.tenants set outbound_messaging_enabled=true where id='${t}';select public.admin_campaign_state_v1('${t}','${p}',1,'START');commit;`);owned.add(t);
   db.execute(`select public.ingest_telegram_message('${t}','stars-fixture-${n}','99','${payer}','${payer}',null,'Synthetic',null,'I want to buy the approved plan',null,clock_timestamp());`);
   const event=db.query(`select to_jsonb(e.id)from public.domain_events e join public.messages m on m.tenant_id=e.tenant_id and m.id::text=e.payload->>'message_id'where e.tenant_id='${t}'and e.event_type='message.received'and m.provider_message_id='99'limit 1`)as string;
@@ -24,7 +24,7 @@ describe.runIf(Boolean(url))("Stars production-shaped bridge, disposable PG17 an
   db.execute(`do $$declare step record;ev uuid;res jsonb;begin for step in select * from(values('NEW','CONTACT_READY','admin.manual_transition','{}'::jsonb),('CONTACT_READY','CONTACTED','admin.manual_transition','{}'),('CONTACTED','REPLIED','admin.manual_transition','{}'),('REPLIED','QUALIFIED','qualification.completed','{"qualification_id":"SYNTHETIC"}'),('QUALIFIED','OFFER_SENT','offer.created','{"offer_id":"SYNTHETIC"}'),('OFFER_SENT','INTERESTED','offer.accepted','{"offer_id":"SYNTHETIC"}'),('INTERESTED','PAYMENT_PENDING','payment.intent_created','{"payment_id":"SYNTHETIC","amount":"100","asset":"XTR","network":"TELEGRAM"}'))x(a,b,e,p)loop ev:=null;if step.e<>'admin.manual_transition'then ev:=private.append_domain_event('${t}','${c}',step.e,1,step.p,'SYSTEM',null,'synthetic_stars_test','TRUSTED',extensions.gen_random_uuid(),null,'stars-fixture-state:'||step.b,clock_timestamp());end if;res:=public.transition_customer_state('${t}','${c}',step.a::public.customer_state,step.b::public.customer_state,'disposable_synthetic_fixture','SYSTEM',null,extensions.gen_random_uuid(),ev,step.e,ev,'stars-fixture-state:'||step.b,clock_timestamp());if res->>'accepted'<>'true'then raise exception 'SYNTHETIC_STATE_FAILED %',res;end if;end loop;end;$$;`);
   const binding={version:1,environment:"TELEGRAM_PRODUCTION",tenant_id:t,financial_authority:"VERIFIED_STARS_RECEIPT",approval_reference:"SYNTHETIC_LOCAL_ONLY_NOT_REAL_ELIGIBILITY",repository_sha:sha,bot_user_id:bot,credential_sha256:createHash("sha256").update(token).digest("hex"),webhook_secret_sha256:createHash("sha256").update(secret).digest("hex"),owner_user_id:"61ca1000-0000-4000-8000-000000000001",eligibility_evidence_hash:"c".repeat(64),owner_authorization_hash:"d".repeat(64),channel_id:channel,allowed_markets:["GB","DE"],expires_at:new Date(Date.now()+3600000).toISOString()};
   db.execute(`insert into private.payment_adapter_registry values('telegram_stars_live','telegram_stars','live','{"XTR":{"network":"TELEGRAM","decimals":0,"confirmations":1}}')on conflict(id)do nothing;insert into public.vip_channels(tenant_id,mode,chat_id,enabled,approval_reference,private_verified)values('${t}','live','${channel}',true,'SYNTHETIC_LOCAL_ONLY',true);insert into private.entitlement_controls(tenant_id,live_enabled,approval_reference,stars_binding)values('${t}',true,${q(binding.approval_reference)},${q(JSON.stringify(binding))}::jsonb);`);
-  vi.stubEnv("POLAT_STARS_MERCHANT_BOT_TOKEN",token);vi.stubEnv("POLAT_STARS_MERCHANT_WEBHOOK_SECRET",secret);
+  vi.stubEnv("JEFF_STARS_MERCHANT_BOT_TOKEN",token);vi.stubEnv("JEFF_STARS_MERCHANT_WEBHOOK_SECRET",secret);
   let invoice="",charge="synthetic-charge-"+n,refunded=false,unknown=false;const at=Math.floor(Date.now()/1000),calls:string[]=[];
   const fetcher=vi.fn<typeof fetch>().mockImplementation(async(input,init)=>{
    const address=String(input),method=address.slice(address.lastIndexOf("/")+1);calls.push(method);

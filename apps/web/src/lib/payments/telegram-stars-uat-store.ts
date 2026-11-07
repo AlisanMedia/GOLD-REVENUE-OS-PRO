@@ -8,7 +8,7 @@ import { telegramStarsUatInvoiceSchema, type StarsUatHistory } from "../../../..
 /** Narrow server-owned TEST custody; never selected by general payment factories, workers or a browser activation flag. */
 export async function createTelegramStarsUatFromDatabase(input: { tenantId: string; programId: string; connectionRequestKey: string }, transport: typeof fetch = fetch) {
   const scope = z.strictObject({ tenantId: z.uuid(), programId: z.uuid(), connectionRequestKey: z.string().regex(/^[A-Za-z0-9:_-]{1,120}$/u) }).parse(input);
-  const release = process.env.POLAT_UAT_RELEASE_SHA;
+  const release = process.env.JEFF_UAT_RELEASE_SHA;
   if (!release || !/^[a-f0-9]{40}$/u.test(release) || process.env.VERCEL_GIT_COMMIT_SHA !== undefined && process.env.VERCEL_GIT_COMMIT_SHA !== release) throw Error("STARS_TEST_RELEASE_UNAVAILABLE");
   const db = createSupabaseAdminClient(), nonces = new Map<string, string>();
   const rpc = async (name: string, args: Record<string, unknown> = {}): Promise<unknown> => {
@@ -35,7 +35,7 @@ export async function createTelegramStarsUatFromDatabase(input: { tenantId: stri
     },
     readProtectedCredential() {
       // Reached only after protected postgres account-control and owner/tenant/window verification. No fallback to the main Telegram bot.
-      const token = process.env.POLAT_UAT_STARS_TEST_BOT_TOKEN, secret = process.env.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET;
+      const token = process.env.JEFF_UAT_STARS_TEST_BOT_TOKEN, secret = process.env.JEFF_UAT_STARS_TEST_WEBHOOK_SECRET;
       return token && secret ? Promise.resolve({ bot_token: token, webhook_secret: secret }) : Promise.reject(Error("STARS_TEST_CREDENTIALS_UNAVAILABLE"));
     },
     custody, transport,

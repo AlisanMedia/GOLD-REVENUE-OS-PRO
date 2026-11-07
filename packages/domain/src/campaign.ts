@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { campaignConfigurationSchema, campaignPermissionSchema, type CampaignConfiguration } from "@gold-revenue-os/contracts";
 import { canonicalFinancialJson } from "./financial-source-canonical";
-import { buildPolatSalesPreview } from "./polat-sales";
+import { buildJeffSalesPreview } from "./jeff-sales";
 
 export function campaignPermissionHash(raw: unknown) {
   return createHash("sha256").update(canonicalFinancialJson(campaignPermissionSchema.parse(raw)), "utf8").digest("hex");
@@ -34,9 +34,9 @@ export function campaignWithinContactWindow(config: CampaignConfiguration, at: D
     : hour >= config.window_start || hour < config.window_end;
 }
 
-/** Reuses the accepted Polat sales/Phase7 QA path. There is no per-message owner review. */
+/** Reuses the accepted Jeff sales/Phase7 QA path. There is no per-message owner review. */
 export function prepareCampaignSalesReply(input: { sales: unknown; approvedPlanVersion: string; campaignActive: boolean }) {
-  const result = buildPolatSalesPreview(input.sales);
+  const result = buildJeffSalesPreview(input.sales);
   const allowed = input.campaignActive && result.quality.action === "SAFE_PREVIEW"
     && !result.handoff.required && result.next_action !== "STOP_CONTACT"
     && (!result.selection || result.selection.plan_version_id === input.approvedPlanVersion);

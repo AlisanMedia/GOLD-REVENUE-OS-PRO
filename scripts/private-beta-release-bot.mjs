@@ -1,14 +1,16 @@
+import { matchesJeffBusinessIdentity } from '../packages/contracts/src/jeff-identity.ts';
+import { IDENTITY_DOMAINS_V1 } from "../packages/contracts/src/historical/identity-domains-v1.ts";
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { parseFinancialJson } from '../packages/domain/src/financial-source-canonical.ts';
 import { privateBetaBusinessRightsSchema } from '../packages/contracts/src/private-beta-uat.ts';
-import { parsePolatClaudeJson } from '../packages/domain/src/polat-claude-json.ts';
+import { parseJeffClaudeJson } from '../packages/domain/src/jeff-claude-json.ts';
 
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu;
 const hash = /^[a-f0-9]{64}$/u;
 const MANAGEMENT = 'https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query';
-const INGRESS = 'https://xqvwkghpmezcpgugetqc.supabase.co/functions/v1/polat-private-beta-ingress';
+const INGRESS = 'https://xqvwkghpmezcpgugetqc.supabase.co/functions/v1/jeff-private-beta-ingress';
 const assert = (condition, code) => { if (!condition) throw Error(code); };
 const digest = value => createHash('sha256').update(value, 'utf8').digest('hex');
 
@@ -51,7 +53,7 @@ export async function verifyAndRecordPrivateBetaBot({ programId, sha, management
   const proof = { version: 1, bot_id: String(bot.id), source_hash: digest(observed.raw), observed_at: new Date(at).toISOString(), api_environment: 'production', credential_sha256: digest(botToken) };
   // JSON is constructed from the real response, not supplied as an attestation input. Hex encoding prevents SQL quoting/injection.
   const encoded = Buffer.from(JSON.stringify(proof), 'utf8').toString('hex');
-  const guardedWrite = "do $private_beta_bot$ begin perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('POLAT_UAT_BOT1:" + proof.bot_id + "',0)); perform 1 from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where p.id='" + programId + "'::uuid and p.tenant_id='" + program.tenant_id + "'::uuid and p.configuration->>'repository_sha'='" + sha + "' and p.manifest_hash='" + program.manifest_hash + "' and p.authorization_record_hash='" + program.authorization_record_hash + "' and p.generation=" + program.generation + " and p.stage in('DRAFT','CANARY','FOUNDER','FRIENDS') and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled and not exists(select 1 from public.messaging_provider_connections c where c.provider='telegram' and c.provider_account_ref='" + proof.bot_id + "' and c.tenant_id<>p.tenant_id) for update of p; if not found then raise exception 'PRIVATE_BETA_BOT_REVISION_CHANGED' using errcode='40001'; end if; perform private.private_beta_bot_control_record('" + program.tenant_id + "'::uuid,'" + programId + "'::uuid,convert_from(decode('" + encoded + "','hex'),'UTF8')); end $private_beta_bot$;";
+  const guardedWrite = "do $private_beta_bot$ begin perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('" + IDENTITY_DOMAINS_V1["JEFF_UAT_BOT1:"] + proof.bot_id + "',0)); perform 1 from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where p.id='" + programId + "'::uuid and p.tenant_id='" + program.tenant_id + "'::uuid and p.configuration->>'repository_sha'='" + sha + "' and p.manifest_hash='" + program.manifest_hash + "' and p.authorization_record_hash='" + program.authorization_record_hash + "' and p.generation=" + program.generation + " and p.stage in('DRAFT','CANARY','FOUNDER','FRIENDS') and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled and not exists(select 1 from public.messaging_provider_connections c where c.provider='telegram' and c.provider_account_ref='" + proof.bot_id + "' and c.tenant_id<>p.tenant_id) for update of p; if not found then raise exception 'PRIVATE_BETA_BOT_REVISION_CHANGED' using errcode='40001'; end if; perform private.private_beta_bot_control_record('" + program.tenant_id + "'::uuid,'" + programId + "'::uuid,convert_from(decode('" + encoded + "','hex'),'UTF8')); end $private_beta_bot$;";
   await query(guardedWrite);
   // Independent subsequent database read proves persistence, not merely a submitted form or echoed write response.
   const readback = (await query("select p.bot_control as bot_control from private.private_beta_programs p where p.id='" + programId + "'::uuid and p.tenant_id='" + program.tenant_id + "'::uuid and p.configuration->>'repository_sha'='" + sha + "' and p.manifest_hash='" + program.manifest_hash + "' and p.generation=" + program.generation)).value;
@@ -93,7 +95,7 @@ export async function discoverPrivateBetaBusinessConnections(input) {
   assert((program.stage === 'DRAFT' || program.stage === 'CANARY' && program.owner_only_test === true && program.connection_setup_allowed === true) && program.has_participants === false, 'NEW_DRAFT_BUSINESS_BOT_REQUIRED');
   const observed = await jsonOnce(network, 'https://api.telegram.org/bot' + input.botToken + '/getUpdates', {
     method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ timeout: 0, limit: 10, allowed_updates: ['business_connection', 'business_message'] }),
-  }, 'BUSINESS_DISCOVERY_UNAVAILABLE', { 409: 'BUSINESS_DISCOVERY_WEBHOOK_ACTIVE' }, parsePolatClaudeJson);
+  }, 'BUSINESS_DISCOVERY_UNAVAILABLE', { 409: 'BUSINESS_DISCOVERY_WEBHOOK_ACTIVE' }, parseJeffClaudeJson);
   assert(observed.value?.ok === true && Array.isArray(observed.value.result) && observed.value.result.length <= 10 && Number.isFinite(at), 'BUSINESS_DISCOVERY_INVALID');
   const candidates = new Map();
   for (const update of observed.value.result) {
@@ -149,10 +151,10 @@ export async function verifyAndRecordPrivateBetaBusiness(input) {
   const observed = await jsonOnce(network, 'https://api.telegram.org/bot' + input.botToken + '/getBusinessConnection', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ business_connection_id: seed.business_connection_id }) }, 'BUSINESS_CONNECTION_READ_UNAVAILABLE');
   const c = observed.value?.result, at = now(), expires = Date.parse(seed.expires_at);
   const rights = privateBetaBusinessRightsSchema.safeParse(c?.rights);
-  assert(observed.value?.ok === true && c?.id === seed.business_connection_id && c.is_enabled === true && rights.success && Number.isSafeInteger(c.user?.id) && String(c.user.id) === seed.representative_user_id && c.user.is_bot === false && Number.isFinite(at) && Number.isFinite(expires) && expires > at, 'BUSINESS_CONNECTION_UNVERIFIED');
+  assert(observed.value?.ok === true && c?.id === seed.business_connection_id && c.is_enabled === true && rights.success && matchesJeffBusinessIdentity(c.user ?? {}, seed.representative_user_id) && Number.isFinite(at) && Number.isFinite(expires) && expires > at, 'BUSINESS_CONNECTION_UNVERIFIED');
   const proof = { version: 1, origin: 'INDEPENDENT_TELEGRAM_BUSINESS_READ', bot_id: program.bot_id, credential_sha256: digest(input.botToken), repository_sha: input.sha,
     business_connection_id: seed.business_connection_id, representative_user_id: seed.representative_user_id, expected_generation: seed.business_generation, enabled: true, can_reply: true,
-    source_hash: digest(JSON.stringify(['POLAT_BUSINESS_READ1', digest(botObservation.raw), digest(observed.raw)])), observed_at: new Date(at).toISOString(), expires_at: new Date(expires).toISOString() };
+    source_hash: digest(JSON.stringify([IDENTITY_DOMAINS_V1["JEFF_BUSINESS_READ1"], digest(botObservation.raw), digest(observed.raw)])), observed_at: new Date(at).toISOString(), expires_at: new Date(expires).toISOString() };
   const encoded = Buffer.from(JSON.stringify(proof), 'utf8').toString('hex');
   await query("select private.private_beta_business_control_record('" + program.tenant_id + "'::uuid,'" + input.programId + "'::uuid,convert_from(decode('" + encoded + "','hex'),'UTF8'))");
   const readback = await query("select public.private_beta_transport_config_v1('" + program.tenant_id + "'::uuid,'" + input.programId + "'::uuid) as business_scope");
@@ -171,7 +173,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     assert(process.argv.length === 2 && env.GITHUB_REPOSITORY === 'AlisanMedia/GOLD-REVENUE-OS-PRO' && env.GITHUB_REF === 'refs/heads/main' && env.VALIDATED_SHA === env.GITHUB_SHA && env.RUNNER_TEMP, 'PROTECTED_EXACT_BOT_JOB_REQUIRED');
     const operation = env.PRIVATE_BETA_BOT_OPERATION ?? 'verify_bot';
     assert(['verify_bot', 'verify_business', 'discover_business'].includes(operation), 'PROTECTED_BOT_OPERATION_REQUIRED');
-    const input = { programId: env.PRIVATE_BETA_PROGRAM_ID, sha: env.VALIDATED_SHA, managementToken: env.SUPABASE_ACCESS_TOKEN, botToken: env.POLAT_UAT_TELEGRAM_BOT_TOKEN };
+    const input = { programId: env.PRIVATE_BETA_PROGRAM_ID, sha: env.VALIDATED_SHA, managementToken: env.SUPABASE_ACCESS_TOKEN, botToken: env.JEFF_UAT_TELEGRAM_BOT_TOKEN };
     const result = operation === 'verify_business' ? await verifyAndRecordPrivateBetaBusiness(input) : operation === 'discover_business' ? await discoverAndRecordPrivateBetaBusinessConnections(input) : await verifyAndRecordPrivateBetaBot(input);
     writeFileSync(env.RUNNER_TEMP + '/private-beta-bot-control.json', JSON.stringify(result, null, 2) + '\n', { mode: 0o600 });
     process.stdout.write('PASS: protected bot control operation completed with explicit evidence classification. No webhook, message or model execution.\n');

@@ -67,5 +67,5 @@ create function pg_temp.business_prepare_run(n integer)returns uuid language plp
  perform pg_temp.business_service();select * into strict a from private.private_beta_participants where program_id=p;select * into strict c from public.conversations where id=a.conversation_id;
  select task_id into task from public.claim_private_beta_tasks_v1(t,c.id,'business-fixture-worker');
  if task is null then raise exception 'BUSINESS_FIXTURE_TASK_REQUIRED';end if;
- rid:=public.begin_agent_run(t,task,'business-fixture-worker',jsonb_build_object('polat_profile','polat-private-beta-v1','private_beta_program_id',p,'private_beta_participant_id',a.id,'private_beta_revision',a.revision::text));
+ rid:=public.begin_agent_run(t,task,'business-fixture-worker',jsonb_build_object('jeff_profile','jeff-private-beta-v1','private_beta_program_id',p,'private_beta_participant_id',a.id,'private_beta_revision',a.revision::text));
  update business_cases set run_id=rid where business_cases.n=$1;return rid;end;$$;

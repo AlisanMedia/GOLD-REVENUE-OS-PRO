@@ -1,23 +1,24 @@
+import { IDENTITY_DOMAINS_V1 } from "../../packages/contracts/src/historical/identity-domains-v1";
 import { EventEmitter } from "node:events";
 import type { ClientRequest, IncomingMessage, RequestOptions } from "node:http";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
-import { disposablePolatDatabase, polatSqlClient } from "../helpers/polat-local-database";
-import { polatClaudeFixtureWire, polatSupportFixtureWire } from "../helpers/polat-bridge-fixtures";
-import { polatGuardDigest } from "../../packages/domain/src/polat-experiment-journal";
+import { disposableJeffDatabase, jeffSqlClient } from "../helpers/jeff-local-database";
+import { jeffClaudeFixtureWire, jeffSupportFixtureWire } from "../helpers/jeff-bridge-fixtures";
+import { jeffGuardDigest } from "../../packages/domain/src/jeff-experiment-journal";
 
 // Real independent PG connections + native worker/context/QA. Every external socket
 // is an OFFLINE double. JWT/account/billing declarations below are synthetic only.
-const fake = vi.hoisted(() => ({ db: null as ReturnType<typeof polatSqlClient> | null,
+const fake = vi.hoisted(() => ({ db: null as ReturnType<typeof jeffSqlClient> | null,
   key: "SYNTHETIC_CAMPAIGN_OPENAI_CREDENTIAL", bot: "", representative: "", chat: "", business: "", organization: "", project: "",
   calls: 0, sends: 0, wire: null as unknown, modelStatus: 200, timeout: false, sendUnknown: false, rateLimit: false, permission: true, afterModel: null as (() => void) | null,
 }));
 vi.mock("server-only", () => ({}));
 vi.mock("@/lib/supabase/admin", () => ({ createSupabaseAdminClient: () => fake.db }));
 vi.mock("@/lib/agent-runtime/context-builder", () => import("../../apps/web/src/lib/agent-runtime/context-builder"));
-vi.mock("@/lib/polat/test-runtime", () => import("../../apps/web/src/lib/polat/test-runtime"));
+vi.mock("@/lib/jeff/test-runtime", () => import("../../apps/web/src/lib/jeff/test-runtime"));
 vi.mock("@/lib/messaging/outbound-dispatch", () => ({ dispatchQueuedTelegramMessage: () => { throw Error("LEGACY_SENDER_NOT_ALLOWED"); } }));
 vi.mock("@/lib/agent-runtime/providers/openai-responses", () => ({ openAIProviderFromEnvironment: () => { throw Error("UNBOUNDED_PROVIDER_NOT_ALLOWED"); } }));
 vi.mock("node:https", () => ({ request: (options: RequestOptions, callback: (r: IncomingMessage) => void) => {
@@ -35,38 +36,38 @@ vi.mock("node:https", () => ({ request: (options: RequestOptions, callback: (r: 
       callback(response as unknown as IncomingMessage);
       if (fake.modelStatus !== 200) return;
       response.emit("data", Buffer.from(JSON.stringify({ id: `resp_campaign_${fake.calls}`, object: "response", model: "gpt-6.1-sol", status: "completed", created_at: Math.floor(Date.now() / 1000),
-        output: [{ type: "message", id: `msg_campaign_${fake.calls}`, role: "assistant", status: "completed", content: [{ type: "output_text", text: JSON.stringify(typeof fake.wire === "function" ? fake.wire(body) : fake.wire ?? polatSupportFixtureWire()), annotations: [] }] }],
+        output: [{ type: "message", id: `msg_campaign_${fake.calls}`, role: "assistant", status: "completed", content: [{ type: "output_text", text: JSON.stringify(typeof fake.wire === "function" ? fake.wire(body) : fake.wire ?? jeffSupportFixtureWire()), annotations: [] }] }],
         usage: { input_tokens: 37, output_tokens: 121, total_tokens: 158 } })));
       fake.afterModel?.(); response.emit("end");
     });
   };
   return socket as unknown as ClientRequest;
 } }));
-import * as checkoutModule from "../../apps/web/src/lib/polat/campaign-checkout";
-import * as polatPolicy from "../../packages/domain/src/polat-conversation";
+import * as checkoutModule from "../../apps/web/src/lib/jeff/campaign-checkout";
+import * as jeffPolicy from "../../packages/domain/src/jeff-conversation";
 import { runDeterministicWorker } from "../../apps/web/src/lib/agent-runtime/worker";
 import { buildAgentContext } from "../../apps/web/src/lib/agent-runtime/context-builder";
-import { preparePolatCampaignRuntime } from "../../packages/domain/src/polat-campaign-runtime";
-import { preparePolatOpenAIRequest } from "../../packages/domain/src/polat-openai-adapter";
-import { dispatchCampaignMessage } from "../../apps/web/src/lib/polat/campaign-execution";
+import { prepareJeffCampaignRuntime } from "../../packages/domain/src/jeff-campaign-runtime";
+import { prepareJeffOpenAIRequest } from "../../packages/domain/src/jeff-openai-adapter";
+import { dispatchCampaignMessage } from "../../apps/web/src/lib/jeff/campaign-execution";
 
 const connection = process.env.CAMPAIGN_GENUINE_DB_URL, SHA = "a".repeat(40);
 const quote = (s: string) => "'" + s.replaceAll("'", "''") + "'";
 const id = (n: number, kind: string) => `61b0${kind}-0000-4000-8000-${String(n).padStart(12, "0")}`;
 
 describe.runIf(Boolean(connection))("genuine campaign architecture, actual disposable PG17, fake external network", () => {
-  let db: ReturnType<typeof disposablePolatDatabase>;
+  let db: ReturnType<typeof disposableJeffDatabase>;
   const tenants = new Set<string>();
   const seed = Number(process.env.CAMPAIGN_GENUINE_CASE_SEED ?? "0");
   const service = (expression: string) => db.query(`begin;set local role service_role;select to_jsonb(${expression});commit;`);
   beforeAll(() => {
-    db = disposablePolatDatabase(connection!); fake.db = polatSqlClient(db);
+    db = disposableJeffDatabase(connection!); fake.db = jeffSqlClient(db);
     expect(db.query("select to_jsonb(current_setting('server_version_num')::int/10000)")).toBe(17);
     vi.stubEnv("VERCEL_GIT_COMMIT_SHA", SHA); vi.stubEnv("OPENAI_API_KEY", fake.key);
     vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockImplementation(async (url, options) => {
       if (options?.method !== "POST" || options.redirect !== "error") throw Error("OFFLINE_TELEGRAM_ONLY");
       const body = JSON.parse(String(options.body)) as Record<string, unknown>;
-      if (url === `https://api.telegram.org/bot${fake.bot}/getBusinessConnection`) return Response.json({ ok: true, result: { id: fake.business, user: { id: Number(fake.representative), is_bot: false }, is_enabled: fake.permission, rights: { can_reply: fake.permission } } });
+      if (url === `https://api.telegram.org/bot${fake.bot}/getBusinessConnection`) return Response.json({ ok: true, result: { id: fake.business, user: { id: Number(fake.representative), is_bot: false, username: "jeffryfx" }, is_enabled: fake.permission, rights: { can_reply: fake.permission } } });
       if (url !== `https://api.telegram.org/bot${fake.bot}/sendMessage` || body.business_connection_id !== fake.business || body.chat_id !== fake.chat) throw Error("OFFLINE_MATCHED_RECIPIENT_ONLY");
       fake.sends++; if (fake.sendUnknown) throw Error("SYNTHETIC_SEND_UNKNOWN");
       if (fake.rateLimit) return Response.json({ ok: false, error_code: 429, parameters: { retry_after: 1 } }, { status: 429 });
@@ -76,7 +77,7 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
   afterAll(() => { for (const tenant of tenants) db.execute(`update private.sales_campaigns set state='STOPPED'where tenant_id='${tenant}';update public.tenants set status='suspended'where id='${tenant}'and slug like 'campaign-uat-%';`); vi.unstubAllEnvs(); vi.unstubAllGlobals(); });
   function setup(n: number, stars = false) {
     const tenant = id(n, "2000"), campaign = id(n, "9000"), at = Date.now();
-    const originalHelpers = readFileSync("supabase/tests/helpers/campaign_fixtures.sql", "utf8").replace("\\ir polat_inbound_fixtures.sql", () => readFileSync("supabase/tests/helpers/polat_inbound_fixtures.sql", "utf8"));
+    const originalHelpers = readFileSync("supabase/tests/helpers/campaign_fixtures.sql", "utf8").replace("\\ir jeff_inbound_fixtures.sql", () => readFileSync("supabase/tests/helpers/jeff_inbound_fixtures.sql", "utf8"));
     const helpers = stars ? originalHelpers.replace("'currency','USD'", "'currency','XTR'").replace("'amount','10.00'", "'amount','100.00'") : originalHelpers;
     db.execute(`begin;${helpers}select pg_temp.campaign_setup(${n},false,${stars});update public.tenants set slug='campaign-uat-${n}'where id='${tenant}';select public.admin_campaign_save_v1('${tenant}','${campaign}',((select configuration from private.sales_campaigns where id='${campaign}')||'{"mode":"${stars ? "COMMERCIAL" : "CONTROLLED_TEST"}","budget_amount":"5.000000","maximum_liability_per_call":"1.100000","maximum_model_calls":4}'::jsonb)::text,1);commit;`);
     if (stars) db.execute(`update public.tenants set outbound_messaging_enabled=true where id='${tenant}';`);
@@ -84,13 +85,13 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     fake.chat = "710000" + n; fake.representative = String(8300000 + n); fake.business = "synthetic-campaign-business-" + n;
     fake.organization = "org-campaign-" + n; fake.project = "proj_campaign_" + n;
     fake.calls = 0; fake.sends = 0; fake.wire = null; fake.modelStatus = 200; fake.timeout = false; fake.sendUnknown = false; fake.rateLimit = false; fake.permission = true; fake.afterModel = null;
-    vi.stubEnv("POLAT_UAT_TELEGRAM_BOT_TOKEN", fake.bot);
+    vi.stubEnv("JEFF_UAT_TELEGRAM_BOT_TOKEN", fake.bot);
     const config = db.query(`select configuration from private.sales_campaigns where id='${campaign}'`) as Record<string, unknown>;
-    const credentialHash = createHash("sha256").update(fake.key).digest("hex"), accountHash = polatGuardDigest(["OPENAI_PROJECT1", fake.organization, fake.project]);
+    const credentialHash = createHash("sha256").update(fake.key).digest("hex"), accountHash = jeffGuardDigest(["OPENAI_PROJECT1", fake.organization, fake.project]);
     const binding = { version: 3, mode: "FOUNDER_CAMPAIGN", tenant_id: tenant, campaign_id: campaign, provider: "openai", model: "gpt-6.1-sol", model_version: "gpt-6.1-sol", protocol_version: "responses-v1", repository_sha: SHA,
-      configuration_hash: polatGuardDigest(config), account_scope_hash: accountHash, authorization_record_hash: polatGuardDigest(["SYNTHETIC_CAMPAIGN_GRANT", campaign]), manifest_hash: "b".repeat(64), policy_hash: "c".repeat(64), credential_custody_hash: polatGuardDigest(["POLAT_CAMPAIGN_CREDENTIAL1", accountHash, credentialHash]),
+      configuration_hash: jeffGuardDigest(config), account_scope_hash: accountHash, authorization_record_hash: jeffGuardDigest(["SYNTHETIC_CAMPAIGN_GRANT", campaign]), manifest_hash: "b".repeat(64), policy_hash: "c".repeat(64), credential_custody_hash: jeffGuardDigest([IDENTITY_DOMAINS_V1["JEFF_CAMPAIGN_CREDENTIAL1"], accountHash, credentialHash]),
       maximum_requests: 4, maximum_spend: "5.000000", maximum_attempt_liability: "1.100000", currency: "USD", maximum_output_tokens: 512, timeout_ms: 10000, expires_at: config.expires_at, financial_authority: "NONE" };
-    const account = { version: 1, origin: "INDEPENDENT_CAMPAIGN_ACCOUNT_CONTROL", tenant_id: tenant, campaign_id: campaign, binding_hash: polatGuardDigest(binding), organization_id: fake.organization, project_id: fake.project, credential_sha256: credentialHash,
+    const account = { version: 1, origin: "INDEPENDENT_CAMPAIGN_ACCOUNT_CONTROL", tenant_id: tenant, campaign_id: campaign, binding_hash: jeffGuardDigest(binding), organization_id: fake.organization, project_id: fake.project, credential_sha256: credentialHash,
       model_access: true, effective_limit_kind: "ENFORCED_CAMPAIGN_HARD_CAP", enforced_maximum_spend: "5", independently_observed_spend: "0", remaining_allowance: "5", currency: "USD", unknown_outcome_count: 0,
       data_policy_evidence_hash: "d".repeat(64), billing_evidence_hash: "e".repeat(64), canary_reconciliation_hash: "f".repeat(64),
       pricing: { maximum_input_tokens: 1050000, maximum_input_usd_per_million: "1", maximum_output_usd_per_million: "1", all_billable_components_covered: true, source_hash: "1".repeat(64) }, observed_at: new Date(at).toISOString(), expires_at: new Date(at + 300000).toISOString() };
@@ -102,10 +103,10 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     return { tenant, campaign, n, binding, account, transport, claims };
   }
   function inbound(s: ReturnType<typeof setup>, text = "Hi", ordinal = 2) {
-    return service(`public.campaign_ingest_business_v1('${s.tenant}','${s.campaign}',${quote(JSON.stringify({ kind: "INBOUND", update_id: String(ordinal), connection_id: fake.business, source_hash: polatGuardDigest([s.n, text, ordinal]), occurred_at: new Date().toISOString(), user_id: fake.chat, chat_id: fake.chat, message_id: String(ordinal), text, reply_to_id: null }))})`) as { accepted: boolean; duplicate: boolean; conversation_id: string; message_id: string; event_id: string };
+    return service(`public.campaign_ingest_business_v1('${s.tenant}','${s.campaign}',${quote(JSON.stringify({ kind: "INBOUND", update_id: String(ordinal), connection_id: fake.business, source_hash: jeffGuardDigest([s.n, text, ordinal]), occurred_at: new Date().toISOString(), user_id: fake.chat, chat_id: fake.chat, message_id: String(ordinal), text, reply_to_id: null }))})`) as { accepted: boolean; duplicate: boolean; conversation_id: string; message_id: string; event_id: string };
   }
   async function run(s: ReturnType<typeof setup>, conversation: string) {
-    return runDeterministicWorker({ conversation: { tenantId: s.tenant, conversationId: conversation }, polatCampaign: { campaignId: s.campaign } });
+    return runDeterministicWorker({ conversation: { tenantId: s.tenant, conversationId: conversation }, jeffCampaign: { campaignId: s.campaign } });
   }
   function concurrentSql(expression: string) {
     return new Promise<{ pid: number; result: unknown }>((resolve, reject) => {
@@ -124,7 +125,7 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     expect(result).toMatchObject({ tasksClaimed: 1, tasksFailed: 0 });
     expect(fake.calls).toBe(1); expect(fake.sends).toBe(1);
     expect(db.query(`select jsonb_build_object('status',status,'provider_message_id',provider_message_id)from public.messages where tenant_id='${s.tenant}'and direction='outbound'`)).toEqual({ status: "sent", provider_message_id: "7001" });
-    expect(db.query(`select coalesce(to_jsonb(payload->>'actual_billed_amount'),'null'::jsonb)from private.polat_experiment_evidence where tenant_id='${s.tenant}'and stage='PROVIDER_RESULT'`)).toBeNull();
+    expect(db.query(`select coalesce(to_jsonb(payload->>'actual_billed_amount'),'null'::jsonb)from private.jeff_experiment_evidence where tenant_id='${s.tenant}'and stage='PROVIDER_RESULT'`)).toBeNull();
     expect(db.query(`select to_jsonb(count(*))from private.verified_payment_receipts where tenant_id='${s.tenant}'`)).toBe(0);
     expect(inbound(s).duplicate).toBe(true);
     expect((await run(s, source.conversation_id)).tasksClaimed).toBe(0); expect(fake.calls).toBe(1);
@@ -134,7 +135,7 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     expect(claimed.error).toBeNull();
     expect(claimed.data).toHaveLength(1);
     const scope = await fake.db!.rpc("campaign_source_scope_v1", { target_tenant_id: s.tenant, target_conversation_id: source.conversation_id, target_event_id: second.event_id });
-    const context = await buildAgentContext({ tenant_id: s.tenant, customer_id: id(s.n, "5000"), conversation_id: source.conversation_id, source_event_id: second.event_id }, { polatCampaign: scope.data });
+    const context = await buildAgentContext({ tenant_id: s.tenant, customer_id: id(s.n, "5000"), conversation_id: source.conversation_id, source_event_id: second.event_id }, { jeffCampaign: scope.data });
     expect(context.context.recentMessages.some(m => m.direction === "outbound" && m.content === "Hi! What would you like to know?")).toBe(true);
   }, 30000);
   it.each(["MODEL_UNKNOWN", "TELEGRAM_UNKNOWN", "QA_UNSAFE", "AI_INTRODUCTION", "PERMISSION_LOST", "STOP_RACE", "OPT_OUT_RACE"])("%s never becomes fixture success or a blind retry", async (kind) => {
@@ -143,8 +144,8 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     if (kind === "MODEL_UNKNOWN") fake.timeout = true;
     if (kind === "TELEGRAM_UNKNOWN") fake.sendUnknown = true;
     if (kind === "PERMISSION_LOST") fake.permission = false;
-    if (kind === "AI_INTRODUCTION") fake.wire = polatClaudeFixtureWire();
-    if (kind === "QA_UNSAFE") { const wire = polatClaudeFixtureWire(); wire.proposed_response = "I guarantee trading profits and your VIP is active."; fake.wire = wire; }
+    if (kind === "AI_INTRODUCTION") fake.wire = jeffClaudeFixtureWire();
+    if (kind === "QA_UNSAFE") { const wire = jeffClaudeFixtureWire(); wire.proposed_response = "I guarantee trading profits and your VIP is active."; fake.wire = wire; }
     if (kind === "STOP_RACE") fake.afterModel = () => db.execute(`update private.sales_campaigns set state='STOPPED',revision=revision+1 where id='${s.campaign}';`);
     if (kind === "OPT_OUT_RACE") fake.afterModel = () => { fake.afterModel = null; inbound(s, "Do not contact me again", 3); };
     await run(s, source.conversation_id);
@@ -163,9 +164,9 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     expect(claims.flatMap(c => c.result as unknown[])).toHaveLength(1);
     const task = (claims.find(c => (c.result as unknown[]).length)!.result as Array<{ task_id: string }>)[0]!;
     const scope = await fake.db!.rpc("campaign_source_scope_v1", { target_tenant_id: s.tenant, target_conversation_id: source.conversation_id, target_event_id: source.event_id });
-    const built = await buildAgentContext({ tenant_id: s.tenant, customer_id: id(s.n, "5000"), conversation_id: source.conversation_id, source_event_id: source.event_id }, { polatCampaign: scope.data });
+    const built = await buildAgentContext({ tenant_id: s.tenant, customer_id: id(s.n, "5000"), conversation_id: source.conversation_id, source_event_id: source.event_id }, { jeffCampaign: scope.data });
     const runId = service(`public.begin_agent_run('${s.tenant}','${task.task_id}','concurrent_owner',${quote(JSON.stringify(built.manifest))}::jsonb)`) as string;
-    const profile = preparePolatCampaignRuntime(built.context, runId, scope.data), wire = preparePolatOpenAIRequest(profile.request, 512);
+    const profile = prepareJeffCampaignRuntime(built.context, runId, scope.data), wire = prepareJeffOpenAIRequest(profile.request, 512);
     const jobId = (scope.data as { job_id: string }).job_id;
     const reserve = `public.campaign_reserve_model_v1('${s.tenant}','${s.campaign}','${jobId}','${runId}','${wire.request_hash}','${wire.body_hash}')`;
     const reservations = await Promise.all([concurrentSql(reserve), concurrentSql(reserve)]);
@@ -176,7 +177,7 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     const begin = `public.campaign_begin_model_v1('${s.tenant}','${s.campaign}','${attempt}','${nonce}')`;
     const starts = await Promise.all([concurrentSql(begin), concurrentSql(begin)]);
     expect(starts.map(r => (r.result as { dispatch: boolean }).dispatch).sort()).toEqual([false, true]);
-    expect(db.query(`select to_jsonb(count(*))from private.polat_experiment_evidence where tenant_id='${s.tenant}'and stage='DISPATCH_STARTED'`)).toBe(1);
+    expect(db.query(`select to_jsonb(count(*))from private.jeff_experiment_evidence where tenant_id='${s.tenant}'and stage='DISPATCH_STARTED'`)).toBe(1);
     expect(fake.calls).toBe(0);
   }, 30000);
   it("a documented Telegram 429 recovers without regenerating or resetting the reserved model budget", async () => {
@@ -197,7 +198,7 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     const queued=owner(`public.admin_campaign_queue_manual_v1('${s.tenant}','${s.campaign}','${source.conversation_id}','I can help with your question.','synthetic-manual-command','3acb1000-0000-4000-8000-000000000004',null)`)as{message_id:string};
     expect((await dispatchCampaignMessage(s.tenant,s.campaign,queued.message_id)).status).toBe("sent");expect(fake.calls).toBe(0);
     const message=db.query(`select jsonb_build_object('content',content,'actor',actor_id)from public.messages where id='${queued.message_id}'`)as{content:string;actor:string};
-    expect(message.content).toBe("Polat Support: I can help with your question.");expect(message.actor).toBe("61ca1000-0000-4000-8000-000000000001");
+    expect(message.content).toBe("Jeff Support: I can help with your question.");expect(message.actor).toBe("61ca1000-0000-4000-8000-000000000001");
     owner(`public.set_conversation_automatic_replies('${s.tenant}','${source.conversation_id}',true,'3acb1000-0000-4000-8000-000000000005')`);
     expect((await run(s,source.conversation_id)).tasksClaimed).toBe(0);expect(fake.calls).toBe(0);
     const fresh=inbound(s,"Hi",3);expect((await run(s,fresh.conversation_id)).tasksFailed).toBe(0);expect(fake.calls).toBe(1);
@@ -224,12 +225,12 @@ describe.runIf(Boolean(connection))("genuine campaign architecture, actual dispo
     const s = setup(97130 + seed, true), merchant = String(9500000 + s.n), token = merchant + ":SYNTHETIC_STARS_ONLY", secret = "s".repeat(40), channel = "-100" + s.n;
     const financialBinding = {version:1,environment:"TELEGRAM_PRODUCTION",tenant_id:s.tenant,financial_authority:"VERIFIED_STARS_RECEIPT",approval_reference:"SYNTHETIC_LOCAL_ONLY_NOT_AUTHORITY",repository_sha:SHA,bot_user_id:merchant,credential_sha256:createHash("sha256").update(token).digest("hex"),webhook_secret_sha256:createHash("sha256").update(secret).digest("hex"),owner_user_id:"61ca1000-0000-4000-8000-000000000001",eligibility_evidence_hash:"c".repeat(64),owner_authorization_hash:"d".repeat(64),channel_id:channel,expires_at:new Date(Date.now()+3600000).toISOString(),allowed_markets:["GB"]};
     db.execute(`insert into private.payment_adapter_registry values('telegram_stars_live','telegram_stars','live','{"XTR":{"network":"TELEGRAM","decimals":0,"confirmations":1}}')on conflict(id)do nothing;insert into public.vip_channels(tenant_id,mode,chat_id,enabled,approval_reference,private_verified)values('${s.tenant}','live','${channel}',true,'SYNTHETIC',true);insert into private.entitlement_controls(tenant_id,live_enabled,approval_reference,stars_binding)values('${s.tenant}',true,'SYNTHETIC_LOCAL_ONLY_NOT_AUTHORITY',${quote(JSON.stringify(financialBinding))}::jsonb);`);
-    vi.stubEnv("POLAT_STARS_MERCHANT_BOT_TOKEN",token);vi.stubEnv("POLAT_STARS_MERCHANT_WEBHOOK_SECRET",secret);
+    vi.stubEnv("JEFF_STARS_MERCHANT_BOT_TOKEN",token);vi.stubEnv("JEFF_STARS_MERCHANT_WEBHOOK_SECRET",secret);
     const previous = fetch;let checkouts=0;
     vi.stubGlobal("fetch",vi.fn<typeof fetch>().mockImplementation(async(url,init)=>{if(url===`https://api.telegram.org/bot${token}/getMe`)return Response.json({ok:true,result:{id:Number(merchant),is_bot:true}});if(url===`https://api.telegram.org/bot${token}/createInvoiceLink`){checkouts++;return Response.json({ok:true,result:'https://t.me/$synthetic_native_checkout'});}return previous(url,init);}));
-    fake.wire=(body:string)=>{const data=JSON.parse(body)as{input:{content:{text:string}[]}[]};const context=JSON.parse(data.input[1]!.content[0]!.text)as{context:{approved_commercial_facts:{statement:string;evidence_handle:string}[]}};const facts=context.context.approved_commercial_facts;const selected=facts.find(f=>f.statement.startsWith('Telegram Stars checkout:'))??facts.find(f=>f.statement.includes('costs 100.00 XTR'))!;expect(selected).toBeTruthy();const w=polatClaudeFixtureWire();w.classification='PRICE_OR_CHECKOUT';w.proposed_response=selected.statement;w.claims=[{...w.claims[1]!,text:selected.statement,evidence_refs:[selected.evidence_handle]}];w.semantic_response.key_points=[w.proposed_response];w.semantic_response.factual_grounding.evidence_refs=[selected.evidence_handle];return w;};
+    fake.wire=(body:string)=>{const data=JSON.parse(body)as{input:{content:{text:string}[]}[]};const context=JSON.parse(data.input[1]!.content[0]!.text)as{context:{approved_commercial_facts:{statement:string;evidence_handle:string}[]}};const facts=context.context.approved_commercial_facts;const selected=facts.find(f=>f.statement.startsWith('Telegram Stars checkout:'))??facts.find(f=>f.statement.includes('costs 100.00 XTR'))!;expect(selected).toBeTruthy();const w=jeffClaudeFixtureWire();w.classification='PRICE_OR_CHECKOUT';w.proposed_response=selected.statement;w.claims=[{...w.claims[1]!,text:selected.statement,evidence_refs:[selected.evidence_handle]}];w.semantic_response.key_points=[w.proposed_response];w.semantic_response.factual_grounding.evidence_refs=[selected.evidence_handle];return w;};
     const originalDb=fake.db!,checkoutDb:unknown[]=[];fake.db={...originalDb,rpc:async(name,args)=>{const value=await originalDb.rpc(name,args);if(name==="campaign_prepare_purchase_v1")checkoutDb.push(value);return value;}};
-    const assessment=vi.spyOn(polatPolicy,"assessPolatResponsePolicy"),checkoutAssessment=vi.spyOn(checkoutModule,"prepareCampaignCheckoutEvidence");
+    const assessment=vi.spyOn(jeffPolicy,"assessJeffResponsePolicy"),checkoutAssessment=vi.spyOn(checkoutModule,"prepareCampaignCheckoutEvidence");
     try {
       const price=inbound(s,'What is the price?',2);expect((await run(s,price.conversation_id)).tasksFailed).toBe(0);expect(fake.sends).toBe(1);
       const buy=inbound(s,'/buy',3);const result=await run(s,buy.conversation_id);expect({failed:result.tasksFailed,qa:assessment.mock.results.at(-1)?.value.reasons,checkoutInput:checkoutAssessment.mock.calls.at(-1)?.[0].sourceText,checkoutFacts:(await checkoutAssessment.mock.results.at(-1)?.value)?.length,db:checkoutDb}).toEqual({failed:0,qa:[],checkoutInput:"/buy",checkoutFacts:1,db:[{data:{offer_id:expect.any(String)},error:null}]});expect(fake.sends).toBe(2);expect(checkouts).toBe(1);

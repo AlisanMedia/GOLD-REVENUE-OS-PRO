@@ -5,9 +5,9 @@ import { getUserContext } from "@/lib/auth/context";
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
 import { sendTelegramText } from "@/lib/messaging/telegram-adapter";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { dispatchPrivateBetaMessage, privateBetaConversation } from "@/lib/polat/private-beta-runtime";
-import { privateBetaIsolationActive } from "@/lib/polat/private-beta-isolation";
-import { campaignScope, dispatchCampaignMessage } from "@/lib/polat/campaign-execution";
+import { dispatchPrivateBetaMessage, privateBetaConversation } from "@/lib/jeff/private-beta-runtime";
+import { privateBetaIsolationActive } from "@/lib/jeff/private-beta-isolation";
+import { campaignScope, dispatchCampaignMessage } from "@/lib/jeff/campaign-execution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

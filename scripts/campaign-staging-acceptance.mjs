@@ -7,12 +7,12 @@ export const CAMPAIGN_ACCEPTANCE = Object.freeze({ version: 1, assertions: 56, p
 /** Reuse the accepted matrix verbatim. Temporary assertion helpers replace pgTAP,
  * never its conditions. All fixture writes and helpers are rolled back. */
 export function prepareCampaignStagingAcceptance(read = name => readFileSync(name, 'utf8')) {
-  const sources = ['supabase/tests/campaign_activation.test.sql', 'supabase/tests/helpers/campaign_fixtures.sql', 'supabase/tests/helpers/polat_inbound_fixtures.sql'];
+  const sources = ['supabase/tests/campaign_activation.test.sql', 'supabase/tests/helpers/campaign_fixtures.sql', 'supabase/tests/helpers/jeff_inbound_fixtures.sql'];
   const [matrix, fixtures, inbound] = sources.map(read);
   const migration = read('supabase/migrations/20261029111003_founder_campaign_activation.sql');
   if (digest(migration) !== CAMPAIGN_ACCEPTANCE.migration_hash || !matrix.startsWith('begin;\n') || !matrix.endsWith('rollback;\n')) throw Error('ACCEPTED_CAMPAIGN_SOURCE_DRIFT');
   if ((matrix.match(/^select (?:is|ok|throws_ok)\(/gmu) ?? []).length !== 56) throw Error('CAMPAIGN_ASSERTION_COUNT_DRIFT');
-  const helpers = fixtures.replace('\\ir polat_inbound_fixtures.sql', () => inbound);
+  const helpers = fixtures.replace('\\ir jeff_inbound_fixtures.sql', () => inbound);
   const body = matrix.replace('\\ir helpers/campaign_fixtures.sql', () => helpers).replace('begin;\n', '')
     .replace('set local search_path=public,extensions;', 'set local search_path=pg_temp,public,extensions;')
     .replace('create extension if not exists pgtap with schema extensions;', '').replace(/rollback;\n$/u, '')

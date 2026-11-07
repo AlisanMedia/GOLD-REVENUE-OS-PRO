@@ -1,0 +1,21 @@
+import { z } from "zod";
+
+export const JEFF_INTENTS = ["IDENTITY", "GREETING", "ACKNOWLEDGEMENT", "MEMORY_QUERY", "QUESTION", "PRICE", "TRUST", "INTEREST", "OBJECTION", "PAYMENT", "ACCESS", "REFUND", "CANCEL", "HUMAN", "OPT_OUT", "INJECTION", "UNKNOWN", "VULNERABILITY", "PROFITABILITY", "SUBSCRIPTION", "FRUSTRATION", "UNSUPPORTED_LANGUAGE", "COMPARISON", "PREFERENCE", "WAIT", "UNINTERESTED", "CONSENT_QUESTION"] as const;
+export const jeffMessageSchema = z.strictObject({
+  id:z.uuid(),tenant_id:z.uuid(),conversation_id:z.uuid(),direction:z.enum(["inbound","outbound"]),
+  content:z.string().min(1).max(4096),occurred_at:z.iso.datetime({offset:true}),
+  author:z.enum(["CUSTOMER","AI","HUMAN"]),delivery:z.enum(["INBOUND_OBSERVED","FAKE_ACKNOWLEDGED","UNVERIFIED"]),
+}).superRefine((v,c)=>{if((v.direction==="inbound")!==(v.author==="CUSTOMER")||(v.direction==="inbound")!==(v.delivery==="INBOUND_OBSERVED"))c.addIssue({code:"custom",message:"MESSAGE_PROVENANCE_INVALID"});});
+export const jeffKnowledgeSchema=z.strictObject({id:z.uuid(),tenant_id:z.uuid(),conversation_id:z.uuid(),
+  origin:z.literal("APPROVED_KNOWLEDGE_FIXTURE"),topic:z.enum(["service","pricing","support","policy"]),
+  locale:z.enum(["en","tr","ar","ru"]),statement:z.string().min(1).max(500),effective_at:z.iso.datetime({offset:true}),expires_at:z.iso.datetime({offset:true}).nullable(),
+});
+export const jeffMemorySchema=z.strictObject({key:z.enum(["preferred_instrument","service_question","communication_preference"]),value:z.string().min(1).max(180),source_message_id:z.uuid(),quote:z.string().min(1).max(180)});
+export const jeffConversationInputSchema=z.strictObject({
+  version:z.literal(1),mode:z.literal("SYNTHETIC"),tenant_id:z.uuid(),conversation_id:z.uuid(),customer_id:z.uuid().nullable(),
+  source_message_id:z.uuid(),boundary:z.iso.datetime({offset:true}),runtime_mode:z.enum(["AI_ACTIVE","HUMAN_TAKEOVER","PAUSED"]),
+  contactability:z.enum(["contactable","unknown","blocked","revoked"]),verified_customer_language:z.enum(["en","tr","ar","ru"]).nullable(),
+  messages:z.array(jeffMessageSchema).min(1).max(20),memory:z.array(jeffMemorySchema).max(24),knowledge:z.array(jeffKnowledgeSchema).max(20),
+});
+export type JeffConversationInput=z.infer<typeof jeffConversationInputSchema>;
+export type JeffIntent=(typeof JEFF_INTENTS)[number];

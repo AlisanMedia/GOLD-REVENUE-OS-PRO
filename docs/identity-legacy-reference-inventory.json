@@ -1,0 +1,370 @@
+{
+  "version": 1,
+  "baseline": "96aa1c83dab1ffaff0975dfa0f62d33c38c48d8f",
+  "scope": "Case-insensitive content occurrences in tracked and non-ignored source files, including this inventory; Git history and external immutable artifacts excluded.",
+  "unexplained": 0,
+  "total_occurrences": 1713,
+  "files": 60,
+  "entries": [
+    {
+      "path": ".github/workflows/private-beta-uat.yml",
+      "occurrences": 58,
+      "reason": "Temporary exact old stored secret/variable aliases in protected bootstrap; all runtime environment keys are Jeff.",
+      "sha256": "b808b94fba0737f9cf440a8189ee993fecd2e86dce8e9fccc1a75733e955fabc"
+    },
+    {
+      "path": "CAMPAIGN_GENUINE_RUNTIME_IMPLEMENTATION_REPORT.md",
+      "occurrences": 1,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "4ddcb9313bdcaf82a314c09b947f82d7880189cd965a48efac01fba7495a3441"
+    },
+    {
+      "path": "FOUNDER_CAMPAIGN_IMPLEMENTATION_REPORT.md",
+      "occurrences": 5,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "36faa73422d9e6049419963c620bdbaff760b9316e6dbd25c30404f25a854d64"
+    },
+    {
+      "path": "GOLD_REVENUE_OS_MASTER_ENGINEERING_REPORT.md",
+      "occurrences": 9,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "b3e4e332843859fe1c92f816842d8e986c4064cfebf6e9fccbcc99beccc7ac3b"
+    },
+    {
+      "path": "PHASE_11_REPORT.md",
+      "occurrences": 4,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "5c6aecb518a906a1127c8e08b3ea422e8aea851f0a258355e68d81e4c4f21828"
+    },
+    {
+      "path": "POLAT_AI_SALES_OPERATIONS_REPORT.md",
+      "occurrences": 6,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "d971f085a6a0c96ebefead3ff9216f11db6c085eefb30dc34d3ee7233fc6e35e"
+    },
+    {
+      "path": "POLAT_CLAUDE_ADAPTER_IMPLEMENTATION_REPORT.md",
+      "occurrences": 10,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "ea121342e1701b52358cceee1443804a65f8015f53b96dad0d81bb134143bcf2"
+    },
+    {
+      "path": "POLAT_CONSENT_OWNERSHIP_REPORT.md",
+      "occurrences": 17,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "7377946d83e36364eaaf14ac8e5caeee62e53d48138b1215dc43a41560d0678c"
+    },
+    {
+      "path": "POLAT_CONVERSATION_INTELLIGENCE_REPORT.md",
+      "occurrences": 13,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "08e00c3c232d2d7bb3b487bb467ecbc5886b1937594b993a9336330874be9896"
+    },
+    {
+      "path": "POLAT_GENUINE_EXPERIMENT_BRIDGE_IMPLEMENTATION_REPORT.md",
+      "occurrences": 9,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "bce7a44bc60dddd4c7b20aec9f59ad3983557e35817d4eae0c42cb97ac412ebd"
+    },
+    {
+      "path": "POLAT_INDEPENDENT_HUMAN_REVIEW_REPORT.md",
+      "occurrences": 22,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "82f0473401b53eb07f05f212dea3926bffdb2c12d4f929e1311399a1efd7137e"
+    },
+    {
+      "path": "POLAT_MODEL_ACCEPTANCE_READINESS_REPORT.md",
+      "occurrences": 9,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "909e458a34606f199f2d41e51b0980121121ec328de0d2a4727f61381341fa27"
+    },
+    {
+      "path": "POLAT_MODEL_DECISION_READINESS_REPORT.md",
+      "occurrences": 7,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "179eae131efa6e3c1620a58f9ea490f38281695c3594809e91a98694fee5f3e4"
+    },
+    {
+      "path": "POLAT_MULTITURN_QUALITY_REPORT.md",
+      "occurrences": 18,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "26846a08da9ee26a2adcef15df0262c4918a8c5716d8a4add874ac98da3ec284"
+    },
+    {
+      "path": "POLAT_OFFLINE_EXPERIMENT_GUARDS_REPORT.md",
+      "occurrences": 8,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "e4fb8d0170e8b5cd0342e1b558e1b1f4e2ae9f89c422c00e18ecf9fdb1c481e1"
+    },
+    {
+      "path": "POLAT_OPENAI_BUSINESS_UAT_IMPLEMENTATION_REPORT.md",
+      "occurrences": 25,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "6918fff1d5aec2da27ad9834e7df0a6fff6e3a6122fbe76a7ccac67b9a0da163"
+    },
+    {
+      "path": "POLAT_PROVIDER_DECISION_INTELLIGENCE_REPORT.md",
+      "occurrences": 3,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "94bdde699063bd6aeddb958e522eca62cf3fff1e4f14fa2e88fae29961e1ddc5"
+    },
+    {
+      "path": "POLAT_REAL_MODEL_DECISIONS_REPORT.md",
+      "occurrences": 5,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "ff38434efb42d45eff34b9ccf7e66c9331c5bd92248e8bdfd8efa79ccbb02fd0"
+    },
+    {
+      "path": "POLAT_RESPONSE_RELIABILITY_REPORT.md",
+      "occurrences": 3,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "9d048f6899f096cea8dff22c5c3b844586eb6e4381dd91585563e4772c1e4d4f"
+    },
+    {
+      "path": "POLAT_SALES_CONVERSION_REPORT.md",
+      "occurrences": 3,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "4c7f20bf632bb4e32dd66827b407af7f229832ef24e8149c0980530d9d09242e"
+    },
+    {
+      "path": "POLAT_TEST_RUNTIME_INTEGRATION_REPORT.md",
+      "occurrences": 16,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "4243b965a60273a711c85630359e6c08436ab967f455294e8ae9729acfb2eb3f"
+    },
+    {
+      "path": "POLAT_TO_JEFF_IDENTITY_MIGRATION.md",
+      "occurrences": 1,
+      "reason": "Owner-required migration note naming the old identity and historical compatibility.",
+      "sha256": "9d26d7e93d3f1fa7732e6c3759b44a4b2fb92e780441980d210cd271a0f2211d"
+    },
+    {
+      "path": "POLAT_V2_CORPUS_REPORT.md",
+      "occurrences": 7,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "b07d108a02f98f1cf1fd5176ed7cd6631679021f2e3e5c4e4eb1e3c5139c8421"
+    },
+    {
+      "path": "README.md",
+      "occurrences": 1,
+      "reason": "Links to preserved historical evidence or the owner-required migration note; current product identity is Jeff.",
+      "sha256": "43fb9571db68bfcb33b96c4e4c6023ae2a49adbd3098d2b8bf75225560940660"
+    },
+    {
+      "path": "apps/web/next.config.ts",
+      "occurrences": 1,
+      "reason": "Only the permanent fixed-destination redirect for old Admin bookmarks.",
+      "sha256": "d90af24f42bc53ba25c15799e2221f1f4889fb04bd8532e31060268995070439"
+    },
+    {
+      "path": "docs/MASTER_PRODUCT_CONTEXT.md",
+      "occurrences": 22,
+      "reason": "Links to preserved historical evidence or the owner-required migration note; current product identity is Jeff.",
+      "sha256": "03549f444a57f33d9220a5069a9b58771998e8e619a841c70d0f75197c67dc76"
+    },
+    {
+      "path": "docs/NEXT_EXECUTION_BACKLOG.md",
+      "occurrences": 17,
+      "reason": "Links to preserved historical evidence or the owner-required migration note; current product identity is Jeff.",
+      "sha256": "3e8cde8b89708208eeb00553e575a21df8f3746c79d1decc6db4eb444a143f51"
+    },
+    {
+      "path": "docs/adr/ADR_007_PHASE11_FENCED_ENTITLEMENTS.md",
+      "occurrences": 2,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "60930ab330850d8a7c0ae651ed04b8a09ce380ffe0680c016898d826ccaa399d"
+    },
+    {
+      "path": "docs/historical/identity/plan-hashes-before.json",
+      "occurrences": 1,
+      "reason": "Explicit frozen historical fixture, serialized alias, hash domain or previous signed header data, retained for continuity.",
+      "sha256": "ac9f1c3b9015191d46ed3a1dd05b3e2d587c9cfa77497ca1cf07991b7f18f60a"
+    },
+    {
+      "path": "docs/phases/POLAT_CLAUDE_CANARY_v1.md",
+      "occurrences": 7,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "17c4a228fe31e1dc4821141a399dcf862d59603ed550d602d92ae94de826f0b2"
+    },
+    {
+      "path": "docs/phases/POLAT_PROVIDER_DECISION_INTELLIGENCE.md",
+      "occurrences": 4,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "2e8eab39d214286e7a41f7f4e2190369157e30e2279e646933c6bf8dd187f630"
+    },
+    {
+      "path": "docs/phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md",
+      "occurrences": 27,
+      "reason": "Accepted historical evidence/design/decision document; not current execution or activation authority.",
+      "sha256": "c1bbab8f1b6de903cc6c53ea21de77001756d4722b10ec504bbb93e1eb2f9ec1"
+    },
+    {
+      "path": "infra/runbooks/master-genuine-acceptance.md",
+      "occurrences": 1,
+      "reason": "Links to preserved historical evidence or the owner-required migration note; current product identity is Jeff.",
+      "sha256": "f9fab0bc8f450b16c90e7000c30a2f3feadf30a871b2bc1d32842666dff9be2c"
+    },
+    {
+      "path": "infra/sql/private-beta-recovery-fingerprint.sql",
+      "occurrences": 2,
+      "reason": "Read-only pre-migration catalog namespace detection; never changes a held program or permits a retry.",
+      "sha256": "e8c34d0bcc4d8cb894e17cc3c726dd2592e6f94de1fd4b4249e589ab5d1fb4f9"
+    },
+    {
+      "path": "packages/contracts/src/historical/identity-domains-v1.ts",
+      "occurrences": 23,
+      "reason": "Explicit frozen historical fixture, serialized alias, hash domain or previous signed header data, retained for continuity.",
+      "sha256": "7f1689d729c11fe5bb8af7b4addf12b1a583a7264d2c85b5c1f1c1f1b928accb"
+    },
+    {
+      "path": "packages/contracts/src/historical/identity-names-v1.ts",
+      "occurrences": 8,
+      "reason": "Explicit frozen historical fixture, serialized alias, hash domain or previous signed header data, retained for continuity.",
+      "sha256": "e803430cefa6d8a4ea39d2d2db9218c70a52575f26ad8897cb4ec850029a46fb"
+    },
+    {
+      "path": "packages/contracts/src/historical/identity-wire-v1.ts",
+      "occurrences": 11,
+      "reason": "Explicit frozen historical fixture, serialized alias, hash domain or previous signed header data, retained for continuity.",
+      "sha256": "c855ef2a8854cc309acb4f9c2d54c07f093316ddc8279c3cd0265ec1a1a67370"
+    },
+    {
+      "path": "supabase/migrations/20261024090458_polat_inbound_ownership_evidence.sql",
+      "occurrences": 191,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "e43db6af29d299f66c680d099a7cae3866b8cc0c943ca01fc9c0437c70929eb7"
+    },
+    {
+      "path": "supabase/migrations/20261024094000_polat_operations_read_summary.sql",
+      "occurrences": 12,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "73fcaf05db1cc55df7c64dcb0d267c716b793006f4d9ead275127dd69d48de74"
+    },
+    {
+      "path": "supabase/migrations/20261024120617_polat_test_runtime_integration.sql",
+      "occurrences": 123,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "475e4ce93074deb341ab236f7be8fdc45e10b0449a1b3481e4c1027967de0737"
+    },
+    {
+      "path": "supabase/migrations/20261024124143_polat_contact_ownership_evidence.sql",
+      "occurrences": 174,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "d39415dc0925f4a8e056209d0ff4b31f6bcad85d0174b1d29f6ad196c3947587"
+    },
+    {
+      "path": "supabase/migrations/20261024132806_polat_model_readiness_summary.sql",
+      "occurrences": 11,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "b0498d77a9a277461597ec4e1a51925849be4b8ce0ef466e452a676de1583b26"
+    },
+    {
+      "path": "supabase/migrations/20261025183630_polat_durable_experiment_evidence.sql",
+      "occurrences": 166,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "1e7da083dc702869cd2485913a767def966f3ad65b37d6bbde39ac3a278065c3"
+    },
+    {
+      "path": "supabase/migrations/20261025230009_master_operational_reads.sql",
+      "occurrences": 37,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "61bb514a0508b0c2be15bec97bca92a9ecdfcbe08ace5fad55546b59e9aa9068"
+    },
+    {
+      "path": "supabase/migrations/20261026100416_private_beta_uat.sql",
+      "occurrences": 108,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "110b4e60535e4cee43bd745c7366e8330b6020fdcc4f4346df83b90e7c229f6d"
+    },
+    {
+      "path": "supabase/migrations/20261026101325_private_beta_native_runtime.sql",
+      "occurrences": 29,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "95a1b03abc65657f53cc82ffb88f1aa27f451744b37754a90f2b6274433cac7a"
+    },
+    {
+      "path": "supabase/migrations/20261026101723_private_beta_stars_test.sql",
+      "occurrences": 3,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "9ac346195c54c01a22977babb2edb5640824c9900cf3315b4ce17b0e57c3d290"
+    },
+    {
+      "path": "supabase/migrations/20261027090000_private_beta_openai.sql",
+      "occurrences": 61,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "17455612e3bf67211a75596b571d349450e2fb2f856684ac72f319cc3d18da17"
+    },
+    {
+      "path": "supabase/migrations/20261029111003_founder_campaign_activation.sql",
+      "occurrences": 52,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "60978e77550fc8c8248440d5fdb17ffe769b4c1c68caddc4522988d79863d47a"
+    },
+    {
+      "path": "supabase/migrations/20261031001000_campaign_genuine_runtime.sql",
+      "occurrences": 113,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "f28595832b16261e84110968234526264939d5ce532156d5e65903322d089e35"
+    },
+    {
+      "path": "supabase/migrations/20261031011000_stars_genuine_receipt_bridge.sql",
+      "occurrences": 3,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "ecc7af53e6c5a12b83146d34c48f527f60cd75f8c0f4f61a03f243ad8d2bd971"
+    },
+    {
+      "path": "supabase/migrations/20261101221121_founder_only_conversation_test.sql",
+      "occurrences": 40,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "ef8604b24ff533307439d07973ebbff9187b2825c76fadc11940c1dc008f91c1"
+    },
+    {
+      "path": "supabase/migrations/20261102131226_founder_genuine_recovery.sql",
+      "occurrences": 46,
+      "reason": "Already-applied immutable historical migration; original file retained.",
+      "sha256": "c3178274fda9d760969941a29f373c548ed85b792354fc5a5ea3205a069f5551"
+    },
+    {
+      "path": "supabase/migrations/20261107091336_jeff_identity_namespace.sql",
+      "occurrences": 63,
+      "reason": "Additive in-place namespace migration, frozen domains, read aliases and old RPC forwarding; no historical row rewrite.",
+      "sha256": "30618fdd5745ee8fe465c53fbafb9ad75da7689b0e1a3f6af1e487e0533d2219"
+    },
+    {
+      "path": "supabase/tests/helpers/historical/identity_before.sql",
+      "occurrences": 15,
+      "reason": "Explicit frozen historical fixture, serialized alias, hash domain or previous signed header data, retained for continuity.",
+      "sha256": "a59a6801d74be925e7719dabae1be225ae802aea3299cddc9145b41a66af9b59"
+    },
+    {
+      "path": "supabase/tests/helpers/historical/identity_domains_v1.sql",
+      "occurrences": 23,
+      "reason": "Explicit frozen historical fixture, serialized alias, hash domain or previous signed header data, retained for continuity.",
+      "sha256": "052fc18e892e0b3aae1bb6ef8bf01e6ffce67b03cea80c0f3c65a141bc257369"
+    },
+    {
+      "path": "supabase/tests/helpers/jeff_identity_after.sql",
+      "occurrences": 7,
+      "reason": "Negative/preservation assertions for immutable pre-rename rows, original ACLs and unrelated people.",
+      "sha256": "f518c87b8d10e64b571c21c4dcb2321b1c7fb61fdb0536d03b791d530d85ef96"
+    },
+    {
+      "path": "tests/integration/jeff-identity-migration.test.ts",
+      "occurrences": 5,
+      "reason": "Negative source-identity guard and explicit old-route redirect acceptance tests.",
+      "sha256": "82a07c39bbc81fcf9876315eef0d3ffacdea217fdb7a8ecbb4b92efeaf4f93ad"
+    },
+    {
+      "path": "vercel.json",
+      "occurrences": 18,
+      "reason": "Historical branch names remain deployment-disabled; no old active product route or identity.",
+      "sha256": "f1c775b7d1a0b8b6f847583bf6ebc00bb8a389a8e07be688ad01f54f70315a07"
+    },
+    {
+      "path": "docs/identity-legacy-reference-inventory.json",
+      "occurrences": 27,
+      "reason": "Inventory references to the enumerated historical filenames; counts include this inventory itself.",
+      "sha256": null
+    }
+  ]
+}

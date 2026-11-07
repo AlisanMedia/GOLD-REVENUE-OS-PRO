@@ -14,10 +14,10 @@ declare t uuid:=pg_temp.beta_id(n,'2000');p uuid:=pg_temp.beta_id(n,'3000');cid 
  insert into private.private_beta_invites(id,tenant_id,program_id,command_id,kind,code_hash,expires_at,accepted_by,accepted_chat,accepted_at)
  values(pg_temp.beta_id(n,'4100'),t,p,pg_temp.beta_id(n,'4101'),'FOUNDER',private.fse_hash('stars-fixture-invite-'||n),clock_timestamp()+interval '1 hour',u,u,clock_timestamp());
  insert into private.private_beta_participants(tenant_id,program_id,invite_id,kind,provider_user_id,provider_chat_id,conversation_id,status,notice_version,notice_hash,consented_at)
- values(t,p,pg_temp.beta_id(n,'4100'),'FOUNDER',u,u,conv,'ACTIVE','polat-private-beta-notice-v1',private.fse_hash('synthetic-consent-'||n),clock_timestamp());
+ values(t,p,pg_temp.beta_id(n,'4100'),'FOUNDER',u,u,conv,'ACTIVE','jeff-private-beta-notice-v1',private.fse_hash('synthetic-consent-'||n),clock_timestamp());
  insert into public.commercial_items(id,tenant_id,kind,test_only,test_conversation_id,created_by)values(pg_temp.beta_id(n,'4400'),t,'product',true,conv,pg_temp.beta_id(n,'1000')),(pg_temp.beta_id(n,'4401'),t,'plan',true,conv,pg_temp.beta_id(n,'1000'));
  insert into public.commercial_versions(id,tenant_id,item_id,version,payload,created_by,effective_from)values
- (pg_temp.beta_id(n,'4500'),t,pg_temp.beta_id(n,'4400'),1,'{"title":"POLAT_VIP_30D_DRAFT — TEST ONLY"}',pg_temp.beta_id(n,'1000'),clock_timestamp()),
+ (pg_temp.beta_id(n,'4500'),t,pg_temp.beta_id(n,'4400'),1,'{"title":"JEFF_VIP_30D_DRAFT — TEST ONLY"}',pg_temp.beta_id(n,'1000'),clock_timestamp()),
  (pg_temp.beta_id(n,'4501'),t,pg_temp.beta_id(n,'4401'),1,'{"title":"Fictional TEST membership","duration_unit":"fixed_days","duration_count":30}',pg_temp.beta_id(n,'1000'),clock_timestamp());
  insert into public.commercial_offers(id,tenant_id,conversation_id,customer_id,source_event_id,plan_version_id,product_version_id,amount,currency,discount_bps,snapshot,status,expires_at)
  values(pg_temp.beta_id(n,'4600'),t,conv,cid,ev,pg_temp.beta_id(n,'4501'),pg_temp.beta_id(n,'4500'),69,'USD',0,'{"fixture":"Fictional TEST ONLY;69USD reference is NOT an XTR price"}','approved',clock_timestamp()+interval '1 hour');

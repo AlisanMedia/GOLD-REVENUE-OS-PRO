@@ -9,7 +9,7 @@ import {
 import { runImmediateConversationReplies } from "@/lib/agent-runtime/immediate-replies";
 import { drainEscalations } from "@/lib/escalations/service";
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
-import { privateBetaIsolationActive } from "@/lib/polat/private-beta-isolation";
+import { privateBetaIsolationActive } from "@/lib/jeff/private-beta-isolation";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

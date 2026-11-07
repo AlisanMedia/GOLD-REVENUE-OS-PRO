@@ -10,7 +10,7 @@ campaign_cleanup() {
   local status=$?
   for pid in $(jobs -pr); do kill "$pid" 2>/dev/null || true; done
   if test "$campaign_created" = true; then
-    campaign_sql -c "update private.sales_campaigns set state='STOPPED'where tenant_id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');update private.polat_runtime_profiles set enabled=false where tenant_id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');update private.polat_conversation_controls set enabled=false where tenant_id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');update public.tenants set status='suspended'where id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');" >/dev/null || status=1
+    campaign_sql -c "update private.sales_campaigns set state='STOPPED'where tenant_id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');update private.jeff_runtime_profiles set enabled=false where tenant_id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');update private.jeff_conversation_controls set enabled=false where tenant_id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');update public.tenants set status='suspended'where id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');" >/dev/null || status=1
   fi
   test "$status" = 0 || echo 'CAMPAIGN_CONCURRENCY_FAILED; prior evidence retained' >&2
   rm -rf "$campaign_tmp"
@@ -21,7 +21,7 @@ test "$(campaign_sql -c "select current_setting('server_version_num')::int/10000
 test "$(campaign_sql -c "select count(*)from public.tenants where id='61b02000-0000-4000-8000-000000009951'")" = 0
 {
   printf 'begin;\n'
-  cat "$campaign_root/helpers/polat_inbound_fixtures.sql"
+  cat "$campaign_root/helpers/jeff_inbound_fixtures.sql"
   sed '1d' "$campaign_root/helpers/campaign_fixtures.sql"
   printf '\nselect pg_temp.campaign_setup(9951);select pg_temp.campaign_setup(9952);select pg_temp.campaign_setup(9953);select pg_temp.campaign_setup(9954);\n'
   printf "select public.campaign_schedule_v1(tenant_id,id,25)from private.sales_campaigns where tenant_id in('61b02000-0000-4000-8000-000000009951','61b02000-0000-4000-8000-000000009952','61b02000-0000-4000-8000-000000009953','61b02000-0000-4000-8000-000000009954');commit;\n"

@@ -1,3 +1,4 @@
+import { IDENTITY_WIRE_V1 } from "./historical/identity-wire-v1";
 import { z } from "zod";
 
 const id = z.uuid();
@@ -14,13 +15,13 @@ export const privateBetaBusinessRightsSchema = z.strictObject({
 });
 export const privateBetaConfigurationSchema = z.strictObject({
   repository_sha: z.string().regex(/^[a-f0-9]{40}$/u).nullable(), starts_at: timestamp.nullable(), expires_at: timestamp.nullable(),
-  retention_days: z.number().int().min(1).max(30).nullable(), notice_version: z.enum(["polat-private-beta-notice-v1", "polat-private-beta-notice-openai-v1"]),
+  retention_days: z.number().int().min(1).max(30).nullable(), notice_version: z.enum(["jeff-private-beta-notice-v1", "jeff-private-beta-notice-openai-v1", IDENTITY_WIRE_V1["jeff-private-beta-notice-openai-v1"], IDENTITY_WIRE_V1["jeff-private-beta-notice-v1"]]),
   primary_operator: id.nullable(), backup_operator: id.nullable(),
   model_provider: z.literal("openai").optional(), model_name: z.literal("gpt-6.1-sol").optional(),
 }).superRefine((value, context) => {
   const openai = value.model_provider === "openai" && value.model_name === "gpt-6.1-sol";
-  if ((value.model_provider !== undefined || value.model_name !== undefined || value.notice_version === "polat-private-beta-notice-openai-v1") && !openai
-    || openai && value.notice_version !== "polat-private-beta-notice-openai-v1") context.addIssue({ code: "custom", message: "PRIVATE_BETA_MODEL_NOTICE_MISMATCH" });
+  if ((value.model_provider !== undefined || value.model_name !== undefined || ["jeff-private-beta-notice-openai-v1", IDENTITY_WIRE_V1["jeff-private-beta-notice-openai-v1"]].includes(value.notice_version)) && !openai
+    || openai && !["jeff-private-beta-notice-openai-v1", IDENTITY_WIRE_V1["jeff-private-beta-notice-openai-v1"]].includes(value.notice_version)) context.addIssue({ code: "custom", message: "PRIVATE_BETA_MODEL_NOTICE_MISMATCH" });
 });
 export const privateBetaWorkspaceSchema = z.strictObject({
   version: z.literal(1), mode: z.literal("PRIVATE_BETA_UAT"),

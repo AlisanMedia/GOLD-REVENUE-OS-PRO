@@ -1,7 +1,7 @@
 import { createHash,timingSafeEqual } from "node:crypto";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { runTestEntitlementCycle } from "@/lib/entitlements/service";
-import { privateBetaIsolationActive } from "../../../../lib/polat/private-beta-isolation";
+import { privateBetaIsolationActive } from "../../../../lib/jeff/private-beta-isolation";
 export const runtime="nodejs";
 export const maxDuration=60;
 export async function GET(request:Request){
