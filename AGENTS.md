@@ -1,5 +1,12 @@
 # Gold Revenue OS engineering rules
 
+Current explicit owner scope (2026-11-07, personal Telegram dialogue): deliver a
+real reply to the founder's separate Telegram account through Jeff / @jeffryfx.
+Necessary bounded repairs, protected PR/merge/release, and setup of that single
+personal test are authorized. Preserve both prior UNKNOWN attempts, counters,
+reserved liabilities, the original budget, and actual fresh owner MFA. No historic
+customer campaign, commercial pilot, LIVE payment or VIP access is authorized.
+
 Current explicit owner scope (2026-11-07): complete the Jeff identity migration on
 one protected branch/PR, require exact Application + Database SUCCESS before merge
 and after merge, and publish only the necessary change through the existing protected

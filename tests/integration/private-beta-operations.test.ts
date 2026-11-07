@@ -370,3 +370,22 @@ describe("personal founder conversation control", () => {
     expect(mocks.rpc).toHaveBeenCalledWith("admin_private_beta_transition_v1", expect.objectContaining({ stage_value: "STOPPED" }));
   });
 });
+
+it('renders a single explicit owner continuation with its generation and retained-budget notice, without invoking anything', () => {
+  const value = fixture();
+  const workspace = parsePrivateBetaWorkspace({ ...value, program: { ...value.program, stage: 'CANARY', generation: '5', repository_sha: 'a'.repeat(40), owner_only_test: true, global_requests: 2, reserved_liability: '4.6549184', canary_state: 'CONTINUATION_AVAILABLE', account_state: 'STALE' } });
+  const network = vi.spyOn(globalThis, 'fetch').mockRejectedValue(Error('OFFLINE_NETWORK_MUST_NOT_RUN'));
+  try {
+    for (const locale of ['en-US', 'tr-TR'] as const) {
+      const props = { workspace, invalid: false, denied: false, size: '25', canConfigure: true, canNote: false, canConversation: false, operators: [] };
+      const html = render(h(AdminI18nProvider, { locale }, h(JeffPrivateBeta, props)));
+      const button = html.match(/<button[^>]*>[^<]*(?:Continue Personal Conversation Test|Kişisel Konuşma Testine Devam Et)<\/button>/u)?.[0];
+      expect(button).toBeDefined(); expect(button).not.toContain('disabled');
+      expect(html).toContain('name="expected_generation" value="5"');
+      expect(html).toContain(privateBetaText(locale, 'canaryContinuation'));
+      const restricted = render(h(AdminI18nProvider, { locale }, h(JeffPrivateBeta, { ...props, canConfigure: false })));
+      expect(restricted).not.toContain('action="/api/v1/admin/private-beta/canary"');
+    }
+    expect(network).not.toHaveBeenCalled();
+  } finally { network.mockRestore(); }
+});

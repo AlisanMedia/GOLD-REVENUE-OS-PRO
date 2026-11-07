@@ -65,7 +65,8 @@
       "codex/stars-genuine-receipt-bridge": false,
       "codex/protected-integration-inventory": false,
       "codex/founder-mfa-enrollment-recovery": false,
-      "codex/jeff-identity-migration": false
+      "codex/jeff-identity-migration": false,
+      "codex/founder-telegram-continuation": false
     }
   },
   "framework": "nextjs",

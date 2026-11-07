@@ -716,3 +716,65 @@ third canary or establish genuine model/Telegram acceptance.
 Official response contract checked2026-11-02:
 https://developers.openai.com/api/reference/resources/responses/methods/create/
 https://github.com/openai/openai-node/blob/master/src/resources/responses/responses.ts
+
+## Tek kişisel Telegram denemesi için yeni devam kapsamı — 7 Kasım 2026
+
+Bu bölüm, önceki v4 kurtarmasının ikinci isteği `OPENAI_UAT_ENVELOPE_INVALID`
+ile UNKNOWN kalan aynı program için bir defalık yeni owner kapsamıdır. Önceki
+hata, yanıt, maliyet veya yayın kanıtı yeniden sınıflandırılmaz. Yeni kodun
+birleştirilmesi/yayımlanması gerçek model yanıtı veya Telegram teslimatı değildir.
+
+`private.private_beta_continuation_available` yalnız v4, CANARY, iki tüketilmiş
+istek, tam olarak iki korunmuş canary denemesi ve ikinci isteğin belirtilen
+UNKNOWN hatası durumunda aday üretir. Katılımcı, davet veya Business kontrolü
+bulunan program bu dar yola giremez. Adaylık süreyi uzatmaz veya sağlayıcı çağırmaz.
+`founder_model_setup` / `release_with_business_setup` içindeki mevcut korunan
+metadata gözlemcisi aday programı güncel yayımlanmış SHA için gözlemleyebilir.
+Yeni SHA ve geçerli metadata olmadan panel `CONTINUATION_AVAILABLE` göstermez.
+
+Kurucu `/admin/jeff-operations?view=beta` ekranında kendi Supabase hesabıyla,
+son beş dakika içinde gerçek authenticator doğrulamasını tamamlar. Paneldeki
+**Kişisel Konuşma Testine Devam Et** düğmesi mevcut `/api/v1/admin/private-beta/canary` yolunu kullanır.
+Sunucu `admin_private_beta_continue_founder_test_v1` çağrısında owner/tenant,
+generation, MFA, yeni SHA ve metadata'yı doğrular; ardından aynı native canary
+yolunda yalnız bir yeni istek çalıştırır. GitHub oturumu Supabase MFA yerine
+geçmez. Bu devam için korunan runner üzerinden eski standing-grant alternatifi yoktur.
+
+v5 aynı programın sayacını, geçmiş iki UNKNOWN run/attempt/evidence kaydını ve
+bütün rezervlerini korur. `retained_unknown_attempts` iki gerçek tarihsel
+`attempt_id`, `run_id`, `liability` kaydını taşır; v4 alanları tarihsel değerleriyle
+kalır. Ayrı `continuation_*` alanları gerçek yeni MFA ve owner işlemini kaydeder.
+Eski pencere ve bildirim sürümü audit'te, eski run kapsamı tarihsel run'da korunur.
+Yeni owner işlemi bildirimi `jeff-private-beta-notice-openai-v1` adına taşır;
+immutable eski program içindeki önceki marka etiketi yeniden yazılmış sayılmaz. Yeni pencere owner işlemiyle
+başlar ve en geç 24 saat sonra veya metadata daha erken sona ererse o anda biter.
+Aynı 5 USD / 350 toplam istek tavanı geçerlidir; eski UNKNOWN rezervleri serbest
+bırakılmaz. Yeni canary global üçüncü istektir; dördüncü canary veya ikinci v5
+devamı yoktur. Yeni UNKNOWN, QA hold veya belirsiz mutation acknowledgement
+otomatik tekrarlanmaz; gerçek kaydı inceleyip durulur.
+
+Başarılı native QA ve usage kanıtı sonrasında Telegram bağlantısı ayrıca kurulur:
+
+1. Jeff hesabında gerçek Business botu ve yalnız kurucunun ikinci hesabıyla özel
+   sohbet seçilir. Jeff'in kendi hesabı test eden kullanıcı hesabı değildir.
+2. İkinci hesaptan Jeff'e gönüllü bir test mesajı gönderilir; korunan
+   `founder_business_setup` gerçek bot/Business adaylarını gözlemler. Bu aşamada
+   henüz AI yanıtı beklenmez; mevcut webhook çatışması otomatik giderilmez.
+3. Güncel MFA ile **Tek Test Sohbetini Yapılandır** gerçek sayısal hesap, sohbet
+   ve bağlantı kimliklerini kaydeder. Korunan işlem gerçek izinleri doğrulayıp
+   mevcut kimlikte webhook'u kaydeder.
+4. **Kurucu Sohbet Testini Aç** ardından tek `FOUNDER` daveti oluşturulur.
+   İkinci hesaptan `@jeffryfx` özel sohbetine `/start <tek kullanımlık kod>`,
+   gelen bildirim ardından `/agree` gönderilir; bundan sonra normal mesajlarla
+   diyalog denenir. Her mesajda START gerekmez. **Testi Durdur** kalıcı STOP'tur.
+
+Ordinary bot DM'i Business programı için konuşma yolu değildir. Başarılı kabul,
+kurucunun ikinci Telegram hesabına gerçek cevap gelmesidir; yalnız panel kaydı,
+model cevabı veya Telegram API kabulü cihazda görülen yanıt diye raporlanmaz.
+Bu kişisel test ticari kampanya, müşteri listesi, ödeme veya VIP erişimi açmaz.
+
+Sentetik Database CI kapsamı `supabase/tests/private_beta_founder_continuation.test.sql`:
+yabancı tenant, eski generation ve güncelliğini yitirmiş MFA sınırları, sahte v5 geçişi, geçmiş kayıt ve borç
+korunması, süresi bitmiş pencerenin sınırlı yenilenmesi, tek yeni canary rezervi,
+sonuç ve gerçek Business kanıtı olmadan sohbet açılmaması. Test fixtures gerçek
+kimlik doğrulaması, model, fatura veya Telegram teslimatı değildir.

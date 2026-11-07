@@ -229,3 +229,58 @@ describe('owner-only local UAT preparation', () => {
     finally { vi.stubEnv('VERCEL_GIT_COMMIT_SHA', undefined); }
   });
 });
+
+// Offline application tests; database controls remain the authority for actual
+// fresh MFA, the one-use window and preservation of both UNKNOWN reservations.
+describe('one-use owner continuation after the second unknown attempt', () => {
+  const continuationForm = () => request('program_id=' + program + '&expected_generation=5');
+  function continuationRpc(fault?: string) {
+    let scopes = 0;
+    return vi.fn(async (name: string) => {
+      if (name === 'admin_private_beta_canary_scope_v1') {
+        scopes++;
+        if (scopes === 1 || fault === 'scope-readback') return { data: null, error: { code: '42501' } };
+        return { data: { program_id: program, tenant_id: tenant, stage: 'CANARY', repository_sha: sha, provider: 'openai', model: 'gpt-6.1-sol', owner_only: true }, error: null };
+      }
+      if (name === 'admin_private_beta_workspace_v1') return { data: { program: {
+        id: fault === 'foreign-program' ? tenant : program, stage: 'CANARY',
+        generation: fault === 'stale-generation' ? '6' : '5',
+        canary_state: fault === 'review-only' ? 'REVIEW' : 'CONTINUATION_AVAILABLE',
+      } }, error: null };
+      if (name === 'admin_private_beta_continue_founder_test_v1') {
+        if (fault === 'mfa') return { data: null, error: { code: '42501', message: 'PRIVATE_BETA_FRESH_AUTH_REQUIRED' } };
+        if (fault === 'conflict') return { data: null, error: { code: '40001' } };
+        return { data: { program_id: program, stage: 'CANARY', generation: fault === 'lost-ack' ? '99' : '6' }, error: null };
+      }
+      throw Error('UNEXPECTED_OFFLINE_RPC');
+    });
+  }
+  it('calls the actual owner continuation once and rereads scope before one invocation', async () => {
+    const rpc = continuationRpc(); state.rpc.mockImplementation(rpc);
+    const response = await POST(continuationForm()); expect(response.status).toBe(200);
+    expect(rpc.mock.calls.map(call => call[0])).toEqual(['admin_private_beta_canary_scope_v1', 'admin_private_beta_workspace_v1', 'admin_private_beta_continue_founder_test_v1', 'admin_private_beta_canary_scope_v1']);
+    expect(state.rpc).toHaveBeenCalledWith('admin_private_beta_continue_founder_test_v1', { target_tenant_id: tenant, program_id_value: program, expected_generation_value: 5, repository_sha_value: sha });
+    expect(state.calls).toBe(1);
+    expect(await response.json()).toMatchObject({ status: 'CANARY_OWNER_TEST_PASSED', actual_billed_amount: null, financial_authority: 'NONE', telegram_messages: 0, founder_testing_enabled: false });
+  });
+  it.each(['mfa', 'conflict', 'lost-ack', 'scope-readback'])('never creates a provider or repeats continuation after %s', async fault => {
+    const rpc = continuationRpc(fault); state.rpc.mockImplementation(rpc);
+    const response = await POST(continuationForm()); expect(response.status).toBe(fault === 'mfa' ? 403 : 409);
+    expect(state.factory).not.toHaveBeenCalled(); expect(state.calls).toBe(0);
+    expect(rpc.mock.calls.filter(call => call[0] === 'admin_private_beta_continue_founder_test_v1')).toHaveLength(1);
+  });
+  it.each(['foreign-program', 'stale-generation', 'review-only'])('refuses %s workspace before any continuation', async fault => {
+    state.rpc.mockImplementation(continuationRpc(fault));
+    expect((await POST(continuationForm())).status).toBe(409);
+    expect(state.rpc.mock.calls.some(call => call[0] === 'admin_private_beta_continue_founder_test_v1')).toBe(false);
+    expect(state.factory).not.toHaveBeenCalled();
+  });
+  it('does not use stale platform code to authorize continuation', async () => {
+    vi.stubEnv('VERCEL_GIT_COMMIT_SHA', 'b'.repeat(40)); state.rpc.mockImplementation(continuationRpc());
+    try {
+      expect((await POST(continuationForm())).status).toBe(409);
+      expect(state.rpc.mock.calls.some(call => call[0] === 'admin_private_beta_continue_founder_test_v1')).toBe(false);
+      expect(state.factory).not.toHaveBeenCalled();
+    } finally { vi.stubEnv('VERCEL_GIT_COMMIT_SHA', undefined); }
+  });
+});

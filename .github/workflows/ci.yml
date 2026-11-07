@@ -248,7 +248,7 @@ jobs:
           test ! -e supabase/tests/helpers/private_beta_backup_fingerprint.sql
           cp infra/sql/private-beta-recovery-fingerprint.sql supabase/tests/helpers/private_beta_backup_fingerprint.sql
           trap 'rm -f supabase/tests/helpers/private_beta_backup_fingerprint.sql' EXIT
-          supabase test db supabase/tests/private_beta_uat.test.sql supabase/tests/private_beta_uat_pagination.test.sql supabase/tests/private_beta_native_runtime.test.sql supabase/tests/private_beta_stars.test.sql supabase/tests/private_beta_openai.test.sql supabase/tests/private_beta_business.test.sql supabase/tests/private_beta_business_discovery.test.sql supabase/tests/private_beta_founder_only.test.sql supabase/tests/private_beta_founder_recovery.test.sql | tee "$RUNNER_TEMP/private-beta-pgtap.log"
+          supabase test db supabase/tests/private_beta_uat.test.sql supabase/tests/private_beta_uat_pagination.test.sql supabase/tests/private_beta_native_runtime.test.sql supabase/tests/private_beta_stars.test.sql supabase/tests/private_beta_openai.test.sql supabase/tests/private_beta_business.test.sql supabase/tests/private_beta_business_discovery.test.sql supabase/tests/private_beta_founder_only.test.sql supabase/tests/private_beta_founder_recovery.test.sql supabase/tests/private_beta_founder_continuation.test.sql | tee "$RUNNER_TEMP/private-beta-pgtap.log"
           bash supabase/tests/private_beta_uat_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-concurrency.log"
           bash supabase/tests/private_beta_stars_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-stars-concurrency.log"
           bash supabase/tests/private_beta_business_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-business-concurrency.log"

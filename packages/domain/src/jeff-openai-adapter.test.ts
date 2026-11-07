@@ -108,6 +108,30 @@ function recoveryFixture() {
   return { ...s, binding, owner, account, payload, committed, reservation, reserve, authority, service };
 }
 
+
+function continuationFixture(founder = false) {
+  const s = recoveryFixture();
+  const continuation = {
+    continuation_authority: "OWNER_FRESH_MFA", continuation_execution_ref: "OWNER_RPC", continuation_authorization_hash: "6".repeat(64),
+    continuation_authenticated_at: s.owner.authenticated_at, continuation_approved_at: s.owner.approved_at, continuation_source_generation: "5",
+    retained_unknown_attempts: [
+      { attempt_id: s.binding.retained_unknown_attempt_id, run_id: s.binding.retained_unknown_run_id, liability: "4.628448" },
+      { attempt_id: "91cc3000-0000-4000-8000-000000000098", run_id: "91cc4000-0000-4000-8000-000000000098", liability: "0.0264704" },
+    ],
+  };
+  const binding = jeffPrivateBetaBindingSchema.parse({ ...s.binding, version: 5, maximum_requests: founder ? 350 : 3, ...continuation, ...(founder ? { corpus_version: "jeff-private-beta-conversation-v1", corpus_hash: "3".repeat(64), plan_hash: "4".repeat(64) } : {}) });
+  if (binding.version !== 5) throw Error("CONTINUATION_FIXTURE_REQUIRED");
+  const hash = jeffGuardDigest(binding), owner = { ...s.owner, binding_hash: hash, starts_at: s.owner.approved_at, phase: founder ? "FOUNDER" : "CANARY" };
+  const account = jeffPrivateBetaAccountEvidenceSchema.parse({ ...s.account, version: 5, ...continuation, canary_result_hash: founder ? "7".repeat(64) : null, local_reserved_liability: "4.6549184", local_remaining_allowance: "0.3450816" });
+  if (account.version !== 5) throw Error("CONTINUATION_FIXTURE_REQUIRED");
+  const payload = { ...s.payload, binding_hash: hash, global_ordinal: founder ? 4 : 3, generation: "6", reserved_liability: "4.6813888", scope: founder ? "FOUNDER" as const : "CANARY" as const, participant_id: founder ? "91cc7000-0000-4000-8000-000000000001" : null, participant_ordinal: founder ? 1 : 0, source_message_id: founder ? s.prepared.request.context.recentMessages.at(-1)!.id : null };
+  const committed = { ...s.committed, binding_hash: hash, generation: "6", payload }, reservation = { ...s.reservation, binding_hash: hash };
+  const reserve = vi.fn(() => { account.local_reserved_liability = payload.reserved_liability; account.local_remaining_allowance = "0.3186112"; return Promise.resolve(reservation); });
+  const authority = createJeffPrivateBetaNetworkAuthority({ deployed_sha: binding.repository_sha, readOwnerGrant: () => Promise.resolve(owner), readIndependentAccount: () => Promise.resolve({ payload: account }), readCommittedAttempt: () => Promise.resolve(committed), resolveCredential: s.credentialRead });
+  const service = createJeffPrivateBetaProvider({ binding, authority, store: { reserve, begin: s.begin, record: s.record }, assess: s.assess });
+  return { ...s, binding, owner, account, payload, committed, reservation, reserve, authority, service };
+}
+
 beforeEach(() => { fake.calls = []; fake.body = JSON.stringify(response()); fake.countBody = JSON.stringify({ object: "response.input_tokens", input_tokens: 37 }); fake.status = 200; fake.stall = false; fake.disconnect = false; fake.timeline = []; fake.headers = {}; });
 
 describe("OpenAI fixed Responses codec, offline fixtures only", () => {
@@ -500,5 +524,60 @@ describe("Responses transport forward metadata compatibility", () => {
     const s = fixture(), decoded = decodeJeffOpenAIResponse(JSON.stringify(response({ provider_diagnostic_v2: { payment_verified: true, executable_tools: ["grant_vip"] } })), s.prepared.request, 512);
     expect(decoded.output.proposed_tool_calls).toHaveLength(0); expect(decoded.output.claims.some(c => c.capability !== null)).toBe(false);
     expect(JSON.stringify(decoded)).not.toContain("provider_diagnostic_v2"); expect(decoded.metadata).not.toHaveProperty("payment_verified");
+  });
+});
+
+
+describe("one-time founder continuation preserves two unknown debts", () => {
+  it("counts then generates only ordinal three and retains the same cumulative exposure", async () => {
+    const s = continuationFixture(), debts = structuredClone(s.account.retained_unknown_attempts);
+    expect(await s.authority.preflight(s.binding)).toMatchObject({ state: "READY" });
+    await expect(s.service.provider.invoke(s.prepared.request)).resolves.toMatchObject({ provider: "openai" });
+    expect(fake.calls.map(c => c.options.path)).toEqual(["/v1/responses/input_tokens", "/v1/responses"]);
+    expect(s.account.retained_unknown_attempts).toEqual(debts);
+    expect(s.account.local_reserved_liability).toBe("4.6813888");
+    expect(s.payload.global_ordinal).toBe(3);
+    expect(s.outcomes[0]).toMatchObject({ qa: "APPROVED", actual_billed_amount: null });
+  });
+  it("supports the founder conversation after accepted canary with both historical debts retained", async () => {
+    const s = continuationFixture(true);
+    s.owner.authenticated_at = new Date(s.now).toISOString(); s.owner.approved_at = new Date(s.now).toISOString();
+    await expect(s.service.provider.invoke(s.prepared.request)).resolves.toMatchObject({ provider: "openai" });
+    expect(s.payload.scope).toBe("FOUNDER"); expect(s.payload.global_ordinal).toBe(4);
+    expect(s.account.retained_unknown_attempts).toHaveLength(2);
+    expect(s.outcomes[0]).toMatchObject({ qa: "APPROVED" });
+  });
+  it.each(["hash", "second-debt", "duplicate", "new-unknown", "expired", "mfa", "window", "generation", "ordinal", "reused-attempt"])("blocks invalid continuation %s before credentials or network", async change => {
+    const s = continuationFixture();
+    if (change === "hash") s.account.continuation_authorization_hash = "0".repeat(64);
+    if (change === "second-debt") s.account.retained_unknown_attempts[1].liability = "0";
+    if (change === "duplicate") s.account.retained_unknown_attempts[1].attempt_id = s.account.retained_unknown_attempts[0].attempt_id;
+    if (change === "new-unknown") s.account.unknown_outcome_count = 1;
+    if (change === "expired") s.owner.expires_at = new Date(s.now - 1).toISOString();
+    if (change === "mfa") s.account.continuation_authenticated_at = new Date(s.now - 600000).toISOString();
+    if (change === "window") s.owner.expires_at = new Date(s.now + 86400001).toISOString();
+    if (change === "generation") s.payload.generation = s.committed.generation = "5";
+    if (change === "ordinal") s.payload.global_ordinal = 4;
+    if (change === "reused-attempt") s.payload.attempt_id = s.committed.attempt_id = s.account.retained_unknown_attempts[1].attempt_id;
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow();
+    expect(s.credentialRead).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(0);
+  });
+  it("rejects coherent reserved exposure that omits the new attempt liability", async () => {
+    const s = continuationFixture();
+    s.payload.reserved_liability = "4.6549184";
+    s.reserve.mockImplementation(() => {
+      s.account.local_reserved_liability = "4.6549184";
+      s.account.local_remaining_allowance = "0.3450816";
+      return Promise.resolve(s.reservation);
+    });
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow("JEFF_UAT_AUTHORITY_OR_PROVIDER_UNAVAILABLE");
+    expect(s.credentialRead).not.toHaveBeenCalled(); expect(fake.calls).toHaveLength(0);
+  });
+  it("records a new incomplete envelope as UNKNOWN without retrying or releasing retained exposure", async () => {
+    const s = continuationFixture(); fake.body = JSON.stringify(response({ status: "incomplete", incomplete_details: { reason: "max_output_tokens" } }));
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow("OPENAI_UAT_ENVELOPE_INVALID_STATUS_INCOMPLETE_OUTPUT_LIMIT");
+    expect(fake.calls.map(c => c.options.path)).toEqual(["/v1/responses/input_tokens", "/v1/responses"]);
+    expect(s.outcomes[0]).toMatchObject({ status: "UNKNOWN", qa: "NOT_EVALUATED", actual_billed_amount: null });
+    expect(s.account.local_reserved_liability).toBe("4.6813888"); expect(s.service.automatic_retries).toBe(0);
   });
 });

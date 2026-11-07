@@ -27,7 +27,7 @@ export const privateBetaWorkspaceSchema = z.strictObject({
   version: z.literal(1), mode: z.literal("PRIVATE_BETA_UAT"),
   program: z.strictObject({ id, stage: z.enum(["DRAFT", "CANARY", "FOUNDER", "FRIENDS", "STOPPED"]), generation: z.string().regex(/^[1-9][0-9]*$/u),
     repository_sha: z.string().regex(/^[a-f0-9]{40}$/u).nullable(), starts_at: timestamp.nullable(), expires_at: timestamp.nullable(), retention_days: z.number().int().min(1).max(30).nullable(), notice_version: z.string(),
-    owner_only_test: z.literal(true).optional(), configuration_complete: z.boolean(), account_state: z.enum(["MISSING", "OBSERVED", "STALE", "BLOCKED", "OWNER_TEST_AVAILABLE"]), canary_state: z.enum(["NOT_STARTED", "PENDING", "REVIEW", "RECONCILED", "OWNER_TEST_READY", "RECOVERY_AVAILABLE"]),
+    owner_only_test: z.literal(true).optional(), configuration_complete: z.boolean(), account_state: z.enum(["MISSING", "OBSERVED", "STALE", "BLOCKED", "OWNER_TEST_AVAILABLE"]), canary_state: z.enum(["NOT_STARTED", "PENDING", "REVIEW", "RECONCILED", "OWNER_TEST_READY", "RECOVERY_AVAILABLE", "CONTINUATION_AVAILABLE"]),
     model_provider: z.literal("openai").optional(), model_name: z.literal("gpt-6.1-sol").optional(),
     global_requests: z.number().int().min(0).max(350), maximum_requests: z.literal(350), reserved_liability: z.string().nullable(), currency: z.literal("USD").nullable(), actual_billed_amount: z.string().regex(/^(0|[1-9][0-9]*)(\.[0-9]{1,18})?$/u).nullable(), billing_status: z.enum(["UNKNOWN", "INDEPENDENTLY_RECONCILED", "ROLE_RESTRICTED"]),
     founder_limit: z.literal(20), friend_limit: z.literal(30), friend_limit_count: z.literal(10), primary_operator_configured: z.boolean(), backup_operator_configured: z.boolean(),
