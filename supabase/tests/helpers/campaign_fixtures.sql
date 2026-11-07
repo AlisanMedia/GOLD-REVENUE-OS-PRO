@@ -1,4 +1,4 @@
-\ir polat_inbound_fixtures.sql
+\ir jeff_inbound_fixtures.sql
 insert into auth.users(id,email)values('61ca1000-0000-4000-8000-000000000001','campaign-founder@example.test')on conflict do nothing;
 
 create function pg_temp.campaign_owner(n integer)returns void language plpgsql as $$begin
@@ -16,9 +16,9 @@ create function pg_temp.campaign_declaration(n integer,b uuid)returns jsonb lang
  'channel','TELEGRAM_BOT','markets',jsonb_build_array('GB','DE'),'purpose','SIGNAL_SERVICE_MARKETING','reference','SYNTHETIC_OWNER_ATTESTATION_NOT_REAL_PERMISSION');
 $$;
 create function pg_temp.campaign_setup(n integer,activate boolean default true,commercial boolean default false)returns uuid language plpgsql as $$
-declare t uuid:=pg_temp.polat_id(n,'2000');cid uuid:=pg_temp.polat_id(n,'5000');b uuid;cv uuid;product uuid:=pg_temp.polat_id(n,'6000');plan_item uuid:=pg_temp.polat_id(n,'6001');plan_version uuid:=pg_temp.polat_id(n,'7001');r jsonb;begin
- perform pg_temp.polat_setup(n);cv:=pg_temp.polat_conv(n);
- perform private.polat_configure_runtime_fixture(t,cv);
+declare t uuid:=pg_temp.jeff_id(n,'2000');cid uuid:=pg_temp.jeff_id(n,'5000');b uuid;cv uuid;product uuid:=pg_temp.jeff_id(n,'6000');plan_item uuid:=pg_temp.jeff_id(n,'6001');plan_version uuid:=pg_temp.jeff_id(n,'7001');r jsonb;begin
+ perform pg_temp.jeff_setup(n);cv:=pg_temp.jeff_conv(n);
+ perform private.jeff_configure_runtime_fixture(t,cv);
  insert into public.tenant_members(tenant_id,user_id,role)values(t,'61ca1000-0000-4000-8000-000000000001','super_admin');
  insert into public.customers(id,tenant_id,display_name)values(cid,t,'Synthetic customer');
  insert into public.customer_identities(tenant_id,customer_id,identity_type,identity_value,normalized_value)values(t,cid,'telegram_user_id','710000'||n,'710000'||n);
@@ -34,9 +34,9 @@ declare t uuid:=pg_temp.polat_id(n,'2000');cid uuid:=pg_temp.polat_id(n,'5000');
  perform public.admin_campaign_import_authorized_v1(t,pg_temp.campaign_declaration(n,b)::text);
  insert into public.commercial_items(id,tenant_id,kind,test_only,test_conversation_id,created_by)values(product,t,'product',not commercial,case when commercial then null else cv end,auth.uid()),(plan_item,t,'plan',not commercial,case when commercial then null else cv end,auth.uid());
  insert into public.commercial_versions(id,tenant_id,item_id,version,status,payload,created_by,published_at,effective_from)values
- (pg_temp.polat_id(n,'7000'),t,product,1,'published',jsonb_build_object('title','Fixture Service','locale','en','source','Invented test catalog','description','The fixture service provides synthetic signal summaries.','service_rights','Synthetic only'),auth.uid(),clock_timestamp()-interval '1 day',clock_timestamp()-interval '1 day'),
+ (pg_temp.jeff_id(n,'7000'),t,product,1,'published',jsonb_build_object('title','Fixture Service','locale','en','source','Invented test catalog','description','The fixture service provides synthetic signal summaries.','service_rights','Synthetic only'),auth.uid(),clock_timestamp()-interval '1 day',clock_timestamp()-interval '1 day'),
  (plan_version,t,plan_item,1,'published',jsonb_build_object('title','Fixture Membership','locale','en','source','Invented test catalog','product_id',product,'amount','10.00','currency','USD','duration_unit','calendar_month','duration_count',1,'billing','one_off','inclusions',jsonb_build_array('synthetic signal summaries'),'restrictions','[]'::jsonb,'terms','For synthetic evaluation only.','eligibility',jsonb_build_object('instrument',null,'actively_trades',null,'experience_level',null),'max_discount_bps',0,'trial',false,'offer_valid_hours',24,'tax_rule',null,'renewal_rule',null,'cancellation_rule',null,'disclosures','[]'::jsonb),auth.uid(),clock_timestamp()-interval '1 day',clock_timestamp()-interval '1 day');
- perform public.admin_campaign_save_v1(t,pg_temp.polat_id(n,'9000'),(pg_temp.campaign_config(n,b,plan_version)||jsonb_build_object('mode',case when commercial then 'COMMERCIAL'else 'SYNTHETIC'end))::text,0);
- if activate then perform public.admin_campaign_state_v1(t,pg_temp.polat_id(n,'9000'),1,'START');end if;
- return pg_temp.polat_id(n,'9000');
+ perform public.admin_campaign_save_v1(t,pg_temp.jeff_id(n,'9000'),(pg_temp.campaign_config(n,b,plan_version)||jsonb_build_object('mode',case when commercial then 'COMMERCIAL'else 'SYNTHETIC'end))::text,0);
+ if activate then perform public.admin_campaign_state_v1(t,pg_temp.jeff_id(n,'9000'),1,'START');end if;
+ return pg_temp.jeff_id(n,'9000');
 end;$$;

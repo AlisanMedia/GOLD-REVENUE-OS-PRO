@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { campaignConfigurationSchema } from "@gold-revenue-os/contracts";
 import { assessCampaignContact, campaignLiability, campaignPermissionHash, campaignWithinContactWindow, prepareCampaignSalesReply } from "./campaign";
 import { normalizeCampaignImportRow } from "./campaign-import";
-import { polatSalesFixture } from "./polat-sales.fixtures";
+import { jeffSalesFixture } from "./jeff-sales.fixtures";
 
 export const campaignFixtureConfig = () => campaignConfigurationSchema.parse({ version: 1, name: "Synthetic campaign", mode: "SYNTHETIC",
   batch_id: "61ca2000-0000-4000-8000-000000000001", plan_version_id: "61c06000-0000-4000-8000-000000000002", markets: ["GB", "DE"], default_language: "en",
@@ -60,18 +60,18 @@ describe("single founder campaign policy", () => {
     expect(campaignWithinContactWindow(config, new Date("2026-10-29T18:00:00Z"))).toBe(false);
     expect(campaignWithinContactWindow({ ...config, window_start: 22, window_end: 6 }, new Date("2026-10-29T23:00:00Z"))).toBe(true);
   });
-  it("reuses Polat QA to approve routine truthful pricing without per-message review", () => {
-    const result = prepareCampaignSalesReply({ sales: polatSalesFixture("What is the price?"), approvedPlanVersion: campaignFixtureConfig().plan_version_id, campaignActive: true });
+  it("reuses Jeff QA to approve routine truthful pricing without per-message review", () => {
+    const result = prepareCampaignSalesReply({ sales: jeffSalesFixture("What is the price?"), approvedPlanVersion: campaignFixtureConfig().plan_version_id, campaignActive: true });
     expect(result.campaign_disposition).toBe("QA_APPROVED_AUTOMATIC");
     expect(result.output.proposed_response).toContain("10.00 USD");
     expect(result.owner_message_approval_required).toBe(false);
     expect(result.delivery).toBe("NOT_SENT");
   });
   it.each(["I paid. Confirm my payment", "Do not contact me again", "I want a refund", "Can I speak to a human?"])("holds an actual exception: %s", text => {
-    expect(prepareCampaignSalesReply({ sales: polatSalesFixture(text), approvedPlanVersion: campaignFixtureConfig().plan_version_id, campaignActive: true }).campaign_disposition).toBe("HELD");
+    expect(prepareCampaignSalesReply({ sales: jeffSalesFixture(text), approvedPlanVersion: campaignFixtureConfig().plan_version_id, campaignActive: true }).campaign_disposition).toBe("HELD");
   });
   it("does not approve another price version or a paused campaign", () => {
-    const sales = polatSalesFixture("What is the price?");
+    const sales = jeffSalesFixture("What is the price?");
     expect(prepareCampaignSalesReply({ sales, approvedPlanVersion: "61c06000-0000-4000-8000-000000000099", campaignActive: true }).campaign_disposition).toBe("HELD");
     expect(prepareCampaignSalesReply({ sales, approvedPlanVersion: campaignFixtureConfig().plan_version_id, campaignActive: false }).campaign_disposition).toBe("HELD");
   });

@@ -1,5 +1,17 @@
 # Gold Revenue OS engineering rules
 
+Current explicit owner scope (2026-11-07): complete the Jeff identity migration on
+one protected branch/PR, require exact Application + Database SUCCESS before merge
+and after merge, and publish only the necessary change through the existing protected
+release workflow. New current names are Jeff / @jeffryfx / JEFF_*. Preserve immutable
+historical migrations/evidence and frozen cryptographic domains; documented legacy
+aliases exist only at compatibility boundaries. Do not create another runtime, reset
+journals/budgets, invent provider numeric IDs, manufacture MFA/canary owner actions,
+activate LIVE payments or launch the historical customer campaign. The owner already
+authorizes routine rename implementation, tests and protected delivery; do not ask
+for already-known metadata or credentials. Use the latest scope over older phase text.
+
+
 Gold Revenue OS PRO is an existing modular-monolith revenue platform, initially for Telegram subscription businesses. Continue working modules; do not rebuild accepted phases.
 
 Start with `docs/MASTER_PRODUCT_CONTEXT.md` for the current system/evidence map and `docs/NEXT_EXECUTION_BACKLOG.md` for proposed work. Verify remote `main`, exact-commit Application **and** Database check runs, latest accepted phase report and owner scope before implementation; empty combined status is not CI success.
@@ -31,7 +43,7 @@ Read `docs/source-of-truth/v1.0.0/` and accepted ADRs before changing architectu
 ## OWNER & CUSTOMER UX STANDARD
 
 - From Phase 12 onward (including future Phases 13–18), customer communication defaults to professional English; honor a verified customer language preference/current explicit language request. Preserve EN/TR/AR/RU and grounding. Operator/owner language never selects customer language.
-- Current owner instruction (2026-11-03): genuine Polat customer replies use the brand Polat VIP support without an unsolicited AI-assistant introduction. Direct identity/automation questions receive a truthful automated-support answer; never claim to be Polat personally or human, deny automation, or invent familiarity. Historical fixture/canary identity policies and accepted evidence are retained as historical, not current customer copy. Pure/offline guard evaluation is not live model, delivery, conversion or financial authority; see the Polat package reports.
+- Current owner instruction (2026-11-03): genuine Jeff customer replies use the brand Jeff VIP support without an unsolicited AI-assistant introduction. Direct identity/automation questions receive a truthful automated-support answer; never claim to be Jeff personally or human, deny automation, or invent familiarity. Historical fixture/canary identity policies and accepted evidence are retained as historical, not current customer copy. Pure/offline guard evaluation is not live model, delivery, conversion or financial authority; see the Jeff package reports.
 - Admin UI defaults to tr-TR with a working en-US choice persisted per authenticated account; never derive customer language from this preference. Manager alerts and owner reports default to Turkish. Primary labels, controls, feedback and formatting use the selected admin locale. Internal enums/identifiers stay unchanged; present readable labels, status vocabulary and durations.
 - Acceptance covers correctness, security/reliability, ease of use, visual clarity, customer/operator experience and speed. Include functional and UX criteria; verify mobile/keyboard use and show safe previews without unnecessary provider sends.
 - Use consistent components, obvious next actions and minimal clicks/questions. Keep technical IDs/configuration secondary; label manual customer replies as English by default. Never present inferred delivery, takeover, assignment or financial actions as completed.

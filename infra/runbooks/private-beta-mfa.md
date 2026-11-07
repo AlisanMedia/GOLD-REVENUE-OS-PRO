@@ -1,6 +1,6 @@
 # Özel beta: operatör hesabında gerçek MFA
 
-Bu ekran mevcut Polat Operations → Özel beta bölümündedir; yeni bir Admin veya
+Bu ekran mevcut Jeff Operations → Özel beta bölümündedir; yeni bir Admin veya
 yetkilendirme sistemi değildir. TOTP işlemleri yalnız ilgili kullanıcı açıkça
 butona bastığında kendi Supabase Auth oturumuyla çalışır. Bu geliştirmede gerçek
 hesap/faktör oluşturulmadı veya doğrulanmadı.
@@ -9,7 +9,7 @@ hesap/faktör oluşturulmadı veya doğrulanmadı.
 
 1. Supabase staging projesinde Auth → MFA altında TOTP enrollment ve verification
    açık olmalıdır. Kapalıysa UI kapıyı aşmaz; hata verir.
-2. Founder ve Polat kendi ayrı Admin hesaplarıyla giriş yapar. Tenant üyeliği ve
+2. Founder ve Jeff kendi ayrı Admin hesaplarıyla giriş yapar. Tenant üyeliği ve
    rol ayrı koşullardır; authenticator kurmak operatör rolü vermez.
 3. Özel beta ekranında **Hesap Güvenliğini Kontrol Et** seçilir. Ekran açıldığında
    otomatik enrollment, challenge veya QR üretimi yapılmaz.
@@ -32,7 +32,7 @@ Doğrulanmış faktör reseti bu kapsamda yoktur.
 
 ## Abandoned first-time enrollment recovery — English UI
 
-1. Open **Polat Operations → Private Beta** and select **Check Account Security**.
+1. Open **Jeff Operations → Private Beta** and select **Check Account Security**.
 2. If the setup tab is gone and the account has only one unverified TOTP factor,
    select **Sign In Again to Authorize Recovery**. Sign in with the **same existing
    account** using the normal **Email / Password → Sign in** form. Do not sign out,

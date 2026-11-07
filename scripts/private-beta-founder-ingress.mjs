@@ -1,15 +1,16 @@
+import { IDENTITY_NAMES_V1 } from '../packages/contracts/src/historical/identity-names-v1.ts';
 import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, lstatSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { parsePolatClaudeJson } from '../packages/domain/src/polat-claude-json.ts';
+import { parseJeffClaudeJson } from '../packages/domain/src/jeff-claude-json.ts';
 import { privateBetaBotWebhookRequest } from './private-beta-release-bot.mjs';
 import { PRIVATE_BETA_VERCEL as TARGET, validatePrivateBetaVercelProject, validatePrivateBetaDeployment } from './private-beta-release-vercel.mjs';
 
 const ROOT = 'https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc', DATABASE = ROOT + '/database/query';
-const EDGE = 'https://xqvwkghpmezcpgugetqc.supabase.co/functions/v1/polat-private-beta-ingress';
+const EDGE = 'https://xqvwkghpmezcpgugetqc.supabase.co/functions/v1/jeff-private-beta-ingress';
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu, sha = /^[a-f0-9]{40}$/u, hash = /^[a-f0-9]{64}$/u;
-const secretNames = ['POLAT_UAT_TELEGRAM_WEBHOOK_SECRET', 'POLAT_UAT_RELAY_SECRET'], selectors = ['POLAT_UAT_TENANT_ID', 'POLAT_UAT_PROGRAM_ID'];
+const secretNames = ['JEFF_UAT_TELEGRAM_WEBHOOK_SECRET', 'JEFF_UAT_RELAY_SECRET'], selectors = ['JEFF_UAT_TENANT_ID', 'JEFF_UAT_PROGRAM_ID'];
 const secret = value => typeof value === 'string' && /^[A-Za-z0-9_-]{32,256}$/u.test(value);
 const credential = value => typeof value === 'string' && value.length >= 20 && value.length <= 4096 && !/[\r\n\0]/u.test(value);
 const digest = value => createHash('sha256').update(value, 'utf8').digest('hex');
@@ -100,7 +101,7 @@ async function jsonOnce(request, url, init = {}, statuses = [200], emptyCreated 
       assert(complete, 'INGRESS_RESPONSE_BOUND');
     } finally { void reader.cancel().catch(() => undefined); reader.releaseLock(); }
     const raw = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes));
-    try { return { value: metadata ? vercelMetadataJson(raw) : parsePolatClaudeJson(raw, 1048576), response_hash: digest(raw) }; }
+    try { return { value: metadata ? vercelMetadataJson(raw) : parseJeffClaudeJson(raw, 1048576), response_hash: digest(raw) }; }
     catch { throw Error('INGRESS_RESPONSE_JSON_INVALID'); }
   } catch (error) {
     if (error instanceof Error && codes.has(error.message)) throw error;
@@ -111,17 +112,17 @@ function protectedInput(env, command) {
   assert(['prepare', 'register'].includes(command) && env.GITHUB_ACTIONS === 'true' && env.GITHUB_EVENT_NAME === 'workflow_dispatch' && env.GITHUB_REF === 'refs/heads/main'
     && env.GITHUB_REPOSITORY === 'AlisanMedia/GOLD-REVENUE-OS-PRO' && sha.test(env.VALIDATED_SHA ?? '') && env.GITHUB_SHA === env.VALIDATED_SHA
     && uuid.test(env.PRIVATE_BETA_PROGRAM_ID ?? '') && typeof env.RUNNER_TEMP === 'string' && env.RUNNER_TEMP.startsWith('/'), 'INGRESS_PROTECTED_SCOPE_REQUIRED');
-  assert(credential(env.SUPABASE_ACCESS_TOKEN) && credential(env.VERCEL_TOKEN) && /^[1-9][0-9]{4,18}:[A-Za-z0-9_-]{20,200}$/u.test(env.POLAT_UAT_TELEGRAM_BOT_TOKEN ?? ''), 'INGRESS_CREDENTIALS_REQUIRED');
+  assert(credential(env.SUPABASE_ACCESS_TOKEN) && credential(env.VERCEL_TOKEN) && /^[1-9][0-9]{4,18}:[A-Za-z0-9_-]{20,200}$/u.test(env.JEFF_UAT_TELEGRAM_BOT_TOKEN ?? ''), 'INGRESS_CREDENTIALS_REQUIRED');
 }
 function custodyFile(env) { return join(env.RUNNER_TEMP, 'private-beta-founder-ingress-private.json'); }
 function readCustody(env) {
   try {
     const path = custodyFile(env), stat = lstatSync(path);
     assert(stat.isFile() && !stat.isSymbolicLink() && (stat.mode & 0o077) === 0 && stat.size <= 16384 && (typeof process.getuid !== 'function' || stat.uid === process.getuid()), 'INGRESS_CUSTODY_REQUIRED');
-    const v = parsePolatClaudeJson(readFileSync(path, 'utf8'), 16384);
+    const v = parseJeffClaudeJson(readFileSync(path, 'utf8'), 16384);
     assert(v?.version === 1 && v.repository_sha === env.VALIDATED_SHA && v.program_id === env.PRIVATE_BETA_PROGRAM_ID && uuid.test(v.tenant_id ?? '')
       && secret(v.webhook_secret) && secret(v.relay_secret) && credential(v.vercel_bypass) && hash.test(v.bot_credential_hash ?? '')
-      && v.bot_credential_hash === digest(env.POLAT_UAT_TELEGRAM_BOT_TOKEN), 'INGRESS_CUSTODY_REQUIRED');
+      && v.bot_credential_hash === digest(env.JEFF_UAT_TELEGRAM_BOT_TOKEN), 'INGRESS_CUSTODY_REQUIRED');
     return v;
   } catch { throw Error('INGRESS_CUSTODY_REQUIRED'); }
 }
@@ -217,13 +218,13 @@ export async function runPrivateBetaFounderIngress({ command, env, request = fet
       }
       mutation = 'UNVERIFIED';
       await read('SUPABASE_SECRETS', ROOT + '/secrets', { method: 'POST', headers: { authorization: 'Bearer ' + env.SUPABASE_ACCESS_TOKEN, 'content-type': 'application/json' },
-        body: JSON.stringify([{ name: secretNames[0], value: values[secretNames[0]] }, { name: secretNames[1], value: values[secretNames[1]] }, { name: 'POLAT_UAT_VERCEL_BYPASS', value: bypass }]) }, [201], true);
+        body: JSON.stringify([{ name: secretNames[0], value: values[secretNames[0]] }, { name: secretNames[1], value: values[secretNames[1]] }, { name: 'JEFF_UAT_VERCEL_BYPASS', value: bypass }]) }, [201], true);
       mutation = 'ACKNOWLEDGED';
-      const custody = { version: 1, repository_sha: env.VALIDATED_SHA, program_id: program.program_id, tenant_id: program.tenant_id, bot_credential_hash: digest(env.POLAT_UAT_TELEGRAM_BOT_TOKEN),
+      const custody = { version: 1, repository_sha: env.VALIDATED_SHA, program_id: program.program_id, tenant_id: program.tenant_id, bot_credential_hash: digest(env.JEFF_UAT_TELEGRAM_BOT_TOKEN),
         webhook_secret: values[secretNames[0]], relay_secret: values[secretNames[1]], vercel_bypass: bypass, protection: { sso: identity.sso, git: identity.git }, prepared_at: at };
       if (!existingCustody) writeFileSync(custodyFile(env), JSON.stringify(custody), { mode: 0o600, flag: 'wx' });
       return Object.freeze({ ...base, state: 'PREPARED', mutation_state: mutation, webhook_registration: registration, ingress_authentication_verified: false, repository_sha: env.VALIDATED_SHA, scope_hash: scopeHash,
-        updated_names: updated, edge_secret_names: [...secretNames, 'POLAT_UAT_VERCEL_BYPASS'], edge_secret_write: 'ACKNOWLEDGED', edge_function_deployed: false, sso_changed: false });
+        updated_names: updated, edge_secret_names: [...secretNames, 'JEFF_UAT_VERCEL_BYPASS'], edge_secret_write: 'ACKNOWLEDGED', edge_function_deployed: false, sso_changed: false });
     }
     const custody = readCustody(env);
     assert(custody.tenant_id === program.tenant_id && now() >= custody.prepared_at && now() - custody.prepared_at <= 86400000, 'INGRESS_CUSTODY_REQUIRED');
@@ -232,20 +233,20 @@ export async function runPrivateBetaFounderIngress({ command, env, request = fet
     assert(program.owner_only_test === true && ['CANARY', 'FOUNDER'].includes(program.stage) && program.repository_sha === env.VALIDATED_SHA && program.model_observation_sha === env.VALIDATED_SHA
       && hash.test(program.canary_result_hash ?? '') && program.business_permitted === true && /^[1-9][0-9]{0,18}$/u.test(program.representative_user_id ?? '')
       && /^[1-9][0-9]{0,18}$/u.test(program.founder_chat_id ?? '') && program.representative_user_id !== program.founder_chat_id
-      && program.bot_id === env.POLAT_UAT_TELEGRAM_BOT_TOKEN.split(':')[0] && program.bot_credential_hash === digest(env.POLAT_UAT_TELEGRAM_BOT_TOKEN), 'INGRESS_OWNER_BUSINESS_REQUIRED');
+      && program.bot_id === env.JEFF_UAT_TELEGRAM_BOT_TOKEN.split(':')[0] && program.bot_credential_hash === digest(env.JEFF_UAT_TELEGRAM_BOT_TOKEN), 'INGRESS_OWNER_BUSINESS_REQUIRED');
     let deploymentId;
     for (const aliasName of TARGET.aliases) {
       const a = await vercel('/v4/aliases/' + encodeURIComponent(aliasName)), id = a?.deploymentId ?? a?.deployment?.id;
       assert(typeof id === 'string' && /^dpl_[A-Za-z0-9]+$/u.test(id) && (a.projectId === undefined || a.projectId === TARGET.project) && (!deploymentId || deploymentId === id), 'INGRESS_ALIAS_UNVERIFIED'); deploymentId = id;
     }
     validatePrivateBetaDeployment(await vercel('/v13/deployments/' + deploymentId), env.VALIDATED_SHA);
-    const botRoot = 'https://api.telegram.org/bot' + env.POLAT_UAT_TELEGRAM_BOT_TOKEN;
+    const botRoot = 'https://api.telegram.org/bot' + env.JEFF_UAT_TELEGRAM_BOT_TOKEN;
     const telegram = async (method, body = {}) => read('TELEGRAM_' + method.toUpperCase(), botRoot + '/' + method, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
     const me = await telegram('getMe'), bot = me.value?.result;
     assert(me.value?.ok === true && bot?.is_bot === true && Number.isSafeInteger(bot.id) && String(bot.id) === program.bot_id && bot.can_connect_to_business === true, 'INGRESS_BOT_IDENTITY_UNVERIFIED');
     const payload = privateBetaBotWebhookRequest(custody.webhook_secret, 'BUSINESS'), before = (await telegram('getWebhookInfo')).value;
     assert(before?.ok === true && typeof before.result?.url === 'string', 'INGRESS_WEBHOOK_UNVERIFIED');
-    assert(before.result.url === '' || before.result.url === payload.url, 'INGRESS_WEBHOOK_CONFLICT');
+    assert(before.result.url === '' || before.result.url === payload.url || before.result.url === IDENTITY_NAMES_V1.betaIngress, 'INGRESS_WEBHOOK_CONFLICT');
     assert(payload.url === EDGE, 'INGRESS_AUTHENTICATION_UNVERIFIED');
     try {
       // Both probes exit before relay body parsing/HMAC/upstream. The invalid
@@ -257,7 +258,7 @@ export async function runPrivateBetaFounderIngress({ command, env, request = fet
     }
     ingressAuthenticated = true;
     const observed = now(); assert(Number.isSafeInteger(observed) && observed >= at && observed - at <= 300000, 'INGRESS_TIME_INVALID');
-    const proof = { version: 1, bot_id: program.bot_id, source_hash: me.response_hash, observed_at: new Date(observed).toISOString(), api_environment: 'production', credential_sha256: digest(env.POLAT_UAT_TELEGRAM_BOT_TOKEN) };
+    const proof = { version: 1, bot_id: program.bot_id, source_hash: me.response_hash, observed_at: new Date(observed).toISOString(), api_environment: 'production', credential_sha256: digest(env.JEFF_UAT_TELEGRAM_BOT_TOKEN) };
     const encoded = Buffer.from(JSON.stringify(proof)).toString('hex');
     const guard = "p.id='" + program.program_id + "'::uuid and p.tenant_id='" + program.tenant_id + "'::uuid and p.generation=" + program.generation
       + " and p.manifest_hash='" + program.manifest_hash + "' and p.authorization_record_hash='" + program.authorization_record_hash + "' and p.configuration->>'repository_sha'='" + env.VALIDATED_SHA

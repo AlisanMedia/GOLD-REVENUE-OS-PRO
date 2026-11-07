@@ -1,5 +1,11 @@
 # Gold Revenue OS
 
+Current sales/operator identity: **Jeff**. Business handle: **@jeffryfx**.
+Admin: `/admin/jeff-operations`. See [identity migration](POLAT_TO_JEFF_IDENTITY_MIGRATION.md)
+and [protected cutover procedure](infra/runbooks/jeff-identity-migration.md).
+Existing history, budgets and payment/VIP evidence continue in the same runtime.
+
+
 A modular-monolith, provider-neutral revenue operating system with channel-specific payment adapters.
 
 ## Phase status

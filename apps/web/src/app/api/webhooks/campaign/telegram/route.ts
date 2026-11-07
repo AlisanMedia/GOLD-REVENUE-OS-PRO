@@ -1,7 +1,7 @@
 import { after, NextResponse } from "next/server";
 import { z } from "zod";
-import { authenticateCampaignIngress } from "@/lib/polat/private-beta-webhook";
-import { campaignRpc, campaignTransportScope, drainCampaignRecovery } from "@/lib/polat/campaign-execution";
+import { authenticateCampaignIngress } from "@/lib/jeff/private-beta-webhook";
+import { campaignRpc, campaignTransportScope, drainCampaignRecovery } from "@/lib/jeff/campaign-execution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -12,9 +12,9 @@ export async function POST(request: Request) {
   let verified: Awaited<ReturnType<typeof authenticateCampaignIngress>>;
   try {
     verified = await authenticateCampaignIngress(request, {
-      tenantId: process.env.POLAT_CAMPAIGN_TENANT_ID, programId: process.env.POLAT_CAMPAIGN_ID,
-      releaseSha: process.env.VERCEL_GIT_COMMIT_SHA, webhookSecret: process.env.POLAT_CAMPAIGN_WEBHOOK_SECRET,
-      relaySecret: process.env.POLAT_CAMPAIGN_RELAY_SECRET,
+      tenantId: process.env.JEFF_CAMPAIGN_TENANT_ID, programId: process.env.JEFF_CAMPAIGN_ID,
+      releaseSha: process.env.VERCEL_GIT_COMMIT_SHA, webhookSecret: process.env.JEFF_CAMPAIGN_WEBHOOK_SECRET,
+      relaySecret: process.env.JEFF_CAMPAIGN_RELAY_SECRET,
     });
   } catch { return NextResponse.json({ error: "CAMPAIGN_INGRESS_DENIED" }, { status: 401 }); }
   if (verified.kind !== "BUSINESS") return NextResponse.json({ ok: true });

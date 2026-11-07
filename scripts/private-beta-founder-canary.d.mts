@@ -1,4 +1,4 @@
-import type { createPolatPrivateBetaProvider } from "../packages/domain/src/polat-private-beta-provider";
+import type { createJeffPrivateBetaProvider } from "../packages/domain/src/jeff-private-beta-provider";
 export type ProtectedFounderCanaryResult = Readonly<{
   version: 1; mode: "PROTECTED_EXISTING_OWNER_CANARY_RECOVERY"; state: "BLOCKED" | "ALREADY_ACCEPTED_NO_DISPATCH" | "REAL_CANARY_QA_ACCEPTED";
   financial_authority: "NONE"; commercial_pilot: "NO_GO"; actual_billed_amount: null; provider_billing: "UNKNOWN";
@@ -8,4 +8,4 @@ export type ProtectedFounderCanaryResult = Readonly<{
   elapsed_ms?: string | null; qa?: string; independent_journal_readback?: boolean; reason?: string;
   original_unknown_readback_hash?: string; existing_owner_auth_preserved?: boolean;
 }>;
-export function runPrivateBetaProtectedCanary(input: Readonly<{ env: Readonly<Record<string,string|undefined>>; request?: typeof fetch; providerFactory?: typeof createPolatPrivateBetaProvider }>): Promise<ProtectedFounderCanaryResult>;
+export function runPrivateBetaProtectedCanary(input: Readonly<{ env: Readonly<Record<string,string|undefined>>; request?: typeof fetch; providerFactory?: typeof createJeffPrivateBetaProvider }>): Promise<ProtectedFounderCanaryResult>;

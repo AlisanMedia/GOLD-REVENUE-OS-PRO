@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { handlePrivateBetaRelay, privateBetaRelaySignature } from "../../supabase/functions/polat-private-beta-ingress/relay";
+import { handlePrivateBetaRelay, privateBetaRelaySignature } from "../../supabase/functions/jeff-private-beta-ingress/relay";
 
 const config = { webhookSecret: "offline_webhook_".padEnd(48, "x"), relaySecret: "offline_relay_".padEnd(48, "y"), vercelBypass: "offline_project_only_fixture" };
 const inbound = (body = '{"update_id":1}', headers: Record<string, string> = {}) => new Request("https://fixture.invalid/ingress?target=https://attacker.invalid", { method: "POST", headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": config.webhookSecret, ...headers }, body });
@@ -20,7 +20,7 @@ describe("private beta fixed, authenticated ingress (offline)", () => {
     expect(url).toBe("https://gold-revenue-os-staging.vercel.app/api/webhooks/private-beta/telegram");
     expect(options?.redirect).toBe("error"); expect(options?.body).toBe(body);
     const headers = new Headers(options?.headers);
-    expect(headers.get("x-polat-uat-signature")).toBe(await privateBetaRelaySignature(body, "1793000000", config.relaySecret));
+    expect(headers.get("x-jeff-uat-signature")).toBe(await privateBetaRelaySignature(body, "1793000000", config.relaySecret));
     expect(headers.get("x-vercel-protection-bypass")).toBe(config.vercelBypass);
     expect(headers.has("authorization")).toBe(false);
   });

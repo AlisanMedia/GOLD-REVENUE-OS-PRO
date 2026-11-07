@@ -36,8 +36,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
         env:
-          POLAT_MULTITURN_EVIDENCE: ${{ runner.temp }}/polat-multiturn.json
-          POLAT_V2_EVIDENCE: ${{ runner.temp }}/polat-multiturn-v2.json
+          JEFF_MULTITURN_EVIDENCE: ${{ runner.temp }}/jeff-multiturn.json
+          JEFF_V2_EVIDENCE: ${{ runner.temp }}/jeff-multiturn-v2.json
       - run: pnpm build
       # GHSA-vfj7-8cjw-p6xm currently has no patched release and is reachable
       # only through Next's ESLint development toolchain. Keep every other
@@ -60,14 +60,14 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:3000/login >/dev/null
           grep -q '"status":"ok"' "$RUNNER_TEMP/live.json"
 
-      - name: Retain offline Polat QA evidence
+      - name: Retain offline Jeff QA evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: polat-offline-qa-${{ github.sha }}
+          name: jeff-offline-qa-${{ github.sha }}
           path: |
-            ${{ runner.temp }}/polat-multiturn.json
-            ${{ runner.temp }}/polat-multiturn-v2.json
+            ${{ runner.temp }}/jeff-multiturn.json
+            ${{ runner.temp }}/jeff-multiturn-v2.json
           if-no-files-found: warn
           retention-days: 14
 
@@ -92,6 +92,8 @@ jobs:
         run: supabase start
       - name: Rebuild database and execute migrations
         run: supabase db reset
+      - name: Verify Jeff identity preserves the existing runtime and UNKNOWN debt
+        run: bash supabase/tests/jeff_identity_preservation.sh
       - name: Verify migration history
         shell: bash
         run: |
@@ -250,10 +252,10 @@ jobs:
           bash supabase/tests/private_beta_uat_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-concurrency.log"
           bash supabase/tests/private_beta_stars_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-stars-concurrency.log"
           bash supabase/tests/private_beta_business_concurrency.sh "$beta_db_url" | tee "$RUNNER_TEMP/private-beta-business-concurrency.log"
-          POLAT_BETA_MODEL_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/polat-private-beta-provider-db.test.ts tests/integration/polat-openai-private-beta-provider-db.test.ts | tee "$RUNNER_TEMP/private-beta-provider-db.log"
-          POLAT_BETA_BUSINESS_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-business-db.test.ts | tee "$RUNNER_TEMP/private-beta-business-db.log"
-          POLAT_BETA_RUNTIME_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-runtime-db.test.ts | tee "$RUNNER_TEMP/private-beta-runtime-db.log"
-          POLAT_BETA_OPENAI_BUSINESS_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-openai-business-runtime-db.test.ts | tee "$RUNNER_TEMP/private-beta-openai-business-runtime-db.log"
+          JEFF_BETA_MODEL_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/jeff-private-beta-provider-db.test.ts tests/integration/jeff-openai-private-beta-provider-db.test.ts | tee "$RUNNER_TEMP/private-beta-provider-db.log"
+          JEFF_BETA_BUSINESS_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-business-db.test.ts | tee "$RUNNER_TEMP/private-beta-business-db.log"
+          JEFF_BETA_RUNTIME_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-runtime-db.test.ts | tee "$RUNNER_TEMP/private-beta-runtime-db.log"
+          JEFF_BETA_OPENAI_BUSINESS_DB_URL="$beta_db_url" pnpm exec vitest run tests/integration/private-beta-openai-business-runtime-db.test.ts | tee "$RUNNER_TEMP/private-beta-openai-business-runtime-db.log"
       - name: Retain private beta offline acceptance evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -332,10 +334,10 @@ jobs:
           export SIGNAL_LOCAL_APP_URL=http://127.0.0.1:3100
           export SIGNAL_HTTP_EVIDENCE_FILE="$RUNNER_TEMP/signal-http-acceptance.json"
           node apps/web/scripts/signal-operations-http.mjs
-          export POLAT_LOCAL_DB_URL="$phase10_db_url"
-          export POLAT_LOCAL_APP_URL=http://127.0.0.1:3100
-          export POLAT_HTTP_EVIDENCE_FILE="$RUNNER_TEMP/polat-http-acceptance.json"
-          node apps/web/scripts/polat-operations-http.mjs
+          export JEFF_LOCAL_DB_URL="$phase10_db_url"
+          export JEFF_LOCAL_APP_URL=http://127.0.0.1:3100
+          export JEFF_HTTP_EVIDENCE_FILE="$RUNNER_TEMP/jeff-http-acceptance.json"
+          node apps/web/scripts/jeff-operations-http.mjs
       - name: Upload sandbox HTTP acceptance evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -455,28 +457,28 @@ jobs:
           supabase test db supabase/tests/signal_recovery_head.test.sql | tee "$RUNNER_TEMP/signal-recovery-head-pgtap.log"
           supabase test db supabase/tests/signal_reviews.test.sql | tee "$RUNNER_TEMP/signal-reviews-pgtap.log"
           bash supabase/tests/signal_review_concurrency.sh "$review_db_url" | tee "$RUNNER_TEMP/signal-review-concurrency.log"
-      - name: Verify synthetic Polat inbound ownership and response evidence
+      - name: Verify synthetic Jeff inbound ownership and response evidence
         shell: bash
         run: |
           set -euo pipefail
-          supabase status -o env >"$RUNNER_TEMP/polat-db.env"
-          polat_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/polat-db.env")
-          test -n "$polat_db_url"
-          echo "::add-mask::$polat_db_url"
-          supabase test db supabase/tests/polat_inbound.test.sql | tee "$RUNNER_TEMP/polat-inbound-pgtap.log"
-          supabase test db supabase/tests/polat_operations.test.sql | tee "$RUNNER_TEMP/polat-operations-pgtap.log"
-          supabase test db supabase/tests/polat_runtime.test.sql | tee "$RUNNER_TEMP/polat-runtime-pgtap.log"
-          supabase test db supabase/tests/polat_model_readiness.test.sql | tee "$RUNNER_TEMP/polat-model-readiness-pgtap.log"
+          supabase status -o env >"$RUNNER_TEMP/jeff-db.env"
+          jeff_db_url=$(sed -n 's/^DB_URL="\(.*\)"$/\1/p' "$RUNNER_TEMP/jeff-db.env")
+          test -n "$jeff_db_url"
+          echo "::add-mask::$jeff_db_url"
+          supabase test db supabase/tests/jeff_inbound.test.sql | tee "$RUNNER_TEMP/jeff-inbound-pgtap.log"
+          supabase test db supabase/tests/jeff_operations.test.sql | tee "$RUNNER_TEMP/jeff-operations-pgtap.log"
+          supabase test db supabase/tests/jeff_runtime.test.sql | tee "$RUNNER_TEMP/jeff-runtime-pgtap.log"
+          supabase test db supabase/tests/jeff_model_readiness.test.sql | tee "$RUNNER_TEMP/jeff-model-readiness-pgtap.log"
           supabase test db supabase/tests/master_operational_reads.test.sql | tee "$RUNNER_TEMP/master-operational-reads-pgtap.log"
-          supabase test db supabase/tests/polat_experiment_bridge.test.sql | tee "$RUNNER_TEMP/polat-experiment-bridge-pgtap.log"
-          POLAT_BRIDGE_DISPOSABLE_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-experiment-bridge-db.test.ts | tee "$RUNNER_TEMP/polat-experiment-bridge-db.log"
-          bash supabase/tests/polat_experiment_concurrency.sh "$polat_db_url" | tee "$RUNNER_TEMP/polat-experiment-concurrency.log"
-          supabase test db supabase/tests/polat_contact.test.sql | tee "$RUNNER_TEMP/polat-contact-pgtap.log"
-          POLAT_RUNTIME_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-runtime-db.test.ts | tee "$RUNNER_TEMP/polat-runtime-bridge.log"
-          POLAT_RUNTIME_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-contact-db.test.ts | tee "$RUNNER_TEMP/polat-contact-bridge.log"
-          bash supabase/tests/polat_contact_concurrency.sh "$polat_db_url" | tee "$RUNNER_TEMP/polat-contact-concurrency.log"
-          bash supabase/tests/polat_response_concurrency.sh "$polat_db_url" | tee "$RUNNER_TEMP/polat-response-concurrency.log"
-          POLAT_DISPOSABLE_DB_URL="$polat_db_url" pnpm exec vitest run tests/integration/polat-response-db.test.ts | tee "$RUNNER_TEMP/polat-response-bridge.log"
+          supabase test db supabase/tests/jeff_experiment_bridge.test.sql | tee "$RUNNER_TEMP/jeff-experiment-bridge-pgtap.log"
+          JEFF_BRIDGE_DISPOSABLE_DB_URL="$jeff_db_url" pnpm exec vitest run tests/integration/jeff-experiment-bridge-db.test.ts | tee "$RUNNER_TEMP/jeff-experiment-bridge-db.log"
+          bash supabase/tests/jeff_experiment_concurrency.sh "$jeff_db_url" | tee "$RUNNER_TEMP/jeff-experiment-concurrency.log"
+          supabase test db supabase/tests/jeff_contact.test.sql | tee "$RUNNER_TEMP/jeff-contact-pgtap.log"
+          JEFF_RUNTIME_DB_URL="$jeff_db_url" pnpm exec vitest run tests/integration/jeff-runtime-db.test.ts | tee "$RUNNER_TEMP/jeff-runtime-bridge.log"
+          JEFF_RUNTIME_DB_URL="$jeff_db_url" pnpm exec vitest run tests/integration/jeff-contact-db.test.ts | tee "$RUNNER_TEMP/jeff-contact-bridge.log"
+          bash supabase/tests/jeff_contact_concurrency.sh "$jeff_db_url" | tee "$RUNNER_TEMP/jeff-contact-concurrency.log"
+          bash supabase/tests/jeff_response_concurrency.sh "$jeff_db_url" | tee "$RUNNER_TEMP/jeff-response-concurrency.log"
+          JEFF_DISPOSABLE_DB_URL="$jeff_db_url" pnpm exec vitest run tests/integration/jeff-response-db.test.ts | tee "$RUNNER_TEMP/jeff-response-bridge.log"
       - name: Verify synthetic fulfillment and offline recovery
         shell: bash
         run: |
@@ -567,21 +569,21 @@ jobs:
             ${{ runner.temp }}/signal-http-acceptance.json
             ${{ runner.temp }}/signal-normalization.log
             ${{ runner.temp }}/signal-normalization.json
-            ${{ runner.temp }}/polat-inbound-pgtap.log
-            ${{ runner.temp }}/polat-response-concurrency.log
-            ${{ runner.temp }}/polat-response-bridge.log
-            ${{ runner.temp }}/polat-operations-pgtap.log
-            ${{ runner.temp }}/polat-runtime-pgtap.log
-            ${{ runner.temp }}/polat-runtime-bridge.log
-            ${{ runner.temp }}/polat-model-readiness-pgtap.log
+            ${{ runner.temp }}/jeff-inbound-pgtap.log
+            ${{ runner.temp }}/jeff-response-concurrency.log
+            ${{ runner.temp }}/jeff-response-bridge.log
+            ${{ runner.temp }}/jeff-operations-pgtap.log
+            ${{ runner.temp }}/jeff-runtime-pgtap.log
+            ${{ runner.temp }}/jeff-runtime-bridge.log
+            ${{ runner.temp }}/jeff-model-readiness-pgtap.log
             ${{ runner.temp }}/master-operational-reads-pgtap.log
-            ${{ runner.temp }}/polat-experiment-bridge-pgtap.log
-            ${{ runner.temp }}/polat-experiment-bridge-db.log
-            ${{ runner.temp }}/polat-experiment-concurrency.log
-            ${{ runner.temp }}/polat-contact-pgtap.log
-            ${{ runner.temp }}/polat-contact-bridge.log
-            ${{ runner.temp }}/polat-contact-concurrency.log
-            ${{ runner.temp }}/polat-http-acceptance.json
+            ${{ runner.temp }}/jeff-experiment-bridge-pgtap.log
+            ${{ runner.temp }}/jeff-experiment-bridge-db.log
+            ${{ runner.temp }}/jeff-experiment-concurrency.log
+            ${{ runner.temp }}/jeff-contact-pgtap.log
+            ${{ runner.temp }}/jeff-contact-bridge.log
+            ${{ runner.temp }}/jeff-contact-concurrency.log
+            ${{ runner.temp }}/jeff-http-acceptance.json
           if-no-files-found: warn
           retention-days: 14
       - name: Stop Supabase stack

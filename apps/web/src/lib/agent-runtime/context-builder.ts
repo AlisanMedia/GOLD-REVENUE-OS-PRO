@@ -1,14 +1,14 @@
 import "server-only";
-import{polatRuntimeContextSchema,polatContactSnapshotSchema,type PolatRuntimeContext}from "@gold-revenue-os/contracts";
+import{jeffRuntimeContextSchema,jeffContactSnapshotSchema,type JeffRuntimeContext}from "@gold-revenue-os/contracts";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 
 import {
   CONTEXT_LIMITS,
-  POLAT_PROFILE,
-  preparePolatFixtureRuntime,
-  preparePolatPrivateBetaRuntime,
-  preparePolatCampaignRuntime,
+  JEFF_PROFILE,
+  prepareJeffFixtureRuntime,
+  prepareJeffPrivateBetaRuntime,
+  prepareJeffCampaignRuntime,
   assertSafeContext,
   type BackendEvidence,
   messageEvidenceHandles,
@@ -36,14 +36,14 @@ type ConversationRow = {
 };
 
 export type ContextBuildResult = {
-  polat?: PolatRuntimeContext;
+  jeff?: JeffRuntimeContext;
   context: AgentContext;
   manifest: Record<string, unknown>;
 };
 
-export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampaign?:Parameters<typeof preparePolatCampaignRuntime>[2];polatTest?:true;polatClaudeOffline?:boolean;polatPrivateBeta?:Parameters<typeof preparePolatPrivateBetaRuntime>[2];polatPrivateBetaCodec?:"claude-messages-v1"|"openai-responses-v1"}): Promise<ContextBuildResult> {
-  if(options?.polatPrivateBetaCodec&&!options.polatPrivateBeta)throw Error("POLAT_UAT_SCOPED_CODEC_REQUIRED");
-  if(options?.polatPrivateBetaCodec&&!(["claude-messages-v1","openai-responses-v1"] as const).includes(options.polatPrivateBetaCodec))throw Error("POLAT_UAT_SCOPED_CODEC_REQUIRED");
+export async function buildAgentContext(task: TaskEnvelope,options?:{jeffCampaign?:Parameters<typeof prepareJeffCampaignRuntime>[2];jeffTest?:true;jeffClaudeOffline?:boolean;jeffPrivateBeta?:Parameters<typeof prepareJeffPrivateBetaRuntime>[2];jeffPrivateBetaCodec?:"claude-messages-v1"|"openai-responses-v1"}): Promise<ContextBuildResult> {
+  if(options?.jeffPrivateBetaCodec&&!options.jeffPrivateBeta)throw Error("JEFF_UAT_SCOPED_CODEC_REQUIRED");
+  if(options?.jeffPrivateBetaCodec&&!(["claude-messages-v1","openai-responses-v1"] as const).includes(options.jeffPrivateBetaCodec))throw Error("JEFF_UAT_SCOPED_CODEC_REQUIRED");
   const supabase = createSupabaseAdminClient();
   const { data: conversationData, error: conversationError } = await supabase
     .from("conversations")
@@ -80,17 +80,17 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
     .maybeSingle();
   if (sourceMessageError || !sourceMessage) throw new Error("CONTEXT_SOURCE_MESSAGE_NOT_FOUND");
 
-  let polat:PolatRuntimeContext|undefined;
-  if(options?.polatTest){
-    const contact=await supabase.rpc("polat_test_contact_for_source_v1",{target_tenant_id:task.tenant_id,target_conversation_id:task.conversation_id,target_event_id:task.source_event_id});
-    if(contact.error)throw Error("POLAT_CONTACT_EVIDENCE_UNAVAILABLE");polatContactSnapshotSchema.parse(contact.data);
-    const read=await supabase.rpc("polat_test_runtime_context_v1",{target_tenant_id:task.tenant_id,target_conversation_id:task.conversation_id,target_event_id:task.source_event_id});
-    if(read.error)throw Error("POLAT_TEST_CONTEXT_UNAVAILABLE");polat=polatRuntimeContextSchema.parse(read.data);
-    if(polat.input.tenant_id!==task.tenant_id||polat.input.conversation_id!==task.conversation_id||polat.input.customer_id!==task.customer_id||polat.input.source_message_id!==sourceMessageId)throw Error("POLAT_TEST_CONTEXT_SCOPE");
+  let jeff:JeffRuntimeContext|undefined;
+  if(options?.jeffTest){
+    const contact=await supabase.rpc("jeff_test_contact_for_source_v1",{target_tenant_id:task.tenant_id,target_conversation_id:task.conversation_id,target_event_id:task.source_event_id});
+    if(contact.error)throw Error("JEFF_CONTACT_EVIDENCE_UNAVAILABLE");jeffContactSnapshotSchema.parse(contact.data);
+    const read=await supabase.rpc("jeff_test_runtime_context_v1",{target_tenant_id:task.tenant_id,target_conversation_id:task.conversation_id,target_event_id:task.source_event_id});
+    if(read.error)throw Error("JEFF_TEST_CONTEXT_UNAVAILABLE");jeff=jeffRuntimeContextSchema.parse(read.data);
+    if(jeff.input.tenant_id!==task.tenant_id||jeff.input.conversation_id!==task.conversation_id||jeff.input.customer_id!==task.customer_id||jeff.input.source_message_id!==sourceMessageId)throw Error("JEFF_TEST_CONTEXT_SCOPE");
   }
-  const sourceBoundary=polat?.input.boundary??sourceMessage.created_at;
+  const sourceBoundary=jeff?.input.boundary??sourceMessage.created_at;
   const [messagesResult, profileResult, memoryResult, eventsResult, customerResult] = await Promise.all([
-    polat?Promise.resolve({data:[...polat.input.messages].reverse().map(m=>({...m,created_at:m.occurred_at})),error:null}):supabase.from("messages")
+    jeff?Promise.resolve({data:[...jeff.input.messages].reverse().map(m=>({...m,created_at:m.occurred_at})),error:null}):supabase.from("messages")
       .select("id,direction,content,occurred_at,created_at,status")
       .eq("tenant_id", task.tenant_id)
       .eq("conversation_id", task.conversation_id)
@@ -98,11 +98,11 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
       .order("created_at", { ascending: false })
       .order("id", { ascending: false })
       .limit(CONTEXT_LIMITS.messages),
-    !polat&&task.customer_id ? supabase.from("customer_profiles")
+    !jeff&&task.customer_id ? supabase.from("customer_profiles")
       .select("updated_at,experience_level,primary_instrument,trading_style,risk_preference,preferred_signal_frequency,communication_style,price_sensitivity,trust_level,pain_points,objections,next_best_action")
       .eq("tenant_id", task.tenant_id).eq("customer_id", task.customer_id)
       .lte("updated_at", sourceMessage.created_at).maybeSingle() : Promise.resolve({ data: null, error: null }),
-    !polat&&task.customer_id ? supabase.from("customer_memory")
+    !jeff&&task.customer_id ? supabase.from("customer_memory")
       .select("id,observed_at,memory_key,memory_value,confidence")
       .eq("tenant_id", task.tenant_id).eq("customer_id", task.customer_id)
       .is("superseded_at", null).lte("observed_at", sourceMessage.created_at).order("observed_at", { ascending: false })
@@ -123,13 +123,13 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
   if (messagesResult.error || profileResult.error || memoryResult.error || eventsResult.error || customerResult.error) {
     throw new Error("CONTEXT_QUERY_FAILED");
   }
-  if (!polat&&!options?.polatPrivateBeta&&!options?.polatCampaign&&(messagesResult.data ?? []).some((row: { id: string; created_at: string }) => row.id !== sourceMessageId && row.created_at === sourceMessage.created_at)) {
+  if (!jeff&&!options?.jeffPrivateBeta&&!options?.jeffCampaign&&(messagesResult.data ?? []).some((row: { id: string; created_at: string }) => row.id !== sourceMessageId && row.created_at === sourceMessage.created_at)) {
     throw new Error("CONTEXT_TIMESTAMP_AMBIGUOUS");
   }
 
   let remainingCharacters = CONTEXT_LIMITS.totalMessageCharacters;
   const messages = ([...(messagesResult.data ?? [])] as Array<Record<string, unknown>>)
-    .filter(row=>(!options?.polatPrivateBeta&&!options?.polatCampaign)||((row.direction==="inbound"||row.status==="sent")&&(Date.parse(String(row.created_at))<Date.parse(sourceMessage.created_at)||(Date.parse(String(row.created_at))===Date.parse(sourceMessage.created_at)&&String(row.id)<=sourceMessageId))))
+    .filter(row=>(!options?.jeffPrivateBeta&&!options?.jeffCampaign)||((row.direction==="inbound"||row.status==="sent")&&(Date.parse(String(row.created_at))<Date.parse(sourceMessage.created_at)||(Date.parse(String(row.created_at))===Date.parse(sourceMessage.created_at)&&String(row.id)<=sourceMessageId))))
     .flatMap((row): ContextMessage[] => {
       const raw = typeof row.content === "string" ? row.content : "";
       const content = raw.slice(0, Math.min(CONTEXT_LIMITS.messageCharacters, remainingCharacters));
@@ -149,14 +149,14 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
     throw new Error("CONTEXT_SOURCE_MESSAGE_NOT_LAST");
   }
 
-  const memory = polat?polat.input.memory.map(m=>({key:m.key,value:m.value,confidence:1})):(memoryResult.data ?? []).map((row: Record<string, unknown>) => ({
+  const memory = jeff?jeff.input.memory.map(m=>({key:m.key,value:m.value,confidence:1})):(memoryResult.data ?? []).map((row: Record<string, unknown>) => ({
     key: String(row.memory_key),
     value: row.memory_value,
     confidence: typeof row.confidence === "number" ? row.confidence : row.confidence === null ? null : Number(row.confidence),
   }));
   let campaignHistory: Array<{ id: string; content: string; acknowledged_at: string }> = [];
-  if(options?.polatCampaign){
-    const scope=options.polatCampaign as {job_id:string};
+  if(options?.jeffCampaign){
+    const scope=options.jeffCampaign as {job_id:string};
     const history=await supabase.rpc("campaign_followup_history_v1",{target_tenant_id:task.tenant_id,job_id_value:scope.job_id});
     if(history.error)throw Error("CAMPAIGN_HISTORY_UNAVAILABLE");
     campaignHistory=z.array(z.strictObject({id:z.uuid(),content:z.string().max(600),acknowledged_at:z.iso.datetime({offset:true})})).max(3).parse(history.data);
@@ -169,7 +169,7 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
     lifecycleState: customerResult.data && typeof customerResult.data.state === "string" ? customerResult.data.state : null,
     // Only the separately source-authorized beta profile uses the profile-level
     // normalized vocabulary. The persisted gateway contactability is unchanged.
-    contactability: (options?.polatPrivateBeta || options?.polatCampaign) && ["user_initiated", "allowed"].includes(conversation.messaging_contacts?.contactability ?? "")
+    contactability: (options?.jeffPrivateBeta || options?.jeffCampaign) && ["user_initiated", "allowed"].includes(conversation.messaging_contacts?.contactability ?? "")
       ? "contactable" : conversation.messaging_contacts?.contactability ?? "unknown",
     runtimeMode: conversation.runtime_mode,
     profile: profileResult.data as Record<string, unknown> | null,
@@ -184,7 +184,7 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
   const languagePreference=await supabase.rpc("customer_success_language_for_source",{target_tenant_id:task.tenant_id,target_event_id:task.source_event_id});
   if(languagePreference.error)throw new Error("CUSTOMER_LANGUAGE_EVIDENCE_UNAVAILABLE");
   if(typeof languagePreference.data==="string"&&["en","tr","ar","ru"].includes(languagePreference.data))context.verifiedCustomerLanguage=languagePreference.data;
-  if(polat)polat.input.verified_customer_language=(["en","tr","ar","ru"].includes(context.verifiedCustomerLanguage??"")?context.verifiedCustomerLanguage:null) as PolatRuntimeContext["input"]["verified_customer_language"];
+  if(jeff)jeff.input.verified_customer_language=(["en","tr","ar","ru"].includes(context.verifiedCustomerLanguage??"")?context.verifiedCustomerLanguage:null) as JeffRuntimeContext["input"]["verified_customer_language"];
   const detectedLanguage=inferStyleProfile(messages,context.verifiedCustomerLanguage).language;
   const commercialLocale=(["en","tr","ar","ru"].includes(detectedLanguage)?detectedLanguage:"en") as "en"|"tr"|"ar"|"ru";
   if(commercialRaw){
@@ -199,8 +199,8 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
     context.commercial.documents=context.commercial.documents.filter(d=>d.kind!=="plan"||d.version_id===selected);
     context.commercialEvidence=commercialEvidence(context.commercial,{tenantId:task.tenant_id,conversationId:task.conversation_id,boundary:sourceMessage.created_at,locale:commercialLocale});
   }
-  if(options?.polatCampaign && context.commercial){
-    const plan=(options.polatCampaign as {plan_version_id:string}).plan_version_id;
+  if(options?.jeffCampaign && context.commercial){
+    const plan=(options.jeffCampaign as {plan_version_id:string}).plan_version_id;
     context.commercial.documents=context.commercial.documents.filter(d=>d.kind!=="plan"||d.version_id===plan);
     context.commercialEvidence=commercialEvidence(context.commercial,{tenantId:task.tenant_id,conversationId:task.conversation_id,boundary:sourceMessage.created_at,locale:commercialLocale});
   }
@@ -215,18 +215,18 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
     if(r.membership==="MEMBER"&&r.membership_checked_at&&Date.parse(r.membership_checked_at)<=Date.parse(sourceMessage.created_at))items.push({...scope,occurredAt:r.membership_checked_at,id:r.id+":access",category:"access_active",statement:{en:"Your VIP access is active.",tr:"VIP erişiminiz aktif.",ar:"وصولك إلى VIP نشط.",ru:"Доступ к VIP активен."}[commercialLocale]});
     return items;
   });
-  context.commercialEvidence=[...(context.commercialEvidence??[]),...(polat||options?.polatPrivateBeta?[]:receiptEvidence)];
-  const nativeProfile=polat&&options?.polatClaudeOffline?preparePolatFixtureRuntime(polat,context,"00000000-0000-4000-8000-000000000001","DIRECT",true):null;
-  const betaProfile=options?.polatPrivateBeta?preparePolatPrivateBetaRuntime(context,"00000000-0000-4000-8000-000000000001",options.polatPrivateBeta):null;
-  const campaignProfile=options?.polatCampaign?preparePolatCampaignRuntime(context,"00000000-0000-4000-8000-000000000001",options.polatCampaign):null;
+  context.commercialEvidence=[...(context.commercialEvidence??[]),...(jeff||options?.jeffPrivateBeta?[]:receiptEvidence)];
+  const nativeProfile=jeff&&options?.jeffClaudeOffline?prepareJeffFixtureRuntime(jeff,context,"00000000-0000-4000-8000-000000000001","DIRECT",true):null;
+  const betaProfile=options?.jeffPrivateBeta?prepareJeffPrivateBetaRuntime(context,"00000000-0000-4000-8000-000000000001",options.jeffPrivateBeta):null;
+  const campaignProfile=options?.jeffCampaign?prepareJeffCampaignRuntime(context,"00000000-0000-4000-8000-000000000001",options.jeffCampaign):null;
   assertSafeContext(context);
   return {
-    ...(polat?{polat}:{}),
+    ...(jeff?{jeff}:{}),
     context,
     manifest: {
-      ...(campaignProfile?{campaign_profile:"polat-campaign-v1",campaign_id:campaignProfile.scope.campaign_id,campaign_job_id:campaignProfile.scope.job_id,campaign_revision:String(campaignProfile.scope.revision),campaign_history_basis:"PROVIDER_ACK_ONLY",campaign_followup_message_ids:campaignHistory.map(m=>m.id),campaign_receipt_fact_ids:receiptEvidence.map(f=>f.id),financial_authority:"NONE"}:{}),
-      ...(betaProfile?{polat_profile:"polat-private-beta-v1",private_beta_profile:"polat-private-beta-v1",private_beta_codec:options?.polatPrivateBetaCodec??"claude-messages-v1",private_beta_program_id:betaProfile.scope.program_id,private_beta_participant_id:betaProfile.scope.participant_id,private_beta_revision:String(betaProfile.scope.revision),private_beta_history_basis:"PROVIDER_ACK_ONLY",financial_authority:"NONE",commercial_sales:false}:{}),
-      ...(polat?{polat_profile:polat.profile,polat_fixture_policy:POLAT_PROFILE.version,polat_generation:polat.generation,polat_observed_boundary:sourceBoundary,polat_history_basis:"MATCHED_FAKE_ACK_ONLY",polat_memory_sources:polat.input.memory.map(m=>m.source_message_id),polat_subscription_context:polat.subscription_context,financial_authority:"NONE",live_operations_authorized:false}:{}),
+      ...(campaignProfile?{campaign_profile:"jeff-campaign-v1",campaign_id:campaignProfile.scope.campaign_id,campaign_job_id:campaignProfile.scope.job_id,campaign_revision:String(campaignProfile.scope.revision),campaign_history_basis:"PROVIDER_ACK_ONLY",campaign_followup_message_ids:campaignHistory.map(m=>m.id),campaign_receipt_fact_ids:receiptEvidence.map(f=>f.id),financial_authority:"NONE"}:{}),
+      ...(betaProfile?{jeff_profile:"jeff-private-beta-v1",private_beta_profile:"jeff-private-beta-v1",private_beta_codec:options?.jeffPrivateBetaCodec??"claude-messages-v1",private_beta_program_id:betaProfile.scope.program_id,private_beta_participant_id:betaProfile.scope.participant_id,private_beta_revision:String(betaProfile.scope.revision),private_beta_history_basis:"PROVIDER_ACK_ONLY",financial_authority:"NONE",commercial_sales:false}:{}),
+      ...(jeff?{jeff_profile:jeff.profile,jeff_fixture_policy:JEFF_PROFILE.version,jeff_generation:jeff.generation,jeff_observed_boundary:sourceBoundary,jeff_history_basis:"MATCHED_FAKE_ACK_ONLY",jeff_memory_sources:jeff.input.memory.map(m=>m.source_message_id),jeff_subscription_context:jeff.subscription_context,financial_authority:"NONE",live_operations_authorized:false}:{}),
       context_version: 3,
       manifest_version: 2,
       retrieval_version: "source-bounded-v2",
@@ -247,9 +247,9 @@ export async function buildAgentContext(task: TaskEnvelope,options?:{polatCampai
       commercial_locale:commercialLocale,
       commercial_conflict:context.commercial?.conflict??false,
       conversion_run_id:context.conversion?.run_id??null,
-      commercial_fact_ids:context.commercialEvidence?.filter(f=>!options?.polatCampaign||f.category==="fact").map(f=>f.id)??[],
+      commercial_fact_ids:context.commercialEvidence?.filter(f=>!options?.jeffCampaign||f.category==="fact").map(f=>f.id)??[],
       evidence_handle_registry: messageEvidenceHandles(campaignProfile?.request.context??betaProfile?.request.context??nativeProfile?.request.context??context),
-      ...(nativeProfile?{polat_offline_codec:"claude-messages-v1"}:{}),
+      ...(nativeProfile?{jeff_offline_codec:"claude-messages-v1"}:{}),
       source_event_id: task.source_event_id,
       source_message_id: sourceMessageId,
       source_message_created_at: sourceMessage.created_at,

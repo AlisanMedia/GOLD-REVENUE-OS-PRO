@@ -15,7 +15,7 @@ export async function signIn(formData: FormData) {
   const supabase = await createSupabaseServerClient();
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) redirect(loginError("invalid"));
-  redirect(recovery ? "/admin/polat-operations?view=beta#private-beta-mfa-title" : "/admin");
+  redirect(recovery ? "/admin/jeff-operations?view=beta#private-beta-mfa-title" : "/admin");
 }
 
 export async function signOut() {

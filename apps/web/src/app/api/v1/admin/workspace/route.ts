@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     id = z.uuid().parse(form.get("tenant_id"));
   } catch { return NextResponse.json({ error: "INVALID_WORKSPACE" }, { status: 400 }); }
   if (!context.tenants.some(t => t.id === id)) return NextResponse.json({ error: "WORKSPACE_DENIED" }, { status: 403 });
-  const response = NextResponse.redirect(new URL("/admin/polat-operations?view=beta", request.url), 303);
+  const response = NextResponse.redirect(new URL("/admin/jeff-operations?view=beta", request.url), 303);
   response.cookies.set(ADMIN_TENANT_COOKIE, tenantSelectionValue(context.user.id, id), { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 30 * 86400 });
   response.headers.set("cache-control", "no-store");
   return response;

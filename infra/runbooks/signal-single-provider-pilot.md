@@ -1,6 +1,6 @@
 # Single-provider signal pilot — future authorization contract
 
-**NO-GO.** This is a plan, not a Telegram login, source connection, commercial rollout or external acceptance. Sources, destinations, supplier, merchant, jurisdiction and real budgets remain unapproved. Recorded Polat ID8327046095 is a reference to verify under a separately authorized account process, not a credential or redistribution license.
+**NO-GO.** This is a plan, not a Telegram login, source connection, commercial rollout or external acceptance. Sources, destinations, supplier, merchant, jurisdiction and real budgets remain unapproved. Recorded Jeff ID8327046095 is a reference to verify under a separately authorized account process, not a credential or redistribution license.
 
 | Entry dependency | Required evidence / responsible role | Current boundary |
 | --- | --- | --- |

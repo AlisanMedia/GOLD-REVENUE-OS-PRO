@@ -22,7 +22,7 @@ function fixture() {
   mkdirSync(join(run, "supabase/.temp"), { recursive: true });
   writeFileSync(join(run, "supabase/.temp/pooler-url"), "postgres://postgres@db.xqvwkghpmezcpgugetqc.supabase.co/postgres");
   // Keep the accepted SQL sources real; only the network/process boundary is fake.
-  for (const name of ["supabase/tests/campaign_activation.test.sql", "supabase/tests/helpers/campaign_fixtures.sql", "supabase/tests/helpers/polat_inbound_fixtures.sql", "supabase/migrations/20261029111003_founder_campaign_activation.sql"]) {
+  for (const name of ["supabase/tests/campaign_activation.test.sql", "supabase/tests/helpers/campaign_fixtures.sql", "supabase/tests/helpers/jeff_inbound_fixtures.sql", "supabase/migrations/20261029111003_founder_campaign_activation.sql"]) {
     mkdirSync(join(run, name, ".."), { recursive: true });writeFileSync(join(run, name), readFileSync(join(previousCwd, name)));
   }
   writeFileSync(join(run, "private-beta-release-gate.json"), JSON.stringify({ sha, ruleset_id: 25348710, admins_bypass: false, staging_reviewer: "AlisanMedia" }));

@@ -38,7 +38,7 @@ describe("private beta MFA genuine-session UX, offline validation only", () => {
   it("enrolls only after an explicit call and returns only bounded private setup material", async () => {
     const a = api(false), c = createPrivateBetaMfaController(a, () => now);
     const result = await c.enroll();
-    expect(a.enroll).toHaveBeenCalledTimes(1); expect(a.enroll).toHaveBeenCalledWith({ factorType: "totp", friendlyName: "Polat VIP private beta" });
+    expect(a.enroll).toHaveBeenCalledTimes(1); expect(a.enroll).toHaveBeenCalledWith({ factorType: "totp", friendlyName: "Jeff VIP private beta" });
     expect(result.ok).toBe(true); expect(result.ok && result.factorId).toBe(id); expect(result.ok && result.qr).toContain("data:image/svg+xml;utf-8,%3Csvg");
   });
   it("finishes only its own enrollment after the provider verifies it", async () => {

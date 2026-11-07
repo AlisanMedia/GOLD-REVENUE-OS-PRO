@@ -5,7 +5,7 @@ select pg_temp.beta_setup(2001);
 select pg_temp.beta_setup(2002);
 select pg_temp.beta_auth(2001);
 select throws_ok($q$select private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2001,'3000')),true)$q$,'55000','PRIVATE_BETA_ACCOUNT_MISSING','missing account cannot be interpreted as an enabled provider');
-select throws_ok($q$select public.admin_private_beta_configure_v1(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2001,'3000'),(select(config||'{"model_provider":"openai","model_name":"gpt-6.1-sol","notice_version":"polat-private-beta-notice-openai-v1"}'::jsonb)::text from private_beta_cases where n=2001))$q$,'42501','PRIVATE_BETA_MODEL_SELECTION_UNAVAILABLE','generic configuration cannot bypass explicit model selection');
+select throws_ok($q$select public.admin_private_beta_configure_v1(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2001,'3000'),(select(config||'{"model_provider":"openai","model_name":"gpt-6.1-sol","notice_version":"jeff-private-beta-notice-openai-v1"}'::jsonb)::text from private_beta_cases where n=2001))$q$,'42501','PRIVATE_BETA_MODEL_SELECTION_UNAVAILABLE','generic configuration cannot bypass explicit model selection');
 select pg_temp.beta_auth(2001,'support');
 select throws_ok($q$select public.admin_private_beta_select_openai_v1(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2001,'3000'),1)$q$,'42501','PRIVATE_BETA_UNAVAILABLE','support cannot select the paid model');
 select pg_temp.beta_auth(2002);
@@ -15,7 +15,7 @@ select throws_ok($q$select public.admin_private_beta_select_openai_v1(pg_temp.be
 select pg_temp.beta_auth(2001);
 select is(public.admin_private_beta_select_openai_v1(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2001,'3000'),1)->>'model','gpt-6.1-sol','explicit fresh-MFA owner selects only the exact OpenAI model');
 select is((select stage from private.private_beta_programs where id=pg_temp.beta_id(2001,'3000')),'DRAFT','model selection cannot activate the program');
-select is((select configuration->>'notice_version'from private.private_beta_programs where id=pg_temp.beta_id(2001,'3000')),'polat-private-beta-notice-openai-v1','provider change versions the actual privacy notice');
+select is((select configuration->>'notice_version'from private.private_beta_programs where id=pg_temp.beta_id(2001,'3000')),'jeff-private-beta-notice-openai-v1','provider change versions the actual privacy notice');
 select ok(private.private_beta_program_notice((select p from private.private_beta_programs p where id=pg_temp.beta_id(2001,'3000')))like '%processed by OpenAI.%','OpenAI participants are not given an Anthropic privacy notice');
 select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(2001,'2000'))->'program'->>'model_name','gpt-6.1-sol','authorized Admin projection shows selected exact model');
 select is((select model_name from public.agent_versions where tenant_id=pg_temp.beta_id(2001,'2000')and superseded_at is null),'gpt-6.1-sol','native profile is prepared for selected provider');
@@ -35,8 +35,8 @@ select throws_ok($q$select private.private_beta_account_control_record(pg_temp.b
 select throws_ok($q$select private.private_beta_account_control_record(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2001,'3000'),jsonb_set(pg_temp.beta_openai_envelope(2001),'{pricing,maximum_input_usd_per_million}','"5.00"')::text)$q$,'22023','PRIVATE_BETA_LIABILITY_EXCEEDS_ALLOWANCE','unknown surcharge exposure beyond5USD is held rather than hidden');
 select lives_ok($q$select private.private_beta_account_control_record(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2001,'3000'),pg_temp.beta_openai_envelope(2001)::text)$q$,'complete SQL fixture proof can be recorded by protected postgres only');
 select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2001,'3000')),true)->>'maximum_attempt_liability','4.20768','1050000input plus512output yields exact conservative liability');
-select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2001,'3000')),true)->>'corpus_hash','afda9041422b96eca4ccb86e95febfc920b35db01d38ffc42b96505a4f955fad','new canary corpus is independently versioned from Claude and fullv2');
-select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2001,'3000')),true)->>'plan_hash','05ed93b8aef4c47bf86c333ce779dd0e408692cadcf3e2e167af74a6b256a71f','SQL binds exact new one-attempt plan hash');
+select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2001,'3000')),true)->>'corpus_hash','9fea728644c8eac4cab2bb5e3e119ed43914da27d8e0f4707fe9b2dad4870247','new canary corpus is independently versioned from Claude and fullv2');
+select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2001,'3000')),true)->>'plan_hash','f212b7d36268fcc5e40d1d70c1609c66db73dc42e394e90aa46dbeaf43ca8201','SQL binds exact new one-attempt plan hash');
 select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2001,'3000')),true)->>'version','2','only explicit OpenAI gets the v2 binding');
 select public.admin_private_beta_transition_v1(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2001,'3000'),'CANARY',2);
 update private_beta_cases set canary=public.private_beta_reserve_v1(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2001,'3000'),pg_temp.beta_id(2001,'4000'),repeat('a',64),repeat('b',64),null,'4.20768',pg_temp.beta_id(2001,'4001'))where n=2001;
@@ -54,7 +54,7 @@ select is(public.private_beta_account_control_v1(pg_temp.beta_id(2001,'2000'),pg
 select pg_temp.beta_auth(2002);
 select pg_temp.beta_account(2002);
 select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2002,'3000')),true)->>'version','1','historical Claude binding version remains1');
-select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2002,'3000')),true)->>'corpus_hash','1afc425d131e4f3e7ee82976e034b703fffbd59bd388b6c1738a6617290d3630','historical Claude canary hash remains unchanged');
+select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2002,'3000')),true)->>'corpus_hash','1830661589932e08c76f3d0d6b7b22d64dbf4aa06234e3c8a119c20432c80a45','current Jeff Claude canary hash is independently pinned');
 select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(2002,'3000')),true)->>'maximum_attempt_liability','0.50128','historical Claude exact liability remains unchanged');
 select ok(not exists(select 1 from public.tenants where id in(pg_temp.beta_id(2001,'2000'),pg_temp.beta_id(2002,'2000'))and outbound_messaging_enabled),'global tenant outbound switches remain off');
 select *from finish();

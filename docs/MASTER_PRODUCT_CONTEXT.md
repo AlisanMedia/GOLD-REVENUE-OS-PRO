@@ -1,5 +1,25 @@
 # GOLD REVENUE OS PRO — Master Product Context
 
+## 7 November 2026 — Jeff identity continuation
+
+The owner authorizes a repository-wide and existing-runtime identity rename to
+**Jeff**, with Business representative handle **@jeffryfx**. This is the same
+runtime, tenant, CRM, campaign, model-attempt budget and payment/VIP lifecycle.
+Canonical Admin: `/admin/jeff-operations`; the previous route permanently redirects.
+The handle is a presentation check in addition to the existing sealed numeric ID,
+getMe and Business provider readback. It is never authentication by itself.
+
+See [identity migration](../POLAT_TO_JEFF_IDENTITY_MIGRATION.md) and the
+[current procedure](../infra/runbooks/jeff-identity-migration.md). Existing 83
+applied migrations and accepted evidence retain their historical identity; the
+84th migration renames physical catalog objects without replacing their rows.
+Frozen HMAC/hash/lock domains, old RPC forwarding and narrowly scoped secret/header
+aliases preserve continuity until protected external cutover. Normal configuration
+and code use `JEFF_*`. No financial, campaign, MFA, opt-out or STOP control is loosened.
+A code merge, offline test or release does not establish a real model reply,
+Telegram delivery or the founder seeing a reply on a device.
+
+
 Living continuation index, initially reconstructed on **2026-10-16 UTC** and updated after explicit owner-approved Phase 15 formal closeout on **2026-10-18**. Phases 1–15 are CLOSED only within their accepted implementation/sandbox/test boundaries; early phase validation evidence retains its original scope. Phase16 work is limited to explicit owner scope; genuine production/commercial activation remains unauthorized. Owner: **Muhammed Alişan Gül**. Repository: [AlisanMedia/GOLD-REVENUE-OS-PRO](https://github.com/AlisanMedia/GOLD-REVENUE-OS-PRO).
 
 This document connects product intent to implemented behavior and retained evidence. It does not authorize implementation, deployment, provider calls or commercial activation. Proposed work is tracked once in [NEXT_EXECUTION_BACKLOG.md](NEXT_EXECUTION_BACKLOG.md).
@@ -7,9 +27,9 @@ This document connects product intent to implemented behavior and retained evide
 
 ## 3 November2026 — owner-selected customer identity copy
 
-The owner explicitly removed the unsolicited “Polat’s AI assistant” introduction
+The owner explicitly removed the unsolicited “Jeff’s AI assistant” introduction
 from genuine campaign and private-beta customer replies. The current shared
-`polat-support-identity-v1` prompt/QA policy uses neutral Polat VIP support branding,
+`jeff-support-identity-v1` prompt/QA policy uses neutral Jeff VIP support branding,
 blocks the prohibited wording, and requires truthful automated-support answers to
 direct identity questions. Impersonation, false human claims, opt-out, takeover,
 source grounding, payment/VIP evidence and native budget controls remain enforced.
@@ -51,7 +71,7 @@ kanıtını ve eksik genuine kampanya yürütücüsü/account/transport bağın�
 Gerçek liste/müşteri mesajı işlenmez. Önceki raporlar tarihsel kapsamını korur;
 yeni protected CI/merge ve staging kanıtı son owner raporunda ayrıca doğrulanır.
 
-## 27 Ekim 2026 — OpenAI ve seçili Polat özel sohbeti
+## 27 Ekim 2026 — OpenAI ve seçili Jeff özel sohbeti
 
 Yeni owner seçimi OpenAI'dir. Tek scoped engineering package, eski Claude v1'i
 koruyarak `gpt-6.1-sol` / version2 account-binding / native Phase7 QA ve aynı
@@ -107,7 +127,7 @@ C01–C10 remain NO_GO, financial authority NONE and overall Phase16C-1 OPEN.
 Owner master directive kapsamında native Claude fake-codec TEST worker bağlantısı,
 PostgreSQL'den yeniden türetilen source/ACK registry, server-owned provider-control
 contract, Telegram uncertainty/ACK güvenliği, offline Business capability,
-Polat experiment evidence ve conversation keyset history geliştirilmiştir.
+Jeff experiment evidence ve conversation keyset history geliştirilmiştir.
 Tek additive read/TEST-QA migration ve existing release inventory CLI vardır.
 Genuine permit/credential custody, hosted executor/migration/deployment, Business
 activation ve real receipt writer provision edilmez. Account/commercial prerequisites
@@ -123,7 +143,7 @@ overall Phase16C-1 OPEN; önceki accepted/historical failure kanıtları korunur
 
 Latest owner scope adds one [genuine experiment bridge preparation](../POLAT_GENUINE_EXPERIMENT_BRIDGE_IMPLEMENTATION_REPORT.md): dated explicit Messages metadata compatibility, a fixed-host dormant Node HTTPS boundary, private disposable-PostgreSQL reservation/evidence backend and an independently hashed [one-request canary proposal](phases/POLAT_CLAUDE_CANARY_v1.md). Current release has no permit issuer, real authority roots, credential loader or hosted genuine writer; all real invocation remains BLOCKED. Fixture persistence, signatures and fake sockets never authenticate the owner/account or create financial authority. Require exact PR-head and post-merge Application+Database evidence before claiming protected acceptance. Existing local journals/v2 corpus/human review and full290/5.00 USD proposal are unchanged; both scopes remain unapproved for inference. No hosted migration/deployment, model, Telegram/customer or payment/VIP operation. Phase16C-1 OPEN; commercial NO_GO.
 
-The newer owner scope authorizes one isolated Claude Haiku5.5 readiness package. [Implementation checkpoint](../POLAT_CLAUDE_ADAPTER_IMPLEMENTATION_REPORT.md) documents the node-only Messages codec/ModelProvider, data-only fake HTTP, native evidence/QA, same guarded journal and additive offline observation/policy versions. No SDK, secret loader, network driver, route, worker, provider auto-selection or genuine inference is enabled. Existing v1 fixture contracts and historical corpus/review/financial evidence are preserved. Exact head/merge/CI is delivered in `POLAT_CLAUDE_ADAPTER_OWNER_REPORT.md` after protected verification.
+The newer owner scope authorizes one isolated Claude Haiku5.5 readiness package. [Implementation checkpoint](../POLAT_CLAUDE_ADAPTER_IMPLEMENTATION_REPORT.md) documents the node-only Messages codec/ModelProvider, data-only fake HTTP, native evidence/QA, same guarded journal and additive offline observation/policy versions. No SDK, secret loader, network driver, route, worker, provider auto-selection or genuine inference is enabled. Existing v1 fixture contracts and historical corpus/review/financial evidence are preserved. Exact head/merge/CI is delivered in `JEFF_CLAUDE_ADAPTER_OWNER_REPORT.md` after protected verification.
 
 Candidate `claude-haiku-5-5` is not account/merchant selection. Default manifest fields stay null; full290 requests/5.00 USD remain NOT APPROVED. Genuine owner/account cap/billing/durable custody remain unverified and the readiness projection returns BLOCKED even for complete supplied JSON. Local journal integrity is not global spending authority. Real model and human acceptance remain pending; all live gates and overall Phase16C-1 OPEN/commercial NO_GO remain unchanged. No next package is automatically authorized.
 
@@ -135,7 +155,7 @@ The new owner scope authorizes public read-only research and missing offline saf
 
 [Owner sheet](phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md) and [decision report](../POLAT_REAL_MODEL_DECISIONS_REPORT.md) propose the full290-request v2 run and5.00 USD cap, both NOT APPROVED. Runtime decision fields remain null/empty, authorized external requests0/execution=false. Named people, data/cap/billing/release proof, genuine account access and separate provider-specific implementation/experiment permission remain missing. C01/C02/C05/C07/C09 minimum commercial decisions are explicit; C01–C10 statuses, real payment/VIP/contact/import gates and commercial NO_GO are unchanged. Overall Phase16C-1 OPEN. Require exact-head and post-merge Application+Database evidence for all three packages before claiming technical publication acceptance; final owner artifact records actual SHA/run/job results and failures.
 
-## Current Polat evaluation decisions — three-package owner batch,2026-10-24
+## Current Jeff evaluation decisions — three-package owner batch,2026-10-24
 
 The newer explicit owner scope authorizes three repository-only packages, not real-model/Telegram/customer operations. [V2 corpus](../POLAT_V2_CORPUS_REPORT.md) / PR129 preserves accepted v1 hash `a932be94ff95369905a1a92552ce61d8395b6c6a2eb0a2e7c30dedb38e78c0c9`,38 scenarios and194 fixture calls, and adds independently versioned v2 hash `ec2a008c1575660d9f97f9d17fb4e14956051b2f890557477e82fda611d10d4c`,49 scenarios/151 turns per style/296 fixture calls. Both styles have27 distinct qualifying ordinary EN and30 TR turns, with actual reply lexical evidence and unchanged grounding/QA. Lexical evidence is not a human language/naturalness rating.
 
@@ -145,21 +165,21 @@ The newer explicit owner scope authorizes three repository-only packages, not re
 
 Authorized external requests0, REAL_MODEL_NOT_TESTED, CUSTOMER_CONVERSION_UNKNOWN, financial_authority NONE, live_operations_authorized false, commercial NO_GO and overall Phase16C-1 OPEN. No SQL, hosted change, paid model, real provider/Telegram/customer interaction, receipt/VIP/import or commercial activation in this batch. Earlier v1 proposal/results below remain historical rather than being rewritten as v2 evidence.
 
-## Polat integrated TEST operations — 2026-10-24 owner batch
+## Jeff integrated TEST operations — 2026-10-24 owner batch
 
-The newer four-package scope extends the accepted pure Polat profile without activating live operations. Native orchestrator/model context/Phase 7 QA/tasks/proposals/audit are reused, with matching fake-ACK history only. [Runtime report](../POLAT_TEST_RUNTIME_INTEGRATION_REPORT.md), [contact/ownership report](../POLAT_CONSENT_OWNERSHIP_REPORT.md) and [multi-turn report](../POLAT_MULTITURN_QUALITY_REPORT.md) record packages A–C (PRs #125, #126, #127); exact-head and post-merge evidence is retained in the consolidated owner artifact. No queued/generated draft is delivery evidence.
+The newer four-package scope extends the accepted pure Jeff profile without activating live operations. Native orchestrator/model context/Phase 7 QA/tasks/proposals/audit are reused, with matching fake-ACK history only. [Runtime report](../POLAT_TEST_RUNTIME_INTEGRATION_REPORT.md), [contact/ownership report](../POLAT_CONSENT_OWNERSHIP_REPORT.md) and [multi-turn report](../POLAT_MULTITURN_QUALITY_REPORT.md) record packages A–C (PRs #125, #126, #127); exact-head and post-merge evidence is retained in the consolidated owner artifact. No queued/generated draft is delivery evidence.
 
 Append-only fixture contact provenance, purpose-specific permissions, opt-out, native Phase 12 takeover and consent-generation fences protect fake dispatch. Unknown consent and uncommitted opt-out cannot authorize sending or a saved-action claim. Fixtures never establish lawful use of a historical list. The fixed v1 corpus contains 38 scenarios / 100 turns per style; paired fixture/heuristic success is not human naturalness, real-model quality, conversion or customer satisfaction.
 
-[Model readiness report](../POLAT_MODEL_ACCEPTANCE_READINESS_REPORT.md) and the [disabled future-model manifest](phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md) cover package D: offline replay/measurement, invocation-only cost deduplication and a bounded role-safe read tab in existing Polat Operations. No provider is selected; authorized external requests are zero and budget is unknown. Token/first-output/billing gaps remain unknown. The read migration is local/CI-only and grants no writer or activation authority.
+[Model readiness report](../POLAT_MODEL_ACCEPTANCE_READINESS_REPORT.md) and the [disabled future-model manifest](phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md) cover package D: offline replay/measurement, invocation-only cost deduplication and a bounded role-safe read tab in existing Jeff Operations. No provider is selected; authorized external requests are zero and budget is unknown. Token/first-output/billing gaps remain unknown. The read migration is local/CI-only and grants no writer or activation authority.
 
 `financial_authority=NONE`, `live_operations_authorized=false`, commercial `NO_GO`; overall Phase16C-1 stays OPEN. No hosted migration/deployment, real model, Telegram/customer send, receipt, VIP, historical import or campaign is authorized by these changes. Historical unsuccessful attempts and the earlier Preview deviation remain preserved.
 
-## Current Polat AI continuation — 2026-10-24
+## Current Jeff AI continuation — 2026-10-24
 
-The owner authorized four repository-only synthetic packages from verified `e651c2b8af9c3ad7f8d507fa37452819de18d7f8`. [Conversation intelligence](../POLAT_CONVERSATION_INTELLIGENCE_REPORT.md) (PR121), [durable response ownership](../POLAT_RESPONSE_RELIABILITY_REPORT.md) (PR122) and [catalog-grounded sales](../POLAT_SALES_CONVERSION_REPORT.md) (PR123) passed exact-head and post-merge Application+Database gates. The fourth package, [Polat operations and offline evaluation](../POLAT_AI_SALES_OPERATIONS_REPORT.md), extends the existing TR/EN Admin and Phase15 metrics; its final PR/CI evidence is recorded in the consolidated owner delivery after protected publication.
+The owner authorized four repository-only synthetic packages from verified `e651c2b8af9c3ad7f8d507fa37452819de18d7f8`. [Conversation intelligence](../POLAT_CONVERSATION_INTELLIGENCE_REPORT.md) (PR121), [durable response ownership](../POLAT_RESPONSE_RELIABILITY_REPORT.md) (PR122) and [catalog-grounded sales](../POLAT_SALES_CONVERSION_REPORT.md) (PR123) passed exact-head and post-merge Application+Database gates. The fourth package, [Jeff operations and offline evaluation](../POLAT_AI_SALES_OPERATIONS_REPORT.md), extends the existing TR/EN Admin and Phase15 metrics; its final PR/CI evidence is recorded in the consolidated owner delivery after protected publication.
 
-Polat is an explicitly disclosed AI-assistant persona, not a real Telegram user session. EN is the customer default; verified/currently requested alternatives remain independent of operator locale. The new profile/provider/transport remain deterministic fixtures. Only explicitly configured, active, outbound-disabled `polat-sandbox-*` scopes can write private synthetic work/evidence; persisted inbound coverage is atomic, but does not cover upstream messages never received. Queued text, a human task, fake ACK and real delivery remain distinct. Native takeover fences old drafts; uncertain effects require evidence rather than blind replay. Private fixture writers grant neither authenticated nor service-role execution. The Admin extension is read-only and does not activate the runtime.
+Jeff is an explicitly disclosed AI-assistant persona, not a real Telegram user session. EN is the customer default; verified/currently requested alternatives remain independent of operator locale. The new profile/provider/transport remain deterministic fixtures. Only explicitly configured, active, outbound-disabled `jeff-sandbox-*` scopes can write private synthetic work/evidence; persisted inbound coverage is atomic, but does not cover upstream messages never received. Queued text, a human task, fake ACK and real delivery remain distinct. Native takeover fences old drafts; uncertain effects require evidence rather than blind replay. Private fixture writers grant neither authenticated nor service-role execution. The Admin extension is read-only and does not activate the runtime.
 
 Offline sales scenarios use immutable approved **synthetic** catalog snapshots, not genuine supplier approval, real offers or purchases. Financial, subscription and access status stay unavailable without authority. Follow-up and overdue alerts are preview-only/disabled. CRM reuses accepted Phase15 definitions and exposes incomplete/missing sources honestly; no anonymous feedback is joined to customers. Full-QA offline evaluation is not human-rated naturalness, live A/B testing, conversion uplift or ROI. Existing Phase16C-1 stays OPEN and the pilot stays NO-GO. No hosted migration, deployment, real Telegram/customer message, payment, subscription/VIP activation or historical import is authorized by this batch.
 
@@ -183,7 +203,7 @@ PR106 adds private synthetic financial evidence persistence, always financial_au
 
 The current owner batch permits at most four bounded repository-only packages with protected PR/head and post-merge Application+Database, no deployment/live effect. [Bounded TEST maintenance](../PHASE_16DR2_BOUNDED_MAINTENANCE_REPORT.md) (PR109), [truthful membership previews](../COMMERCIAL_JOURNEY_TRUTHFULNESS_REPORT.md) (PR110) and [safe operator review visibility](../ENTITLEMENT_REVIEW_VISIBILITY_REPORT.md) (PR111) extend existing modules. [Offline pilot evidence](../infra/runbooks/pilot-entry-evidence.md) validates technical snapshot consistency; C01–C10 remain separate genuine gates. Each package's exact PR/merge/check evidence must be read before claiming acceptance; this context is not authority. Budget/review reset, genuine receipt writer/event, provider wiring, LIVE corrective authority, hosted recovery and real pilot remain independently gated.
 
-Current signal batch: four explicitly authorized repository-only packages. [Ingestion foundation](../SIGNAL_INGESTION_FOUNDATION_REPORT.md) (PR113) supplies private synthetic multi-source/provider routing and immutable revisions. [Commercial consistency contracts](../SIGNAL_COMMERCIAL_INTEGRATION_REPORT.md) (PR114) preserve financial/access authority NONE and consent-aware metadata previews. [Durable distribution](../SIGNAL_DISTRIBUTION_ENGINE_REPORT.md) (PR115) adds fake-only queue/lease/begin/ACK/UNKNOWN reconciliation, fair bounded recovery and measured synthetic latency. [Signal Operations](../SIGNAL_OPERATIONS_ADMIN_REPORT.md) extends the existing TR/EN Admin through bounded read-only tenant/RBAC projections; no sending/configuration override exists. Each package requires exact PR-head and post-merge Application+Database evidence; technical merge is not owner phase closure. Real Telegram source/media/session adapters, supplier rights, exact destinations, payment authority, former-customer imports/outreach and hosted publication remain separate gates. No Polat account or real source/destination is connected. Normal channel membership is not redistribution permission.
+Current signal batch: four explicitly authorized repository-only packages. [Ingestion foundation](../SIGNAL_INGESTION_FOUNDATION_REPORT.md) (PR113) supplies private synthetic multi-source/provider routing and immutable revisions. [Commercial consistency contracts](../SIGNAL_COMMERCIAL_INTEGRATION_REPORT.md) (PR114) preserve financial/access authority NONE and consent-aware metadata previews. [Durable distribution](../SIGNAL_DISTRIBUTION_ENGINE_REPORT.md) (PR115) adds fake-only queue/lease/begin/ACK/UNKNOWN reconciliation, fair bounded recovery and measured synthetic latency. [Signal Operations](../SIGNAL_OPERATIONS_ADMIN_REPORT.md) extends the existing TR/EN Admin through bounded read-only tenant/RBAC projections; no sending/configuration override exists. Each package requires exact PR-head and post-merge Application+Database evidence; technical merge is not owner phase closure. Real Telegram source/media/session adapters, supplier rights, exact destinations, payment authority, former-customer imports/outreach and hosted publication remain separate gates. No Jeff account or real source/destination is connected. Normal channel membership is not redistribution permission.
 
 Continue with current owner instruction, current main and these reports; preserve the dated historical tables below as history. Do not reimplement already solved B01/B08 or PR108 controls. Existing phase reports and immutable build-pack files are unchanged.
 
@@ -384,7 +404,7 @@ Financial, entitlement and customer lifecycle records are separate authorities; 
 - Historical import remains **LOCKED**: lawful permitted use, canonical file/hash, all **225** review records, reconciliation of **1,133–1,152** versus historical approximately **1,161**, second dry-run/final review report and new owner approval are prerequisites. Do not reopen supplied raw data during this handoff.
 - Production activation, live payments, real-customer subscriptions/access changes, broad outbound, existing channel permission changes, new VIP invitations, historical replay and Phase 15+ remain unauthorized. The later owner instruction permits only Phase 12 isolated-staging implementation, controlled deployment and explicitly scoped sandbox/manager-notification acceptance. Discovery performed none of those runtime actions.
 
-Accepted private staging identity scope: channel `-1003944824067`; bot `@gold_revenue_os_staging_bot` / `8673054837`; owner `@alisangul` / `6890052501`; representative `@polatfx` / `8327046095` (formerly `@tahirdonzfx`, same numeric user). These identify past acceptance, not permission for new operations. Do not change their roles automatically.
+Accepted private staging identity scope: channel `-1003944824067`; bot `@gold_revenue_os_staging_bot` / `8673054837`; owner `@alisangul` / `6890052501`; representative `@jefffx` / `8327046095` (formerly `@tahirdonzfx`, same numeric user). These identify past acceptance, not permission for new operations. Do not change their roles automatically.
 
 ## 10. Failure modes, scaling limits and operational debt
 

@@ -39,7 +39,7 @@ permanent experimental quotas. No control record is provisioned by the migration
    another worker or replay cannot reset it. Failed/unknown attempts consume budget.
    No fallback, automatic model retry or QA regeneration is enabled. The fixed
    HTTPS endpoint is `/v1/responses` on `api.openai.com`; output is bounded to512.
-4. The actual codec response reaches native Phase7/Polat QA without replacing the
+4. The actual codec response reaches native Phase7/Jeff QA without replacing the
    text with a fixture or renderer. Only source-bound approved output can queue.
    Human takeover, a new source, config drift, STOP and opt-out fence older drafts.
    Provider token usage is observed, price-based liability is an estimate, actual
@@ -50,7 +50,7 @@ permanent experimental quotas. No control record is provisioned by the migration
    An API ACK is not customer read evidence. Only a documented429 may schedule a
    bounded delivery retry; unknown outcomes pause and require reconciliation.
 6. Existing Admin manual replies use authenticated human takeover and the common
-   public label `Polat Support`; the true staff identity remains private audit data.
+   public label `Jeff Support`; the true staff identity remains private audit data.
    Old AI and human drafts cannot cross takeover/return boundaries. No new public
    mutation or manual force-send/force-success capability is introduced.
 
@@ -59,10 +59,10 @@ permanent experimental quotas. No control record is provisioned by the migration
 | Field | Purpose |
 |---|---|
 | `OPENAI_API_KEY` | Existing protected OpenAI credential; never display/read its value in chat |
-| `POLAT_UAT_TELEGRAM_BOT_TOKEN` | Existing protected bot custody; matching bot ID/key hash required |
-| `POLAT_CAMPAIGN_TENANT_ID` / `POLAT_CAMPAIGN_ID` | Select the server-bound campaign ingress, grant no authority |
-| `POLAT_CAMPAIGN_WEBHOOK_SECRET` | Dedicated Telegram secret-token authentication |
-| `POLAT_CAMPAIGN_RELAY_SECRET` | Dedicated isolated relay HMAC when SSO-protected hosting requires it |
+| `JEFF_UAT_TELEGRAM_BOT_TOKEN` | Existing protected bot custody; matching bot ID/key hash required |
+| `JEFF_CAMPAIGN_TENANT_ID` / `JEFF_CAMPAIGN_ID` | Select the server-bound campaign ingress, grant no authority |
+| `JEFF_CAMPAIGN_WEBHOOK_SECRET` | Dedicated Telegram secret-token authentication |
+| `JEFF_CAMPAIGN_RELAY_SECRET` | Dedicated isolated relay HMAC when SSO-protected hosting requires it |
 | `VERCEL_GIT_COMMIT_SHA` | Platform-owned exact release SHA; no client override |
 
 The authenticated endpoint is `/api/webhooks/campaign/telegram`. Its relay signature
@@ -111,12 +111,12 @@ success may be inferred from this runbook or local tests.
 
 ## Current customer identity copy — 2026-11-03
 
-The owner's current instruction removes the unsolicited “Polat’s AI assistant”
+The owner's current instruction removes the unsolicited “Jeff’s AI assistant”
 introduction in campaign and private-beta customer replies. Both native profiles
-use the shared `polat-support-identity-v1` prompt and existing Phase7 QA entry point.
+use the shared `jeff-support-identity-v1` prompt and existing Phase7 QA entry point.
 A neutral first greeting needs no identity introduction. The prohibited wording is
 held even if a model ignores the prompt. Direct identity/automation questions must
-receive truthful automated-support wording, without pretending to be Polat or human.
+receive truthful automated-support wording, without pretending to be Jeff or human.
 The same QA, source/tenant fences, opt-out, takeover, budgets and payment/VIP guards
 still apply. Accepted historical fixture/canary plans and private-beta consent
 notices are unchanged; they are not silently relabelled as the new customer policy.

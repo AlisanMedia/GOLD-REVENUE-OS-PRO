@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { getUserContext } from "@/lib/auth/context";
-import { CanaryFreshMfaRequiredError, runPrivateBetaCanaryForOwner } from "@/lib/polat/private-beta-canary";
+import { CanaryFreshMfaRequiredError, runPrivateBetaCanaryForOwner } from "@/lib/jeff/private-beta-canary";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";

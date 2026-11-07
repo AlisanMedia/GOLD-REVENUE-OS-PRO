@@ -70,19 +70,19 @@ beta_sql -c "$(beta_reserve 9504)" >"$beta_tmp/reserved"
 beta_first beta-start-first "$(beta_begin 9504)" 3
 beta_sql -c "begin;set local application_name='beta-start-second';set local statement_timeout='8s';$(beta_begin 9504 "$(beta_id 999 5000)")commit;" >"$beta_tmp/start-second" 2>&1 &
 beta_second=$!;beta_wait beta-start-second Lock;wait "$beta_first_pid";wait "$beta_second";grep -q '"dispatch": false' "$beta_tmp/start-second"
-test "$(beta_sql -c "select count(*)from private.polat_experiment_evidence where run_id=(select canary_run_id from private.private_beta_programs where id='$(beta_id 9504 3000)')and stage='DISPATCH_STARTED'")" = 1
+test "$(beta_sql -c "select count(*)from private.jeff_experiment_evidence where run_id=(select canary_run_id from private.private_beta_programs where id='$(beta_id 9504 3000)')and stage='DISPATCH_STARTED'")" = 1
 echo 'PASS BETA-C4: independent workers receive exactly one dispatch start and the second nonce has no completion authority'
 beta_case=C5
 beta_sql -c "$(beta_reserve 9505)" >"$beta_tmp/stop-reserved"
 beta_first beta-stop-first "update private.private_beta_programs set stage='STOPPED',generation=generation+1 where id='$(beta_id 9505 3000)';" 3
 beta_sql -c "begin;set local application_name='beta-stop-second';set local statement_timeout='8s';$(beta_begin 9505)commit;" >"$beta_tmp/stop-second" 2>&1 &
 beta_second=$!;beta_wait beta-stop-second Lock;wait "$beta_first_pid";if wait "$beta_second";then exit 1;fi;grep -q 55000 "$beta_tmp/stop-second"
-test "$(beta_sql -c "select count(*)from private.polat_experiment_evidence where run_id=(select canary_run_id from private.private_beta_programs where id='$(beta_id 9505 3000)')and stage='DISPATCH_STARTED'")" = 0
+test "$(beta_sql -c "select count(*)from private.jeff_experiment_evidence where run_id=(select canary_run_id from private.private_beta_programs where id='$(beta_id 9505 3000)')and stage='DISPATCH_STARTED'")" = 0
 echo 'PASS BETA-C5: committed program stop wins against reserved dispatch without releasing unknown liability or inventing an external effect'
 beta_case=C6
 beta_next=$(beta_id 950610 8000);beta_command=$(beta_reserve 9506 "$beta_next")
 if beta_sql -c "$beta_command" >"$beta_tmp/before-settlement" 2>&1;then exit 1;fi;grep -q 54000 "$beta_tmp/before-settlement"
-beta_settle="select private.private_beta_reconcile_attempt('$(beta_id 9506 2000)','$(beta_id 9506 3000)',s.attempt_id,jsonb_build_object('version',1,'origin','INDEPENDENT_PROVIDER_BILLING','coverage','COMPLETE_REQUEST_CHARGE','account_scope_hash',p.account_control->>'account_scope_hash','request_hash',a.request_hash,'actual_billed_amount','0.000025','currency','USD','source_hash',repeat('d',64),'observed_at',clock_timestamp())::text)from private.private_beta_programs p join private.private_beta_attempt_scope s on s.program_id=p.id join private.polat_experiment_attempts a on a.id=s.attempt_id where p.id='$(beta_id 9506 3000)'and s.participant_ordinal=1;"
+beta_settle="select private.private_beta_reconcile_attempt('$(beta_id 9506 2000)','$(beta_id 9506 3000)',s.attempt_id,jsonb_build_object('version',1,'origin','INDEPENDENT_PROVIDER_BILLING','coverage','COMPLETE_REQUEST_CHARGE','account_scope_hash',p.account_control->>'account_scope_hash','request_hash',a.request_hash,'actual_billed_amount','0.000025','currency','USD','source_hash',repeat('d',64),'observed_at',clock_timestamp())::text)from private.private_beta_programs p join private.private_beta_attempt_scope s on s.program_id=p.id join private.jeff_experiment_attempts a on a.id=s.attempt_id where p.id='$(beta_id 9506 3000)'and s.participant_ordinal=1;"
 beta_first beta-settle-first "$beta_settle" 3
 beta_sql -c "begin;set local application_name='beta-settle-second';set local statement_timeout='8s';$beta_command commit;" >"$beta_tmp/settle-second" 2>&1 &
 beta_second=$!;beta_wait beta-settle-second Lock;wait "$beta_first_pid";wait "$beta_second"

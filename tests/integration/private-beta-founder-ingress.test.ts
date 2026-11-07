@@ -1,3 +1,4 @@
+import { IDENTITY_NAMES_V1 } from "../../packages/contracts/src/historical/identity-names-v1";
 import { createHash } from "node:crypto";
 import { chmodSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { join } from "node:path";
@@ -7,8 +8,8 @@ import { PRIVATE_BETA_VERCEL as TARGET } from "../../scripts/private-beta-releas
 
 const SHA = "a".repeat(40), PROGRAM = "91cc1000-0000-4000-8000-000000000001", TENANT = "91cc2000-0000-4000-8000-000000000001", AT = Date.parse("2026-11-02T00:00:00Z");
 const BOT = "7012345:SYNTHETIC_PRIVATE_BOT_CREDENTIAL", MANAGEMENT = "SYNTHETIC_MANAGEMENT_CREDENTIAL", VERCEL = "SYNTHETIC_VERCEL_CREDENTIAL", BYPASS = "SYNTHETIC_EXISTING_AUTOMATION_BYPASS";
-const DB = "https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query", EDGE = "https://xqvwkghpmezcpgugetqc.supabase.co/functions/v1/polat-private-beta-ingress";
-const SECRET_NAMES = ["POLAT_UAT_TELEGRAM_WEBHOOK_SECRET", "POLAT_UAT_RELAY_SECRET"], SELECTORS = ["POLAT_UAT_TENANT_ID", "POLAT_UAT_PROGRAM_ID"];
+const DB = "https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query", EDGE = "https://xqvwkghpmezcpgugetqc.supabase.co/functions/v1/jeff-private-beta-ingress";
+const SECRET_NAMES = ["JEFF_UAT_TELEGRAM_WEBHOOK_SECRET", "JEFF_UAT_RELAY_SECRET"], SELECTORS = ["JEFF_UAT_TENANT_ID", "JEFF_UAT_PROGRAM_ID"];
 const UPDATES = ["business_connection", "business_message", "edited_business_message", "deleted_business_messages"];
 const digest = (v: string) => createHash("sha256").update(v, "utf8").digest("hex");
 const dirs: string[] = [];
@@ -17,7 +18,7 @@ function rawJson(url: string, raw: string, status = 200) { const r = new Respons
 function fixture() {
   const dir = mkdtempSync("/tmp/founder-ingress-offline-"); dirs.push(dir);
   const env: Record<string, string | undefined> = { GITHUB_ACTIONS: "true", GITHUB_EVENT_NAME: "workflow_dispatch", GITHUB_REF: "refs/heads/main", GITHUB_REPOSITORY: "AlisanMedia/GOLD-REVENUE-OS-PRO", GITHUB_SHA: SHA, VALIDATED_SHA: SHA,
-    PRIVATE_BETA_PROGRAM_ID: PROGRAM, RUNNER_TEMP: dir, SUPABASE_ACCESS_TOKEN: MANAGEMENT, VERCEL_TOKEN: VERCEL, POLAT_UAT_TELEGRAM_BOT_TOKEN: BOT };
+    PRIVATE_BETA_PROGRAM_ID: PROGRAM, RUNNER_TEMP: dir, SUPABASE_ACCESS_TOKEN: MANAGEMENT, VERCEL_TOKEN: VERCEL, JEFF_UAT_TELEGRAM_BOT_TOKEN: BOT };
   const state = {
     project: { id: TARGET.project, name: TARGET.name, accountId: TARGET.team, ssoProtection: { deploymentType: "all_except_custom_domains" }, link: { type: "github", org: "AlisanMedia", repo: "GOLD-REVENUE-OS-PRO" }, protectionBypass: { [BYPASS]: { scope: "automation-bypass", isEnvVar: true } } as Record<string, { scope: string; isEnvVar?: boolean }> },
     team: { id: TARGET.team, slug: TARGET.name },
@@ -180,7 +181,7 @@ describe("protected existing founder Business ingress, offline transports only",
     expect(f.random).toHaveBeenCalledTimes(2); expect(f.state.envWrites.map(v => v.key)).toEqual([...SECRET_NAMES, ...SELECTORS]);
     expect(f.state.envWrites.map(v => v.type)).toEqual(["encrypted", "encrypted", "plain", "plain"]); for (const v of f.state.envWrites) expect(v.target).toEqual(["production"]);
     expect(f.state.entries.find(v => v.key === SELECTORS[0])?.value).toBe(TENANT); expect(f.state.entries.find(v => v.key === SELECTORS[1])?.value).toBe(PROGRAM);
-    expect(f.state.edgeWrites[0]!.map(v => v.name)).toEqual([...SECRET_NAMES, "POLAT_UAT_VERCEL_BYPASS"]); expect(f.state.edgeWrites[0]![2]!.value).toBe(BYPASS);
+    expect(f.state.edgeWrites[0]!.map(v => v.name)).toEqual([...SECRET_NAMES, "JEFF_UAT_VERCEL_BYPASS"]); expect(f.state.edgeWrites[0]![2]!.value).toBe(BYPASS);
     const path = join(f.dir, "private-beta-founder-ingress-private.json"); expect(statSync(path).mode & 0o777).toBe(0o600);
     const privateValue = readFileSync(path, "utf8"); expect(privateValue).toContain(BYPASS); expect(JSON.stringify(result)).not.toContain(BYPASS);
     expect(f.state.methods).toEqual([]); expect(f.state.queries).toHaveLength(1); expect(f.state.queries[0]).not.toMatch(/update |insert |set configuration/iu);
@@ -277,6 +278,15 @@ describe("protected existing founder Business ingress, offline transports only",
     if (change === "legacy") f.state.program.owner_only_test = false; if (change === "aliases") f.state.aliasDeployment = "dpl_foreign"; if (change === "deployment") f.state.deployment.gitSource.sha = "b".repeat(40);
     if (change === "sso-drift") Object.assign(f.state.project.ssoProtection, { enabled: true }); if (change === "bypass-revoked") f.state.project.protectionBypass = {};
     expect(await f.run("register")).toMatchObject({ state: "BLOCKED", webhook_registration: "NOT_ATTEMPTED" }); expect(f.state.setCalls).toHaveLength(0);
+  });
+  it("cuts over the exact previous ingress only after all existing protected checks", async () => {
+    const f = fixture(); await f.run("prepare"); f.activate();
+    f.state.webhook = IDENTITY_NAMES_V1.betaIngress;
+    const result = await f.run("register");
+    expect(result).toMatchObject({ state: "REGISTERED", webhook_registration: "VERIFIED", ingress_authentication_verified: true });
+    expect(f.state.methods).toEqual(["getMe", "getWebhookInfo", "setWebhook", "getWebhookInfo"]);
+    expect(f.state.setCalls).toHaveLength(1);
+    expect(f.state.setCalls[0]).toMatchObject({ url: EDGE, drop_pending_updates: false });
   });
   it.each(["foreign-webhook", "wrong-bot", "no-business-capability", "readback", "private-file-mode"])("blocks %s before setWebhook", async change => {
     const f = fixture(); await f.run("prepare"); f.activate();

@@ -2,7 +2,7 @@ import "server-only";
 
 import { createSupabaseAdminClient, telegramServerEnv } from "@/lib/messaging/server-env";
 import { sendTelegramText } from "@/lib/messaging/telegram-adapter";
-import { privateBetaIsolationActive } from "../polat/private-beta-isolation";
+import { privateBetaIsolationActive } from "../jeff/private-beta-isolation";
 
 export type OutboundDispatchResult = {
   messageId: string;

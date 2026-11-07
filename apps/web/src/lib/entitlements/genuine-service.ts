@@ -12,7 +12,7 @@ export async function runGenuineEntitlementCycle(tenantId: string, transport: ty
   const control = z.object({ tenant_id: z.literal(tenant), repository_sha: z.string(), environment: z.literal("TELEGRAM_PRODUCTION"), financial_authority: z.literal("VERIFIED_STARS_RECEIPT"),
     bot_user_id: z.string(), credential_sha256: z.string(), channel_id: z.string(), approval_reference: z.string().min(1) }).parse(await rpc("stars_commerce_scope_v1"));
   if (control.repository_sha !== process.env.VERCEL_GIT_COMMIT_SHA) throw Error("GENUINE_ACCESS_RELEASE_DRIFT");
-  const token = process.env.POLAT_STARS_MERCHANT_BOT_TOKEN;
+  const token = process.env.JEFF_STARS_MERCHANT_BOT_TOKEN;
   if (!token || token.split(":")[0] !== control.bot_user_id || createHash("sha256").update(token).digest("hex") !== control.credential_sha256) throw Error("GENUINE_ACCESS_CUSTODY_REQUIRED");
   await rpc("entitlement_tick");
   const raw = await rpc("entitlement_claim_job"); if (raw === null) return { processed: false };

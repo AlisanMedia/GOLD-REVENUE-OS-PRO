@@ -1,5 +1,25 @@
 # GOLD REVENUE OS PRO — Next Execution Backlog
 
+## 7 November 2026 — Jeff identity continuation
+
+The owner authorizes a repository-wide and existing-runtime identity rename to
+**Jeff**, with Business representative handle **@jeffryfx**. This is the same
+runtime, tenant, CRM, campaign, model-attempt budget and payment/VIP lifecycle.
+Canonical Admin: `/admin/jeff-operations`; the previous route permanently redirects.
+The handle is a presentation check in addition to the existing sealed numeric ID,
+getMe and Business provider readback. It is never authentication by itself.
+
+See [identity migration](../POLAT_TO_JEFF_IDENTITY_MIGRATION.md) and the
+[current procedure](../infra/runbooks/jeff-identity-migration.md). Existing 83
+applied migrations and accepted evidence retain their historical identity; the
+84th migration renames physical catalog objects without replacing their rows.
+Frozen HMAC/hash/lock domains, old RPC forwarding and narrowly scoped secret/header
+aliases preserve continuity until protected external cutover. Normal configuration
+and code use `JEFF_*`. No financial, campaign, MFA, opt-out or STOP control is loosened.
+A code merge, offline test or release does not establish a real model reply,
+Telegram delivery or the founder seeing a reply on a device.
+
+
 29 Ekim owner scope: rutin iç kampanya onayları tek kurucu START/PAUSE/STOP altında birleştirilir. Toplu izin provenance, güvenli import alt kümesi ve mevcut native QA/kuyruk kabulü için [uygulama kaydı](../FOUNDER_CAMPAIGN_IMPLEMENTATION_REPORT.md). Gerçek sağlayıcı/ödeme/platform kabulü ayrı delil gerektirir; eski faz girdileri bu yeni kapsam için tekrar owner geliştirme kabulü oluşturmaz.
 
 Assessment baseline: **2026-10-16**, remote main `7b5b2050875c4f611cd61aa1f2e1ea7762790835`. Product/system/evidence map: [MASTER_PRODUCT_CONTEXT.md](MASTER_PRODUCT_CONTEXT.md). This is a proposed execution order, **not implementation authorization**. Phases 1–15 are CLOSED within documented owner-accepted test/staging scopes. Phase 15 was formally owner-approved on 2026-10-18 after exact main CI 39082475909 Application + Database PASS and controlled 59/59 isolated staging. Phase 16+ and live commercial operations remain unauthorized.
@@ -31,7 +51,7 @@ and lawful product/market evidence remain prerequisites, not synthetic PASS.
 The owner-authorized engineering program continues across independently implementable
 integration work; this entry is not a request for another phase-by-phase prompt.
 
-## Current OpenAI / Polat BUSINESS continuation —27 October2026
+## Current OpenAI / Jeff BUSINESS continuation —27 October2026
 
 Reuse [OpenAI/BUSINESS implementation](../POLAT_OPENAI_BUSINESS_UAT_IMPLEMENTATION_REPORT.md).
 Repository code now supports a versioned scoped OpenAI candidate and founder-only
@@ -96,7 +116,7 @@ Next independent gate is owner/account/data/billing-cap/people/quality approval 
 
 TECHNICAL_PREFLIGHT_READY is limited to tested offline guards after protected publication; REAL_MODEL_NOT_TESTED and HUMAN_REVIEW_PENDING remain. No fourth package or genuine activation follows automatically. Existing Phase16C-1 OPEN.
 
-## Polat v2 evaluation and owner decisions —2026-10-24
+## Jeff v2 evaluation and owner decisions —2026-10-24
 
 Latest three-package scope: [corpus](../POLAT_V2_CORPUS_REPORT.md)/PR129, [offline independent human review](../POLAT_INDEPENDENT_HUMAN_REVIEW_REPORT.md)/PR130 and [disabled-model decision/commercial pack](../POLAT_MODEL_DECISION_READINESS_REPORT.md). Preserve exact CI/merge evidence; historical v1 corpus/190 proposed requests do not authorize current v2/290 proposed requests.
 
@@ -108,14 +128,14 @@ Latest three-package scope: [corpus](../POLAT_V2_CORPUS_REPORT.md)/PR129, [offli
 
 No fourth package or external action is authorized by this batch. Keep overall Phase16C-1 OPEN. Unknown usage/cost, human quality and conversion remain unknown.
 
-## Polat AI remaining gates — integrated TEST batch, 2026-10-24
+## Jeff AI remaining gates — integrated TEST batch, 2026-10-24
 
 A–D extend the existing runtime, consent/ownership evidence, fixed multi-turn evaluation and model readiness. See [runtime](../POLAT_TEST_RUNTIME_INTEGRATION_REPORT.md), [contact](../POLAT_CONSENT_OWNERSHIP_REPORT.md), [quality](../POLAT_MULTITURN_QUALITY_REPORT.md) and [readiness](../POLAT_MODEL_ACCEPTANCE_READINESS_REPORT.md). Exact CI/merge evidence is required; these reports do not authorize activation.
 
 | Priority | Remaining boundary | Exact acceptance / authority |
 |---|---|---|
 | P1 | Controlled real-model quality | [Disabled manifest](phases/POLAT_REAL_MODEL_ACCEPTANCE_MANIFEST.md): owner-approved exact provider/model/SHA, data handling, request and spending cap, human reviewers and thresholds. Current paired 38-scenario results are deterministic fixture evidence; naturalness and conversion remain unmeasured. |
-| P1 | Genuine gateway coverage and reconciliation | Separately authorize an isolated integration, verified Polat/bot identity, exact destinations/message cap and secure session custody. Persisted configured-fixture inbound is covered; upstream unseen messages, real media and actual Telegram acceptance remain unverified. No blind resend of unknown outcomes. |
+| P1 | Genuine gateway coverage and reconciliation | Separately authorize an isolated integration, verified Jeff/bot identity, exact destinations/message cap and secure session custody. Persisted configured-fixture inbound is covered; upstream unseen messages, real media and actual Telegram acceptance remain unverified. No blind resend of unknown outcomes. |
 | P1 | Genuine consent and human operations | Fixture-only append-only evidence, purpose separation, generation fences, opt-out and native takeover are implemented. Real lawful basis, source rights, retention, staffing, support scope and customer acceptance still require authoritative evidence. No historical import/outreach. |
 | P1 | Human language/usability review | Use the 38-scenario corpus and actual TR/EN role-safe Admin components; record independent human ratings and operator manual-reply/return usability. Do not describe heuristic PASS as human-rated quality. |
 | External | C01–C10 commercial entry | [PILOT_ENTRY_v0.1](phases/PILOT_ENTRY_v0.1.md): approved supplier/product/territory, merchant/payment rail, genuine receipts, terms, consent, operator coverage, isolated hosting/recovery, actual cost/budgets and separate release/10→25→50→100 authorization. Current commercial verdict NO_GO. |

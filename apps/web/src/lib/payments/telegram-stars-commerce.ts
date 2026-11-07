@@ -30,7 +30,7 @@ export async function createStarsCommerce(input: { tenantId: string }, transport
     return current;
   }
   await authority();
-  const token = process.env.POLAT_STARS_MERCHANT_BOT_TOKEN, secret = process.env.POLAT_STARS_MERCHANT_WEBHOOK_SECRET;
+  const token = process.env.JEFF_STARS_MERCHANT_BOT_TOKEN, secret = process.env.JEFF_STARS_MERCHANT_WEBHOOK_SECRET;
   const sha = (v: string) => createHash("sha256").update(v).digest("hex");
   if (!token || !/^[1-9][0-9]{0,15}:[A-Za-z0-9_-]{20,200}$/u.test(token) || token.split(":")[0] !== initial.bot_user_id || sha(token) !== initial.credential_sha256
     || !secret || secret.length < 32 || sha(secret) !== initial.webhook_secret_sha256) throw Error("STARS_COMMERCE_CUSTODY_REQUIRED");
@@ -164,7 +164,7 @@ export async function createStarsCommerce(input: { tenantId: string }, transport
  * This marker grants no financial authority. Recovery is independent provider
  * READING, never a second checkout/refund or an uncertain-message resend. */
 export async function runStarsCommerceMaintenance(transport: typeof fetch = fetch) {
-  const tenant = z.uuid().safeParse(process.env.POLAT_STARS_MERCHANT_TENANT_ID);
+  const tenant = z.uuid().safeParse(process.env.JEFF_STARS_MERCHANT_TENANT_ID);
   if (!tenant.success) return { state: "NOT_CONFIGURED" as const };
   const commerce = await createStarsCommerce({ tenantId: tenant.data },transport);
   const db = createSupabaseAdminClient();

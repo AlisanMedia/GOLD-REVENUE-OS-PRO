@@ -8,7 +8,7 @@ const units = z.string().regex(/^[1-9][0-9]{0,15}$/u).refine(v => BigInt(v) <= B
 const time = z.iso.datetime({ offset: true });
 export const telegramStarsUatInvoiceSchema = z.strictObject({
   version: z.literal(1), environment: z.literal(STARS_UAT_ENVIRONMENT), program_id: z.uuid(), tenant_id: z.uuid(), invoice_id: z.uuid(),
-  bot_user_id: id, payer_user_id: id, product_code: z.literal("POLAT_VIP_30D_DRAFT"), duration_days: z.literal(30),
+  bot_user_id: id, payer_user_id: id, product_code: z.literal("JEFF_VIP_30D_DRAFT"), duration_days: z.literal(30),
   currency: z.literal("XTR"), amount_units: units, issued_at: time, expires_at: time,
 }).refine(v => Date.parse(v.expires_at) > Date.parse(v.issued_at));
 export type TelegramStarsUatInvoice = z.infer<typeof telegramStarsUatInvoiceSchema>;
@@ -35,7 +35,7 @@ export function starsUatInvoicePayload(invoiceId: string): string { return "uat-
 export function prepareTelegramStarsUatInvoice(raw: unknown, now: number) {
   const i = telegramStarsUatInvoiceSchema.parse(raw);
   if (!Number.isFinite(now) || Date.parse(i.issued_at) > now || Date.parse(i.expires_at) <= now) throw Error("STARS_TEST_INVOICE_EXPIRED");
-  return Object.freeze({ chat_id: i.payer_user_id, title: "Polat VIP — TEST ONLY", description: "Dedicated Telegram test-environment membership fixture. No real money or signal service.",
+  return Object.freeze({ chat_id: i.payer_user_id, title: "Jeff VIP — TEST ONLY", description: "Dedicated Telegram test-environment membership fixture. No real money or signal service.",
     currency: "XTR" as const, provider_token: "" as const, payload: starsUatInvoicePayload(i.invoice_id),
     prices: [{ label: "TEST ONLY — 30 days", amount: Number(i.amount_units) }], start_parameter: "uatstars_" + i.invoice_id.replaceAll("-", ""), protect_content: true });
 }

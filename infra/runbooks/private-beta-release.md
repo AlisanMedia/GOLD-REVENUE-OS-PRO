@@ -140,18 +140,18 @@ yüksek entropili secret; parola yöneticisinde ayrı saklanır) ve
 ayarlarından indirilen gerçek kaynak CA sertifikası; TLS verify-full).
 
 UAT runtime'a yalnız varsa eklenen secret adları:
-`OPENAI_API_KEY` (yeni OpenAI programı) veya `POLAT_UAT_ANTHROPIC_API_KEY` (eski Claude programı), `POLAT_UAT_TELEGRAM_BOT_TOKEN`,
-`POLAT_UAT_TELEGRAM_WEBHOOK_SECRET`, `POLAT_UAT_RELAY_SECRET`.
-Varsa ayrı Stars TEST credential'ları `POLAT_UAT_STARS_TEST_BOT_TOKEN`,
-`POLAT_UAT_STARS_TEST_WEBHOOK_SECRET`, `POLAT_UAT_STARS_RELAY_SECRET` yalnız aynı
+`OPENAI_API_KEY` (yeni OpenAI programı) veya `JEFF_UAT_ANTHROPIC_API_KEY` (eski Claude programı), `JEFF_UAT_TELEGRAM_BOT_TOKEN`,
+`JEFF_UAT_TELEGRAM_WEBHOOK_SECRET`, `JEFF_UAT_RELAY_SECRET`.
+Varsa ayrı Stars TEST credential'ları `JEFF_UAT_STARS_TEST_BOT_TOKEN`,
+`JEFF_UAT_STARS_TEST_WEBHOOK_SECRET`, `JEFF_UAT_STARS_RELAY_SECRET` yalnız aynı
 runtime step'inde optional aktarılır; build'e veya normal sohbet botuna verilmez.
 Bu custody, TEST program/price/bot/channel control veya provider action yetkisi
 oluşturmaz. Stage G bu workflow ile otomatik başlatılmaz.
 Değerler log/rapor/browser/artifact'e yazılmaz. Anthropic ADMIN anahtarı yalnız
 ayrı korunan account-control sürecinde kullanılır; genel uygulamaya veya build'e
-yüklenmez. Environment variable'ları `POLAT_UAT_TENANT_ID` ve `POLAT_UAT_PROGRAM_ID` yalnız
+yüklenmez. Environment variable'ları `JEFF_UAT_TENANT_ID` ve `JEFF_UAT_PROGRAM_ID` yalnız
 MFA ile oluşturulmuş gerçek program/tenant UUID'leridir; tek başına yetki değildir.
-`POLAT_UAT_RELEASE_SHA` korumalı job'ın exact SHA'sından otomatik bağlanır. Bu alan
+`JEFF_UAT_RELEASE_SHA` korumalı job'ın exact SHA'sından otomatik bağlanır. Bu alan
 yeni private-beta deployment'ında eski genel webhook/cron/provider dispatch
 yollarını yalnız kısıtlar; DB kill switch'lerini gevşetmez veya eski deployment
 yetkilerini değiştirmez. Mevcut `OPENAI_API_KEY` yalnız build sonrası dar runtime
@@ -220,7 +220,7 @@ release dispatch başlatmaz.
    target'ına bağlanır. `--prebuilt --prod --skip-domain` ile exact build stage edilir.
    READY, hedef project, kaynak SHA ve değişmemiş SSO/Git tekrar okunur.
 9. `vercel curl` ile Vercel auth kullanılarak live/ready/login smoke ve `/admin`
-   için anonymous application-auth redirect doğrulanır. **Gerçek founder/Polat
+   için anonymous application-auth redirect doğrulanır. **Gerçek founder/Jeff
    MFA ile Admin giriş testi ayrıca yapılır; bu smoke onu tamamlamaz.**
 10. Yalnız başarılı smoke sonrası aynı staged build promote edilir. İki canonical
     alias ve exact SHA yeniden okunur; eski deployment silinmez.
@@ -231,14 +231,14 @@ kabulü sonradan gözlenir; bu release artifact'inde0 olması UAT tamamlandı de
 
 ## HTTPS ingress ve Stage C–G ayrımı
 
-Mevcut Admin SSO kapatılmaz. Ayrı `polat-private-beta-ingress` Supabase Edge
+Mevcut Admin SSO kapatılmaz. Ayrı `jeff-private-beta-ingress` Supabase Edge
 function'ı yalnız Telegram webhook secret'ı doğrular ve sabit staging API yoluna
 ayrı HMAC ile iletir. Tek function `--no-verify-jwt` olabilir; diğer function'lar
 ve Admin için JWT/SSO ayarları değiştirilmez.
 
 Ingress ancak exact bot ID `getMe`, program/tenant/grant, signed relay custody,
 Vercel automation bypass credential custody ve destination/notice/window doğrulanınca
-yayımlanır. `POLAT_UAT_VERCEL_BYPASS` yalnız Edge secret'tır; normal API request'e
+yayımlanır. `JEFF_UAT_VERCEL_BYPASS` yalnız Edge secret'tır; normal API request'e
 geri döndürülmez, genel uygulamaya yazılmaz. Vercel bypass yalnız hosting katmanını
 aşar; uygulama webhook MAC ve membership/allowlist kontrolleri yine zorunludur.
 
@@ -348,7 +348,7 @@ geçerlidir. `program_id` gerçek MFA-created program UUID'si;
 `anthropic_workspace_id`, `anthropic_spend_limit_id`, `anthropic_api_key_id`
 gerçek provider object ID'leridir, secret veya doğrulama booleans değildir.
 
-`POLAT_UAT_ANTHROPIC_ADMIN_KEY` yalnız korunan account-control step'ine verilir.
+`JEFF_UAT_ANTHROPIC_ADMIN_KEY` yalnız korunan account-control step'ine verilir.
 Script exact Supabase projesinden program/tenant/window/SHA'yı SELECT ile okur,
 resmî Anthropic workspace/spend-limit/key/model/cost GET uçlarını çağırır; otomatik
 retry yoktur. Secret değeri Vercel'e, uygulamaya veya artifact'e kopyalanmaz.
@@ -369,7 +369,7 @@ geçmez. Bu gözlem JSON'unu elle değiştirip release/grant diye kullanmayın.
 
 `operation=verify_bot`, aynı exact protected main CI/ruleset ve `staging` reviewer
 kapısı altında yalnız mevcut `program_id` UUID'sini alır. Secret'lar yalnız son
-step'tedir: `SUPABASE_ACCESS_TOKEN` ve yeni `POLAT_UAT_TELEGRAM_BOT_TOKEN`.
+step'tedir: `SUPABASE_ACCESS_TOKEN` ve yeni `JEFF_UAT_TELEGRAM_BOT_TOKEN`.
 Anthropic/backup/Vercel credential'ları bu işe verilmez.
 
 `scripts/private-beta-release-bot.mjs`, exact Supabase projesinden `postgres`
@@ -398,11 +398,11 @@ Edge URL'si, `allowed_updates=[message]` (BOT) veya yalnız reviewed BUSINESS ev
 1. Yukarıdaki bot read-back, gerçek program/window/notice, operator/MFA ve deployed
    SHA doğrulanır. `getWebhookInfo` mevcut farklı hedef gösterirse otomatik üzerine
    yazılmaz; eski meşru bot/staging bağımlılığı araştırılır.
-2. Kriptografik rastgele `POLAT_UAT_TELEGRAM_WEBHOOK_SECRET` ve ayrı
-   `POLAT_UAT_RELAY_SECRET` protected custody'de üretilir; Vercel runtime ve yalnız
-   ilgili Supabase Edge function'a bağlanır. `POLAT_UAT_VERCEL_BYPASS` yalnız
+2. Kriptografik rastgele `JEFF_UAT_TELEGRAM_WEBHOOK_SECRET` ve ayrı
+   `JEFF_UAT_RELAY_SECRET` protected custody'de üretilir; Vercel runtime ve yalnız
+   ilgili Supabase Edge function'a bağlanır. `JEFF_UAT_VERCEL_BYPASS` yalnız
    Edge'de ve exact staging proje yetkisindedir; Admin SSO değişmez.
-3. Yalnız reviewed `polat-private-beta-ingress` function'ı yayımlanır; function'a
+3. Yalnız reviewed `jeff-private-beta-ingress` function'ı yayımlanır; function'a
    özgü JWT muafiyeti genel Admin auth'u değiştirmez. HMAC, timestamp/body hash,
    bot/tenant/participant allowlist kontrolleri korunur.
 4. Aynı normal botun tek `setWebhook` çağrısına fixed payload verilir; sonucu
@@ -418,14 +418,14 @@ Referanslar: [Telegram getMe](https://core.telegram.org/bots/api#getme),
 API sözleşmesi, account/secret/custody doğrulamasının yerine geçmez.
 
 
-## 27 Ekim 2026 — OpenAI ve Polat BUSINESS ilk test bağlantısı
+## 27 Ekim 2026 — OpenAI ve Jeff BUSINESS ilk test bağlantısı
 
 Yeni owner kararı OpenAI kullanılmasıdır. Önerilen/seçilebilir exact model
 `gpt-6.1-sol`; ücretli hesap/model erişimi yalnız gerçek account preflight ile
 kanıtlanabilir. Genel `OPENAI_MODEL` secret'ı eski kullanım için korunur.
-Admin → Polat İşlemleri → Özel Beta → DRAFT programında güncel MFA ile OpenAI
+Admin → Jeff İşlemleri → Özel Beta → DRAFT programında güncel MFA ile OpenAI
 seçilir. Bu seçim eski Claude manifest/notice/planını yeniden kullanmaz; notice
-`polat-private-beta-notice-openai-v1`, provider/account/canary hash'leri sürümlenir.
+`jeff-private-beta-notice-openai-v1`, provider/account/canary hash'leri sürümlenir.
 İlk canary Hi/en/DIRECT/1/512 token/10 saniye; tam v2 290-request ayrı kalır.
 18 USD bakiye yalnız owner beyanıdır; verified spend cap veya harcama yetkisi değildir.
 Bu UAT'ın toplam üst sınırı yine5.00 USD, otomatik retry/fallback/regeneration0'dır.
@@ -449,10 +449,10 @@ caching, tier veya kullanım belirsizliği hâlâ fail-closed'dur. Bu konservati
 Fiyat kaynağı: https://developers.openai.com/api/docs/models/gpt-6.1-sol ve
 https://developers.openai.com/api/docs/pricing (kontrol:2026-10-27).
 
-### Polat hesabında yalnız kurucunun seçili özel sohbeti
+### Jeff hesabında yalnız kurucunun seçili özel sohbeti
 
 Normal bot ve BUSINESS modları ayrıdır. Telegram BotFather → Bot Settings →
-Secretary Mode açık; Polat Telegram Business → Chatbots → Only selected chats
+Secretary Mode açık; Jeff Telegram Business → Chatbots → Only selected chats
 altında yalnız kurucunun özel sohbeti. Bot permissions: yalnız reply; para/Stars,
 gift, story, profile, delete/read-mark ve diğer ek haklar kapalı. Normal kanal
 üyeliği sinyal okuma/yeniden dağıtım yetkisi değildir; bu bağlantı kanal erişimi açmaz.
@@ -461,7 +461,7 @@ Gerçek token, kod, secret veya session string chat/rapor/CI artifact'e yazılma
 1. Yeni dedicated bot için `operation=verify_bot` ile exact numeric getMe,
    credential hash ve current program/tenant/SHA/gen bağımsız okunur.
 2. DRAFT programında, webhook henüz kurulu değilken, kurucu kendi hesabından
-   seçili Polat sohbetine gönüllü test mesajı gönderir. `discover_business` en fazla10
+   seçili Jeff sohbetine gönüllü test mesajı gönderir. `discover_business` en fazla10
    update okur; offset/ACK/drop yapmaz. getUpdates allowed_updates filtresinin
    Telegram'da kalıcı etkisi olabileceği için eski/üretim botunda kullanılmaz.
    Webhook409 varsa otomatik silme/yeniden kurma yapılmaz, sonuç BLOCKED'dır.
@@ -478,7 +478,7 @@ Gerçek token, kod, secret veya session string chat/rapor/CI artifact'e yazılma
    pozitif permission authority değildir. Her gerçek send öncesinde yeniden sabit
    getBusinessConnection okunur; permission drift gönderimi durdurur.
 6. Exact deployed SHA/notice/window/canary-accounting/operator şartlarından sonra
-   founder invitation oluşturulur. `/start <one-time-code>` Polat ile seçili
+   founder invitation oluşturulur. `/start <one-time-code>` Jeff ile seçili
    özel sohbetten gönderilir; notice kabul edilmeden model çağrısı yoktur.
    İlk BUSINESS yolu yalnız founder'dır;10-friend BOT akışı genişletilmez.
 7. Provider-observed insan yanıtı eski AI draft'larını bloke eder; belirsiz send
@@ -615,7 +615,7 @@ An invalid count or count above4096 blocks generation; it does not truncate,
 retry, change model or discard history. The local bound uses conservative public
 maximum prices for that enforced input cap. Native usage and Phase7 QA are still
 required. The codec discards unrecognized outer transport metadata while keeping
-known response restrictions, the reserved `verified` field and actual Polat
+known response restrictions, the reserved `verified` field and actual Jeff
 output strict. Real model access, provider output and billing remain distinct.
 
 Two authorization paths use the same private recovery primitive:

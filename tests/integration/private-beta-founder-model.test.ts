@@ -1,3 +1,4 @@
+import { IDENTITY_DOMAINS_V1 } from "../../packages/contracts/src/historical/identity-domains-v1";
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { collectPrivateBetaFounderModel } from "../../scripts/private-beta-founder-model.mjs";
@@ -53,7 +54,7 @@ function response(url: string, value: unknown, status = 200, headers: Record<str
 function fixture() {
   const state = {
     program: { database_role: "postgres", program_id: ID, tenant_id: TENANT, tenant_status: "active", tenant_slug: "private-beta-fixture", outbound_messaging_enabled: false,
-      repository_sha: "b".repeat(40) as string | null, stage: "DRAFT", request_count: "0", generation: "1", manifest_hash: "c".repeat(64), authorization_record_hash: "d".repeat(64), model_provider: "openai", model_name: "gpt-6.1-sol", notice_version: "polat-private-beta-notice-openai-v1" },
+      repository_sha: "b".repeat(40) as string | null, stage: "DRAFT", request_count: "0", generation: "1", manifest_hash: "c".repeat(64), authorization_record_hash: "d".repeat(64), model_provider: "openai", model_name: "gpt-6.1-sol", notice_version: "jeff-private-beta-notice-openai-v1" },
     model: { id: "gpt-6.1-sol", object: "model", created: 1, owned_by: "openai" }, pricing, policy, modelHeaders: {} as Record<string, string>,
     stored: null as null | { observation: Record<string, unknown>; pricing: Record<string, unknown> }, readbackChange: (_stored: unknown): unknown => _stored,
     readbackRole: "postgres", writeStatus: 200, writes: [] as string[], sql: [] as string[],
@@ -111,7 +112,7 @@ describe("protected founder model/pricing collector, offline fixed HTTP and SQL 
     expect(result).toMatchObject({ state: "RECORDED", database_observation_write: "VERIFIED", actual_inference_requests: 0, owner_authority: "NOT_GRANTED", provider_billing: "UNKNOWN", provider_enforced_cap: "UNVERIFIED", actual_billed_amount: null, database_authority_written: false, financial_authority: "NONE", commercial_pilot: "NO_GO" });
     expect(f.request.mock.calls.map(call => call[0])).toEqual([DB, MODEL, PRICING, POLICY, DB, DB]);
     expect(stored.observation).toMatchObject({ version: 1, origin: "PROTECTED_OPENAI_MODEL_AND_PRICING_OBSERVATION", program_id: ID, tenant_id: TENANT, repository_sha: SHA, organization_id: "org-fixture", project_id: "proj_fixture", credential_sha256: hash(KEY), account_scope_hash: hash(JSON.stringify(["OPENAI_PROJECT1", "org-fixture", "proj_fixture"])), model_access: true, policy_hash: hash(policy), observed_at: new Date(AT).toISOString(), expires_at: new Date(AT + 86400000).toISOString() });
-    expect(stored.observation.credential_custody_hash).toBe(hash(JSON.stringify(["POLAT_UAT_CREDENTIAL_CUSTODY1", stored.observation.account_scope_hash, hash(KEY)])));
+    expect(stored.observation.credential_custody_hash).toBe(hash(JSON.stringify([IDENTITY_DOMAINS_V1["JEFF_UAT_CREDENTIAL_CUSTODY1"], stored.observation.account_scope_hash, hash(KEY)])));
     expect(stored.pricing).toMatchObject({ version: 2, source_hash: hash(pricing), maximum_input_tokens: 1050000, maximum_input_usd_per_million: "4.4", maximum_output_usd_per_million: "16.5", all_billable_components_covered: true });
     expect(f.state.writes).toHaveLength(1); expect(f.state.writes[0]).toContain("private.private_beta_founder_model_record"); expect(f.state.writes[0]).toContain("for update of p"); expect(f.state.writes[0]).toContain("p.generation=1");
     expect(f.state.writes[0]).not.toMatch(/admin_private_beta|account_control_record|transition|grant execute|insert into/iu);

@@ -15,7 +15,7 @@ not redeploy, migrate, enable a model, send Telegram messages or activate commer
    A failed assertion, timeout, unknown connection outcome or incomplete artifact
    is not acceptance. No hosted pgTAP extension or permanent helper is installed.
 4. Verify the founder UI **separately**, using the founder's actual authenticated
-   Admin account and MFA at `/admin/polat-operations/campaigns`. Confirm the correct
+   Admin account and MFA at `/admin/jeff-operations/campaigns`. Confirm the correct
    tenant, TR/EN labels, keyboard/mobile usability and batch/plan selectors. Record
    the deployed SHA, actual operator, time and observed result privately. The
    SQL fixture's `aal2` claims are not a real login or UI test.

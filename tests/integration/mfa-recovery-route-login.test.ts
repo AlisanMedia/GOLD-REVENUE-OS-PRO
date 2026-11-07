@@ -56,7 +56,7 @@ describe("existing-account reauthentication return path", () => {
     expect(html).toContain('name="mfa_recovery"'); expect(html).toContain("same account"); expect(html).toContain('autoComplete="current-password"'); expect(html).not.toContain("data:image"); expect(state.signin).not.toHaveBeenCalled(); expect(state.recover).not.toHaveBeenCalled();
   });
   it("reauthenticates through the existing password API and returns only to the fixed private MFA panel", async () => {
-    await expect(signIn(form())).rejects.toThrow("FIXTURE_REDIRECT:/admin/polat-operations?view=beta#private-beta-mfa-title");
+    await expect(signIn(form())).rejects.toThrow("FIXTURE_REDIRECT:/admin/jeff-operations?view=beta#private-beta-mfa-title");
     expect(state.signin).toHaveBeenCalledExactlyOnceWith({ email: "fixture@example.invalid", password: "SYNTHETIC_EXISTING_PASSWORD" }); expect(state.recover).not.toHaveBeenCalled();
   });
   it("retains the recovery context after invalid credentials and does not grant recovery from a form flag", async () => {

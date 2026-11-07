@@ -56,29 +56,29 @@ export * from "./signal-parser";
 export * from "./signal-wave";
 
 export * from "./signal-review";
-export * from "./polat-conversation";
-export * from "./polat-private-beta-runtime";
-export * from "./polat-response";
+export * from "./jeff-conversation";
+export * from "./jeff-private-beta-runtime";
+export * from "./jeff-response";
 
-export * from "./polat-sales";
+export * from "./jeff-sales";
 export * from "./campaign";
 export * from "./campaign-import";
 
-export * from "./polat-evaluation";
-export * from "./polat-contact";
-export * from "./polat-runtime-profile";
-export * from "./polat-multiturn-corpus";
-export * from "./polat-multiturn-evaluation";
+export * from "./jeff-evaluation";
+export * from "./jeff-contact";
+export * from "./jeff-runtime-profile";
+export * from "./jeff-multiturn-corpus";
+export * from "./jeff-multiturn-evaluation";
 
-export * from "./polat-model-evaluation";
+export * from "./jeff-model-evaluation";
 
-export * from "./polat-model-acceptance";
+export * from "./jeff-model-acceptance";
 
-export * from "./polat-multiturn-v2-corpus";
-export * from "./polat-multiturn-v2-evaluation";
+export * from "./jeff-multiturn-v2-corpus";
+export * from "./jeff-multiturn-v2-evaluation";
 
-export * from "./polat-human-review";
-export * from "./polat-human-review-form";
+export * from "./jeff-human-review";
+export * from "./jeff-human-review-form";
 
-export * from "./polat-campaign-runtime";
+export * from "./jeff-campaign-runtime";
 export * from "./telegram-stars-commerce";

@@ -14,9 +14,9 @@ geçerlidir. Yeni bir approval sistemi veya finansal ledger oluşturulmaz.
 Temiz, korunmuş main checkout'unda, Node24/pinned pnpm ile:
 
 ```sh
-node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs \
+node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs \
   ./scripts/master-release-manifest.mjs > /tmp/gold-release-inventory.json
-node --experimental-transform-types --import ./scripts/polat-typescript-resolver.mjs \
+node --experimental-transform-types --import ./scripts/jeff-typescript-resolver.mjs \
   ./scripts/master-release-manifest.mjs --check /tmp/gold-release-inventory.json
 ```
 
@@ -120,7 +120,7 @@ Resmi kaynaklar, 25 Ekim 2026 okunmuştur:
 [BusinessBotRights](https://core.telegram.org/bots/api#businessbotrights),
 [sendMessage](https://core.telegram.org/bots/api#sendmessage).
 
-Normal bot hesabı Polat'ın kişisel hesabı değildir. Username ve geçmiş numeric
+Normal bot hesabı Jeff'ın kişisel hesabı değildir. Username ve geçmiş numeric
 ID sahiplik veya bugünkü Business/channel yetkisi değildir. Normal üye session'ı
 da bot API ile kaynak kanal okuma hakkı sağlamaz. Business kullanımında
 server-verified connection ID, bağlı gerçek kullanıcı/bot kimlikleri,

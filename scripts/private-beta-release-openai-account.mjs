@@ -3,7 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { parsePrivateBetaAccountProgram } from './private-beta-release-account.mjs';
-import { parsePolatClaudeJson } from '../packages/domain/src/polat-claude-json.ts';
+import { parseJeffClaudeJson } from '../packages/domain/src/jeff-claude-json.ts';
 
 const MODEL = 'gpt-6.1-sol';
 const DATABASE_URL = 'https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/database/query';
@@ -51,7 +51,7 @@ async function readJson(url, init, request, validateRaw) {
       assert(complete, 'OPENAI_PREFLIGHT_RESPONSE_BOUND');
     } finally { void reader.cancel().catch(() => undefined); reader.releaseLock(); }
     let raw, value;
-    try { raw = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes)); value = parsePolatClaudeJson(raw, 16384); }
+    try { raw = new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes)); value = parseJeffClaudeJson(raw, 16384); }
     catch { throw Error('OPENAI_PREFLIGHT_JSON_INVALID'); }
     if (validateRaw) validateRaw(raw);
     return { value, response_hash: hash(raw) };
@@ -77,7 +77,7 @@ export async function observePrivateBetaOpenAIAccount({ env, request = fetch, no
     assert(/^org[-_][A-Za-z0-9_-]{1,120}$/u.test(organization ?? '') && /^proj_[A-Za-z0-9_-]{1,120}$/u.test(project ?? ''), 'OPENAI_SCOPE_REQUIRED');
     const raw = await readJson(DATABASE_URL, { method: 'POST', headers: { authorization: 'Bearer ' + env.SUPABASE_ACCESS_TOKEN, 'content-type': 'application/json' }, body: JSON.stringify({ query: privateBetaOpenAIAccountQuery(programId) }) }, request);
     const program = parsePrivateBetaAccountProgram(raw.value, programId, env.VALIDATED_SHA), selected = raw.value[0]?.private_beta_program;
-    assert(selected?.model_provider === 'openai' && selected.model_name === MODEL && selected.notice_version === 'polat-private-beta-notice-openai-v1', 'OPENAI_PROGRAM_SELECTION_REQUIRED');
+    assert(selected?.model_provider === 'openai' && selected.model_name === MODEL && selected.notice_version === 'jeff-private-beta-notice-openai-v1', 'OPENAI_PROGRAM_SELECTION_REQUIRED');
     modelRequests++;
     const model = await readJson(MODEL_URL, { method: 'GET', headers: { authorization: 'Bearer ' + env.OPENAI_API_KEY, 'OpenAI-Organization': organization, 'OpenAI-Project': project, accept: 'application/json' } }, request);
     const value = model.value;

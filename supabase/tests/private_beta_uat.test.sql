@@ -12,7 +12,7 @@ select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(901,'2000'))->'
 select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(901,'2000'))->'program'->>'account_state','MISSING','missing independent account evidence is visible');
 select throws_ok($q$select public.admin_private_beta_transition_v1(pg_temp.beta_id(901,'2000'),pg_temp.beta_id(901,'3000'),'CANARY',1)$q$,'55000','PRIVATE_BETA_PREREQUISITES_MISSING','owner approval alone cannot fabricate account authority');
 select throws_ok($q$select public.admin_private_beta_configure_v1(pg_temp.beta_id(901,'2000'),pg_temp.beta_id(901,'3000'),(select (config||'{"account_verified":true}'::jsonb)::text from private_beta_cases where n=901))$q$,'22023','PRIVATE_BETA_INVALID','unexpected authority fields fail strict schema');
-select throws_ok($q$select private.private_beta_configuration('{"repository_sha":null,"starts_at":null,"expires_at":null,"retention_days":7,"retention_days":30,"notice_version":"polat-private-beta-notice-v1","primary_operator":null,"backup_operator":null}')$q$,'22023','FSE_INVALID','duplicate raw JSON keys rejected before JSONB');
+select throws_ok($q$select private.private_beta_configuration('{"repository_sha":null,"starts_at":null,"expires_at":null,"retention_days":7,"retention_days":30,"notice_version":"jeff-private-beta-notice-v1","primary_operator":null,"backup_operator":null}')$q$,'22023','FSE_INVALID','duplicate raw JSON keys rejected before JSONB');
 select throws_ok($q$select private.private_beta_configuration((select jsonb_set(config,'{retention_days}','31')::text from private_beta_cases where n=901))$q$,'22023','PRIVATE_BETA_INVALID','retention limit is server bounded');
 select pg_temp.beta_auth(901,'owner','aal1');
 select throws_ok($q$select public.admin_private_beta_invite_v1(pg_temp.beta_id(901,'2000'),pg_temp.beta_id(901,'3000'),'FOUNDER',pg_temp.beta_id(1,'6000'))$q$,'42501','PRIVATE_BETA_UNAVAILABLE','aal1 cannot create beta invitations');
@@ -53,8 +53,8 @@ select is((select request_count from private.private_beta_programs where id=pg_t
 select is(public.private_beta_begin_v1(pg_temp.beta_id(901,'2000'),pg_temp.beta_id(901,'3000'),(select(canary->>'attempt_id')::uuid from private_beta_cases where n=901),pg_temp.beta_id(901,'5000'))->>'dispatch','false','unknown remote completion is never blindly retried');
 select throws_ok($q$select public.admin_private_beta_transition_v1(pg_temp.beta_id(901,'2000'),pg_temp.beta_id(901,'3000'),'FOUNDER',2)$q$,'55000','PRIVATE_BETA_PREREQUISITES_MISSING','unreconciled canary does not enable founder traffic');
 select throws_ok($q$update private.private_beta_programs set request_count=0 where id=pg_temp.beta_id(901,'3000')$q$,'42501','PRIVATE_BETA_IMMUTABLE','global budget cannot be reset');
-select throws_ok($q$delete from private.polat_experiment_evidence where tenant_id=pg_temp.beta_id(901,'2000')$q$,'42501','FSE_IMMUTABLE','genuine-mode observation evidence remains append-only');
-select is(jsonb_array_length(public.admin_polat_experiment_page_v1(pg_temp.beta_id(901,'2000'))->'items'),0,'legacy offline tab never mislabels a genuine UAT run as simulated');
+select throws_ok($q$delete from private.jeff_experiment_evidence where tenant_id=pg_temp.beta_id(901,'2000')$q$,'42501','FSE_IMMUTABLE','genuine-mode observation evidence remains append-only');
+select is(jsonb_array_length(public.admin_jeff_experiment_page_v1(pg_temp.beta_id(901,'2000'))->'items'),0,'legacy offline tab never mislabels a genuine UAT run as simulated');
 select pg_temp.beta_auth(901,'support');
 select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(901,'2000'))->'program'->>'reserved_liability',null,'support receives no liability reservation');
 select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(901,'2000'))->'program'->>'currency',null,'support currency is redacted with monetary details');

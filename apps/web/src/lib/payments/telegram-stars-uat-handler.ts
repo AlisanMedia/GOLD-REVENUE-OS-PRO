@@ -1,3 +1,5 @@
+import { jeffTransportHeaders } from "../jeff/transport-headers";
+import { IDENTITY_DOMAINS_V1 } from "@gold-revenue-os/contracts";
 import "server-only";
 import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
@@ -16,14 +18,17 @@ type Dependencies = {
 };
 const reply = (status: number, code: string) => Response.json({ ok: status === 200, status: code }, { status, headers: { "cache-control": "no-store" } });
 const digest = (s: string) => createHash("sha256").update(s, "utf8").digest();
-export const starsUatRelaySignature = (raw: string, timestamp: string, secret: string) => createHmac("sha256", secret).update(JSON.stringify(["POLAT_UAT_STARS_RELAY1", timestamp, createHash("sha256").update(raw, "utf8").digest("hex")])).digest("hex");
+export const starsUatRelaySignature = (raw: string, timestamp: string, secret: string) => createHmac("sha256", secret).update(JSON.stringify([IDENTITY_DOMAINS_V1["JEFF_UAT_STARS_RELAY1"], timestamp, createHash("sha256").update(raw, "utf8").digest("hex")])).digest("hex");
 
 /** Separate authenticated TEST route. No invoice creation, ordinary messaging, model dispatch or genuine payment authority. */
 export async function processTelegramStarsUatWebhook(request: Request, deps: Dependencies): Promise<Response> {
   const now = deps.now ?? Date.now, c = deps.config;
   if (request.method !== "POST") return reply(405, "METHOD_NOT_ALLOWED");
   if (!z.uuid().safeParse(c.tenantId).success || !z.uuid().safeParse(c.programId).success || !/^[A-Za-z0-9_-]{32,256}$/u.test(c.webhookSecret) || !/^[A-Za-z0-9_-]{32,256}$/u.test(c.relaySecret)) return reply(503, "STARS_TEST_NOT_CONFIGURED");
-  const secret = request.headers.get("x-telegram-bot-api-secret-token"), timestamp = request.headers.get("x-polat-stars-uat-timestamp"), signature = request.headers.get("x-polat-stars-uat-signature");
+  const secret = request.headers.get("x-telegram-bot-api-secret-token");
+  let timestamp: string, signature: string | null;
+  try { ({ timestamp, signature } = jeffTransportHeaders(request.headers, "stars")); }
+  catch { return reply(401, "STARS_TEST_AUTHENTICATION_REQUIRED"); }
   if (!secret || !timingSafeEqual(digest(secret), digest(c.webhookSecret)) || !timestamp || !/^[0-9]{10}$/u.test(timestamp) || !signature || !/^[a-f0-9]{64}$/u.test(signature)
     || !Number.isFinite(now()) || Math.abs(now() - Number(timestamp) * 1000) > 300000) return reply(401, "STARS_TEST_AUTHENTICATION_REQUIRED");
   if (!/^application\/json(?:\s*;|$)/iu.test(request.headers.get("content-type") ?? "")) return reply(415, "JSON_REQUIRED");
@@ -78,8 +83,8 @@ export async function processTelegramStarsUatWebhook(request: Request, deps: Dep
 }
 
 export async function handleTelegramStarsUatWebhook(request: Request): Promise<Response> {
-  const tenantId = process.env.POLAT_UAT_TENANT_ID ?? "", programId = process.env.POLAT_UAT_PROGRAM_ID ?? "";
-  const config = { tenantId, programId, webhookSecret: process.env.POLAT_UAT_STARS_TEST_WEBHOOK_SECRET ?? "", relaySecret: process.env.POLAT_UAT_STARS_RELAY_SECRET ?? "" };
+  const tenantId = process.env.JEFF_UAT_TENANT_ID ?? "", programId = process.env.JEFF_UAT_PROGRAM_ID ?? "";
+  const config = { tenantId, programId, webhookSecret: process.env.JEFF_UAT_STARS_TEST_WEBHOOK_SECRET ?? "", relaySecret: process.env.JEFF_UAT_STARS_RELAY_SECRET ?? "" };
   const rpc = async (name: string, args: Record<string, unknown>): Promise<unknown> => {
     const r = await createSupabaseAdminClient().rpc(name, { target_tenant_id: tenantId, program_id_value: programId, ...args });
     if (r.error) throw Error("STARS_TEST_STORE_UNAVAILABLE"); return r.data as unknown;
