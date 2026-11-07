@@ -3,7 +3,8 @@
 - Old identity: Polat.
 - New identity: Jeff.
 - Telegram Business representative: @jeffryfx.
-- Implementation commit: `4052fc86a3e2ed8bd864fa4db0e4b9c31064f04f`.
+- Initial refactor commit: `4052fc86a3e2ed8bd864fa4db0e4b9c31064f04f`.
+- Final migration implementation commit: `78dd9906b11728d6cc8f05bd7a4f012f06288753`.
 - Protected baseline: `96aa1c83dab1ffaff0975dfa0f62d33c38c48d8f`.
 
 The existing runtime continues with the same data, tenant/program, CRM, model journal,
