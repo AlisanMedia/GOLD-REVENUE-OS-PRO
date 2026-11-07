@@ -7,7 +7,9 @@ export const JEFF_OPENAI_CODEC = "openai-responses-v1" as const;
 const counter = z.number().int().min(0).max(2147483647);
 export const jeffOpenAIUsageSchema = z.strictObject({
   input_tokens: counter, output_tokens: counter, total_tokens: counter,
-  input_tokens_details: z.strictObject({ cached_tokens: counter, cache_write_tokens: counter.optional() }).optional(),
+  input_tokens_details: z.strictObject({ cached_tokens: counter, cache_write_tokens: counter.optional(),
+    cache_write_tokens_details: z.strictObject({ ttl_12h_tokens: counter, ttl_30m_tokens: counter }).optional(),
+  }).optional(),
   output_tokens_details: z.strictObject({ reasoning_tokens: counter }).optional(),
 }).superRefine((u, ctx) => {
   if (u.total_tokens !== u.input_tokens + u.output_tokens) ctx.addIssue({ code: "custom", message: "OPENAI_USAGE_TOTAL_CONFLICT" });
@@ -15,5 +17,8 @@ export const jeffOpenAIUsageSchema = z.strictObject({
     || (u.input_tokens_details?.cached_tokens ?? 0) + (u.input_tokens_details?.cache_write_tokens ?? 0) > u.input_tokens)
     ctx.addIssue({ code: "custom", message: "OPENAI_USAGE_INPUT_CONFLICT" });
   if ((u.output_tokens_details?.reasoning_tokens ?? 0) > u.output_tokens) ctx.addIssue({ code: "custom", message: "OPENAI_USAGE_REASONING_CONFLICT" });
+  const writes = u.input_tokens_details?.cache_write_tokens_details;
+  if (writes && writes.ttl_12h_tokens + writes.ttl_30m_tokens !== (u.input_tokens_details?.cache_write_tokens ?? 0))
+    ctx.addIssue({ code: "custom", message: "OPENAI_USAGE_CACHE_WRITE_CONFLICT" });
 });
 export type JeffOpenAIUsage = z.infer<typeof jeffOpenAIUsageSchema>;

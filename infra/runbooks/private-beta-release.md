@@ -789,3 +789,29 @@ Aynı kurulum işi telefon bağlantısını beklerken mevcut discovery işlemini
 21 başarılı gözlemle yeniler. Yalnız teyitli ve kalıcı boş/eksik aday sonucu sonraki
 gözleme izin verir; webhook çatışması, timeout veya sonucu belirsiz DB yazısı işi
 durdurur. Yeni bir canary, mesaj, owner grant veya bağlantı yetkisi üretilmez.
+
+## 7 November 2026 — observed usage-schema repair
+
+The actual owner request at15:53UTC failed with
+`OPENAI_UAT_ENVELOPE_INVALID_USAGE`. Attempt
+`284b4fc0-c1c5-4ae6-8498-1b35abb74a50` remains UNKNOWN/NOT_EVALUATED;
+there is no verified model reply or Telegram delivery. The official Responses
+usage contract includes optional `input_tokens_details.cache_write_tokens_details`
+with `ttl_12h_tokens` and `ttl_30m_tokens`; the previous strict codec omitted it.
+The corrected strict schema validates both counters and their sum against
+`cache_write_tokens`. Nonzero cache writes, conflicting totals and unknown charge
+fields still hold. No raw rejected response was retained, so the missing documented
+field is a reproduced compatibility defect, not a claim that the historical raw
+response or bill has been recovered.
+
+Migration86 permits one explicit repair through the SAME v5 continuation RPC only
+for the exact third usage-envelope UNKNOWN, three stopped journals, no Business
+control/invite/participant, and a different protected published SHA with fresh
+model observations. Actual owner MFA remains required. All three UNKNOWN attempts,
+liabilities and the original5USD cap remain unchanged. The next canary has global
+ordinal4; a fifth canary or repeated repair is denied. The initial v5 path still
+allows ordinal3 only. There is no runner grant, automatic regeneration, journal
+rewrite, debt release or additional runtime. The read-only backup exception accepts
+only this selected fully stopped three-UNKNOWN state; all unrelated/live programs
+still block publication. Business registration and dialogue require the new genuine
+canary, actual numeric connection/chat evidence, real permission readback and consent.

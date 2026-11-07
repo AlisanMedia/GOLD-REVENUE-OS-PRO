@@ -208,7 +208,7 @@
       "path": "infra/sql/private-beta-recovery-fingerprint.sql",
       "occurrences": 2,
       "reason": "Read-only pre-migration catalog namespace detection; never changes a held program or permits a retry.",
-      "sha256": "e8c34d0bcc4d8cb894e17cc3c726dd2592e6f94de1fd4b4249e589ab5d1fb4f9"
+      "sha256": "71281d66d67cd081a038d8df1ee6a4b367b6a3a1ccb79a8370d96b557b734427"
     },
     {
       "path": "packages/contracts/src/historical/identity-domains-v1.ts",
@@ -352,7 +352,7 @@
       "path": "supabase/tests/private_beta_founder_continuation.test.sql",
       "occurrences": 1,
       "reason": "Production-shaped pre-rename notice fixture; fresh owner continuation normalizes the notice while preserving the original configuration in audit history.",
-      "sha256": "1eca474ca1449374a1c4040a62d0f1d2efeb36983e745330fa5c42087a32f852"
+      "sha256": "8e4b8575aba40a789364c9b98fca6be801104f7541d682dd22af29914ec27925"
     },
     {
       "path": "tests/integration/jeff-identity-migration.test.ts",
@@ -364,7 +364,7 @@
       "path": "vercel.json",
       "occurrences": 18,
       "reason": "Historical branch names remain deployment-disabled; no old active product route or identity.",
-      "sha256": "82b37904ce937f9cd0e3be5d9db66d8f19af22b0b3fc1bac6f070f23046b822f"
+      "sha256": "bf70ee402ce36b06ba4dc27409e25b01e3117f57b1e31f4764beec0373c4cb25"
     },
     {
       "path": "docs/identity-legacy-reference-inventory.json",

@@ -144,6 +144,15 @@ describe("protected founder model/pricing collector, offline fixed HTTP and SQL 
       expect(denied.state.writes).toHaveLength(0);
     }
   });
+  it("collects metadata for only the server-eligible third usage-envelope repair", async () => {
+    const f = fixture(); Object.assign(f.state.program, { stage: "CANARY", request_count: "3", continuation_available: true });
+    expect(await f.run()).toMatchObject({ state: "RECORDED", actual_inference_requests: 0 });
+    expect(f.state.writes).toHaveLength(1);
+    const denied = fixture(); Object.assign(denied.state.program, { stage: "CANARY", request_count: "3", continuation_available: false });
+    expect(await denied.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_PROGRAM_REQUIRED" });
+    expect(denied.state.writes).toHaveLength(0);
+  });
+
   it("reads the preserved notice only for the exact two-attempt continuation and rechecks it under the write lock and readback", async () => {
     const f = fixture(), notice = IDENTITY_WIRE_V1["jeff-private-beta-notice-openai-v1"];
     Object.assign(f.state.program, { notice_version: notice, stage: "CANARY", request_count: "2", continuation_available: true });

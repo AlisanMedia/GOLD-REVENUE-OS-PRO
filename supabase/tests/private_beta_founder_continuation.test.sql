@@ -126,5 +126,59 @@ select ok(private.private_beta_founder_canary_hash((select p from private.privat
 select ok(private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6301,'3000'))),'Business setup allowed after third-ordinal success');
 select throws_ok($q$select public.admin_private_beta_transition_v1(pg_temp.beta_id(6301,'2000'),pg_temp.beta_id(6301,'3000'),'FOUNDER',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6301,'3000')))$q$,'55000',null,'Telegram permission still required');
 select is((select count(*)::int from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=pg_temp.beta_id(6301,'3000')and e.stage='RECONCILIATION'),0,'no billing fabricated');
+-- Narrow continuation after the genuine usage-schema defect. All following
+-- identities, authentication and results are disposable fixtures, not real UAT.
+create function pg_temp.usage_unknown(n integer,error_value text default 'OPENAI_UAT_ENVELOPE_INVALID_USAGE') returns void language plpgsql as $$declare r jsonb;begin
+ perform pg_temp.continuation_unknown(n);perform pg_temp.continuation_observe(n);perform pg_temp.beta_auth(n);perform pg_temp.continuation_start(n);
+ r:=public.private_beta_reserve_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),pg_temp.beta_id(n,'4010'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(n,'4011'));
+ perform public.private_beta_begin_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),(r->>'attempt_id')::uuid,pg_temp.beta_id(n,'5010'));
+ perform public.private_beta_record_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),(r->>'attempt_id')::uuid,pg_temp.beta_id(n,'5010'),(pg_temp.beta_outcome('UNKNOWN','RESULT_UNKNOWN','NOT_EVALUATED')||jsonb_build_object('error_code',error_value))::text);
+end;$$;
+create function pg_temp.usage_observe(n integer) returns void language plpgsql as $$declare v jsonb;begin
+ v:=pg_temp.founder_model_fixture(n);v:=jsonb_set(v,'{observation,repository_sha}',to_jsonb(repeat('d',40)));
+ perform private.private_beta_founder_model_record(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),v::text);
+end;$$;
+create function pg_temp.usage_start(n integer) returns jsonb language plpgsql as $$declare p private.private_beta_programs;begin
+ select * into strict p from private.private_beta_programs where id=pg_temp.beta_id(n,'3000');
+ return public.admin_private_beta_continue_founder_test_v1(p.tenant_id,p.id,p.generation,repeat('d',40));end;$$;
+select pg_temp.usage_unknown(6303);
+select pg_temp.usage_unknown(6304,'OPENAI_UAT_TIMEOUT_UNKNOWN');
+select ok(private.private_beta_usage_repair_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6303,'3000'))),'only exact third usage UNKNOWN is a repair candidate');
+select ok(not private.private_beta_usage_repair_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6304,'3000'))),'unrelated third failure cannot use usage repair');
+select pg_temp.beta_auth(6303);
+select throws_ok($q$select pg_temp.usage_start(6303)$q$,'55000',null,'repair needs metadata from a different published commit');
+select lives_ok($q$select pg_temp.usage_observe(6303)$q$,'same protected observer records repair metadata without inference');
+select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(6303,'2000'),25,null)#>>'{program,canary_state}','CONTINUATION_AVAILABLE','same panel offers explicit usage repair');
+create temp table usage_before as select p.id,
+ (select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join private.private_beta_attempt_scope s on s.attempt_id=a.id where s.program_id=p.id)as attempts,
+ (select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=p.id)as evidence,
+ p.configuration as configuration,p.account_control as account_control
+ from private.private_beta_programs p where id=pg_temp.beta_id(6303,'3000');
+select pg_temp.beta_auth(6303,'owner','aal1');
+select throws_ok($q$select pg_temp.usage_start(6303)$q$,'42501',null,'usage repair requires actual aal2');
+select pg_temp.beta_auth(6303,'owner','aal2',301);
+select throws_ok($q$select pg_temp.usage_start(6303)$q$,'42501',null,'usage repair rejects stale MFA');
+select pg_temp.beta_auth(6304);
+select throws_ok($q$select pg_temp.usage_start(6303)$q$,'42501',null,'usage repair rejects foreign owner');
+select pg_temp.beta_auth(6303);
+select throws_ok($q$select public.admin_private_beta_continue_founder_test_v1(pg_temp.beta_id(6303,'2000'),pg_temp.beta_id(6303,'3000'),1,repeat('d',40))$q$,'42501',null,'usage repair rejects stale generation');
+select lives_ok($q$select pg_temp.usage_start(6303)$q$,'fresh owner reuses same continuation RPC after reviewed usage fix');
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6303,'3000')),3,'three consumed requests preserved before new generation');
+select is((select reserved_liability from private.private_beta_programs where id=pg_temp.beta_id(6303,'3000')),4.6813888::numeric,'all three original reservations preserved');
+select is((select jsonb_array_length(account_control->'retained_unknown_attempts')from private.private_beta_programs where id=pg_temp.beta_id(6303,'3000')),3,'all three exact UNKNOWN debts retained');
+select is((select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join private.private_beta_attempt_scope s on s.attempt_id=a.id where s.program_id=pg_temp.beta_id(6303,'3000')),(select attempts from usage_before),'repair leaves historical attempts byte-for-byte unchanged');
+select is((select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=pg_temp.beta_id(6303,'3000')),(select evidence from usage_before),'repair leaves all UNKNOWN evidence byte-for-byte unchanged');
+select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(6303,'3000')),true)->>'maximum_requests','4','only fourth global ordinal allowed');
+select throws_ok($q$select pg_temp.usage_start(6303)$q$,'42501',null,'usage repair cannot repeat');
+select throws_ok($q$update private.private_beta_programs set account_control=jsonb_set(account_control,'{retained_unknown_attempts}','[]'::jsonb)where id=pg_temp.beta_id(6303,'3000')$q$,'42501',null,'retained third debt cannot be removed');
+create temp table usage_new as select public.private_beta_reserve_v1(pg_temp.beta_id(6303,'2000'),pg_temp.beta_id(6303,'3000'),pg_temp.beta_id(6303,'4012'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6303,'4013'))as receipt;
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6303,'3000')),4,'new canary increments existing global count');
+select is(private.private_beta_exposure(pg_temp.beta_id(6303,'3000')),4.7078592::numeric,'fourth attempt remains under original 5USD ceiling');
+select throws_ok($q$select public.private_beta_reserve_v1(pg_temp.beta_id(6303,'2000'),pg_temp.beta_id(6303,'3000'),pg_temp.beta_id(6303,'4014'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6303,'4015'))$q$,'54000',null,'fifth canary denied');
+select public.private_beta_begin_v1(pg_temp.beta_id(6303,'2000'),pg_temp.beta_id(6303,'3000'),(select(receipt->>'attempt_id')::uuid from usage_new),pg_temp.beta_id(6303,'5012'));
+select lives_ok($q$select public.private_beta_record_v1(pg_temp.beta_id(6303,'2000'),pg_temp.beta_id(6303,'3000'),(select(receipt->>'attempt_id')::uuid from usage_new),pg_temp.beta_id(6303,'5012'),pg_temp.founder_observed_result()::text)$q$,'native QA/usage result can pass after repaired decoder');
+select ok(private.private_beta_founder_canary_hash((select p from private.private_beta_programs p where id=pg_temp.beta_id(6303,'3000')))is not null,'successful new canary is distinct from three historical UNKNOWNs');
+select ok(private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6303,'3000'))),'Business setup accepts fourth-ordinal canary only after success');
+select throws_ok($q$select public.admin_private_beta_transition_v1(pg_temp.beta_id(6303,'2000'),pg_temp.beta_id(6303,'3000'),'FOUNDER',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6303,'3000')))$q$,'55000',null,'real Telegram permissions still required after repair');
 select finish();
 rollback;
