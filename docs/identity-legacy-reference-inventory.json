@@ -136,7 +136,7 @@
       "path": "POLAT_TO_JEFF_IDENTITY_MIGRATION.md",
       "occurrences": 1,
       "reason": "Owner-required migration note naming the old identity and historical compatibility.",
-      "sha256": "9d26d7e93d3f1fa7732e6c3759b44a4b2fb92e780441980d210cd271a0f2211d"
+      "sha256": "47d0747ea229c4e76c7e7ca1bc5dd7cbe4538f7757a0538fe13fa7a20ec165a5"
     },
     {
       "path": "POLAT_V2_CORPUS_REPORT.md",
