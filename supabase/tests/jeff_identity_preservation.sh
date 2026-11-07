@@ -25,6 +25,12 @@ for jeff_migration in supabase/migrations/*.sql;do
  jeff_sql <"$jeff_migration" >>"$jeff_tmp/schema.log" 2>&1
 done
 jeff_sql <supabase/tests/helpers/historical/identity_before.sql >"$jeff_tmp/seed.log" 2>&1
+# A different numeric owner must roll back the WHOLE migration, including catalog renames.
+jeff_sql -c "update public.tenant_members set user_id='9b001001-0000-4000-8000-000000006201'where tenant_id='a0a4bbf0-2246-4c36-95d1-3105e3557ffe';" >/dev/null
+if jeff_sql <supabase/migrations/20261107091336_jeff_identity_namespace.sql >"$jeff_tmp/owner-denied.log" 2>&1;then echo 'IDENTITY_UNRELATED_OWNER_ACCEPTED' >&2;exit 1;fi
+grep -q 'JEFF_IDENTITY_TENANT_OWNER_MISMATCH' "$jeff_tmp/owner-denied.log"
+jeff_sql -c "do \$\$ begin if to_regclass('private.jeff_experiment_runs')is not null then raise exception 'IDENTITY_DENIAL_NOT_ATOMIC';end if;end;\$\$;" >/dev/null
+jeff_sql -c "update public.tenant_members set user_id='9b001000-0000-4000-8000-000000006201'where tenant_id='a0a4bbf0-2246-4c36-95d1-3105e3557ffe';" >/dev/null
 jeff_sql <supabase/migrations/20261107091336_jeff_identity_namespace.sql >"$jeff_tmp/migration.log" 2>&1
 jeff_sql <supabase/tests/helpers/jeff_identity_after.sql
 printf '%s\n' 'PASS: in-place catalog OIDs/ACL/RLS, two UNKNOWN attempts, full 4.6549184 reservation, immutable evidence, old RPC privileges and unrelated identity preserved.'

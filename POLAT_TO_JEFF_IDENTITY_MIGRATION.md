@@ -21,6 +21,8 @@ Database migration `20261107091336_jeff_identity_namespace.sql` renames catalog 
 in place and copies old public RPC ACLs onto invoker-only forwarding shims. It checks
 that existing private rows and conversation/model/subscription history are unchanged.
 The selected current tenant/agent labels change with append-only audit records.
+The owner’s earlier unprovisioned setup tenant also receives the current name,
+only after an exact shared super-admin user ID check. Other people remain unchanged.
 Current published prompt wording receives a new version on the same agent definition;
 the old prompt stays unchanged and receives its normal superseded lifecycle marker.
 The 83 already-applied migration files and accepted historical evidence remain intact.

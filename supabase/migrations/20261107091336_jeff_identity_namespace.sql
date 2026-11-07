@@ -130,6 +130,19 @@ do $$declare old_label text;new_label text;r record;begin
  end loop;
 end;$$;
 
+-- The owner's earlier unprovisioned setup tenant is also current UI configuration.
+-- Require an exact shared super-admin UUID, never a similar name or username.
+do $$declare old_label text;new_label text;begin
+ select name into old_label from public.tenants where id='a0a4bbf0-2246-4c36-95d1-3105e3557ffe'for update;
+ if old_label~*'\mPolat\M'then
+  if not exists(select 1 from public.tenant_members a join public.tenant_members b on b.user_id=a.user_id
+   where a.tenant_id='807b9abb-af42-45a8-bf7f-1436d7af384e'and b.tenant_id='a0a4bbf0-2246-4c36-95d1-3105e3557ffe'and a.role='super_admin'and b.role='super_admin')then raise exception 'JEFF_IDENTITY_TENANT_OWNER_MISMATCH';end if;
+  new_label:=regexp_replace(old_label,'\mPolat\M','Jeff','gi');
+  update public.tenants set name=new_label where id='a0a4bbf0-2246-4c36-95d1-3105e3557ffe';
+  insert into public.audit_logs(tenant_id,actor_type,action,entity_type,entity_id,before_data,after_data)values('a0a4bbf0-2246-4c36-95d1-3105e3557ffe','SYSTEM','identity.display_name_migrated','tenants','a0a4bbf0-2246-4c36-95d1-3105e3557ffe',jsonb_build_object('name',old_label),jsonb_build_object('name',new_label,'same_verified_owner',true));
+ end if;
+end;$$;
+
 -- Publish renamed wording on the SAME existing definition. The previous prompt
 -- content/version and all references from historical runs remain unchanged;
 -- superseded_at is the normal publication-lifecycle marker, not an evidence rewrite.

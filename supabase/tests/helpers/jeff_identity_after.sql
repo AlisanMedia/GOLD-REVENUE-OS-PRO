@@ -17,6 +17,7 @@ do $$declare r record;c record;new_rpc record;old_rpc record;begin
   if exists((select grantee,privilege_type,is_grantable from aclexplode(coalesce(old_rpc.proacl,acldefault('f',old_rpc.proowner))))except(select grantee,privilege_type,is_grantable from aclexplode(coalesce(r.proacl,acldefault('f',r.proowner)))))or exists((select grantee,privilege_type,is_grantable from aclexplode(coalesce(r.proacl,acldefault('f',r.proowner))))except(select grantee,privilege_type,is_grantable from aclexplode(coalesce(old_rpc.proacl,acldefault('f',old_rpc.proowner)))))then raise exception 'IDENTITY_ALIAS_PRIVILEGES_CHANGED';end if;
  end loop;
  if(select name from public.tenants where id='807b9abb-af42-45a8-bf7f-1436d7af384e')<>'Jeff VIP'then raise exception 'IDENTITY_LABEL_NOT_MIGRATED';end if;
+ if(select name from public.tenants where id='a0a4bbf0-2246-4c36-95d1-3105e3557ffe')<>'Jeff VIP Private Beta'then raise exception 'IDENTITY_PRIOR_SETUP_LABEL_NOT_MIGRATED';end if;
  if(select name from public.tenants where id='807b9abb-af42-45a8-bf7f-1436d7af384f')<>'Unrelated Polat person'then raise exception 'IDENTITY_UNRELATED_PERSON_CHANGED';end if;
  if not exists(select 1 from public.audit_logs where action='identity.display_name_migrated'and before_data->>'name'='Polat VIP'and after_data->>'name'='Jeff VIP')then raise exception 'IDENTITY_AUDIT_MISSING';end if;
  if(select count(*)from public.agent_definitions where tenant_id='807b9abb-af42-45a8-bf7f-1436d7af384e')<>1 then raise exception 'IDENTITY_AGENT_DUPLICATED';end if;
