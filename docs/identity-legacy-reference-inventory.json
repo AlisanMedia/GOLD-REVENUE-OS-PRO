@@ -3,8 +3,8 @@
   "baseline": "96aa1c83dab1ffaff0975dfa0f62d33c38c48d8f",
   "scope": "Case-insensitive content occurrences in tracked and non-ignored source files, including this inventory; Git history and external immutable artifacts excluded.",
   "unexplained": 0,
-  "total_occurrences": 1718,
-  "files": 60,
+  "total_occurrences": 1719,
+  "files": 61,
   "entries": [
     {
       "path": ".github/workflows/private-beta-uat.yml",
@@ -349,6 +349,12 @@
       "sha256": "023d1428c491516add33572d42ca22c1bf0d327883d93241bbbee575d304604c"
     },
     {
+      "path": "supabase/tests/private_beta_founder_continuation.test.sql",
+      "occurrences": 1,
+      "reason": "Production-shaped pre-rename notice fixture; fresh owner continuation normalizes the notice while preserving the original configuration in audit history.",
+      "sha256": "1eca474ca1449374a1c4040a62d0f1d2efeb36983e745330fa5c42087a32f852"
+    },
+    {
       "path": "tests/integration/jeff-identity-migration.test.ts",
       "occurrences": 5,
       "reason": "Negative source-identity guard and explicit old-route redirect acceptance tests.",
@@ -358,7 +364,7 @@
       "path": "vercel.json",
       "occurrences": 18,
       "reason": "Historical branch names remain deployment-disabled; no old active product route or identity.",
-      "sha256": "f1c775b7d1a0b8b6f847583bf6ebc00bb8a389a8e07be688ad01f54f70315a07"
+      "sha256": "82b37904ce937f9cd0e3be5d9db66d8f19af22b0b3fc1bac6f070f23046b822f"
     },
     {
       "path": "docs/identity-legacy-reference-inventory.json",

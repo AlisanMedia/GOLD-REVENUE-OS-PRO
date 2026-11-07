@@ -29,11 +29,15 @@ export async function runPrivateBetaCanaryForOwner(input: { tenantId: string; pr
   if (guarded.error && ids.expectedGeneration !== undefined) {
     const read = await auth.rpc("admin_private_beta_workspace_v1", { target_tenant_id: ids.tenantId, page_size_value: 25, cursor_value: null });
     checkFreshMfa(read.error);
-    const recovery = z.object({ program: z.object({ id: z.literal(ids.programId), stage: z.literal("CANARY"), generation: z.literal(String(ids.expectedGeneration)), canary_state: z.literal("RECOVERY_AVAILABLE") }) }).safeParse(read.data);
+    const recovery = z.object({ program: z.object({ id: z.literal(ids.programId), stage: z.literal("CANARY"), generation: z.literal(String(ids.expectedGeneration)), canary_state: z.enum(["RECOVERY_AVAILABLE", "CONTINUATION_AVAILABLE"]) }) }).safeParse(read.data);
     if (!read.error && recovery.success) {
       const declared = process.env.JEFF_UAT_RELEASE_SHA, observed = process.env.VERCEL_GIT_COMMIT_SHA;
       if (!declared || !/^[a-f0-9]{40}$/u.test(declared) || observed !== undefined && observed !== declared) throw Error("PRIVATE_BETA_CANARY_RELEASE_SCOPE_DENIED");
-      const resumed = await auth.rpc("admin_private_beta_recover_founder_test_v1", { ...args, expected_generation_value: ids.expectedGeneration, repository_sha_value: declared });
+      // Only the authenticated workspace selects the one-use continuation. The
+      // owner RPC verifies fresh MFA and preserves both prior UNKNOWN liabilities.
+      const resumeRpc = recovery.data.program.canary_state === "CONTINUATION_AVAILABLE"
+        ? "admin_private_beta_continue_founder_test_v1" : "admin_private_beta_recover_founder_test_v1";
+      const resumed = await auth.rpc(resumeRpc, { ...args, expected_generation_value: ids.expectedGeneration, repository_sha_value: declared });
       checkFreshMfa(resumed.error);
       const receipt = z.strictObject({ program_id: z.literal(ids.programId), stage: z.literal("CANARY"), generation: z.literal(String(ids.expectedGeneration + 1)) }).safeParse(resumed.data);
       if (resumed.error || !receipt.success) throw Error("PRIVATE_BETA_CANARY_OWNER_OR_ACCOUNT_REQUIRED");

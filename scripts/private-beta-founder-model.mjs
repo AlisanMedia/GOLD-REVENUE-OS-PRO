@@ -1,4 +1,5 @@
 import { IDENTITY_DOMAINS_V1 } from "../packages/contracts/src/historical/identity-domains-v1.ts";
+import { IDENTITY_WIRE_V1 } from "../packages/contracts/src/historical/identity-wire-v1.ts";
 import { createHash } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -9,6 +10,7 @@ const DATABASE = 'https://api.supabase.com/v1/projects/xqvwkghpmezcpgugetqc/data
 const MODEL = 'https://api.openai.com/v1/models/gpt-6.1-sol';
 const PRICING = 'https://developers.openai.com/api/docs/models/gpt-6.1-sol.md';
 const POLICY = 'https://developers.openai.com/api/docs/guides/your-data.md';
+const NOTICE = 'jeff-private-beta-notice-openai-v1';
 const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/iu;
 const sha = /^[a-f0-9]{40}$/u, hash = /^[a-f0-9]{64}$/u;
 const digest = value => createHash('sha256').update(value, 'utf8').digest('hex');
@@ -83,9 +85,10 @@ function scopeMetadata(value, id, prefix) {
 function programFrom(value, id) {
   assert(Array.isArray(value) && value.length === 1, 'FOUNDER_MODEL_PROGRAM_REQUIRED');
   const p = value[0]?.private_beta_program;
+  const continuation = p?.stage === 'CANARY' && p.request_count === '2' && p.continuation_available === true;
   assert(p?.database_role === 'postgres' && p.program_id === id && uuid.test(p.tenant_id ?? '') && p.tenant_status === 'active'
-    && /^private-beta-[a-z0-9-]+$/u.test(p.tenant_slug ?? '') && p.outbound_messaging_enabled === false && (p.stage === 'DRAFT' && p.request_count === '0' || p.stage === 'CANARY' && p.request_count === '1' && p.recovery_available === true)
-    && p.model_provider === 'openai' && p.model_name === 'gpt-6.1-sol' && p.notice_version === 'jeff-private-beta-notice-openai-v1'
+    && /^private-beta-[a-z0-9-]+$/u.test(p.tenant_slug ?? '') && p.outbound_messaging_enabled === false && (p.stage === 'DRAFT' && p.request_count === '0' || p.stage === 'CANARY' && p.request_count === '1' && p.recovery_available === true || continuation)
+    && p.model_provider === 'openai' && p.model_name === 'gpt-6.1-sol' && (p.notice_version === NOTICE || continuation && p.notice_version === IDENTITY_WIRE_V1[NOTICE])
     && hash.test(p.manifest_hash ?? '') && hash.test(p.authorization_record_hash ?? '') && /^[1-9][0-9]{0,17}$/u.test(p.generation ?? '')
     && (p.repository_sha === null || sha.test(p.repository_sha ?? '')), 'FOUNDER_MODEL_PROGRAM_REQUIRED');
   return p;
@@ -121,7 +124,7 @@ export async function collectPrivateBetaFounderModel({ env, request = fetch, now
     const organization = env.OPENAI_UAT_ORGANIZATION_ID, project = env.OPENAI_UAT_PROJECT_ID, id = env.PRIVATE_BETA_PROGRAM_ID;
     assert(/^org[-_][A-Za-z0-9_-]{1,120}$/u.test(organization ?? '') && /^proj_[A-Za-z0-9_-]{1,120}$/u.test(project ?? ''), 'FOUNDER_MODEL_SCOPE_REQUIRED');
     const query = sql => readOnce(request, DATABASE, { method: 'POST', headers: { authorization: 'Bearer ' + env.SUPABASE_ACCESS_TOKEN, 'content-type': 'application/json' }, body: JSON.stringify({ query: sql }) });
-    const read = "select jsonb_build_object('database_role',current_user,'program_id',p.id,'tenant_id',p.tenant_id,'tenant_status',t.status,'tenant_slug',t.slug,'outbound_messaging_enabled',t.outbound_messaging_enabled,'repository_sha',p.configuration->>'repository_sha','stage',p.stage,'request_count',p.request_count::text,'generation',p.generation::text,'recovery_available',private.private_beta_recovery_available(p),'manifest_hash',p.manifest_hash,'authorization_record_hash',p.authorization_record_hash,'model_provider',p.configuration->>'model_provider','model_name',p.configuration->>'model_name','notice_version',p.configuration->>'notice_version') as private_beta_program from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where p.id='" + id + "'::uuid and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled";
+    const read = "select jsonb_build_object('database_role',current_user,'program_id',p.id,'tenant_id',p.tenant_id,'tenant_status',t.status,'tenant_slug',t.slug,'outbound_messaging_enabled',t.outbound_messaging_enabled,'repository_sha',p.configuration->>'repository_sha','stage',p.stage,'request_count',p.request_count::text,'generation',p.generation::text,'recovery_available',private.private_beta_recovery_available(p),'continuation_available',private.private_beta_continuation_available(p),'manifest_hash',p.manifest_hash,'authorization_record_hash',p.authorization_record_hash,'model_provider',p.configuration->>'model_provider','model_name',p.configuration->>'model_name','notice_version',p.configuration->>'notice_version') as private_beta_program from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where p.id='" + id + "'::uuid and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled";
     const program = programFrom((await query(read)).value, id);
     const observedModel = await readOnce(request, MODEL, { method: 'GET', headers: { authorization: 'Bearer ' + env.OPENAI_API_KEY, 'OpenAI-Organization': organization, 'OpenAI-Project': project, accept: 'application/json' } });
     const model = observedModel.value;
@@ -139,9 +142,15 @@ export async function collectPrivateBetaFounderModel({ env, request = fetch, now
       credential_custody_hash: digest(JSON.stringify([IDENTITY_DOMAINS_V1["JEFF_UAT_CREDENTIAL_CUSTODY1"], scopeHash, keyHash])), provider: 'openai', model: 'gpt-6.1-sol', model_access: true,
       model_response_hash: observedModel.response_hash, policy_hash: policy.response_hash, observed_at: observedAt, expires_at: expiresAt };
     const payload = { observation, pricing }, encoded = Buffer.from(JSON.stringify(payload), 'utf8').toString('hex');
+    // The namespace migration preserved this program's original notice. Read it
+    // only for its independently eligible two-UNKNOWN continuation; the owner
+    // action later creates the current notice/configuration under fresh MFA.
+    const noticeRevision = "p.configuration->>'notice_version'='" + program.notice_version + "'"
+      + (program.notice_version === IDENTITY_WIRE_V1[NOTICE]
+        ? " and p.stage='CANARY' and p.request_count=2 and private.private_beta_continuation_available(p)" : '');
     const revision = "p.id='" + id + "'::uuid and p.tenant_id='" + program.tenant_id + "'::uuid and p.generation=" + program.generation
-      + " and p.manifest_hash='" + program.manifest_hash + "' and p.authorization_record_hash='" + program.authorization_record_hash + "' and ((p.stage='DRAFT' and p.request_count=0) or private.private_beta_recovery_available(p))"
-      + " and p.configuration->>'model_provider'='openai' and p.configuration->>'model_name'='gpt-6.1-sol' and p.configuration->>'notice_version'='jeff-private-beta-notice-openai-v1'"
+      + " and p.manifest_hash='" + program.manifest_hash + "' and p.authorization_record_hash='" + program.authorization_record_hash + "' and ((p.stage='DRAFT' and p.request_count=0) or private.private_beta_recovery_available(p) or private.private_beta_continuation_available(p))"
+      + " and p.configuration->>'model_provider'='openai' and p.configuration->>'model_name'='gpt-6.1-sol' and " + noticeRevision
       + " and t.status='active' and t.slug like 'private-beta-%' and not t.outbound_messaging_enabled";
     const writeSql = "do $founder_model$ begin perform 1 from private.private_beta_programs p join public.tenants t on t.id=p.tenant_id where " + revision
       + " for update of p; if not found then raise exception 'PRIVATE_BETA_MODEL_REVISION_CHANGED' using errcode='40001'; end if; perform private.private_beta_founder_model_record('"

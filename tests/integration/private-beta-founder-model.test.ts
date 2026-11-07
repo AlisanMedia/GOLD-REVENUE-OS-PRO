@@ -1,4 +1,5 @@
 import { IDENTITY_DOMAINS_V1 } from "../../packages/contracts/src/historical/identity-domains-v1";
+import { IDENTITY_WIRE_V1 } from "../../packages/contracts/src/historical/identity-wire-v1";
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { collectPrivateBetaFounderModel } from "../../scripts/private-beta-founder-model.mjs";
@@ -129,6 +130,44 @@ describe("protected founder model/pricing collector, offline fixed HTTP and SQL 
     const f = fixture(); f.state.program.repository_sha = null;
     expect(await f.run()).toMatchObject({ state: "RECORDED", repository_sha: SHA });
     expect(f.state.stored?.observation.repository_sha).toBe(SHA); expect(f.state.writes[0]).not.toContain("set configuration");
+  });
+  it("collects current metadata for only the independently eligible two-attempt personal continuation", async () => {
+    const f = fixture();
+    Object.assign(f.state.program, { stage: "CANARY", request_count: "2", continuation_available: true });
+    expect(await f.run()).toMatchObject({ state: "RECORDED", owner_authority: "NOT_GRANTED", actual_inference_requests: 0 });
+    expect(f.state.writes[0]).toContain("private.private_beta_continuation_available(p)");
+    for (const eligibility of [false, "true", undefined]) {
+      const denied = fixture();
+      Object.assign(denied.state.program, { stage: "CANARY", request_count: "2", continuation_available: eligibility });
+      expect(await denied.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_PROGRAM_REQUIRED" });
+      expect(denied.request).toHaveBeenCalledOnce();
+      expect(denied.state.writes).toHaveLength(0);
+    }
+  });
+  it("reads the preserved notice only for the exact two-attempt continuation and rechecks it under the write lock and readback", async () => {
+    const f = fixture(), notice = IDENTITY_WIRE_V1["jeff-private-beta-notice-openai-v1"];
+    Object.assign(f.state.program, { notice_version: notice, stage: "CANARY", request_count: "2", continuation_available: true });
+    expect(await f.run()).toMatchObject({ state: "RECORDED", owner_authority: "NOT_GRANTED", actual_inference_requests: 0, database_authority_written: false });
+    expect(f.state.writes).toHaveLength(1);
+    for (const sql of f.state.sql.slice(1)) {
+      expect(sql).toContain("p.configuration->>'notice_version'='" + notice + "' and p.stage='CANARY' and p.request_count=2 and private.private_beta_continuation_available(p)");
+      expect(sql).not.toContain("set configuration");
+    }
+    expect(f.state.writes[0]).toContain("for update of p");
+  });
+  it.each([
+    { stage: "DRAFT", request_count: "0", continuation_available: true },
+    { stage: "CANARY", request_count: "1", recovery_available: true, continuation_available: true },
+    { stage: "CANARY", request_count: "2", continuation_available: false },
+    { stage: "CANARY", request_count: "2", continuation_available: "true" },
+    { stage: "CANARY", request_count: "2", continuation_available: undefined },
+    { stage: "CANARY", request_count: "3", continuation_available: true },
+    { stage: "FOUNDER", request_count: "2", continuation_available: true },
+  ])("rejects a preserved notice outside the exact continuation scope: %j", async scope => {
+    const f = fixture();
+    Object.assign(f.state.program, { notice_version: IDENTITY_WIRE_V1["jeff-private-beta-notice-openai-v1"], ...scope });
+    expect(await f.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_PROGRAM_REQUIRED", database_observation_write: "NOT_ATTEMPTED" });
+    expect(f.request).toHaveBeenCalledOnce(); expect(f.state.writes).toHaveLength(0);
   });
   it.each(["actions", "event", "branch", "repository", "release", "validated-sha", "program", "project", "organization", "key", "management"])("rejects invalid protected input %s before any HTTP", async field => {
     const f = fixture(), config = env();

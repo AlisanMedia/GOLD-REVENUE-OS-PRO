@@ -18,6 +18,7 @@ export function identityLegacyReason(path) {
   if (path === 'vercel.json') return 'Historical branch names remain deployment-disabled; no old active product route or identity.';
   if (path === 'infra/sql/private-beta-recovery-fingerprint.sql') return 'Read-only pre-migration catalog namespace detection; never changes a held program or permits a retry.';
   if (path === 'supabase/tests/helpers/jeff_identity_after.sql') return 'Negative/preservation assertions for immutable pre-rename rows, original ACLs and unrelated people.';
+  if (path === 'supabase/tests/private_beta_founder_continuation.test.sql') return 'Production-shaped pre-rename notice fixture; fresh owner continuation normalizes the notice while preserving the original configuration in audit history.';
   if (path === 'tests/integration/jeff-identity-migration.test.ts') return 'Negative source-identity guard and explicit old-route redirect acceptance tests.';
   if (path === '.github/workflows/private-beta-uat.yml' || path === '.github/workflows/staging.yml') return 'Temporary exact old stored secret/variable aliases in protected bootstrap; all runtime environment keys are Jeff.';
   if (['README.md', 'docs/MASTER_PRODUCT_CONTEXT.md', 'docs/NEXT_EXECUTION_BACKLOG.md', 'infra/runbooks/master-genuine-acceptance.md'].includes(path)) return 'Links to preserved historical evidence or the owner-required migration note; current product identity is Jeff.';

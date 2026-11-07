@@ -11,7 +11,7 @@ export const JEFF_OPENAI_ENDPOINT = "https://api.openai.com/v1/responses" as con
 /** Fixed host/path and one consumed module permit. No SDK, retry, redirect, fallback, environment loader or callable URL. */
 export async function sendJeffOpenAIHttpsOnce(permit: unknown, request: ModelRequest, signal?: AbortSignal) {
   const context = requireJeffNetworkPermit(permit);
-  if (context.binding.provider !== "openai" || ![2, 3, 4].includes(context.binding.version) || !context.organization_id || !context.project_id) throw new JeffOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_RESERVED_PROVIDER_MISMATCH");
+  if (context.binding.provider !== "openai" || ![2, 3, 4, 5].includes(context.binding.version) || !context.organization_id || !context.project_id) throw new JeffOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_RESERVED_PROVIDER_MISMATCH");
   const snapshot = structuredClone(request), wire = prepareJeffOpenAIRequest(snapshot, context.binding.maximum_output_tokens);
   if (wire.request_hash !== context.request_hash || wire.body_hash !== context.body_hash || context.binding.timeout_ms !== request.timeoutMs || Date.parse(context.binding.expires_at) <= Date.now()) throw new JeffOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_RESERVED_REQUEST_DRIFT");
   if (signal?.aborted) throw new JeffOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_ABORT_BEFORE_ATTEMPT");
@@ -66,7 +66,7 @@ export async function sendJeffOpenAIHttpsOnce(permit: unknown, request: ModelReq
     try { socket.end(body); } catch { finish(new JeffOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_REQUEST_START_UNKNOWN", unknown)); }
   }).catch((error: unknown) => { throw error instanceof JeffOpenAIFailure ? error : new JeffOpenAIFailure("PROVIDER_ERROR", "OPENAI_UAT_REQUEST_START_UNKNOWN", unknown); });
   };
-  if (context.binding.version === 4) {
+  if (context.binding.version === 4 || context.binding.version === 5) {
     // Count the exact model/input/reasoning/schema/tool representation. This is
     // not a generation or a substitute response and never enters native QA.
     const { model, input, reasoning, text, tools, tool_choice, truncation } = wire.body;

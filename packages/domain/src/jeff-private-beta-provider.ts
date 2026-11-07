@@ -143,8 +143,8 @@ export function createJeffPrivateBetaProvider(dependencies: Readonly<{
         const permit = await dependencies.authority.issue({ binding, run_id: reservation.run_id, attempt_id: reservation.attempt_id, request });
         const result = binding.provider === "openai" ? await sendJeffOpenAIHttpsOnce(permit, request) : await sendJeffClaudeHttpsOnce(permit, request);
         response = result.response;
-        if ((binding.version === 3 || binding.version === 4) && (response.usage.inputTokens === null || response.usage.outputTokens === null
-          || response.usage.inputTokens <= 0 || response.usage.inputTokens > (binding.version === 4 ? binding.maximum_input_tokens : 1050000) || response.usage.outputTokens <= 0 || response.usage.outputTokens > binding.maximum_output_tokens)) {
+        if ((binding.version === 3 || binding.version === 4 || binding.version === 5) && (response.usage.inputTokens === null || response.usage.outputTokens === null
+          || response.usage.inputTokens <= 0 || response.usage.inputTokens > ((binding.version === 4 || binding.version === 5) ? binding.maximum_input_tokens : 1050000) || response.usage.outputTokens <= 0 || response.usage.outputTokens > binding.maximum_output_tokens)) {
           // A response was observed, so its unbounded charge is UNKNOWN. Keep
           // the full reservation, skip QA/delivery and require durable review.
           throw new JeffOpenAIFailure("INVALID_OUTPUT", "JEFF_UAT_USAGE_BOUND_UNVERIFIED", true);
