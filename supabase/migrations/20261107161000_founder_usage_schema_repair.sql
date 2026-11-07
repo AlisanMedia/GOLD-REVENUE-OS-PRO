@@ -36,7 +36,7 @@ select pg_temp.usage_repair_patch('private.private_beta_continuation_available(p
 -- the new grant from actual fresh owner MFA and a different published SHA.
 select pg_temp.usage_repair_patch('private.private_beta_program_immutable()',
  'old.account_control->''version''=''4''::jsonb and new.account_control->''version''=''5''::jsonb',
- 'old.account_control->''version''in(''4''::jsonb,''5''::jsonb) and new.account_control->''version''=''5''::jsonb');
+ 'old.account_control->''version''in(''4''::jsonb,''5''::jsonb) and new.account_control->''version''=''5''::jsonb and new.account_control is distinct from old.account_control');
 select pg_temp.usage_repair_patch('private.private_beta_binding(private.private_beta_programs,boolean)',
  'case when canary then 3 else 350 end', 'case when canary then jsonb_array_length(x.account_control->''retained_unknown_attempts'')+1 else 350 end');
 select pg_temp.usage_repair_patch('public.private_beta_reserve_v1(uuid,uuid,uuid,text,text,uuid,text,uuid)',
