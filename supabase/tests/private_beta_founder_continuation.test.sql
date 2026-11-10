@@ -228,5 +228,74 @@ select ok(private.private_beta_founder_canary_hash((select p from private.privat
 select public.admin_private_beta_transition_v1(pg_temp.beta_id(6305,'2000'),pg_temp.beta_id(6305,'3000'),'STOPPED',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')));
 select ok(not private.private_beta_stopped_rearm_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6305,'3000'))),'STOP after fourth attempt remains terminal');
 select throws_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'42501',null,'rearm does not enable fifth canary or another restart');
+-- A fourth reasoning-envelope UNKNOWN is a separate observed defect. The
+-- following are disposable fixtures only, never a real owner/provider action.
+create function pg_temp.reasoning_unknown(n integer,error_value text default 'OPENAI_UAT_ENVELOPE_INVALID_REASONING')returns void language plpgsql as $$declare r jsonb;begin
+ perform pg_temp.usage_unknown(n);perform pg_temp.usage_observe(n);perform pg_temp.beta_auth(n);perform pg_temp.usage_start(n);
+ r:=public.private_beta_reserve_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),pg_temp.beta_id(n,'4020'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(n,'4021'));
+ perform public.private_beta_begin_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),(r->>'attempt_id')::uuid,pg_temp.beta_id(n,'5020'));
+ perform public.private_beta_record_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),(r->>'attempt_id')::uuid,pg_temp.beta_id(n,'5020'),(pg_temp.beta_outcome('UNKNOWN','RESULT_UNKNOWN','NOT_EVALUATED')||jsonb_build_object('error_code',error_value))::text);
+end;$$;
+create function pg_temp.reasoning_observe(n integer)returns void language plpgsql as $$declare v jsonb;begin
+ v:=jsonb_set(pg_temp.founder_model_fixture(n),'{observation,repository_sha}',to_jsonb(repeat('c',40)));
+ perform private.private_beta_founder_model_record(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),v::text);
+end;$$;
+create function pg_temp.reasoning_start(n integer)returns jsonb language plpgsql as $$declare p private.private_beta_programs;begin
+ select * into strict p from private.private_beta_programs where id=pg_temp.beta_id(n,'3000');
+ return public.admin_private_beta_continue_founder_test_v1(p.tenant_id,p.id,p.generation,repeat('c',40));end;$$;
+select pg_temp.reasoning_unknown(6307);
+select pg_temp.reasoning_unknown(6308,'OPENAI_UAT_TIMEOUT_UNKNOWN');
+select pg_temp.reasoning_unknown(6309);
+select pg_temp.reasoning_unknown(6310);
+select ok(private.private_beta_reasoning_repair_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6307,'3000'))),'only exact fourth reasoning UNKNOWN can continue');
+select ok(not private.private_beta_reasoning_repair_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6308,'3000'))),'different fourth error cannot continue');
+select ok(not has_function_privilege('service_role','private.private_beta_reasoning_repair_available(private.private_beta_programs)','execute'),'no service-role grant on reasoning repair helper');
+select pg_temp.beta_auth(6309);
+select public.admin_private_beta_transition_v1(pg_temp.beta_id(6309,'2000'),pg_temp.beta_id(6309,'3000'),'STOPPED',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6309,'3000')));
+select ok(not private.private_beta_continuation_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6309,'3000'))),'STOP after fourth reasoning UNKNOWN remains terminal');
+select throws_ok($q$select pg_temp.stopped_rearm_start(6309)$q$,'42501',null,'reasoning repair does not extend stopped-test exception');
+select pg_temp.beta_auth(6307);
+select throws_ok($q$select pg_temp.reasoning_start(6307)$q$,'55000',null,'reasoning continuation needs different published metadata');
+select lives_ok($q$select pg_temp.reasoning_observe(6307)$q$,'protected observer can refresh exact fourth reasoning failure');
+select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(6307,'2000'),25,null)#>>'{program,canary_state}','CONTINUATION_AVAILABLE','same panel offers explicit reasoning continuation');
+create temp table reasoning_before as select p.id,p.generation,
+ (select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join private.private_beta_attempt_scope s on s.attempt_id=a.id where s.program_id=p.id)attempts,
+ (select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=p.id)evidence
+ from private.private_beta_programs p where id=pg_temp.beta_id(6307,'3000');
+select pg_temp.beta_auth(6307,'owner','aal1');
+select throws_ok($q$select pg_temp.reasoning_start(6307)$q$,'42501',null,'reasoning continuation requires real aal2');
+select pg_temp.beta_auth(6307,'owner','aal2',301);
+select throws_ok($q$select pg_temp.reasoning_start(6307)$q$,'42501',null,'reasoning continuation rejects stale MFA');
+select pg_temp.beta_auth(6308);
+select throws_ok($q$select pg_temp.reasoning_start(6307)$q$,'42501',null,'reasoning continuation rejects foreign owner');
+select pg_temp.beta_auth(6307);
+select throws_ok($q$select public.admin_private_beta_continue_founder_test_v1(pg_temp.beta_id(6307,'2000'),pg_temp.beta_id(6307,'3000'),1,repeat('c',40))$q$,'42501',null,'reasoning continuation rejects stale generation');
+select lives_ok($q$select pg_temp.reasoning_start(6307)$q$,'fresh owner reuses existing continuation for reviewed reasoning repair');
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6307,'3000')),4,'four historical requests preserved');
+select is((select reserved_liability from private.private_beta_programs where id=pg_temp.beta_id(6307,'3000')),4.7078592::numeric,'all four original reservations preserved');
+select is((select jsonb_array_length(account_control->'retained_unknown_attempts')from private.private_beta_programs where id=pg_temp.beta_id(6307,'3000')),4,'all four exact UNKNOWN debts retained');
+select is((select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join private.private_beta_attempt_scope s on s.attempt_id=a.id where s.program_id=pg_temp.beta_id(6307,'3000')),(select attempts from reasoning_before),'reasoning repair leaves old attempts byte-for-byte unchanged');
+select is((select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=pg_temp.beta_id(6307,'3000')),(select evidence from reasoning_before),'reasoning repair leaves all UNKNOWN evidence byte-for-byte unchanged');
+select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(6307,'3000')),true)->>'maximum_requests','5','exactly fifth global canary ordinal permitted');
+select throws_ok($q$select pg_temp.reasoning_start(6307)$q$,'42501',null,'reasoning continuation cannot repeat');
+select throws_ok($q$update private.private_beta_programs set reserved_liability=0 where id=pg_temp.beta_id(6307,'3000')$q$,'42501',null,'reasoning repair does not allow budget reset');
+create temp table reasoning_new as select public.private_beta_reserve_v1(pg_temp.beta_id(6307,'2000'),pg_temp.beta_id(6307,'3000'),pg_temp.beta_id(6307,'4022'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6307,'4023'))receipt;
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6307,'3000')),5,'reasoning canary increments original request count');
+select is(private.private_beta_exposure(pg_temp.beta_id(6307,'3000')),4.7343296::numeric,'fifth reservation stays under original5USD ceiling');
+select throws_ok($q$select public.private_beta_reserve_v1(pg_temp.beta_id(6307,'2000'),pg_temp.beta_id(6307,'3000'),pg_temp.beta_id(6307,'4024'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6307,'4025'))$q$,'54000',null,'sixth canary denied');
+select public.private_beta_begin_v1(pg_temp.beta_id(6307,'2000'),pg_temp.beta_id(6307,'3000'),(select(receipt->>'attempt_id')::uuid from reasoning_new),pg_temp.beta_id(6307,'5022'));
+select lives_ok($q$select public.private_beta_record_v1(pg_temp.beta_id(6307,'2000'),pg_temp.beta_id(6307,'3000'),(select(receipt->>'attempt_id')::uuid from reasoning_new),pg_temp.beta_id(6307,'5022'),pg_temp.founder_observed_result()::text)$q$,'new QA/usage result uses same recording path');
+select ok(private.private_beta_founder_canary_hash((select p from private.private_beta_programs p where id=pg_temp.beta_id(6307,'3000')))is not null,'new successful canary never rewrites four UNKNOWNs');
+select ok(private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6307,'3000'))),'Business setup allowed only after fifth canary QA success');
+select throws_ok($q$select public.admin_private_beta_transition_v1(pg_temp.beta_id(6307,'2000'),pg_temp.beta_id(6307,'3000'),'FOUNDER',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6307,'3000')))$q$,'55000',null,'real Business permission still mandatory');
+-- A new UNKNOWN remains UNKNOWN and cannot authorize an unbounded repair loop.
+select pg_temp.beta_auth(6310);
+select pg_temp.reasoning_observe(6310);
+select pg_temp.reasoning_start(6310);
+create temp table reasoning_failed as select public.private_beta_reserve_v1(pg_temp.beta_id(6310,'2000'),pg_temp.beta_id(6310,'3000'),pg_temp.beta_id(6310,'4022'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6310,'4023'))receipt;
+select public.private_beta_begin_v1(pg_temp.beta_id(6310,'2000'),pg_temp.beta_id(6310,'3000'),(select(receipt->>'attempt_id')::uuid from reasoning_failed),pg_temp.beta_id(6310,'5022'));
+select public.private_beta_record_v1(pg_temp.beta_id(6310,'2000'),pg_temp.beta_id(6310,'3000'),(select(receipt->>'attempt_id')::uuid from reasoning_failed),pg_temp.beta_id(6310,'5022'),(pg_temp.beta_outcome('UNKNOWN','RESULT_UNKNOWN','NOT_EVALUATED')||jsonb_build_object('error_code','OPENAI_UAT_ENVELOPE_INVALID_REASONING'))::text);
+select ok(not private.private_beta_continuation_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6310,'3000'))),'fifth UNKNOWN cannot authorize sixth canary');
+select ok(not private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6310,'3000'))),'fifth UNKNOWN cannot grant Business activation');
 select finish();
 rollback;

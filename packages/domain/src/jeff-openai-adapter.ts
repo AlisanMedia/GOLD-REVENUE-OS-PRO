@@ -25,7 +25,7 @@ export function prepareJeffOpenAIRequest(request: ModelRequest, maximumOutputTok
   const maximum = maximumTokens.parse(maximumOutputTokens), context = providerEvidenceContext(request.context);
   const body = {
     model: JEFF_OPENAI_MODEL, max_output_tokens: maximum, stream: false, store: false, background: false,
-    service_tier: "default", reasoning: { effort: "low" },
+    service_tier: "default", reasoning: { effort: "low", mode: "standard", context: "current_turn" },
     // Official response_create_params: explicit disables the implicit cache breakpoint.
     // No prompt_cache_breakpoint, tools, prior response or server conversation is supplied.
     prompt_cache_options: { mode: "explicit", ttl: "30m" },
@@ -43,11 +43,28 @@ export function prepareJeffOpenAIRequest(request: ModelRequest, maximumOutputTok
 }
 
 const cacheDiagnostics = z.discriminatedUnion("type", [
-  z.strictObject({ type: z.literal("cache_miss"), cache_missed_tokens: counter, reason: z.enum(["model_changed", "prompt_cache_key_changed", "tools_changed", "text_format_changed", "reasoning_effort_changed", "verbosity_changed", "context_compacted", "input_changed", "service_tier_changed"]), comparison_reusable_tokens: counter.nullable().optional() }),
-  z.strictObject({ type: z.literal("cache_hit") }), z.strictObject({ type: z.literal("comparison_response_not_found") }), z.strictObject({ type: z.literal("unavailable") }),
+  z.object({ type: z.literal("cache_miss"), cache_missed_tokens: counter, reason: z.enum(["model_changed", "prompt_cache_key_changed", "tools_changed", "text_format_changed", "reasoning_effort_changed", "verbosity_changed", "context_compacted", "input_changed", "service_tier_changed"]), comparison_reusable_tokens: counter.nullable().optional() }),
+  z.object({ type: z.literal("cache_hit") }), z.object({ type: z.literal("comparison_response_not_found") }), z.object({ type: z.literal("unavailable") }),
 ]);
-const reasoningSchema = z.strictObject({ effort: z.literal("low").nullable().optional(), summary: z.null().optional(), generate_summary: z.null().optional() });
-const textFormat = z.strictObject({ type: z.literal("json_schema"), name: z.literal("jeff_native_v1"), strict: z.literal(true), schema: z.record(z.string(), z.unknown()), description: z.string().max(1000).nullable().optional() });
+// Shared.Reasoning now returns effective context/mode, not just effort. These
+// echoes never supply conversation/account/permission authority. All generated
+// reasoning tokens remain inside the independently checked 512-output-token cap.
+const summaryMode = z.enum(["auto", "concise", "detailed"]).nullable().optional();
+const reasoningSchema = z.object({
+  effort: z.enum(["none", "minimal", "low", "medium", "high", "xhigh", "max"]).nullable().optional(),
+  context: z.enum(["auto", "current_turn", "all_turns"]).nullable().optional(),
+  mode: z.literal("standard").optional(), summary: summaryMode, generate_summary: summaryMode,
+});
+const textFormat = z.object({ type: z.literal("json_schema"), name: z.literal("jeff_native_v1"), strict: z.literal(true).nullable().optional(), schema: z.record(z.string(), z.unknown()), description: z.string().max(1000).nullable().optional() });
+// Tool usage is billing-sensitive, unlike display/diagnostic echoes. No tool is
+// authorized; accept documented zero counters and hold any reported tool charge.
+const zero = z.literal(0);
+const zeroImageUsage = z.strictObject({ input_tokens: zero, output_tokens: zero, total_tokens: zero,
+  input_tokens_details: z.strictObject({ image_tokens: zero, text_tokens: zero }), cached_tokens: zero.optional(),
+  cached_tokens_details: z.strictObject({ cached_image_tokens: zero, cached_text_tokens: zero }).optional(),
+  output_tokens_details: z.strictObject({ image_tokens: zero, text_tokens: zero }).optional(),
+});
+const noToolUsage = z.strictObject({ image_gen: zeroImageUsage.optional(), web_search: z.strictObject({ num_requests: zero }).optional() });
 // The provider may add transport metadata without a breaking API version.
 // Strip unknown outer fields; the actual native Jeff output stays strict.
 const envelopeSchema = z.object({
@@ -60,17 +77,17 @@ const envelopeSchema = z.object({
     z.strictObject({ type: z.literal("reasoning"), id: z.string().regex(/^rs_[A-Za-z0-9_-]{1,160}$/u), summary: z.array(z.strictObject({ type: z.literal("summary_text"), text: z.string().max(8192) })).max(4),
       content: z.array(z.strictObject({ type: z.literal("reasoning_text"), text: z.string().max(16384) })).max(4).nullable().optional(), encrypted_content: z.string().max(32768).nullable().optional(), status: z.literal("completed").nullable().optional() }),
   ])).min(1).max(4),
-  usage: jeffOpenAIUsageSchema.nullable().optional(),
+  usage: jeffOpenAIUsageSchema.nullable().optional(), tool_usage: noToolUsage.nullable().optional(),
   // Documented non-authoritative metadata is validated and discarded, never interpreted as permission.
-  access_programs: z.strictObject({ cyber: z.literal("standard") }).nullable().optional(), moderation: z.null().optional(),
+  access_programs: z.object({ cyber: z.literal("standard") }).nullable().optional(), moderation: z.null().optional(),
   metadata: z.record(z.string().max(64), z.string().max(512)).nullable().optional(),
   instructions: z.null().optional(), conversation: z.null().optional(), previous_response_id: z.null().optional(), prompt: z.null().optional(),
   background: z.literal(false).nullable().optional(), store: z.literal(false).optional(), parallel_tool_calls: z.literal(false).optional(), tools: z.array(z.never()).max(0).optional(), tool_choice: z.literal("none").optional(), max_tool_calls: z.null().optional(),
   max_output_tokens: maximumTokens.nullable().optional(), service_tier: z.literal("default").nullable().optional(), truncation: z.literal("disabled").nullable().optional(),
-  reasoning: reasoningSchema.nullable().optional(), text: z.strictObject({ format: textFormat, verbosity: z.enum(["low", "medium", "high"]).nullable().optional() }).nullable().optional(),
+  reasoning: reasoningSchema.nullable().optional(), text: z.object({ format: textFormat.optional(), verbosity: z.enum(["low", "medium", "high"]).nullable().optional() }).nullable().optional(),
   temperature: z.number().finite().min(0).max(2).nullable().optional(), top_p: z.number().finite().min(0).max(1).nullable().optional(), top_logprobs: z.literal(0).nullable().optional(),
   prompt_cache_diagnostics: cacheDiagnostics.nullable().optional(), prompt_cache_key: z.string().max(256).nullable().optional(),
-  prompt_cache_options: z.strictObject({ mode: z.literal("explicit"), ttl: z.literal("30m"), comparison_response_id: z.null().optional() }).nullable().optional(),
+  prompt_cache_options: z.object({ mode: z.literal("explicit"), ttl: z.literal("30m"), comparison_response_id: z.null().optional() }).nullable().optional(),
   prompt_cache_retention: z.enum(["in_memory", "24h"]).nullable().optional(), safety_identifier: z.string().max(256).nullable().optional(), user: z.string().max(256).nullable().optional(),
 });
 

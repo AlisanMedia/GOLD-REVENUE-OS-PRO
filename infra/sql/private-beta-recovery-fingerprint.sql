@@ -8,6 +8,8 @@ set timezone='UTC';
 -- with exactly two stopped UNKNOWN attempts. It never reconciles or retries them.
 -- The exact third usage-envelope UNKNOWN is also quiescent when all three
 -- journals are stopped; an unattempted, successful or unrelated v5 still blocks.
+-- The selected fourth reasoning-envelope UNKNOWN is likewise held/quiescent
+-- only with all four terminal journals and no connected scope.
 -- This temporary, read-only check grants no runtime or recovery authority.
 create or replace function pg_temp.private_beta_require_quiescent(recovery_program uuid default null, identity_program uuid default null) returns void language plpgsql set search_path=pg_catalog as $$
 declare n bigint; namespace_prefix text;
@@ -39,7 +41,10 @@ begin
      and ((p.request_count=2 and p.account_control->'version'='4'::jsonb and(p.configuration->>'expires_at')::timestamptz<=statement_timestamp())
       or(p.request_count=3 and p.account_control->'version'='5'::jsonb and jsonb_array_length(p.account_control->'retained_unknown_attempts')=2
        and exists(select 1 from private.jeff_experiment_evidence e where e.run_id=p.canary_run_id and e.stage='RESULT_UNKNOWN'
-        and e.payload->>'error_code'='OPENAI_UAT_ENVELOPE_INVALID_USAGE'and e.payload->>'status'='UNKNOWN'and e.payload->>'qa'='NOT_EVALUATED')))
+        and e.payload->>'error_code'='OPENAI_UAT_ENVELOPE_INVALID_USAGE'and e.payload->>'status'='UNKNOWN'and e.payload->>'qa'='NOT_EVALUATED'))
+      or(p.request_count=4 and p.account_control->'version'='5'::jsonb and jsonb_array_length(p.account_control->'retained_unknown_attempts')=3
+       and exists(select 1 from private.jeff_experiment_evidence e where e.run_id=p.canary_run_id and e.stage='RESULT_UNKNOWN'
+        and e.payload->>'error_code'='OPENAI_UAT_ENVELOPE_INVALID_REASONING'and e.payload->>'status'='UNKNOWN'and e.payload->>'qa'='NOT_EVALUATED')))
      and p.account_control->>'origin'='SERVER_DERIVED_OWNER_ONLY_UAT_CONTROL'and p.account_control->>'scope'='OWNER_ONLY'
      and not exists(select 1 from private.private_beta_participants q where q.program_id=p.id)
      and not exists(select 1 from private.private_beta_invites q where q.program_id=p.id)
@@ -55,7 +60,7 @@ begin
        and r.binding->>'version'in('3','4','5')
        and exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='DISPATCH_STARTED')
        and exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='RESULT_UNKNOWN'and e.payload->>'status'='UNKNOWN'and e.payload->>'qa'='NOT_EVALUATED'
-        and e.payload->>'error_code'in('OPENAI_UAT_ENVELOPE_INVALID_USAGE','OPENAI_UAT_ENVELOPE_INVALID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_ORGANIZATION','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_PROJECT','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_CLIENT_ID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_CONTENT_TYPE'))
+        and e.payload->>'error_code'in('OPENAI_UAT_ENVELOPE_INVALID_REASONING','OPENAI_UAT_ENVELOPE_INVALID_USAGE','OPENAI_UAT_ENVELOPE_INVALID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_ORGANIZATION','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_PROJECT','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_CLIENT_ID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_CONTENT_TYPE'))
        and not exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage in('PROVIDER_RESULT','DELAYED_RESULT','RECONCILIATION')),false))),false)
   $guard$,'private.jeff_','private.'||namespace_prefix||'_') into n using recovery_program,identity_program;
   if n<>0 then raise exception 'PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS';end if;
