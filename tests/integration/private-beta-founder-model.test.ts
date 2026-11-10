@@ -144,6 +144,13 @@ describe("protected founder model/pricing collector, offline fixed HTTP and SQL 
       expect(denied.state.writes).toHaveLength(0);
     }
   });
+  it("refreshes stopped-setup metadata only for an independently eligible three-attempt rearm", async () => {
+    const f = fixture(); Object.assign(f.state.program, { stage: "STOPPED", request_count: "3", continuation_available: true });
+    expect(await f.run()).toMatchObject({ state: "RECORDED", actual_inference_requests: 0, owner_authority: "NOT_GRANTED" });
+    const blocked = fixture(); Object.assign(blocked.state.program, { stage: "STOPPED", request_count: "3", continuation_available: false });
+    expect(await blocked.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_PROGRAM_REQUIRED" });
+    expect(blocked.state.writes).toHaveLength(0);
+  });
   it("collects metadata for only the server-eligible third usage-envelope repair", async () => {
     const f = fixture(); Object.assign(f.state.program, { stage: "CANARY", request_count: "3", continuation_available: true });
     expect(await f.run()).toMatchObject({ state: "RECORDED", actual_inference_requests: 0 });

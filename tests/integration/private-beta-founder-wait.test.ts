@@ -46,6 +46,11 @@ describe("protected owner setup status observer (offline HTTP)", () => {
     const request = vi.fn<typeof fetch>().mockRejectedValue(Error("SYNTHETIC_TOKEN_MUST_NOT_APPEAR"));
     const result = await waitForPrivateBetaFounder({ env: env(), request }); expect(result.state).toBe("STATUS_READ_UNVERIFIED"); expect(JSON.stringify(result)).not.toContain("SYNTHETIC_TOKEN"); expect(request).toHaveBeenCalledTimes(1);
   });
+  it("waits for the actual owner action on eligible stopped setup without claiming it ready", async () => {
+    const request = vi.fn<typeof fetch>().mockImplementation(async () => response({ ...row(), stage: "STOPPED", canary_ready: false, held: true, recovery_available: true })), delay = vi.fn();
+    expect(await waitForPrivateBetaFounder({ env: env(), request, delay })).toMatchObject({ ready: false, state: "OWNER_ACTION_REQUIRED", model_requests: 0, telegram_messages: 0 });
+    expect(request).toHaveBeenCalledTimes(33); expect(delay).toHaveBeenCalledTimes(32);
+  });
   it("rejects a non-main execution before credential/network use", async () => {
     const request = vi.fn<typeof fetch>();
     expect((await waitForPrivateBetaFounder({ env: { ...env(), GITHUB_REF: "refs/heads/test" }, request })).ready).toBe(false); expect(request).not.toHaveBeenCalled();

@@ -284,3 +284,36 @@ describe('one-use owner continuation after the second unknown attempt', () => {
     } finally { vi.stubEnv('VERCEL_GIT_COMMIT_SHA', undefined); }
   });
 });
+
+
+describe('explicit stopped-personal-setup rearm uses actual owner RPC', () => {
+  function stoppedRpc(fault?: string) {
+    let scopes = 0;
+    return vi.fn(async (name: string) => {
+      if (name === 'admin_private_beta_canary_scope_v1') {
+        scopes++; if (scopes === 1 || fault === 'scope-readback') return { data: null, error: { code: '42501' } };
+        return { data: { program_id: program, tenant_id: tenant, stage: 'CANARY', repository_sha: sha, provider: 'openai', model: 'gpt-6.1-sol', owner_only: true }, error: null };
+      }
+      if (name === 'admin_private_beta_workspace_v1') return { data: { program: { id: program, stage: 'STOPPED', generation: '7', canary_state: fault === 'ineligible' ? 'REVIEW' : 'CONTINUATION_AVAILABLE' } }, error: null };
+      if (name === 'admin_private_beta_rearm_founder_test_v1') {
+        if (fault === 'mfa') return { data: null, error: { code: '42501', message: 'PRIVATE_BETA_FRESH_AUTH_REQUIRED' } };
+        if (fault === 'conflict') return { data: null, error: { code: '40001' } };
+        return { data: { program_id: program, stage: 'CANARY', generation: fault === 'lost-ack' ? '99' : '8' }, error: null };
+      }
+      return { data: null, error: { code: '42501' } };
+    });
+  }
+  it('requires the separate rearm RPC and independent scope readback before one genuine provider invocation', async () => {
+    const rpc = stoppedRpc(); state.rpc.mockImplementation(rpc);
+    expect((await POST(request('program_id=' + program + '&expected_generation=7'))).status).toBe(200);
+    expect(rpc.mock.calls.map(c => c[0])).toEqual(['admin_private_beta_canary_scope_v1', 'admin_private_beta_workspace_v1', 'admin_private_beta_rearm_founder_test_v1', 'admin_private_beta_canary_scope_v1']);
+    expect(state.calls).toBe(1);
+  });
+  it.each(['mfa', 'conflict', 'lost-ack', 'scope-readback', 'ineligible'])('never creates a provider or repeats the owner action after %s', async fault => {
+    const rpc = stoppedRpc(fault); state.rpc.mockImplementation(rpc);
+    expect((await POST(request('program_id=' + program + '&expected_generation=7'))).status).toBe(fault === 'mfa' ? 403 : 409);
+    expect(state.factory).not.toHaveBeenCalled(); expect(state.calls).toBe(0);
+    expect(rpc.mock.calls.filter(c => c[0] === 'admin_private_beta_rearm_founder_test_v1').length).toBeLessThanOrEqual(1);
+    expect(rpc.mock.calls.some(c => c[0] === 'admin_private_beta_continue_founder_test_v1')).toBe(false);
+  });
+});

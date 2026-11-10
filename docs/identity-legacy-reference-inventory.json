@@ -352,7 +352,7 @@
       "path": "supabase/tests/private_beta_founder_continuation.test.sql",
       "occurrences": 1,
       "reason": "Production-shaped pre-rename notice fixture; fresh owner continuation normalizes the notice while preserving the original configuration in audit history.",
-      "sha256": "8e4b8575aba40a789364c9b98fca6be801104f7541d682dd22af29914ec27925"
+      "sha256": "c174b7423477bcb3366aa5e498a1b0eb079dcb60c730aed4c2e5091be9e147ca"
     },
     {
       "path": "tests/integration/jeff-identity-migration.test.ts",
@@ -364,7 +364,7 @@
       "path": "vercel.json",
       "occurrences": 18,
       "reason": "Historical branch names remain deployment-disabled; no old active product route or identity.",
-      "sha256": "bf70ee402ce36b06ba4dc27409e25b01e3117f57b1e31f4764beec0373c4cb25"
+      "sha256": "64d1425152fc44d3e2d36e5688c496e14f5f08ec54839185ee0bcbe55f936534"
     },
     {
       "path": "docs/identity-legacy-reference-inventory.json",

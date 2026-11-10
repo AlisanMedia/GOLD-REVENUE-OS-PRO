@@ -180,5 +180,53 @@ select lives_ok($q$select public.private_beta_record_v1(pg_temp.beta_id(6303,'20
 select ok(private.private_beta_founder_canary_hash((select p from private.private_beta_programs p where id=pg_temp.beta_id(6303,'3000')))is not null,'successful new canary is distinct from three historical UNKNOWNs');
 select ok(private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6303,'3000'))),'Business setup accepts fourth-ordinal canary only after success');
 select throws_ok($q$select public.admin_private_beta_transition_v1(pg_temp.beta_id(6303,'2000'),pg_temp.beta_id(6303,'3000'),'FOUNDER',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6303,'3000')))$q$,'55000',null,'real Telegram permissions still required after repair');
+-- A mistaken owner STOP before the repaired canary needs a NEW explicit owner
+-- action. Never reopen during migration, metadata observation or runner setup.
+create function pg_temp.stopped_rearm_start(n integer)returns jsonb language plpgsql as $$declare p private.private_beta_programs;begin
+ select * into strict p from private.private_beta_programs where id=pg_temp.beta_id(n,'3000');
+ return public.admin_private_beta_rearm_founder_test_v1(p.tenant_id,p.id,p.generation,repeat('d',40));end;$$;
+select pg_temp.usage_unknown(6305);
+select pg_temp.usage_unknown(6306,'OPENAI_UAT_TIMEOUT_UNKNOWN');
+select pg_temp.beta_auth(6305);
+select throws_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'42501',null,'rearm cannot replace an ordinary continuation');
+select public.admin_private_beta_transition_v1(pg_temp.beta_id(6305,'2000'),pg_temp.beta_id(6305,'3000'),'STOPPED',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')));
+select ok(private.private_beta_stopped_rearm_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6305,'3000'))),'exact owner STOP before usage-repair canary is eligible');
+select ok(not has_function_privilege('service_role','public.admin_private_beta_rearm_founder_test_v1(uuid,uuid,bigint,text)','execute'),'service role cannot rearm owner STOP');
+select ok(not has_function_privilege('anon','public.admin_private_beta_rearm_founder_test_v1(uuid,uuid,bigint,text)','execute'),'anonymous cannot rearm owner STOP');
+select throws_ok($q$update private.private_beta_programs set stage='CANARY'where id=pg_temp.beta_id(6305,'3000')$q$,'42501',null,'privileged direct stage flip cannot undo STOP');
+select throws_ok($q$select public.admin_private_beta_continue_founder_test_v1(pg_temp.beta_id(6305,'2000'),pg_temp.beta_id(6305,'3000'),(select generation from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')),repeat('d',40))$q$,'42501',null,'old continuation RPC cannot undo STOP');
+select throws_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'55000',null,'rearm requires current observations from different release');
+select lives_ok($q$select pg_temp.usage_observe(6305)$q$,'metadata may refresh while program remains stopped');
+select is((select stage from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')),'STOPPED','metadata refresh never clears STOP');
+select is(public.admin_private_beta_workspace_v1(pg_temp.beta_id(6305,'2000'),25,null)#>>'{program,canary_state}','CONTINUATION_AVAILABLE','owner sees explicit stopped-test action');
+create temp table stopped_before as select p.id,p.request_count,p.reserved_liability,p.canary_run_id,p.generation,
+ (select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=p.id)as evidence
+ from private.private_beta_programs p where id=pg_temp.beta_id(6305,'3000');
+select pg_temp.beta_auth(6305,'owner','aal1');
+select throws_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'42501',null,'rearm requires actual aal2');
+select pg_temp.beta_auth(6305,'owner','aal2',301);
+select throws_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'42501',null,'rearm rejects stale MFA');
+select pg_temp.beta_auth(6306);
+select throws_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'42501',null,'foreign owner cannot rearm');
+select public.admin_private_beta_transition_v1(pg_temp.beta_id(6306,'2000'),pg_temp.beta_id(6306,'3000'),'STOPPED',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6306,'3000')));
+select ok(not private.private_beta_stopped_rearm_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6306,'3000'))),'unrelated stopped failure stays terminal');
+select pg_temp.beta_auth(6305);
+select throws_ok($q$select public.admin_private_beta_rearm_founder_test_v1(pg_temp.beta_id(6305,'2000'),pg_temp.beta_id(6305,'3000'),1,repeat('d',40))$q$,'42501',null,'rearm rejects stale generation');
+select lives_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'only explicit fresh owner action rearms exact stopped setup');
+select is((select stage from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')),'CANARY','rearm does not open conversation or customers');
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')),(select request_count from stopped_before),'consumed count not reset by rearm');
+select is((select reserved_liability from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')),(select reserved_liability from stopped_before),'three UNKNOWN reservations not reset by rearm');
+select is((select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=pg_temp.beta_id(6305,'3000')),(select evidence from stopped_before),'old model evidence unchanged');
+select is((select count(*)::int from public.audit_logs where entity_id=pg_temp.beta_id(6305,'3000')::text and action='private_beta.program_transition' and after_data->>'stage'='STOPPED'),1,'original STOP audit retained');
+select is((select count(*)::int from public.audit_logs where entity_id=pg_temp.beta_id(6305,'3000')::text and action='private_beta.owner_stopped_rearm'),1,'new owner rearm recorded separately');
+select throws_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'42501',null,'rearm cannot repeat');
+create temp table rearm_new as select public.private_beta_reserve_v1(pg_temp.beta_id(6305,'2000'),pg_temp.beta_id(6305,'3000'),pg_temp.beta_id(6305,'4016'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6305,'4017'))as receipt;
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')),4,'rearmed canary remains global fourth request');
+select public.private_beta_begin_v1(pg_temp.beta_id(6305,'2000'),pg_temp.beta_id(6305,'3000'),(select(receipt->>'attempt_id')::uuid from rearm_new),pg_temp.beta_id(6305,'5016'));
+select lives_ok($q$select public.private_beta_record_v1(pg_temp.beta_id(6305,'2000'),pg_temp.beta_id(6305,'3000'),(select(receipt->>'attempt_id')::uuid from rearm_new),pg_temp.beta_id(6305,'5016'),pg_temp.founder_observed_result()::text)$q$,'rearmed canary uses unchanged native QA/usage path');
+select ok(private.private_beta_founder_canary_hash((select p from private.private_beta_programs p where id=pg_temp.beta_id(6305,'3000')))is not null,'rearmed canary can be verified distinctly from retained UNKNOWNs');
+select public.admin_private_beta_transition_v1(pg_temp.beta_id(6305,'2000'),pg_temp.beta_id(6305,'3000'),'STOPPED',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6305,'3000')));
+select ok(not private.private_beta_stopped_rearm_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6305,'3000'))),'STOP after fourth attempt remains terminal');
+select throws_ok($q$select pg_temp.stopped_rearm_start(6305)$q$,'42501',null,'rearm does not enable fifth canary or another restart');
 select finish();
 rollback;

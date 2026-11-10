@@ -145,7 +145,7 @@ function programFrom(value, id, command) {
   assert(p?.database_role === 'postgres' && p.program_id === id && uuid.test(p.tenant_id ?? '') && p.tenant_status === 'active' && /^private-beta-[a-z0-9-]+$/u.test(p.tenant_slug ?? '')
     && p.outbound_messaging_enabled === false && p.provider === 'openai' && p.model === 'gpt-6.1-sol' && hash.test(p.manifest_hash ?? '') && hash.test(p.authorization_record_hash ?? '')
     && /^[1-9][0-9]{0,17}$/u.test(p.generation ?? '') && (command === 'prepare' && p.stage === 'DRAFT'
-      || p.owner_only_test === true && (p.stage === 'CANARY' || command === 'register' && p.stage === 'FOUNDER')), 'INGRESS_PROGRAM_REQUIRED');
+      || p.owner_only_test === true && (p.stage === 'CANARY' || command === 'prepare' && p.stage === 'STOPPED' && p.continuation_available === true || command === 'register' && p.stage === 'FOUNDER')), 'INGRESS_PROGRAM_REQUIRED');
   return p;
 }
 
