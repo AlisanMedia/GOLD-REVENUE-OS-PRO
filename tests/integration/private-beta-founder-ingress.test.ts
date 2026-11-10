@@ -237,6 +237,12 @@ describe("protected existing founder Business ingress, offline transports only",
     expect(await f.run("register")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_OWNER_BUSINESS_REQUIRED" });
     expect(f.state.setCalls).toHaveLength(0);
   });
+  it("prepares only an independently eligible stopped setup without clearing STOP or registering a webhook", async () => {
+    const f = fixture(); Object.assign(f.state.program, { stage: "STOPPED", continuation_available: true, owner_only_test: true });
+    expect(await f.run("prepare")).toMatchObject({ state: "PREPARED", actual_inference_requests: 0, telegram_messages: 0 });
+    expect(f.state.program.stage).toBe("STOPPED"); expect(f.state.methods).toHaveLength(0);
+    expect(await f.run("register")).toMatchObject({ state: "BLOCKED", reason: "INGRESS_PROGRAM_REQUIRED" });
+  });
   it("never uses continuation eligibility to prepare a non-owner-only program", async () => {
     const f = fixture();
     Object.assign(f.state.program, { stage: "CANARY", continuation_available: true, owner_only_test: false });

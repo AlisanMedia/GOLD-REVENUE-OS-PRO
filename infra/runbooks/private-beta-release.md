@@ -772,7 +772,7 @@ Başarılı native QA ve usage kanıtı sonrasında Telegram bağlantısı ayrı
 4. **Kurucu Sohbet Testini Aç** ardından tek `FOUNDER` daveti oluşturulur.
    İkinci hesaptan `@jeffryfx` özel sohbetine `/start <tek kullanımlık kod>`,
    gelen bildirim ardından `/agree` gönderilir; bundan sonra normal mesajlarla
-   diyalog denenir. Her mesajda START gerekmez. **Testi Durdur** kalıcı STOP'tur.
+   diyalog denenir. Her mesajda START gerekmez. **Testi Kalıcı Olarak Durdur** mevcut yetkiyi kapatır. Yalnız aşağıda tanımlanan, hiç bağlanmamış üç-UNKNOWN kurulum için ayrı owner-MFA kurtarma istisnası vardır; diğer STOP durumları terminaldir.
 
 Ordinary bot DM'i Business programı için konuşma yolu değildir. Başarılı kabul,
 kurucunun ikinci Telegram hesabına gerçek cevap gelmesidir; yalnız panel kaydı,
@@ -815,3 +815,24 @@ rewrite, debt release or additional runtime. The read-only backup exception acce
 only this selected fully stopped three-UNKNOWN state; all unrelated/live programs
 still block publication. Business registration and dialogue require the new genuine
 canary, actual numeric connection/chat evidence, real permission readback and consent.
+
+## 10 November 2026 — explicitly rearm the stopped personal setup
+
+The founder accidentally pressed the terminal STOP control before the fourth
+canary, with three UNKNOWN attempts, no connected chat and no participant/invite.
+A dedicated `admin_private_beta_rearm_founder_test_v1` action permits only this
+existing usage-repair candidate, with the recorded owner STOP at the exact current
+generation, fresh real owner MFA, new published SHA and current model observations.
+The migration, runner preparation and observation collection leave STOP active.
+The separate owner action preserves the STOP audit, all three UNKNOWN journals,
+reserved liabilities and original5USD cap; it creates only the already-authorized
+fourth canary run. Repeated rearm and a fifth canary remain denied. Unrelated STOPs,
+connected conversations, opted-out users and other kill switches are unchanged.
+
+The existing Admin button is **Durdurulan Kişisel Testi Yeniden Aç** only when the
+server derives eligibility. Its own text explicitly requests one real model call.
+Owner MFA is entered only in the current panel. The existing stop button is now
+**Testi Kalıcı Olarak Durdur**, with an explanation. The colliding Jeff test-workspace
+labels are clarified in place as **Kişisel test** and **Eski boş kurulum**, atomically
+with audit entries. No workspace, program, conversation or model journal is deleted
+or moved. Generic stopped tests remain terminal; no automatic resume is introduced.

@@ -389,3 +389,17 @@ it('renders a single explicit owner continuation with its generation and retaine
     expect(network).not.toHaveBeenCalled();
   } finally { network.mockRestore(); }
 });
+
+
+it('renders a separate explicit rearm action only for the server-eligible stopped owner test', () => {
+  const value = fixture();
+  const workspace = parsePrivateBetaWorkspace({ ...value, program: { ...value.program, stage: 'STOPPED', generation: '7', owner_only_test: true, global_requests: 3, canary_state: 'CONTINUATION_AVAILABLE' } });
+  for (const locale of ['en-US', 'tr-TR'] as const) {
+    const props = { workspace, invalid: false, denied: false, size: '25', canConfigure: true, canNote: false, canConversation: false, operators: [] };
+    const html = render(h(AdminI18nProvider, { locale }, h(JeffPrivateBeta, props)));
+    expect(html).toContain(privateBetaText(locale, 'canaryRearmRun')); expect(html).toContain(privateBetaText(locale, 'canaryRearmText'));
+    expect(html).toContain('name="expected_generation" value="7"');
+    const blocked = render(h(AdminI18nProvider, { locale }, h(JeffPrivateBeta, { ...props, workspace: { ...workspace, program: { ...workspace.program!, canary_state: 'REVIEW' } } })));
+    expect(blocked).not.toContain('action="/api/v1/admin/private-beta/canary"');
+  }
+});

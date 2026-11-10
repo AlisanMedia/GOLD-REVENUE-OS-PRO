@@ -27,7 +27,7 @@ export async function waitForPrivateBetaFounder({ env, request = fetch, delay = 
       const value = parseJeffClaudeJson(new TextDecoder('utf-8', { fatal: true }).decode(Buffer.concat(chunks, bytes))), row = Array.isArray(value) && value.length === 1 ? value[0]?.setup : null;
       if (!row || row.role !== 'postgres' || !['DRAFT', 'CANARY', 'FOUNDER', 'STOPPED'].includes(row.stage)
         || ['canary_ready', 'local_scope', 'release_matches', 'business_configured', 'held'].some(key => typeof row[key] !== 'boolean')) throw Error('shape');
-      if (row.stage === 'STOPPED' || row.held && row.recovery_available !== true) return Object.freeze({ ...base, state: 'HELD' });
+      if ((row.stage === 'STOPPED' || row.held) && row.recovery_available !== true) return Object.freeze({ ...base, state: 'HELD' });
       if (row.stage === 'CANARY' && row.local_scope && row.release_matches && row.canary_ready && (mode === 'CANARY' || row.business_configured)) return Object.freeze({ ...base, ready: true, state: 'READY' });
       if (index < attempts - 1) await delay(15000);
     }
