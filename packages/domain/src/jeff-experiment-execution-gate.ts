@@ -93,10 +93,10 @@ const continuationFields = {
   continuation_authorization_hash: jeffBridgeHashSchema,
   continuation_authenticated_at: z.iso.datetime({ offset: true }), continuation_approved_at: z.iso.datetime({ offset: true }),
   continuation_source_generation: z.string().regex(/^[1-9][0-9]{0,8}$/u),
-  retained_unknown_attempts: z.union([z.tuple([retainedUnknownAttempt, retainedUnknownAttempt]), z.tuple([retainedUnknownAttempt, retainedUnknownAttempt, retainedUnknownAttempt])]),
+  retained_unknown_attempts: z.union([z.tuple([retainedUnknownAttempt, retainedUnknownAttempt]), z.tuple([retainedUnknownAttempt, retainedUnknownAttempt, retainedUnknownAttempt]), z.tuple([retainedUnknownAttempt, retainedUnknownAttempt, retainedUnknownAttempt, retainedUnknownAttempt])]),
 };
-// One fresh owner action renews the expired second-attempt program. Historical
-// v4 recovery provenance and both unknown debts remain bound, never reconciled.
+// One fresh owner action continues the same bounded program. Historical v4
+// provenance and the two-to-four exact UNKNOWN debts stay bound, never reconciled.
 const ownerContinuationBinding = ownerRecoveryBinding.omit({ version: true }).extend({ version: z.literal(5), ...continuationFields });
 export const jeffPrivateBetaBindingSchema = z.discriminatedUnion("version", [claudeBetaBinding, openaiBetaBinding, ownerOnlyOpenaiBetaBinding, ownerRecoveryBinding, ownerContinuationBinding]);
 export type JeffPrivateBetaBinding = z.infer<typeof jeffPrivateBetaBindingSchema>;

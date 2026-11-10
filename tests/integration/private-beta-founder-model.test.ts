@@ -160,6 +160,22 @@ describe("protected founder model/pricing collector, offline fixed HTTP and SQL 
     expect(denied.state.writes).toHaveLength(0);
   });
 
+  it("collects metadata for only the server-eligible fourth reasoning-envelope repair", async () => {
+    const f = fixture(); Object.assign(f.state.program, { stage: "CANARY", request_count: "4", continuation_available: true });
+    expect(await f.run()).toMatchObject({ state: "RECORDED", actual_inference_requests: 0, owner_authority: "NOT_GRANTED" });
+    expect(f.state.writes).toHaveLength(1);
+    for (const scope of [
+      { stage: "CANARY", request_count: "4", continuation_available: false },
+      { stage: "CANARY", request_count: "4", continuation_available: "true" },
+      { stage: "STOPPED", request_count: "4", continuation_available: true },
+      { stage: "CANARY", request_count: "5", continuation_available: true },
+    ]) {
+      const denied = fixture(); Object.assign(denied.state.program, scope);
+      expect(await denied.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_PROGRAM_REQUIRED", actual_inference_requests: 0 });
+      expect(denied.state.writes).toHaveLength(0); expect(denied.request).toHaveBeenCalledOnce();
+    }
+  });
+
   it("reads the preserved notice only for the exact two-attempt continuation and rechecks it under the write lock and readback", async () => {
     const f = fixture(), notice = IDENTITY_WIRE_V1["jeff-private-beta-notice-openai-v1"];
     Object.assign(f.state.program, { notice_version: notice, stage: "CANARY", request_count: "2", continuation_available: true });

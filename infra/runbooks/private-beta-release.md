@@ -4,6 +4,42 @@
 Bu dosya bir sonucu onaylamaz. Actual run/deployment/migration kimlikleri raporda
 ayrı gösterilir. Başarılı mock test, hosted backup veya gerçek Admin girişi değildir.
 
+## 10 November2026 — fourth reasoning-envelope repair
+
+The genuine owner rearm succeeded at11:33UTC. The fourth actual model attempt
+`727b20db-2c9f-4222-83ef-d09779bf0be2` remains UNKNOWN with
+`OPENAI_UAT_ENVELOPE_INVALID_REASONING`; no usable model result or actual bill is
+established. Raw rejected content was not retained, so the exact rejected nested
+field is unknown. The old strict codec omitted the official Reasoning `context`
+and `mode` fields and rejected documented summaries/effective effort values.
+
+The repaired codec accepts those non-authoritative SDK metadata fields, strips
+additive diagnostics and keeps native output/account correlation/usage strict.
+Requests explicitly pin standard mode/current-turn context, with the same native
+history, low effort,512 total output tokens and10seconds. Pro mode, tools/nonzero
+tool usage, nonzero cache writes, altered account, prior server conversation,
+invalid native output and inconsistent usage remain held. Official shape sources:
+[Shared.Reasoning](https://github.com/openai/openai-node/blob/master/src/resources/shared.ts)
+and [Responses](https://github.com/openai/openai-node/blob/master/src/resources/responses/responses.ts).
+
+Migration88 only makes the exact never-connected CANARY/v5/fourth reasoning UNKNOWN
+eligible for the **existing** owner continuation. All four journals, counters and
+4.7078592USD reserved exposure remain intact under the original5USD cap. The new
+fifth request can reserve at most0.0264704USD at the current reviewed rates; it
+is a new explicitly authorized attempt, never a replay or reconciliation.
+A different protected published SHA, fresh real model/pricing observation and
+actual fresh owner MFA are mandatory. No sixth canary, expanded STOP rearm,
+service-role owner grant, participant, Telegram hook, payment or campaign is
+created by the migration. Backup allows only that selected held program with
+all four dispatches terminal and no connected scope; unrelated active work still
+blocks the release. No successful migration is replayed.
+
+After protected delivery the genuine owner uses **Kişisel Konuşma Testine Devam Et**
+once. Do not ask for that click before the new publication and observations are
+verified. Only a verified native result/usage/QA success permits the existing
+single Business-chat setup. Publication/model/Telegram acknowledgment/device
+observation remain four separate outcomes.
+
 ## Kurucuya özel hızlı konuşma testi — yeni owner kapsamı
 
 Kurucunun harcama belgesi şartını kişisel deneme için kaldıran son talimatı,

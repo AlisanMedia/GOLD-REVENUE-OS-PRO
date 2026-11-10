@@ -68,7 +68,8 @@
       "codex/jeff-identity-migration": false,
       "codex/founder-telegram-continuation": false,
       "codex/founder-openai-usage-repair": false,
-      "codex/founder-stopped-test-rearm": false
+      "codex/founder-stopped-test-rearm": false,
+      "codex/openai-reasoning-metadata-repair": false
     }
   },
   "framework": "nextjs",
