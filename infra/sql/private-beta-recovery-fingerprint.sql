@@ -61,7 +61,29 @@ begin
        and exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='DISPATCH_STARTED')
        and exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='RESULT_UNKNOWN'and e.payload->>'status'='UNKNOWN'and e.payload->>'qa'='NOT_EVALUATED'
         and e.payload->>'error_code'in('OPENAI_UAT_ENVELOPE_INVALID_REASONING','OPENAI_UAT_ENVELOPE_INVALID_USAGE','OPENAI_UAT_ENVELOPE_INVALID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_ORGANIZATION','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_PROJECT','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_CLIENT_ID','OPENAI_UAT_RESPONSE_CORRELATION_INVALID_CONTENT_TYPE'))
-       and not exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage in('PROVIDER_RESULT','DELAYED_RESULT','RECONCILIATION')),false))),false)
+       and not exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage in('PROVIDER_RESULT','DELAYED_RESULT','RECONCILIATION')),false)))
+    or(p.id=$2 and coalesce(private.private_beta_founder_only(p) and private.private_beta_openai(p)
+ and p.stage='CANARY' and p.request_count=5 and p.account_control->'version'='5'::jsonb
+ and jsonb_array_length(p.account_control->'retained_unknown_attempts')=4 and not(p.account_control?'retained_qa_held_attempt')
+ and not exists(select 1 from private.private_beta_participants where program_id=p.id)
+ and not exists(select 1 from private.private_beta_invites where program_id=p.id)
+ and not exists(select 1 from private.private_beta_business_controls where program_id=p.id)
+ and not exists(select 1 from private.jeff_experiment_runs where id=p.conversation_run_id)
+ and(select count(*)from private.private_beta_attempt_scope where program_id=p.id)=5
+ and not exists(select 1 from private.private_beta_attempt_scope s left join private.jeff_experiment_attempts a on a.id=s.attempt_id left join private.jeff_experiment_runs r on r.id=a.run_id
+  where s.program_id=p.id and not coalesce(s.tenant_id=p.tenant_id and s.scope='CANARY' and s.global_ordinal between 1 and 5 and a.ordinal=1 and a.liability>0
+  and r.tenant_id=p.tenant_id and r.request_count=1 and exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='DISPATCH_STARTED')
+  and not exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage in('DELAYED_RESULT','RECONCILIATION'))
+  and(case when s.global_ordinal=5 then r.id=p.canary_run_id and r.binding->'version'='5'::jsonb and r.stop_reason='PROVIDER_OR_QA_HOLD'
+   and exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='PROVIDER_RESULT' and e.payload->>'status'='SUCCEEDED' and e.payload->>'qa'='HELD'
+    and e.payload->'error_code'='null'::jsonb and(e.payload->>'input_tokens')::int between 1 and 4096 and(e.payload->>'output_tokens')::int between 1 and 512
+    and e.payload->>'response_hash'~'^[a-f0-9]{64}$' and e.payload->>'response_identity_hash'~'^[a-f0-9]{64}$' and e.payload->>'provider_usage_hash'~'^[a-f0-9]{64}$')
+   and not exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='RESULT_UNKNOWN')
+  else r.stop_reason='UNKNOWN_REMOTE_COMPLETION'
+   and exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='RESULT_UNKNOWN' and e.payload->>'status'='UNKNOWN' and e.payload->>'qa'='NOT_EVALUATED')
+   and not exists(select 1 from private.jeff_experiment_evidence e where e.attempt_id=a.id and e.stage='PROVIDER_RESULT')
+   and exists(select 1 from jsonb_array_elements(p.account_control->'retained_unknown_attempts') old where old->>'attempt_id'=a.id::text and old->>'run_id'=a.run_id::text and(old->>'liability')::numeric=a.liability)
+  end),false)),false)),false)
   $guard$,'private.jeff_','private.'||namespace_prefix||'_') into n using recovery_program,identity_program;
   if n<>0 then raise exception 'PRIVATE_BETA_RELEASE_REQUIRES_PAUSED_PROGRAMS';end if;
  end if;

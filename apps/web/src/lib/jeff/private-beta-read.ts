@@ -10,7 +10,7 @@ const canaryResult = z.strictObject({
   program_id: z.uuid(), attempt_id: z.uuid(), request_id: z.uuid(), repository_sha: z.string().regex(/^[a-f0-9]{40}$/u),
   plan_hash: z.string().regex(/^[a-f0-9]{64}$/u), corpus_hash: z.string().regex(/^[a-f0-9]{64}$/u), provider: z.enum(["anthropic", "openai"]), model: z.enum(["claude-haiku-5-5", "gpt-6.1-sol"]),
   provider_response_id: z.string().min(1).max(160), response_hash: z.string().regex(/^[a-f0-9]{64}$/u), elapsed_ms: z.string().regex(/^(0|[1-9][0-9]{0,7})(?:\.[0-9]{1,8})?$/u).nullable(),
-  input_tokens: z.number().int().min(0).max(2147483647).nullable(), output_tokens: z.number().int().min(0).max(2147483647).nullable(), qa: z.enum(["APPROVED", "HELD"]), response_preview: z.string().min(1).max(600).nullable(),
+  input_tokens: z.number().int().min(0).max(2147483647).nullable(), output_tokens: z.number().int().min(0).max(2147483647).nullable(), qa: z.enum(["APPROVED", "HELD"]), qa_reason_code: z.string().regex(/^JEFF_UAT_QA_[A-Z0-9_]{1,90}$/u).nullable().optional(), response_preview: z.string().min(1).max(600).nullable(),
   actual_billed_amount: z.null(), actual_billed_currency: z.null(), billing_status: z.literal("UNKNOWN_REQUIRES_INDEPENDENT_RECONCILIATION"),
   automatic_retries: z.literal(0), telegram_messages: z.literal(0), financial_authority: z.literal("NONE"), founder_testing_enabled: z.literal(false),
 }).refine(value => value.provider === "openai" ? value.model === "gpt-6.1-sol" : value.model === "claude-haiku-5-5");

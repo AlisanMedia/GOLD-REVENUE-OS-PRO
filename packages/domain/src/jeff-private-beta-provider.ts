@@ -1,3 +1,4 @@
+import { readJeffCanaryQaDiagnostic } from "./jeff-canary-qa-diagnostics";
 import { IDENTITY_DOMAINS_V1 } from "@gold-revenue-os/contracts";
 import { createHash } from "node:crypto";
 import { request as httpsRequest } from "node:https";
@@ -115,6 +116,7 @@ export function createJeffPrivateBetaProvider(dependencies: Readonly<{
   authority: ReturnType<typeof createJeffPrivateBetaNetworkAuthority>;
   store: JeffPrivateBetaAttemptStore;
   assess: (request: ModelRequest, response: ModelResponse) => "APPROVED" | "HELD" | Promise<"APPROVED" | "HELD">;
+  qaDiagnosticCode?: () => string;
 }>) {
   const binding = jeffPrivateBetaBindingSchema.parse(dependencies.binding), pending = new Set<string>();
   let last: Readonly<{ attempt_id: string; outcome: JeffPrivateBetaProviderOutcome }> | null = null;
@@ -151,11 +153,12 @@ export function createJeffPrivateBetaProvider(dependencies: Readonly<{
         }
         const usageMissing = response.usage.inputTokens === null || response.usage.outputTokens === null;
         const qa = await dependencies.assess(request, response);
+        const diagnostic = qa === "HELD" ? readJeffCanaryQaDiagnostic(dependencies.qaDiagnosticCode) : null;
         outcome = { version: 1, stage: "PROVIDER_RESULT", status: "SUCCEEDED", response_hash: result.response_hash,
           response_identity_hash: response.providerRequestId ? createHash("sha256").update(JSON.stringify([response.provider, response.providerRequestId]), "utf8").digest("hex") : null,
           elapsed_ms: response.latencyMs.toFixed(6), input_tokens: response.usage.inputTokens, output_tokens: response.usage.outputTokens,
           qa: usageMissing ? "HELD" : qa, actual_billed_amount: null, actual_billed_currency: null, financial_authority: "NONE",
-          error_code: usageMissing ? "JEFF_UAT_USAGE_UNAVAILABLE" : null, provider_usage_hash: createHash("sha256").update(JSON.stringify(result.provider_usage), "utf8").digest("hex") };
+          error_code: usageMissing ? "JEFF_UAT_USAGE_UNAVAILABLE" : diagnostic, provider_usage_hash: createHash("sha256").update(JSON.stringify(result.provider_usage), "utf8").digest("hex") };
       } catch (error) {
         const elapsed = performance.now() - start, unknown = (error instanceof JeffClaudeFailure || error instanceof JeffOpenAIFailure) && error.outcome_unknown;
         outcome = { version: 1, stage: unknown ? "RESULT_UNKNOWN" : "PROVIDER_RESULT", status: unknown ? "UNKNOWN" : "FAILED", response_hash: null, response_identity_hash: null,
