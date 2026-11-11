@@ -297,5 +297,73 @@ select public.private_beta_begin_v1(pg_temp.beta_id(6310,'2000'),pg_temp.beta_id
 select public.private_beta_record_v1(pg_temp.beta_id(6310,'2000'),pg_temp.beta_id(6310,'3000'),(select(receipt->>'attempt_id')::uuid from reasoning_failed),pg_temp.beta_id(6310,'5022'),(pg_temp.beta_outcome('UNKNOWN','RESULT_UNKNOWN','NOT_EVALUATED')||jsonb_build_object('error_code','OPENAI_UAT_ENVELOPE_INVALID_REASONING'))::text);
 select ok(not private.private_beta_continuation_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6310,'3000'))),'fifth UNKNOWN cannot authorize sixth canary');
 select ok(not private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6310,'3000'))),'fifth UNKNOWN cannot grant Business activation');
+-- The fifth actual response is SUCCEEDED/HELD, not another UNKNOWN. These
+-- disposable cases never stand for actual owner MFA/provider/Telegram evidence.
+create function pg_temp.qa_held(n integer,failed boolean default false)returns void language plpgsql as $$declare r jsonb;v jsonb;begin
+ perform pg_temp.reasoning_unknown(n);perform pg_temp.reasoning_observe(n);perform pg_temp.beta_auth(n);perform pg_temp.reasoning_start(n);
+ r:=public.private_beta_reserve_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),pg_temp.beta_id(n,'4030'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(n,'4031'));
+ perform public.private_beta_begin_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),(r->>'attempt_id')::uuid,pg_temp.beta_id(n,'5030'));
+ v:=case when failed then pg_temp.beta_outcome('FAILED','PROVIDER_RESULT','NOT_EVALUATED') else jsonb_set(pg_temp.founder_observed_result(),'{qa}','"HELD"'::jsonb)end;
+ perform public.private_beta_record_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),(r->>'attempt_id')::uuid,pg_temp.beta_id(n,'5030'),v::text);
+end;$$;
+create function pg_temp.qa_observe(n integer)returns void language plpgsql as $$declare v jsonb;begin
+ v:=jsonb_set(pg_temp.founder_model_fixture(n),'{observation,repository_sha}',to_jsonb(repeat('b',40)));
+ perform private.private_beta_founder_model_record(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),v::text);
+end;$$;
+create function pg_temp.qa_start(n integer)returns jsonb language plpgsql as $$declare p private.private_beta_programs;begin
+ select * into strict p from private.private_beta_programs where id=pg_temp.beta_id(n,'3000');
+ return public.admin_private_beta_continue_founder_test_v1(p.tenant_id,p.id,p.generation,repeat('b',40));end;$$;
+select pg_temp.qa_held(6312);
+select pg_temp.qa_held(6313,true);
+select pg_temp.qa_held(6314);
+select pg_temp.qa_held(6315);
+select ok(private.private_beta_qa_repair_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6312,'3000'))),'only exact fifth native QA hold with lost diagnostic is eligible');
+select ok(not private.private_beta_qa_repair_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6313,'3000'))),'failed fifth request is not a native QA-held response');
+select pg_temp.beta_auth(6314);
+select public.admin_private_beta_transition_v1(pg_temp.beta_id(6314,'2000'),pg_temp.beta_id(6314,'3000'),'STOPPED',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6314,'3000')));
+select ok(not private.private_beta_continuation_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6314,'3000'))),'STOP after fifth hold remains terminal');
+select pg_temp.beta_auth(6312);
+select throws_ok($q$select pg_temp.qa_start(6312)$q$,'55000',null,'QA repair requires metadata from a different published commit');
+select lives_ok($q$select pg_temp.qa_observe(6312)$q$,'same protected observer records metadata without model inference');
+create temp table qa_before as select p.id,
+ (select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join private.private_beta_attempt_scope s on s.attempt_id=a.id where s.program_id=p.id)attempts,
+ (select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=p.id)evidence
+ from private.private_beta_programs p where id=pg_temp.beta_id(6312,'3000');
+select pg_temp.beta_auth(6312,'owner','aal1');
+select throws_ok($q$select pg_temp.qa_start(6312)$q$,'42501',null,'QA repair requires actual aal2');
+select pg_temp.beta_auth(6312,'owner','aal2',301);
+select throws_ok($q$select pg_temp.qa_start(6312)$q$,'42501',null,'QA repair rejects stale MFA');
+select pg_temp.beta_auth(6313);
+select throws_ok($q$select pg_temp.qa_start(6312)$q$,'42501',null,'QA repair rejects foreign owner');
+select pg_temp.beta_auth(6312);
+select throws_ok($q$select public.admin_private_beta_continue_founder_test_v1(pg_temp.beta_id(6312,'2000'),pg_temp.beta_id(6312,'3000'),1,repeat('b',40))$q$,'42501',null,'QA repair rejects stale generation');
+select lives_ok($q$select pg_temp.qa_start(6312)$q$,'fresh owner uses same RPC after reviewed diagnostic/prompt repair');
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6312,'3000')),5,'all five consumed requests preserved before new canary');
+select is((select reserved_liability from private.private_beta_programs where id=pg_temp.beta_id(6312,'3000')),4.7343296::numeric,'all five original reservations preserved');
+select is((select jsonb_array_length(account_control->'retained_unknown_attempts')from private.private_beta_programs where id=pg_temp.beta_id(6312,'3000')),4,'exactly four UNKNOWNs remain UNKNOWN');
+select is((select account_control#>>'{retained_qa_held_attempt,status}'from private.private_beta_programs where id=pg_temp.beta_id(6312,'3000')),'SUCCEEDED','held native response is never relabeled UNKNOWN');
+select is((select account_control#>>'{retained_qa_held_attempt,qa}'from private.private_beta_programs where id=pg_temp.beta_id(6312,'3000')),'HELD','prior quality rejection is never approved by repair');
+select is((select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join private.private_beta_attempt_scope s on s.attempt_id=a.id where s.program_id=pg_temp.beta_id(6312,'3000')),(select attempts from qa_before),'all five original attempt rows unchanged');
+select is((select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=pg_temp.beta_id(6312,'3000')),(select evidence from qa_before),'all five original evidence records unchanged');
+select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(6312,'3000')),true)->>'maximum_requests','6','only sixth global canary ordinal admitted');
+select is(public.private_beta_account_control_v1(pg_temp.beta_id(6312,'2000'),pg_temp.beta_id(6312,'3000'))#>'{payload,retained_qa_held_attempt}',(select account_control->'retained_qa_held_attempt'from private.private_beta_programs where id=pg_temp.beta_id(6312,'3000')),'account evidence exposes identical typed retained hold');
+select throws_ok($q$select pg_temp.qa_start(6312)$q$,'42501',null,'QA continuation cannot repeat');
+select throws_ok($q$update private.private_beta_programs set account_control=account_control-'retained_qa_held_attempt'where id=pg_temp.beta_id(6312,'3000')$q$,'42501',null,'typed held debt cannot be removed');
+create temp table qa_new as select public.private_beta_reserve_v1(pg_temp.beta_id(6312,'2000'),pg_temp.beta_id(6312,'3000'),pg_temp.beta_id(6312,'4032'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6312,'4033'))receipt;
+select is(private.private_beta_exposure(pg_temp.beta_id(6312,'3000')),4.7608::numeric,'sixth reservation uses original5USD ceiling');
+select throws_ok($q$select public.private_beta_reserve_v1(pg_temp.beta_id(6312,'2000'),pg_temp.beta_id(6312,'3000'),pg_temp.beta_id(6312,'4034'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6312,'4035'))$q$,'54000',null,'seventh canary denied');
+select public.private_beta_begin_v1(pg_temp.beta_id(6312,'2000'),pg_temp.beta_id(6312,'3000'),(select(receipt->>'attempt_id')::uuid from qa_new),pg_temp.beta_id(6312,'5032'));
+select lives_ok($q$select public.private_beta_record_v1(pg_temp.beta_id(6312,'2000'),pg_temp.beta_id(6312,'3000'),(select(receipt->>'attempt_id')::uuid from qa_new),pg_temp.beta_id(6312,'5032'),pg_temp.founder_observed_result()::text)$q$,'new actual-format native QA result uses existing record path');
+select ok(private.private_beta_founder_canary_hash((select p from private.private_beta_programs p where id=pg_temp.beta_id(6312,'3000')))is not null,'only new approved canary creates readiness');
+select ok(private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6312,'3000'))),'Business setup permitted after sixth native QA approval');
+select throws_ok($q$select public.admin_private_beta_transition_v1(pg_temp.beta_id(6312,'2000'),pg_temp.beta_id(6312,'3000'),'FOUNDER',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6312,'3000')))$q$,'55000',null,'actual Telegram rights remain required');
+select pg_temp.beta_auth(6315);
+select pg_temp.qa_observe(6315);
+select pg_temp.qa_start(6315);
+create temp table qa_failed as select public.private_beta_reserve_v1(pg_temp.beta_id(6315,'2000'),pg_temp.beta_id(6315,'3000'),pg_temp.beta_id(6315,'4032'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6315,'4033'))receipt;
+select public.private_beta_begin_v1(pg_temp.beta_id(6315,'2000'),pg_temp.beta_id(6315,'3000'),(select(receipt->>'attempt_id')::uuid from qa_failed),pg_temp.beta_id(6315,'5032'));
+select lives_ok($q$select public.private_beta_record_v1(pg_temp.beta_id(6315,'2000'),pg_temp.beta_id(6315,'3000'),(select(receipt->>'attempt_id')::uuid from qa_failed),pg_temp.beta_id(6315,'5032'),(jsonb_set(pg_temp.founder_observed_result(),'{qa}','"HELD"'::jsonb)||jsonb_build_object('error_code','JEFF_UAT_QA_JEFF_AI_DISCLOSURE_REQUIRED'))::text)$q$,'new rejected response retains sanitized QA code in same durable journal');
+select ok(not private.private_beta_continuation_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6315,'3000'))),'another QA hold cannot authorize seventh model request');
+select ok(not private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6315,'3000'))),'rejected new response cannot activate Business conversation');
 select finish();
 rollback;

@@ -4,6 +4,39 @@
 Bu dosya bir sonucu onaylamaz. Actual run/deployment/migration kimlikleri raporda
 ayrı gösterilir. Başarılı mock test, hosted backup veya gerçek Admin girişi değildir.
 
+## 11 November2026 — genuine response held by QA; missing diagnostic repair
+
+Release27 published466ace1ef94093b6062a9be968a3339c8fb6b034 and88 migrations.
+The genuine fifth attempt85672573-8e39-4cd8-9cc6-6bedd003bed4 succeeded at the
+provider/native decoding boundary (1182 input/388 output tokens), then QA held it.
+No Telegram send occurred. The old outcome recorded only HELD and hashes; the
+rejected text and specific QA reasons were discarded. Its exact rejection cause
+cannot be reconstructed and must not be invented or retrospectively approved.
+
+Canary diagnostics now persist the first actual fixed QA reason in the existing
+journal error_code and return that code in owner-only source evidence. Arbitrary
+text and diagnostic callback failures cannot replace the genuine result or its QA.
+The existing frozen identity rule is literal; a documented offline paraphrase
+reproduces a hold. The test prompt now explicitly requests the supplied identity
+fact verbatim. This is a concrete instruction/validator mismatch, not proof of the
+fifth response's contents. Native QA, thresholds, actual output and all commercial,
+identity, financial, human-takeover and STOP controls are unchanged.
+
+Migration89 reuses the existing fresh-owner continuation for only the never-connected
+CANARY/v5 program with exactly four UNKNOWNs and the fifth SUCCEEDED/HELD response
+whose diagnostic was omitted. Keep the latter in a separate typed retained hold;
+never insert it into retained_unknown_attempts. Preserve all five attempt/evidence
+rows, counters and4.7343296USD exposure under the original5USD cap. A different
+published commit, fresh provider observations and genuine owner MFA permit one new
+sixth canary (at the current rates at most0.0264704USD). No seventh, STOP recovery,
+automatic retry, old-response approval or bill reconciliation is granted. The
+pre-migration read-only backup predicate independently verifies the same selected
+quiescent state; it never calls a not-yet-installed function.
+
+Only a new actual QA-approved result permits the existing one-chat Business setup.
+Publication, genuine model output, Telegram acceptance and device observation stay
+separate. The old four UNKNOWNs and fifth HELD result remain historical evidence.
+
 ## 10 November2026 — fourth reasoning-envelope repair
 
 The genuine owner rearm succeeded at11:33UTC. The fourth actual model attempt

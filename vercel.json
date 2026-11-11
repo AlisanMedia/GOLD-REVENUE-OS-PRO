@@ -69,7 +69,8 @@
       "codex/founder-telegram-continuation": false,
       "codex/founder-openai-usage-repair": false,
       "codex/founder-stopped-test-rearm": false,
-      "codex/openai-reasoning-metadata-repair": false
+      "codex/openai-reasoning-metadata-repair": false,
+      "codex/founder-canary-qa-evidence-repair": false
     }
   },
   "framework": "nextjs",

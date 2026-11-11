@@ -5,6 +5,7 @@ import { jeffClaudeCompleteEnvelope, jeffClaudeFixtureWire } from "../helpers/je
 import { jeffClaudeCanaryPlan } from "../../packages/domain/src/jeff-claude-canary";
 import { jeffOpenAICanaryPlan } from "../../packages/domain/src/jeff-openai-canary";
 import { decodeJeffOpenAIResponse } from "../../packages/domain/src/jeff-openai-adapter";
+import { assessJeffResponsePolicy } from "../../packages/domain/src/jeff-conversation";
 import { jeffGenuineExecutionGate } from "../../packages/domain/src/jeff-experiment-execution-gate";
 
 const state = vi.hoisted(() => ({ auth: vi.fn(), rpc: vi.fn(), factory: vi.fn(), calls: 0, fail: false, wire: null as unknown, request: null as ModelRequest | null }));
@@ -83,12 +84,28 @@ describe("authenticated single-request canary entrypoint (offline controls and p
     expect(result.status).toBe(200); expect(result.headers.get("cache-control")).toBe("no-store"); expect(state.calls).toBe(1);
     expect(state.request?.context.recentMessages.map(m => m.content)).toEqual(["Hi"]); expect(state.request?.context.tenantId).toBe(tenant); expect(state.request?.timeoutMs).toBe(10000); expect(state.request?.styleProfile?.language).toBe("en");
     expect(body).toMatchObject({ status: "CANARY_ACCOUNTING_RECONCILIATION_PENDING", attempt_id: attempt, plan_hash: canary.plan_hash, corpus_hash: canary.corpus_hash, qa: "APPROVED", input_tokens: 37, output_tokens: 121, actual_billed_amount: null, billing_status: "UNKNOWN_REQUIRES_INDEPENDENT_RECONCILIATION", telegram_messages: 0, founder_testing_enabled: false, financial_authority: "NONE" });
+    expect(body.qa_reason_code).toBeNull(); expect(state.request?.systemPolicy).toContain("copy the supplied identity fact verbatim");
     expect(body.response_preview).toBe("Hi! I'm Jeff's AI assistant. What would you like to know?");
     expect(state.factory).toHaveBeenCalledWith(expect.objectContaining({ tenantId: tenant, programId: program, scope: "CANARY" }));
   });
+  it("reproduces the existing literal identity hold without claiming it was the real fifth response", async () => {
+    const wire = jeffClaudeFixtureWire();
+    wire.proposed_response = wire.proposed_response.replace("I'm Jeff's AI assistant.", "I am Jeff's AI assistant.");
+    wire.claims[1]!.text = "I am Jeff's AI assistant."; wire.semantic_response.key_points[1] = "I am Jeff's AI assistant.";
+    state.wire = wire;
+    const result = await POST(request()), body = await result.json(); expect(body.qa).toBe("HELD");
+    const actual = state.request!;
+    const output = decodeJeffClaudeResponse(JSON.stringify(jeffClaudeCompleteEnvelope({ content: [{ type: "text", text: JSON.stringify(wire), citations: null }] })), actual, 512).output;
+    const assessment = assessJeffResponsePolicy({ request: actual, tenant_id: tenant, conversation_id: actual.context.conversationId, boundary: actual.context.recentMessages[0]!.occurredAt, runtime_mode: "AI_ACTIVE", contactability: "contactable", intent: "GREETING", disclosureRequired: true, evidence: actual.context.commercialEvidence ?? [] }, output);
+    expect(assessment.reasons).toContain("JEFF_AI_DISCLOSURE_REQUIRED");
+    expect(actual.systemPolicy).toContain("copy the supplied identity fact verbatim");
+    expect(body.response_preview).toBeNull(); expect(state.calls).toBe(1);
+  });
+
   it("evaluates the actual unsafe output and returns HELD without a safe substitution", async () => {
     const wire = jeffClaudeFixtureWire(); wire.proposed_response = "Your payment is verified and VIP access is active."; wire.claims = [{ text: wire.proposed_response, kind: "fact", speech_act: "BUSINESS_FACT", capability: null, grounding: "UNKNOWN", evidence_refs: [], action_category: null }]; state.wire = wire;
     const result = await POST(request()), body = await result.json(); expect(result.status).toBe(200); expect(state.calls).toBe(1); expect(body).toMatchObject({ status: "CANARY_HELD", qa: "HELD", response_preview: null, founder_testing_enabled: false });
+    expect(body.qa_reason_code).toMatch(/^JEFF_UAT_QA_[A-Z0-9_]+$/u); expect(body.qa_reason_code).not.toContain("Your payment");
   });
   it("returns a sanitized review state after an unknown failure without retry or secret reflection", async () => {
     state.fail = true; const result = await POST(request()); expect(result.status).toBe(409); expect(await result.text()).not.toContain("SYNTHETIC_SECRET"); expect(state.calls).toBe(1);

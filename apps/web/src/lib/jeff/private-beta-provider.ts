@@ -28,6 +28,7 @@ export async function createPrivateBetaProviderFromDatabase(input: {
   programId: string;
   scope: "CANARY" | "CONVERSATION";
   assess: Parameters<typeof createJeffPrivateBetaProvider>[0]["assess"];
+  qaDiagnosticCode?: () => string;
 }) {
   const scope = z.strictObject({ tenantId: z.uuid(), programId: z.uuid(), scope: z.enum(["CANARY", "CONVERSATION"]) }).parse({ tenantId: input.tenantId, programId: input.programId, scope: input.scope });
   const declared = process.env.JEFF_UAT_RELEASE_SHA, observed = process.env.VERCEL_GIT_COMMIT_SHA;
@@ -89,5 +90,5 @@ export async function createPrivateBetaProviderFromDatabase(input: {
       if (!result.recorded) throw Error("PRIVATE_BETA_EVIDENCE_UNAVAILABLE");
     },
   };
-  return createJeffPrivateBetaProvider({ binding, authority, store, assess: input.assess });
+  return createJeffPrivateBetaProvider({ binding, authority, store, assess: input.assess, ...(input.qaDiagnosticCode ? { qaDiagnosticCode: input.qaDiagnosticCode } : {}) });
 }
