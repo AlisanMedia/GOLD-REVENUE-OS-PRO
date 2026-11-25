@@ -352,7 +352,7 @@
       "path": "supabase/tests/private_beta_founder_continuation.test.sql",
       "occurrences": 1,
       "reason": "Production-shaped pre-rename notice fixture; fresh owner continuation normalizes the notice while preserving the original configuration in audit history.",
-      "sha256": "0f1583ebb1c6034e8f09551c782af26ee75cc3571d0987a764524ab5e6d58e14"
+      "sha256": "cac5c6451215e1089490a0e19ad05ef0508b1274b7c9124967ae69efa9152708"
     },
     {
       "path": "tests/integration/jeff-identity-migration.test.ts",
