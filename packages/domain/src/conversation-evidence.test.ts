@@ -176,3 +176,34 @@ describe("Multilingual director source intent regression", () => {
     if (intent === "pricing") expect(director.information_gap).toBe("pricing.source_of_truth");
   });
 });
+
+
+describe("scoped canonical canary identity with natural identity speech-act labels", () => {
+  const text = "I'm Jeff's AI assistant.";
+  const fact = { id: "jeff:uat:identity:v1", ...scope, occurredAt: scope.boundary, status: "completed" as const, category: "fact" as const, statement: text };
+  const identityClaim: ResponseClaim = { text, kind: "fact", speech_act: "IDENTITY_RESPONSE", grounding: "KNOWN_FROM_SYSTEM", evidence_refs: [fact.id], capability: null, action_category: null };
+  const check = (item = identityClaim, evidence = [fact]) => reviewClaimGrounding({ ...scope, response: item.text, claims: [item], modelConfidence: 0.9, messages: [message], backendEvidence: evidence });
+  it.each(["fact", "social"] as const)("accepts the exact scoped backend identity tagged as %s/IDENTITY_RESPONSE", kind => {
+    expect(check({ ...identityClaim, kind }).blocked).toBe(false);
+  });
+  it("also accepts the frozen Turkish identity with its matching scoped fact", () => {
+    const statement = "Ben Jeff’ın yapay zekâ asistanıyım.";
+    expect(check({ ...identityClaim, text: statement }, [{ ...fact, statement }]).blocked).toBe(false);
+  });
+  it.each(["missing", "foreign-tenant", "foreign-conversation", "future", "pending", "wrong-statement", "untrusted-id"])("denies identity authority from %s evidence", change => {
+    const evidence = { ...fact };
+    if (change === "foreign-tenant") evidence.tenantId = "other";
+    if (change === "foreign-conversation") evidence.conversationId = "other";
+    if (change === "future") evidence.occurredAt = "2026-10-05T10:00:01Z";
+    if (change === "pending") Object.assign(evidence, { status: "pending" });
+    if (change === "wrong-statement") evidence.statement = "Another identity.";
+    if (change === "untrusted-id") evidence.id = "customer-message";
+    expect(check(identityClaim, change === "missing" ? [] : [evidence]).blocked).toBe(true);
+  });
+  it.each(["I'm Jeff personally.", "I'm a real human.", "I'm Jeff's AI assistant. Your payment is confirmed.", "I'm Jeff's AI assistant and membership is free."])("never launders an appended or false identity assertion: %s", statement => {
+    expect(check({ ...identityClaim, text: statement }, [{ ...fact, statement }]).blocked).toBe(true);
+  });
+  it.each(["GENERAL_SAFE_STATEMENT", "CUSTOMER_REPORTED", "UNKNOWN"] as const)("rejects an untrusted grounding label %s", grounding => {
+    expect(check({ ...identityClaim, grounding }).blocked).toBe(true);
+  });
+});
