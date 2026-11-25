@@ -139,7 +139,16 @@ export function reviewClaimGrounding(input: {
       && evidence.some(item => item.category === "fact" && claim.evidence_refs.includes(item.id)
         && ["jeff:uat:identity:v1", "jeff:campaign:identity:v1"].includes(item.id)
         && ["I'm Jeff's AI assistant.", "Ben Jeff’ın yapay zekâ asistanıyım."].some(statement => normalizeConversationText(statement) === normalizeConversationText(item.statement)));
-    const exactIdentity = exactJeffSupportIdentity || (speechAct === "IDENTITY_RESPONSE" || identityDeclaration) && [
+    // The frozen canary supplies this exact backend fact. IDENTITY_RESPONSE
+    // must apply the same source proof as BUSINESS_FACT, with no appended text.
+    const exactScopedCanaryIdentity = speechAct === "IDENTITY_RESPONSE"
+      && ["fact", "social"].includes(claim.kind) && claim.grounding === "KNOWN_FROM_SYSTEM"
+      && claim.capability == null && claim.action_category == null
+      && ["I'm Jeff's AI assistant.", "Ben Jeff’ın yapay zekâ asistanıyım."].some(statement => normalizeConversationText(statement) === normalizeConversationText(claim.text))
+      && evidence.some(item => item.category === "fact" && claim.evidence_refs.includes(item.id)
+        && ["jeff:uat:identity:v1", "jeff:campaign:identity:v1"].includes(item.id)
+        && normalizeConversationText(item.statement) === normalizeConversationText(claim.text));
+    const exactIdentity = exactScopedCanaryIdentity || exactJeffSupportIdentity || (speechAct === "IDENTITY_RESPONSE" || identityDeclaration) && [
       "i m an ai assistant not a human", "i am an ai assistant not a human", "i m an ai assistant", "i am an ai assistant",
       "i m an ai assistant not a real human", "i am an ai assistant not a real human",
       "i m an ai not a real human", "i am an ai not a real human",

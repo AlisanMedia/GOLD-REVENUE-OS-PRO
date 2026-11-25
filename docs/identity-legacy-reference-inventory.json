@@ -364,7 +364,7 @@
       "path": "vercel.json",
       "occurrences": 18,
       "reason": "Historical branch names remain deployment-disabled; no old active product route or identity.",
-      "sha256": "f573c2f9ebd22efb1940fdc92699fb636aeae125de29578dba6205073a0bf754"
+      "sha256": "d55308731c3cbf44fd6ae8b77bc1f7fe910c438973144e656c7284703cf28abc"
     },
     {
       "path": "docs/identity-legacy-reference-inventory.json",

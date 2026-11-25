@@ -4,6 +4,28 @@
 Bu dosya bir sonucu onaylamaz. Actual run/deployment/migration kimlikleri raporda
 ayrı gösterilir. Başarılı mock test, hosted backup veya gerçek Admin girişi değildir.
 
+## 25 November2026 — scoped identity grounding repair; live test remains held
+
+The sixth genuine attempt9b03cd34-27b6-4d80-a24d-2b4a2654468f returned native
+OpenAI output (1218/380 tokens) with QA HELD / JEFF_UAT_QA_UNSUPPORTED_CLAIM.
+Its raw rejected claim was not retained; do not assert which sentence failed.
+The current checker independently rejects the exact supplied canonical identity
+when tagged IDENTITY_RESPONSE, although the same scoped backend fact is accepted
+under BUSINESS_FACT. Offline regression tests reproduce this mismatch. Accept
+only the exact existing EN/TR identity, KNOWN_FROM_SYSTEM, no capabilities or
+actions, and an eligible cited scoped backend fact under the trusted identity ID.
+Missing/foreign/future/pending evidence, appended claims and human impersonation
+still fail. Current customer-facing brand support policy is unchanged.
+
+There is a separate timing hold: dispatch19:44:02.684037UTC, deadline19:44:12.684037,
+record19:44:13.234790 (550.753ms late), reported provider duration8983.175051ms.
+The durable event is DELAYED_RESULT, status SUCCEEDED, QA HELD. Keep it exactly
+so. This source-only repair grants no seventh request, deadline exception, owner
+authority, migration, publication or Telegram activation. The timing boundary and
+any separately bounded owner continuation need review before genuine testing.
+Preserve all six journals, four UNKNOWNs, fifth held and sixth delayed/held,
+reserved exposure4.7608000USD and the original5USD cap.
+
 ## 11 November2026 — genuine response held by QA; missing diagnostic repair
 
 Release27 published466ace1ef94093b6062a9be968a3339c8fb6b034 and88 migrations.
