@@ -49,6 +49,13 @@ create function private.private_beta_canary_record_grace(x private.private_beta_
  and clock_timestamp()<=s.deadline+interval '2 seconds',false)
 $$;
 revoke all on function private.private_beta_canary_record_grace(private.private_beta_programs,private.private_beta_attempt_scope,private.jeff_experiment_runs,jsonb)from public,anon,authenticated,service_role;
+-- Exclude only this separately preserved delayed hold from blocking the new
+-- authorized run; its ledger status and full reserved cost remain unchanged.
+create function private.private_beta_retained_delayed(x private.private_beta_programs,attempt_value uuid)returns boolean language sql immutable set search_path=pg_catalog as $$
+ select coalesce(x.account_control->'version'='5'::jsonb and x.account_control#>>'{retained_delayed_qa_held_attempt,stage}'='DELAYED_RESULT'
+ and x.account_control#>>'{retained_delayed_qa_held_attempt,qa}'='HELD' and x.account_control#>>'{retained_delayed_qa_held_attempt,attempt_id}'=attempt_value::text,false)
+$$;
+revoke all on function private.private_beta_retained_delayed(private.private_beta_programs,uuid)from public,anon,authenticated,service_role;
 create function pg_temp.identity_repair_patch(target regprocedure,old_text text,new_text text)returns void language plpgsql as $$declare src text;begin
  src:=pg_get_functiondef(target);if position(old_text in src)=0 then raise exception 'IDENTITY_REPAIR_PATCH_CONTRACT_MISSING: %',target;end if;execute replace(src,old_text,new_text);end;$$;
 select pg_temp.identity_repair_patch('private.private_beta_continuation_available(private.private_beta_programs)',
@@ -82,6 +89,15 @@ select pg_temp.identity_repair_patch('public.private_beta_record_external_v2(uui
  jsonb_build_object('deadline',s.deadline,'recorded_at',clock_timestamp(),'provider_elapsed_ms',p->>'elapsed_ms','maximum_journal_grace_ms',2000,'provider_timeout_ms',10000,'financial_authority','NONE'));
  end if;
  perform private.private_beta_append(r,a,stage_value,p,private.fse_hash(dispatch_nonce_value::text),s.deadline);$audit$);
+select pg_temp.identity_repair_patch('private.private_beta_founder_canary_hash(private.private_beta_programs)',
+ 'not private.private_beta_retained_unknown(x,z.attempt_id)',
+ 'not private.private_beta_retained_unknown(x,z.attempt_id) and not private.private_beta_retained_delayed(x,z.attempt_id)');
+select pg_temp.identity_repair_patch('public.private_beta_account_control_v1(uuid,uuid)',
+ 'not private.private_beta_retained_unknown(x,e.attempt_id)',
+ 'not private.private_beta_retained_unknown(x,e.attempt_id) and not private.private_beta_retained_delayed(x,e.attempt_id)');
+select pg_temp.identity_repair_patch('public.private_beta_reserve_v1(uuid,uuid,uuid,text,text,uuid,text,uuid)',
+ 'not private.private_beta_retained_unknown(x,e.attempt_id)',
+ 'not private.private_beta_retained_unknown(x,e.attempt_id) and not private.private_beta_retained_delayed(x,e.attempt_id)');
 alter table private.jeff_experiment_runs add constraint jeff_experiment_retained_delayed_qa check(not(binding?'retained_delayed_qa_held_attempt')or coalesce(
  binding->'version'='5'::jsonb and binding->>'scope'='OWNER_ONLY' and binding?'retained_qa_held_attempt' and jsonb_array_length(binding->'retained_unknown_attempts')=4
  and binding#>>'{retained_delayed_qa_held_attempt,stage}'='DELAYED_RESULT' and binding#>>'{retained_delayed_qa_held_attempt,status}'='SUCCEEDED' and binding#>>'{retained_delayed_qa_held_attempt,qa}'='HELD'
