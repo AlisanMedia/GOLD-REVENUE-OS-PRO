@@ -109,12 +109,13 @@ function recoveryFixture() {
 }
 
 
-function continuationFixture(founder = false, usageRepair = false, reasoningRepair = false, qaRepair = false) {
+function continuationFixture(founder = false, usageRepair = false, reasoningRepair = false, qaRepair = false, recordingRepair = false) {
   const s = recoveryFixture();
   const continuation = {
     continuation_authority: "OWNER_FRESH_MFA", continuation_execution_ref: "OWNER_RPC", continuation_authorization_hash: "6".repeat(64),
     continuation_authenticated_at: s.owner.authenticated_at, continuation_approved_at: s.owner.approved_at, ...(qaRepair ? { retained_qa_held_attempt: { attempt_id: "91cc3000-0000-4000-8000-000000000095", run_id: "91cc4000-0000-4000-8000-000000000095", liability: "0.0264704", status: "SUCCEEDED", qa: "HELD", response_hash: "9".repeat(64) } } : {}),
-    continuation_source_generation: qaRepair ? "9" : reasoningRepair ? "8" : usageRepair ? "6" : "5",
+    ...(recordingRepair ? { retained_delayed_qa_held_attempt: { attempt_id: "91cc3000-0000-4000-8000-000000000094", run_id: "91cc4000-0000-4000-8000-000000000094", liability: "0.0264704", stage: "DELAYED_RESULT", status: "SUCCEEDED", qa: "HELD", response_hash: "8".repeat(64) } } : {}),
+    continuation_source_generation: recordingRepair ? "10" : qaRepair ? "9" : reasoningRepair ? "8" : usageRepair ? "6" : "5",
     retained_unknown_attempts: [
       { attempt_id: s.binding.retained_unknown_attempt_id, run_id: s.binding.retained_unknown_run_id, liability: "4.628448" },
       { attempt_id: "91cc3000-0000-4000-8000-000000000098", run_id: "91cc4000-0000-4000-8000-000000000098", liability: "0.0264704" },
@@ -122,14 +123,14 @@ function continuationFixture(founder = false, usageRepair = false, reasoningRepa
       ...(reasoningRepair ? [{ attempt_id: "91cc3000-0000-4000-8000-000000000096", run_id: "91cc4000-0000-4000-8000-000000000096", liability: "0.0264704" }] : []),
     ],
   };
-  const binding = jeffPrivateBetaBindingSchema.parse({ ...s.binding, version: 5, maximum_requests: founder ? 350 : qaRepair ? 6 : reasoningRepair ? 5 : usageRepair ? 4 : 3, ...continuation, ...(founder ? { corpus_version: "jeff-private-beta-conversation-v1", corpus_hash: "3".repeat(64), plan_hash: "4".repeat(64) } : {}) });
+  const binding = jeffPrivateBetaBindingSchema.parse({ ...s.binding, version: 5, maximum_requests: founder ? 350 : recordingRepair ? 7 : qaRepair ? 6 : reasoningRepair ? 5 : usageRepair ? 4 : 3, ...continuation, ...(founder ? { corpus_version: "jeff-private-beta-conversation-v1", corpus_hash: "3".repeat(64), plan_hash: "4".repeat(64) } : {}) });
   if (binding.version !== 5) throw Error("CONTINUATION_FIXTURE_REQUIRED");
   const hash = jeffGuardDigest(binding), owner = { ...s.owner, binding_hash: hash, starts_at: s.owner.approved_at, phase: founder ? "FOUNDER" : "CANARY" };
-  const account = jeffPrivateBetaAccountEvidenceSchema.parse({ ...s.account, version: 5, ...continuation, canary_result_hash: founder ? "7".repeat(64) : null, local_reserved_liability: qaRepair ? "4.7343296" : reasoningRepair ? "4.7078592" : usageRepair ? "4.6813888" : "4.6549184", local_remaining_allowance: qaRepair ? "0.2656704" : reasoningRepair ? "0.2921408" : usageRepair ? "0.3186112" : "0.3450816" });
+  const account = jeffPrivateBetaAccountEvidenceSchema.parse({ ...s.account, version: 5, ...continuation, canary_result_hash: founder ? "7".repeat(64) : null, local_reserved_liability: recordingRepair ? "4.7608" : qaRepair ? "4.7343296" : reasoningRepair ? "4.7078592" : usageRepair ? "4.6813888" : "4.6549184", local_remaining_allowance: recordingRepair ? "0.2392" : qaRepair ? "0.2656704" : reasoningRepair ? "0.2921408" : usageRepair ? "0.3186112" : "0.3450816" });
   if (account.version !== 5) throw Error("CONTINUATION_FIXTURE_REQUIRED");
-  const payload = { ...s.payload, binding_hash: hash, global_ordinal: (founder ? 4 : 3) + (qaRepair ? 3 : reasoningRepair ? 2 : usageRepair ? 1 : 0), generation: qaRepair ? "10" : reasoningRepair ? "9" : usageRepair ? "7" : "6", reserved_liability: qaRepair ? "4.7608" : reasoningRepair ? "4.7343296" : usageRepair ? "4.7078592" : "4.6813888", scope: founder ? "FOUNDER" as const : "CANARY" as const, participant_id: founder ? "91cc7000-0000-4000-8000-000000000001" : null, participant_ordinal: founder ? 1 : 0, source_message_id: founder ? s.prepared.request.context.recentMessages.at(-1)!.id : null };
+  const payload = { ...s.payload, binding_hash: hash, global_ordinal: (founder ? 4 : 3) + (recordingRepair ? 4 : qaRepair ? 3 : reasoningRepair ? 2 : usageRepair ? 1 : 0), generation: recordingRepair ? "11" : qaRepair ? "10" : reasoningRepair ? "9" : usageRepair ? "7" : "6", reserved_liability: recordingRepair ? "4.7872704" : qaRepair ? "4.7608" : reasoningRepair ? "4.7343296" : usageRepair ? "4.7078592" : "4.6813888", scope: founder ? "FOUNDER" as const : "CANARY" as const, participant_id: founder ? "91cc7000-0000-4000-8000-000000000001" : null, participant_ordinal: founder ? 1 : 0, source_message_id: founder ? s.prepared.request.context.recentMessages.at(-1)!.id : null };
   const committed = { ...s.committed, binding_hash: hash, generation: payload.generation, payload }, reservation = { ...s.reservation, binding_hash: hash };
-  const reserve = vi.fn(() => { account.local_reserved_liability = payload.reserved_liability; account.local_remaining_allowance = qaRepair ? "0.2392" : reasoningRepair ? "0.2656704" : usageRepair ? "0.2921408" : "0.3186112"; return Promise.resolve(reservation); });
+  const reserve = vi.fn(() => { account.local_reserved_liability = payload.reserved_liability; account.local_remaining_allowance = recordingRepair ? "0.2127296" : qaRepair ? "0.2392" : reasoningRepair ? "0.2656704" : usageRepair ? "0.2921408" : "0.3186112"; return Promise.resolve(reservation); });
   const authority = createJeffPrivateBetaNetworkAuthority({ deployed_sha: binding.repository_sha, readOwnerGrant: () => Promise.resolve(owner), readIndependentAccount: () => Promise.resolve({ payload: account }), readCommittedAttempt: () => Promise.resolve(committed), resolveCredential: s.credentialRead });
   const service = createJeffPrivateBetaProvider({ binding, authority, store: { reserve, begin: s.begin, record: s.record }, assess: s.assess });
   return { ...s, binding, owner, account, payload, committed, reservation, reserve, authority, service };
@@ -734,5 +735,31 @@ describe("separate preserved QA-held response and one owner repair", () => {
     await expect(service.provider.invoke(s.prepared.request)).resolves.toMatchObject({ provider: "openai" });
     expect(s.outcomes[0]).toMatchObject({ status: "SUCCEEDED", qa: "HELD", input_tokens: 37, output_tokens: 121, error_code: code.startsWith("JEFF_UAT_QA_") ? code : "JEFF_UAT_QA_DIAGNOSTIC_UNAVAILABLE" });
     expect(JSON.stringify(s.outcomes)).not.toContain("PRIVATE_CUSTOMER_TEXT"); expect(fake.calls.filter(c => c.options.path === "/v1/responses")).toHaveLength(1);
+  });
+});
+
+
+describe("one identity/recording repair with six immutable historical attempts", () => {
+  it("keeps UNKNOWN, native HELD and delayed HELD distinct, and admits exactly seventh canary", async () => {
+    const s = continuationFixture(false, false, true, true, true), history = structuredClone([s.account.retained_unknown_attempts, s.account.retained_qa_held_attempt, s.account.retained_delayed_qa_held_attempt]);
+    await expect(s.service.provider.invoke(s.prepared.request)).resolves.toMatchObject({ provider: "openai" });
+    expect(s.payload.global_ordinal).toBe(7); expect(s.binding.maximum_requests).toBe(7);
+    expect([s.account.retained_unknown_attempts, s.account.retained_qa_held_attempt, s.account.retained_delayed_qa_held_attempt]).toEqual(history);
+    expect(s.account.local_reserved_liability).toBe("4.7872704"); expect(s.account.local_maximum_spend).toBe("5.00");
+  });
+  it.each(["duplicate", "debt", "hash", "eighth", "omit-debt", "replay", "missing-held"])("denies widened recording repair %s before generation", async change => {
+    const s = continuationFixture(false, false, true, true, true), old = s.account.retained_delayed_qa_held_attempt!;
+    if (change === "duplicate") old.attempt_id = s.account.retained_unknown_attempts[0].attempt_id;
+    if (change === "debt") old.liability = "0";
+    if (change === "hash") old.response_hash = "7".repeat(64);
+    if (change === "eighth") s.payload.global_ordinal = 8;
+    if (change === "omit-debt") s.payload.reserved_liability = "4.7608";
+    if (change === "replay") s.payload.attempt_id = s.committed.attempt_id = old.attempt_id;
+    if (change === "missing-held") delete s.account.retained_qa_held_attempt;
+    await expect(s.service.provider.invoke(s.prepared.request)).rejects.toThrow(); expect(fake.calls.filter(c => c.options.path === "/v1/responses")).toHaveLength(0);
+  });
+  it("uses the unchanged founder path after the new canary", async () => {
+    const s = continuationFixture(true, false, true, true, true);
+    await expect(s.service.provider.invoke(s.prepared.request)).resolves.toMatchObject({ provider: "openai" }); expect(s.payload.global_ordinal).toBe(8);
   });
 });

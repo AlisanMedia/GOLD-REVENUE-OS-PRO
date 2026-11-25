@@ -365,5 +365,82 @@ select public.private_beta_begin_v1(pg_temp.beta_id(6315,'2000'),pg_temp.beta_id
 select lives_ok($q$select public.private_beta_record_v1(pg_temp.beta_id(6315,'2000'),pg_temp.beta_id(6315,'3000'),(select(receipt->>'attempt_id')::uuid from qa_failed),pg_temp.beta_id(6315,'5032'),(jsonb_set(pg_temp.founder_observed_result(),'{qa}','"HELD"'::jsonb)||jsonb_build_object('error_code','JEFF_UAT_QA_JEFF_AI_DISCLOSURE_REQUIRED'))::text)$q$,'new rejected response retains sanitized QA code in same durable journal');
 select ok(not private.private_beta_continuation_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6315,'3000'))),'another QA hold cannot authorize seventh model request');
 select ok(not private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6315,'3000'))),'rejected new response cannot activate Business conversation');
+-- Disposable fixtures for the observed sixth delayed/held result; no real
+-- founder auth, model result, invoice, Telegram permission or delivery proof.
+create function pg_temp.recording_sixth_begin(n integer)returns jsonb language plpgsql as $$declare r jsonb;begin
+ perform pg_temp.qa_held(n);perform pg_temp.qa_observe(n);perform pg_temp.beta_auth(n);perform pg_temp.qa_start(n);
+ r:=public.private_beta_reserve_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),pg_temp.beta_id(n,'4040'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(n,'4041'));
+ perform public.private_beta_begin_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),(r->>'attempt_id')::uuid,pg_temp.beta_id(n,'5040'));return r;end;$$;
+create function pg_temp.recording_sixth_end(n integer,r jsonb,error_value text default 'JEFF_UAT_QA_UNSUPPORTED_CLAIM')returns void language plpgsql as $$begin
+ perform pg_temp.beta_auth(n);
+ perform public.private_beta_record_v1(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),(r->>'attempt_id')::uuid,pg_temp.beta_id(n,'5040'),(pg_temp.founder_observed_result()||jsonb_build_object('qa','HELD','error_code',error_value,'elapsed_ms','9000'))::text);end;$$;
+create function pg_temp.recording_observe(n integer)returns void language plpgsql as $$declare v jsonb;begin
+ v:=jsonb_set(pg_temp.founder_model_fixture(n),'{observation,repository_sha}',to_jsonb(repeat('a',40)));
+ perform private.private_beta_founder_model_record(pg_temp.beta_id(n,'2000'),pg_temp.beta_id(n,'3000'),v::text);end;$$;
+create function pg_temp.recording_start(n integer)returns jsonb language plpgsql as $$declare p private.private_beta_programs;begin
+ select * into strict p from private.private_beta_programs where id=pg_temp.beta_id(n,'3000');return public.admin_private_beta_continue_founder_test_v1(p.tenant_id,p.id,p.generation,repeat('a',40));end;$$;
+create temp table recording_old as select 6321 as n,pg_temp.recording_sixth_begin(6321)receipt union all select 6322,pg_temp.recording_sixth_begin(6322);
+select pg_sleep(10.6);
+select pg_temp.recording_sixth_end(n,receipt,case when n=6321 then 'JEFF_UAT_QA_UNSUPPORTED_CLAIM'else 'JEFF_UAT_QA_POLICY_RISK'end)from recording_old;
+select ok(private.private_beta_identity_repair_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6321,'3000'))),'exact sixth delayed/held native result is eligible');
+select ok(not private.private_beta_identity_repair_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6322,'3000'))),'another sixth QA reason is not widened into this repair');
+select ok(not has_function_privilege('service_role','private.private_beta_canary_record_grace(private.private_beta_programs,private.private_beta_attempt_scope,private.jeff_experiment_runs,jsonb)','execute'),'service role cannot choose storage grace');
+select pg_temp.beta_auth(6321);
+select throws_ok($q$select pg_temp.recording_start(6321)$q$,'55000',null,'recording repair requires a new published SHA observation');
+select pg_temp.recording_observe(6321);
+create temp table recording_before as select p.id,
+ (select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join private.private_beta_attempt_scope s on s.attempt_id=a.id where s.program_id=p.id)attempts,
+ (select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=p.id)evidence
+ from private.private_beta_programs p where id=pg_temp.beta_id(6321,'3000');
+select pg_temp.beta_auth(6321,'owner','aal1');
+select throws_ok($q$select pg_temp.recording_start(6321)$q$,'42501',null,'recording repair needs real aal2');
+select pg_temp.beta_auth(6321,'owner','aal2',301);
+select throws_ok($q$select pg_temp.recording_start(6321)$q$,'42501',null,'recording repair rejects stale MFA');
+select pg_temp.beta_auth(6322);
+select throws_ok($q$select pg_temp.recording_start(6321)$q$,'42501',null,'recording repair rejects foreign owner');
+select public.admin_private_beta_transition_v1(pg_temp.beta_id(6322,'2000'),pg_temp.beta_id(6322,'3000'),'STOPPED',(select generation from private.private_beta_programs where id=pg_temp.beta_id(6322,'3000')));
+select ok(not private.private_beta_continuation_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6322,'3000'))),'STOP remains terminal');
+select pg_temp.beta_auth(6321);
+select throws_ok($q$select public.admin_private_beta_continue_founder_test_v1(pg_temp.beta_id(6321,'2000'),pg_temp.beta_id(6321,'3000'),1,repeat('a',40))$q$,'42501',null,'stale generation cannot renew the grant');
+select lives_ok($q$select pg_temp.recording_start(6321)$q$,'fresh owner explicitly continues after protected identity/recording repair');
+select is((select request_count from private.private_beta_programs where id=pg_temp.beta_id(6321,'3000')),6,'all six consumed requests preserved');
+select is(private.private_beta_exposure(pg_temp.beta_id(6321,'3000')),4.7608::numeric,'all six reservations preserved');
+select is((select jsonb_array_length(account_control->'retained_unknown_attempts')from private.private_beta_programs where id=pg_temp.beta_id(6321,'3000')),4,'only original four UNKNOWNs are UNKNOWN');
+select is((select account_control#>>'{retained_qa_held_attempt,qa}'from private.private_beta_programs where id=pg_temp.beta_id(6321,'3000')),'HELD','fifth remains held');
+select is((select account_control#>>'{retained_delayed_qa_held_attempt,stage}'from private.private_beta_programs where id=pg_temp.beta_id(6321,'3000')),'DELAYED_RESULT','sixth retains its original delayed stage');
+select is((select jsonb_agg(to_jsonb(a)order by a.id)from private.jeff_experiment_attempts a join private.private_beta_attempt_scope s on s.attempt_id=a.id where s.program_id=pg_temp.beta_id(6321,'3000')),(select attempts from recording_before),'six attempt rows byte-for-byte unchanged');
+select is((select jsonb_agg(to_jsonb(e)order by e.id)from private.jeff_experiment_evidence e join private.private_beta_attempt_scope s on s.attempt_id=e.attempt_id where s.program_id=pg_temp.beta_id(6321,'3000')),(select evidence from recording_before),'all historic evidence byte-for-byte unchanged');
+select is(private.private_beta_binding((select p from private.private_beta_programs p where id=pg_temp.beta_id(6321,'3000')),true)->>'maximum_requests','7','only seventh global ordinal permitted');
+select is(public.private_beta_account_control_v1(pg_temp.beta_id(6321,'2000'),pg_temp.beta_id(6321,'3000'))#>'{payload,retained_delayed_qa_held_attempt}',(select account_control->'retained_delayed_qa_held_attempt'from private.private_beta_programs where id=pg_temp.beta_id(6321,'3000')),'account and binding retain the identical delayed hold');
+select throws_ok($q$select pg_temp.recording_start(6321)$q$,'42501',null,'recording repair cannot repeat');
+create temp table recording_new as select public.private_beta_reserve_v1(pg_temp.beta_id(6321,'2000'),pg_temp.beta_id(6321,'3000'),pg_temp.beta_id(6321,'4042'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6321,'4043'))receipt;
+select is(private.private_beta_exposure(pg_temp.beta_id(6321,'3000')),4.7872704::numeric,'new reservation shares original5USD ceiling');
+select throws_ok($q$select public.private_beta_reserve_v1(pg_temp.beta_id(6321,'2000'),pg_temp.beta_id(6321,'3000'),pg_temp.beta_id(6321,'4044'),repeat('d',64),repeat('e',64),null,'0.0264704',pg_temp.beta_id(6321,'4045'))$q$,'54000',null,'eighth canary denied');
+select public.private_beta_begin_v1(pg_temp.beta_id(6321,'2000'),pg_temp.beta_id(6321,'3000'),(select(receipt->>'attempt_id')::uuid from recording_new),pg_temp.beta_id(6321,'5042'));
+-- In-memory composite mutations only: no privileged rewrite of live scope rows.
+create function pg_temp.grace_probe(change_value text)returns boolean language plpgsql as $$declare x private.private_beta_programs;s private.private_beta_attempt_scope;r private.jeff_experiment_runs;p jsonb;begin
+ select * into strict x from private.private_beta_programs where id=pg_temp.beta_id(6321,'3000');select * into strict s from private.private_beta_attempt_scope where attempt_id=(select(receipt->>'attempt_id')::uuid from recording_new);select * into strict r from private.jeff_experiment_runs where id=x.canary_run_id;
+ p:=pg_temp.founder_observed_result()||jsonb_build_object('elapsed_ms','9000');s.deadline:=clock_timestamp()-interval '0.5 seconds';
+ if change_value='late'then s.deadline:=clock_timestamp()-interval '3 seconds';end if;
+ if change_value='STOP'then x.stage:='STOPPED';end if;
+ if change_value='conversation'then s.scope:='FOUNDER';end if;
+ if change_value='held-run'then r.stop_reason:='PROVIDER_OR_QA_HOLD';end if;
+ if change_value='foreign-tenant'then s.tenant_id:=pg_temp.beta_id(6322,'2000');end if;
+ if change_value='stale-generation'then s.generation:=s.generation-1;end if;
+ if change_value='no-repair'then x.account_control:=x.account_control-'retained_delayed_qa_held_attempt';end if;
+ if change_value='slow-provider'then p:=p||jsonb_build_object('elapsed_ms','10001');end if;
+ if change_value='unknown'then p:=p||jsonb_build_object('status','UNKNOWN');end if;
+ if change_value='unbounded-usage'then p:=p||jsonb_build_object('output_tokens',513);end if;
+ if change_value='QA-held'then p:=p||jsonb_build_object('qa','HELD');end if;
+ return private.private_beta_canary_record_grace(x,s,r,p);end;$$;
+select ok(pg_temp.grace_probe('valid'),'bounded storage grace is available for the new canary only');
+select ok(pg_temp.grace_probe('QA-held'),'storage grace does not alter a QA hold');
+select ok(not pg_temp.grace_probe(value),'storage grace denies '||value)from unnest(array['late','STOP','conversation','held-run','foreign-tenant','stale-generation','no-repair','slow-provider','unknown','unbounded-usage'])value;
+select pg_sleep(10.6);
+select lives_ok($q$select public.private_beta_record_v1(pg_temp.beta_id(6321,'2000'),pg_temp.beta_id(6321,'3000'),(select(receipt->>'attempt_id')::uuid from recording_new),pg_temp.beta_id(6321,'5042'),(pg_temp.founder_observed_result()||jsonb_build_object('elapsed_ms','9000'))::text)$q$,'bounded recording latency does not turn an in-bound provider result into an unknown completion');
+select ok(private.private_beta_founder_canary_hash((select p from private.private_beta_programs p where id=pg_temp.beta_id(6321,'3000')))is not null,'only new QA-approved result establishes readiness');
+select ok(private.private_beta_connection_setup_allowed((select p from private.private_beta_programs p where id=pg_temp.beta_id(6321,'3000'))),'existing Business setup accepts seventh ordinal after native QA pass');
+select is((select count(*)::int from public.audit_logs where entity_id=(select receipt->>'attempt_id'from recording_new) and action='private_beta.canary_record_grace'),1,'bounded journal grace is explicitly audited');
+select ok(not private.private_beta_continuation_available((select p from private.private_beta_programs p where id=pg_temp.beta_id(6321,'3000'))),'no automatic eighth request or continuation');
 select finish();
 rollback;

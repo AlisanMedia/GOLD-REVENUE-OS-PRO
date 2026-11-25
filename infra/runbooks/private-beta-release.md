@@ -19,12 +19,26 @@ still fail. Current customer-facing brand support policy is unchanged.
 
 There is a separate timing hold: dispatch19:44:02.684037UTC, deadline19:44:12.684037,
 record19:44:13.234790 (550.753ms late), reported provider duration8983.175051ms.
-The durable event is DELAYED_RESULT, status SUCCEEDED, QA HELD. Keep it exactly
-so. This source-only repair grants no seventh request, deadline exception, owner
-authority, migration, publication or Telegram activation. The timing boundary and
-any separately bounded owner continuation need review before genuine testing.
-Preserve all six journals, four UNKNOWNs, fifth held and sixth delayed/held,
-reserved exposure4.7608000USD and the original5USD cap.
+The durable event remains DELAYED_RESULT/SUCCEEDED/HELD. Migration90 preserves
+this as a separate typed delayed hold alongside the fifth hold and four UNKNOWNs.
+Only the exact sixth unsupported-claim/delayed native result within2s recording
+latency qualifies for one fresh-owner continuation, with different published SHA
+and fresh model observation. The seventh request shares original5USD cap and
+preserved4.7608USD reservations. No eighth grant or STOP recovery is introduced.
+
+For that newly owner-authorized seventh synthetic canary only, valid native results
+whose reported HTTPS duration is within10s may commit within2s of the existing
+dispatch deadline. The HTTPS timeout stays10s. Positive bounded usage, provider
+hashes, active window, same tenant/generation/current unheld run and exact CANARY
+scope are mandatory. This storage-only grace is audited; QA HELD remains HELD.
+Other programs, customer turns, unknowns, slow providers and expired/STOP windows
+retain the existing strict deadline. Old evidence is never reclassified.
+
+Before publication require exact-head and post-merge Application + Database
+SUCCESS, including deadline, scope, MFA, debt and replay regressions. Then use the
+existing protected workflow once; no paid inference or owner impersonation is
+performed by the migration or setup job. Genuine model QA, single Business chat,
+Telegram acceptance and founder-device3-turn observation remain separate gates.
 
 ## 11 November2026 — genuine response held by QA; missing diagnostic repair
 

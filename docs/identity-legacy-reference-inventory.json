@@ -208,7 +208,7 @@
       "path": "infra/sql/private-beta-recovery-fingerprint.sql",
       "occurrences": 2,
       "reason": "Read-only pre-migration catalog namespace detection; never changes a held program or permits a retry.",
-      "sha256": "3db1723836b73612556dd4fe8cb9a6466e5ce743dff93f85c1824de6c2461748"
+      "sha256": "282826fb7737acf1c4e18a0b20cf1188d21afe2d5b303ef27039ba5d73451152"
     },
     {
       "path": "packages/contracts/src/historical/identity-domains-v1.ts",
@@ -352,7 +352,7 @@
       "path": "supabase/tests/private_beta_founder_continuation.test.sql",
       "occurrences": 1,
       "reason": "Production-shaped pre-rename notice fixture; fresh owner continuation normalizes the notice while preserving the original configuration in audit history.",
-      "sha256": "59abca3f08b3d60b9cba66e3555ae852376f65de7343b2dc80adda8d9c854850"
+      "sha256": "0f1583ebb1c6034e8f09551c782af26ee75cc3571d0987a764524ab5e6d58e14"
     },
     {
       "path": "tests/integration/jeff-identity-migration.test.ts",

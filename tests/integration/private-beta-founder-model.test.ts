@@ -168,7 +168,7 @@ describe("protected founder model/pricing collector, offline fixed HTTP and SQL 
       { stage: "CANARY", request_count: "4", continuation_available: false },
       { stage: "CANARY", request_count: "4", continuation_available: "true" },
       { stage: "STOPPED", request_count: "4", continuation_available: true },
-      { stage: "CANARY", request_count: "6", continuation_available: true },
+      { stage: "CANARY", request_count: "7", continuation_available: true },
     ]) {
       const denied = fixture(); Object.assign(denied.state.program, scope);
       expect(await denied.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_PROGRAM_REQUIRED", actual_inference_requests: 0 });
@@ -179,12 +179,19 @@ describe("protected founder model/pricing collector, offline fixed HTTP and SQL 
   it("refreshes metadata only for the server-eligible fifth QA hold, never a stopped or sixth attempt", async () => {
     const f = fixture(); Object.assign(f.state.program, { stage: "CANARY", request_count: "5", continuation_available: true });
     expect(await f.run()).toMatchObject({ state: "RECORDED", actual_inference_requests: 0, owner_authority: "NOT_GRANTED" });
-    for (const scope of [{ stage: "CANARY", request_count: "5", continuation_available: false }, { stage: "STOPPED", request_count: "5", continuation_available: true }, { stage: "CANARY", request_count: "6", continuation_available: true }]) {
+    for (const scope of [{ stage: "CANARY", request_count: "5", continuation_available: false }, { stage: "STOPPED", request_count: "5", continuation_available: true }, { stage: "CANARY", request_count: "7", continuation_available: true }]) {
       const denied = fixture(); Object.assign(denied.state.program, scope);
       expect(await denied.run()).toMatchObject({ state: "BLOCKED", reason: "FOUNDER_MODEL_PROGRAM_REQUIRED" }); expect(denied.state.writes).toHaveLength(0);
     }
   });
 
+  it("refreshes the exact server-eligible sixth delayed hold without dispatching or widening STOP", async () => {
+    const f = fixture(); Object.assign(f.state.program, { stage: "CANARY", request_count: "6", continuation_available: true });
+    expect(await f.run()).toMatchObject({ state: "RECORDED", actual_inference_requests: 0, owner_authority: "NOT_GRANTED" });
+    for (const scope of [{ stage: "CANARY", request_count: "6", continuation_available: false }, { stage: "STOPPED", request_count: "6", continuation_available: true }, { stage: "CANARY", request_count: "7", continuation_available: true }]) {
+      const denied = fixture(); Object.assign(denied.state.program, scope); expect(await denied.run()).toMatchObject({ state: "BLOCKED" }); expect(denied.state.writes).toHaveLength(0);
+    }
+  });
   it("reads the preserved notice only for the exact two-attempt continuation and rechecks it under the write lock and readback", async () => {
     const f = fixture(), notice = IDENTITY_WIRE_V1["jeff-private-beta-notice-openai-v1"];
     Object.assign(f.state.program, { notice_version: notice, stage: "CANARY", request_count: "2", continuation_available: true });
